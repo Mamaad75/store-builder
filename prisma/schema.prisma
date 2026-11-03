@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StoreStatus {
+  DRAFT // never published
+  PUBLISHED // live, publishedVersionId set
+  UNPUBLISHED // was published, taken offline
+}
+
+enum PageType {
+  HOME
+  PRODUCTS
+  PRODUCT_DETAIL
+  ABOUT
+  CONTACT
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+}
+
+enum DomainKind {
+  SUBDOMAIN
+  CUSTOM
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  authVersion  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  stores       Store[]
+  media        Media[]
+}
+
+model Template {
+  id        String            @id @default(cuid())
+  key       String            @unique
+  name      String
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  versions  TemplateVersion[]
+}
+
+model TemplateVersion {
+  id              String   @id @default(cuid())
+  templateId      String
+  version         Int
+  defaultSettings Json
+  defaultPages    Json
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  template        Template @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  stores          Store[]
+
+  @@unique([templateId, version])
+}
+
+model Store {
+  id                 String      @id @default(cuid())
+  ownerId            String
+  templateVersionId  String
+  name               String
+  status             StoreStatus @default(DRAFT)
+  settings           Json
+  draftRevision      Int         @default(1)
+  publishedVersionId String?
+  publishedAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  templateVersion  TemplateVersion   @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  publishedVersion StoreVersion?     @relation("PublishedVersion", fields: [id, publishedVersionId], references: [storeId, id], onDelete: Restrict)
+  versions         StoreVersion[]    @relation("AllVersions")
+  pages            Page[]
+  categories       ProductCategory[]
+  products         Product[]
+  media            Media[]
+  domains          Domain[]
+
+  @@index([ownerId, createdAt])
+  @@index([status])
+}
+
+model StoreVersion {
+  id            String   @id @default(cuid())
+  storeId       String
+  number        Int
+  draftRevision Int
+  snapshot      Json
+  createdAt     DateTime @default(now())
+
+  store  Store   @relation("AllVersions", fields: [storeId], references: [id], onDelete: Cascade)
+  liveOf Store[] @relation("PublishedVersion")
+
+  @@unique([storeId, number])
+  @@unique([storeId, id])
+}
+
+model Page {
+  id        String   @id @default(cuid())
+  storeId   String
+  type      PageType
+  title     String
+  slug      String
+  sections  Json
+  isVisible Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, type])
+  @@unique([storeId, slug])
+}
+
+model ProductCategory {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  slug      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([storeId, slug])
+  @@unique([storeId, name])
+  @@unique([storeId, id])
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  storeId     String
+  categoryId  String?
+  imageId     String?
+  name        String
+  slug        String
+  description String        @default("")
+  price       Int
+  inStock     Boolean       @default(true)
+  status      ProductStatus @default(DRAFT)
+  position    Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category ProductCategory? @relation(fields: [storeId, categoryId], references: [storeId, id], onDelete: Restrict)
+  image    Media?           @relation(fields: [storeId, imageId], references: [storeId, id], onDelete: Restrict)
+
+  @@unique([storeId, slug])
+  @@index([storeId, status, position])
+  @@index([storeId, categoryId])
+}
+
+model Media {
+  id           String   @id @default(cuid())
+  storeId      String
+  uploadedById String
+  key          String   @unique
+  mimeType     String
+  sizeBytes    Int
+  width        Int?
+  height       Int?
+  createdAt    DateTime @default(now())
+
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  uploadedBy User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  products   Product[]
+
+  @@unique([storeId, id])
+  @@index([storeId, createdAt])
+}
+
+model Domain {
+  id         String     @id @default(cuid())
+  storeId    String
+  kind       DomainKind
+  host       String
+  verifiedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([kind, host])
+  @@index([storeId])
+}

@@ -10,9 +10,15 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:db",
     "db:up": "docker compose up -d",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset",
+    "test:db": "vitest run --config vitest.db.config.mts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -22,6 +28,7 @@
     "@mui/icons-material": "^9.5.0",
     "@mui/material": "^9.5.0",
     "@mui/material-nextjs": "^9.5.0",
+    "@prisma/client": "^6.19.3",
     "next": "^16.4.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -36,7 +43,22 @@
     "@types/stylis": "^4.2.7",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.4",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
