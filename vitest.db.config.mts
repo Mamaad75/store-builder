@@ -11,7 +11,13 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.db.test.ts"],
     globalSetup: ["src/test/db-global-setup.ts"],
-    env: { DATABASE_URL: urls.test },
+    env: {
+      DATABASE_URL: urls.test,
+      AUTH_SECRET: "test-only-secret-test-only-secret-0123456789",
+      AUTH_TRUST_HOST: "true",
+    },
+    // next-auth imports "next/server" without an extension; let Vite resolve it.
+    server: { deps: { inline: ["next-auth"] } },
     fileParallelism: false,
     testTimeout: 20000,
   },

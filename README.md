@@ -17,7 +17,7 @@ pnpm db:seed      # seed the 3 templates (idempotent)
 pnpm dev          # http://localhost:3000  (stores: http://<name>.localhost:3000)
 ```
 
-Checks: `pnpm check` (typecheck + lint + unit tests). Database tests: `pnpm test:db` (needs PostgreSQL; uses an isolated `storebuilder_test` database that it recreates).
+Checks: `pnpm check` (typecheck + lint + unit tests + DB tests). Browser E2E tests: `pnpm test:e2e` (builds the app and uses an isolated `storebuilder_e2e` database). Database tests: `pnpm test:db` (needs PostgreSQL; uses an isolated `storebuilder_test` database that it recreates).
 
 The platform root domain is configured with `APP_ROOT_DOMAIN` / `APP_PROTOCOL`.
 Dev credentials in `docker-compose.yml` are for local use only.
@@ -27,5 +27,5 @@ Dev credentials in `docker-compose.yml` are for local use only.
 - `User.authVersion` is stored in the JWT and re-checked against the database whenever the session is read; `invalidateUserSessions(userId)` revokes all tokens of a user.
 - `/dashboard/**` is guarded by `src/proxy.ts` (early redirect) **and** by `requireUser()` on the server.
 - Rate limiting uses a `RateLimiter` interface; the default backend is shared PostgreSQL (`RATE_LIMIT_BACKEND=postgres`). A Redis backend can implement the same interface.
-- Rate limiting keys on the client IP taken from `X-Forwarded-For`: deploy behind a proxy that overwrites this header.
+- Rate limiting keys on the client IP. Forwarding headers are ignored unless `TRUST_PROXY_HEADERS=true`; see `docs/deployment.md` for proxy requirements and the expired-bucket cleanup job (`pnpm db:cleanup`).
 - Generate `AUTH_SECRET` with `openssl rand -base64 32`; never commit it.

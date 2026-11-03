@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 import { db } from "@/lib/db";
 
 export interface RateLimitRule {
@@ -43,10 +44,7 @@ export class PostgresRateLimiter implements RateLimiter {
         "resetAt" = CASE WHEN "RateLimitBucket"."resetAt" <= now() THEN now() + make_interval(secs => ${rule.windowSeconds}) ELSE "RateLimitBucket"."resetAt" END
       RETURNING "count", CEIL(EXTRACT(EPOCH FROM ("resetAt" - now())))::int AS ttl`;
     const row = rows[0]!;
-    // Opportunistic cleanup of expired buckets.
-    if (Math.random() < 0.01) {
-      void db.$executeRaw`DELETE FROM "RateLimitBucket" WHERE "resetAt" < now() - interval '1 hour'`.catch(() => {});
-    }
+    maybeCleanupExpiredBuckets();
     return {
       allowed: row.count <= rule.limit,
       remaining: Math.max(0, rule.limit - row.count),
@@ -84,10 +82,58 @@ export function getRateLimiter(): RateLimiter {
 }
 
 /**
- * Client IP from X-Forwarded-For. Only meaningful behind a reverse proxy that overwrites this
- * header; deployments must ensure clients cannot set it directly.
+ * Client IP for rate limiting.
+ *
+ * Client-supplied forwarding headers are never trusted by default: unless TRUST_PROXY_HEADERS=true
+ * every request maps to the shared "unknown" bucket (the per-email limit still applies).
+ *
+ * When enabled, the IP is taken from X-Forwarded-For counting from the RIGHT: each trusted proxy
+ * appends the address it saw, so with N trusted proxies the real client is the N-th entry from the
+ * end (TRUSTED_PROXY_HOPS, default 1). Entries further left are client-controlled and ignored,
+ * so a spoofed header cannot choose the rate-limit bucket even if a proxy appends instead of
+ * overwriting. See docs/deployment.md.
  */
-export function getClientIp(headers: { get(name: string): string | null }): string {
-  const xff = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return xff || headers.get("x-real-ip")?.trim() || "unknown";
+export function getClientIp(
+  headers: { get(name: string): string | null },
+  env: Record<string, string | undefined> = process.env,
+): string {
+  if (env.TRUST_PROXY_HEADERS !== "true") return "unknown";
+  const hops = Number.parseInt(env.TRUSTED_PROXY_HOPS ?? "1", 10);
+  if (!Number.isInteger(hops) || hops < 1) return "unknown";
+  const entries = (headers.get("x-forwarded-for") ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+  const candidate = entries[entries.length - hops];
+  return candidate && isIP(candidate) ? candidate : "unknown";
+}
+
+const CLEANUP_GRACE = "1 hour";
+const CLEANUP_BATCH = 1000;
+const CLEANUP_MIN_INTERVAL_MS = 5 * 60 * 1000;
+let lastCleanupAt = 0;
+
+/**
+ * Deletes buckets that expired more than an hour ago, in bounded batches (never one giant
+ * DELETE). Expired rows are already harmless for correctness (the next hit resets them), so
+ * this only bounds table size. Safe to run concurrently from several instances or a cron job.
+ * Returns the number of rows deleted.
+ */
+export async function cleanupExpiredBuckets(maxBatches = 10): Promise<number> {
+  let total = 0;
+  for (let i = 0; i < maxBatches; i++) {
+    const deleted = await db.$executeRaw`
+      DELETE FROM "RateLimitBucket" WHERE "key" IN (
+        SELECT "key" FROM "RateLimitBucket"
+        WHERE "resetAt" < now() - ${CLEANUP_GRACE}::interval
+        LIMIT ${CLEANUP_BATCH} FOR UPDATE SKIP LOCKED)`;
+    total += deleted;
+    if (deleted < CLEANUP_BATCH) break;
+  }
+  return total;
+}
+
+/** Throttled, fire-and-forget cleanup piggybacking on traffic (at most once per 5 min per process). */
+function maybeCleanupExpiredBuckets(): void {
+  const now = Date.now();
+  if (now - lastCleanupAt < CLEANUP_MIN_INTERVAL_MS) return;
+  lastCleanupAt = now;
+  void cleanupExpiredBuckets().catch(() => {});
 }
