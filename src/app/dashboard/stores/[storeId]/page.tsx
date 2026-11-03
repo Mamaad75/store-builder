@@ -1,0 +1,38 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import Divider from "@mui/material/Divider";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { DeleteStoreForm, StoreSettingsForm } from "@/components/StoreForms";
+import { requireUser } from "@/modules/auth/session";
+import { NotFoundError } from "@/modules/stores/errors";
+import { getStore } from "@/modules/stores/service";
+import { templateSettingsSchema } from "@/templates/sections";
+
+export const metadata: Metadata = { title: "تنظیمات فروشگاه" };
+
+export default async function StorePage({ params }: { params: Promise<{ storeId: string }> }) {
+  const user = await requireUser();
+  const { storeId } = await params;
+  let store;
+  try {
+    store = await getStore(user.id, storeId); // ownership enforced here: missing and foreign are both 404
+  } catch (e) {
+    if (e instanceof NotFoundError) notFound();
+    throw e;
+  }
+  const settings = templateSettingsSchema.parse(store.settings);
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 }, maxWidth: 800 }}>
+      <Stack spacing={4}>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 800 }}>
+          {store.name}
+        </Typography>
+        <StoreSettingsForm store={{ id: store.id, name: store.name, primaryColor: settings.primaryColor, contact: settings.contact, social: settings.social }} />
+        <Divider />
+        <DeleteStoreForm storeId={store.id} storeName={store.name} />
+      </Stack>
+    </Paper>
+  );
+}

@@ -14,5 +14,7 @@ export default async function globalSetup() {
   } finally {
     await admin.$disconnect();
   }
-  execSync("pnpm exec prisma migrate deploy", { env: { ...process.env, DATABASE_URL: url }, stdio: "pipe" });
+  const env = { ...process.env, DATABASE_URL: url };
+  execSync("pnpm exec prisma migrate deploy", { env, stdio: "pipe" });
+  execSync("pnpm exec prisma db seed", { env, stdio: "pipe" }); // the three templates
 }

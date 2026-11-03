@@ -5,7 +5,7 @@ PostgreSQL/Prisma + S3-compatible storage + Auth.js. Modular monolith; stores ar
 renderer, not one project per customer.
 
 ## Status
-Step 3 of 12 (authentication: Auth.js credentials + JWT, Argon2id, rate limiting). See the implementation plan in the project discussion.
+Step 4 of 12 (store management with owner-scoped authorization).
 
 ## Development
 ```bash

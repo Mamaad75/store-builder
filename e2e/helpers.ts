@@ -10,7 +10,7 @@ export const GENERIC_LOGIN_ERROR = "ایمیل یا رمز عبور نادرست
 export const RATE_LIMIT_TEXT = "بیش از حد";
 
 export const uniqueEmail = () => `user-${randomBytes(6).toString("hex")}@example.com`;
-const randomIp = () => `10.${randomBytes(1)[0]}.${randomBytes(1)[0]}.${1 + (randomBytes(1)[0]! % 250)}`;
+export const randomIp = () => `10.${randomBytes(1)[0]}.${randomBytes(1)[0]}.${1 + (randomBytes(1)[0]! % 250)}`;
 
 /** Every test acts from its own client IP (as a trusted proxy would report it) => isolated rate-limit buckets. */
 export const test = base.extend<{ ip: string }>({
@@ -49,3 +49,20 @@ export async function loginAndWaitForDashboard(page: Page, email: string) {
 }
 
 export const formAlert = (page: Page) => page.locator(".MuiAlert-message");
+
+/** Registers a user and signs in; returns the email. */
+export async function signUpAndIn(page: Page): Promise<string> {
+  const email = await createUser(page);
+  await loginAndWaitForDashboard(page, email);
+  return email;
+}
+
+/** Creates a store through the UI and returns its id. */
+export async function createStoreViaUi(page: Page, name: string, templateName?: string): Promise<string> {
+  await page.goto("/dashboard/stores/new");
+  await page.fill("input[name=name]", name);
+  if (templateName) await page.getByText(templateName, { exact: true }).click();
+  await page.getByRole("button", { name: "ساخت فروشگاه" }).click();
+  await page.waitForURL(/\/dashboard\/stores\/(?!new$)[^/]+$/);
+  return new URL(page.url()).pathname.split("/").pop()!;
+}

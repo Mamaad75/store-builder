@@ -66,7 +66,7 @@ test.describe("login and logout", () => {
   test("logs in, reaches the dashboard, sets a hardened cookie and leaks nothing in the session endpoint", async ({ page, context }) => {
     const email = await createUser(page);
     await loginAndWaitForDashboard(page, email);
-    await expect(page.locator("h1")).toContainText("علی");
+    await expect(page.getByText("علی", { exact: true })).toBeVisible(); // user name in the app bar
 
     const cookie = (await context.cookies()).find((c) => c.name === "authjs.session-token");
     expect(cookie).toBeTruthy();
@@ -129,7 +129,7 @@ test.describe("session invalidation (authVersion)", () => {
     expect((await context.cookies()).find((c) => c.name === "authjs.session-token")).toBeUndefined();
 
     await loginAndWaitForDashboard(page, email);
-    await expect(page.locator("h1")).toContainText("علی");
+    await expect(page.getByText("علی", { exact: true })).toBeVisible(); // user name in the app bar
   });
 
   test("deleting the user revokes the session", async ({ page }) => {
