@@ -198,3 +198,12 @@ model Domain {
   @@unique([kind, host])
   @@index([storeId])
 }
+
+/// Shared (multi-instance safe) fixed-window rate limit counters. Keys are hashed by the application.
+model RateLimitBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
