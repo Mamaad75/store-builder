@@ -128,8 +128,8 @@ export default function ProductForm({ mode, storeId, categories, product }: Prop
           ))}
         </TextField>
 
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <Button type="submit" variant="contained" disabled={pending}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { xs: "stretch", sm: "center" } }}>
+          <Button type="submit" variant="contained" disabled={pending} sx={{ whiteSpace: "nowrap", flexShrink: 0 }}>
             {mode === "create" ? "ساخت محصول" : "ذخیره تغییرات"}
           </Button>
           {mode === "create" && (
