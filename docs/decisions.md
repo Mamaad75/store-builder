@@ -74,10 +74,10 @@ Newer decisions never silently override older ones: a change is recorded as a ne
 
 | ID | Decision | Status |
 |---|---|---|
-| C-1 | An initial GitHub Actions workflow runs on the feature branch and on pull requests: typecheck, lint, unit tests, database tests, E2E tests and the production build, each against isolated, job-local test databases. | Implemented; first GitHub run pending |
-| C-2 | No deployment jobs, no secrets, no SSH credentials, no DNS tokens, no external infrastructure. Permissions are `contents: read` only. | Implemented; first GitHub run pending |
-| C-3 | Every third-party Action is pinned to a **verified full commit SHA** with a version comment; Dependabot updates them. A SHA that cannot be verified is never guessed. | Implemented (SHAs verified); first GitHub run pending |
-| C-4 | E2E tests retry once **in CI only**. A test that passes on retry is reported as **flaky**, separately from consistently passing tests. Local runs never retry. | Implemented; first GitHub run pending |
+| C-1 | An initial GitHub Actions workflow runs on the feature branch and on pull requests: typecheck, lint, unit tests, database tests, E2E tests and the production build, each against isolated, job-local test databases. | Implemented; first GitHub run passed (run 1, commit `2605ba8`) |
+| C-2 | No deployment jobs, no secrets, no SSH credentials, no DNS tokens, no external infrastructure. Permissions are `contents: read` only. | Implemented; first GitHub run passed (run 1, commit `2605ba8`) |
+| C-3 | Every third-party Action is pinned to a **verified full commit SHA** with a version comment; Dependabot updates them. A SHA that cannot be verified is never guessed. | Implemented (SHAs verified); first GitHub run passed (run 1, commit `2605ba8`) |
+| C-4 | E2E tests retry once **in CI only**. A test that passes on retry is reported as **flaky**, separately from consistently passing tests. Local runs never retry. | Implemented; first GitHub run passed (run 1, commit `2605ba8`) |
 | C-5 | The full production CI/CD pipeline (container build, custom Caddy image, audit, release) is phase 13. | Planned |
 
 Pinned Actions (verified with `git ls-remote` against the upstream repositories; annotated tags were resolved to the commit they point to and each SHA was confirmed to be a commit object whose `action.yml` declares the expected runtime):

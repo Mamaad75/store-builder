@@ -11,7 +11,7 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 | 2 | Database schema | Multi-tenant Prisma schema, migrations, template seed | Done | medium |
 | 3 | Authentication | Register, login, sessions, `authVersion`, rate limiting | Done | high |
 | 4 | Store management | Owner-scoped store CRUD, 10-store limit | Done | high |
-| CI-0 | Initial CI | Independent verification on GitHub (no deployment) | Implemented; first GitHub run pending | low |
+| CI-0 | Initial CI | Independent verification on GitHub (no deployment) | Implemented; first GitHub run passed (run 1, commit `2605ba8`) | low |
 | 5 | Products and categories | Owner-scoped catalog, lifecycle, search, atomic `draftRevision` | Implemented and tested; awaiting review | high |
 | 6 | Renderer and "general" template | Section prop schemas, shared renderer, first real storefront, owner-only draft preview; URL helper using `APP_ORIGIN` and `STORE_ROOT_DOMAIN` | Next | high |
 | 7 | Media and images | S3 abstraction, validated uploads (no SVG), logo, product images, cleanup | Planned | high |
