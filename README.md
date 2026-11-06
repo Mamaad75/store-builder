@@ -17,7 +17,7 @@ pnpm db:seed      # seed the 3 templates (idempotent)
 pnpm dev          # http://localhost:3000  (stores: http://<name>.localhost:3000)
 ```
 
-Checks: `pnpm check` (typecheck + lint + unit tests + DB tests). Browser E2E tests: `pnpm test:e2e` (builds the app and uses an isolated `storebuilder_e2e` database). Database tests: `pnpm test:db` (needs PostgreSQL; uses an isolated `storebuilder_test` database that it recreates).
+Checks: `pnpm check` (typecheck + lint + unit tests + DB tests). Browser E2E tests: `pnpm test:e2e` (builds the app and uses an isolated `storebuilder_e2e` database). `E2E_CPU_THROTTLE=6 pnpm test:e2e` slows the main page 6x to expose timing races (hydration, late rendering) like those seen on slow CI runners. Database tests: `pnpm test:db` (needs PostgreSQL; uses an isolated `storebuilder_test` database that it recreates).
 
 The platform root domain is configured with `APP_ROOT_DOMAIN` / `APP_PROTOCOL`.
 Dev credentials in `docker-compose.yml` are for local use only.

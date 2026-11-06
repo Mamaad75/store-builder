@@ -12,9 +12,28 @@ export const RATE_LIMIT_TEXT = "بیش از حد";
 export const uniqueEmail = () => `user-${randomBytes(6).toString("hex")}@example.com`;
 export const randomIp = () => `10.${randomBytes(1)[0]}.${randomBytes(1)[0]}.${1 + (randomBytes(1)[0]! % 250)}`;
 
+/**
+ * Resolves once React has hydrated the element matching `selector` (React attaches internal
+ * `__reactProps$` / `__reactFiber$` properties to host nodes during hydration). Interacting with
+ * controlled inputs or tampering with the DOM *before* hydration is a race: hydration re-applies
+ * the server-rendered defaults and discards the changes (seen on slow CI runners).
+ */
+export async function waitForHydration(page: Page, selector: string) {
+  await page.waitForFunction((sel) => {
+    const el = document.querySelector(sel);
+    return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps$") || k.startsWith("__reactFiber$"));
+  }, selector);
+}
+
 /** Every test acts from its own client IP (as a trusted proxy would report it) => isolated rate-limit buckets. */
 export const test = base.extend<{ ip: string }>({
   ip: async ({}, provide) => provide(randomIp()),
+  // Optional: E2E_CPU_THROTTLE=6 slows the main page's CPU 6x to expose timing races (e.g. hydration).
+  page: async ({ page }, provide) => {
+    const rate = Number(process.env.E2E_CPU_THROTTLE ?? "1");
+    if (rate > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate });
+    await provide(page);
+  },
   context: async ({ context, ip }, provide) => {
     await context.setExtraHTTPHeaders({ "x-forwarded-for": ip });
     await provide(context);
@@ -60,6 +79,7 @@ export async function signUpAndIn(page: Page): Promise<string> {
 /** Creates a store through the UI and returns its id. */
 export async function createStoreViaUi(page: Page, name: string, templateName?: string): Promise<string> {
   await page.goto("/dashboard/stores/new");
+  await waitForHydration(page, "form:has(input[name=templateKey])");
   await page.fill("input[name=name]", name);
   if (templateName) await page.getByText(templateName, { exact: true }).click();
   await page.getByRole("button", { name: "ساخت فروشگاه" }).click();
@@ -70,6 +90,7 @@ export async function createStoreViaUi(page: Page, name: string, templateName?: 
 /** Creates a category through the UI (store's "categories" tab). */
 export async function createCategoryViaUi(page: Page, storeId: string, name: string) {
   await page.goto(`/dashboard/stores/${storeId}/categories`);
+  await waitForHydration(page, "form:has(input[name=storeId])");
   await page.fill("input[name=name]", name);
   await page.getByRole("button", { name: "افزودن دسته" }).click();
   await expect(page.getByText("دسته‌بندی ساخته شد.")).toBeVisible();
@@ -82,6 +103,7 @@ export async function createProductViaUi(
   p: { name: string; price: string; stock?: string; category?: string; slug?: string },
 ) {
   await page.goto(`/dashboard/stores/${storeId}/products/new`);
+  await waitForHydration(page, "form:has(input[name=price])");
   await page.fill("input[name=name]", p.name);
   if (p.slug) await page.fill("input[name=slug]", p.slug);
   await page.fill("input[name=price]", p.price);

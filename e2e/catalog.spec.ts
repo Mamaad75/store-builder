@@ -1,5 +1,5 @@
 import type { Browser } from "@playwright/test";
-import { createCategoryViaUi, createProductViaUi, createStoreViaUi, db, expect, notice, productRow, randomIp, signUpAndIn, test } from "./helpers";
+import { createCategoryViaUi, createProductViaUi, createStoreViaUi, db, expect, notice, productRow, randomIp, signUpAndIn, test, waitForHydration } from "./helpers";
 
 test.afterAll(() => db.$disconnect());
 
@@ -64,6 +64,7 @@ test.describe("categories", () => {
     await createCategoryViaUi(page, storeId, "ممنوع");
     await createProductViaUi(page, storeId, { name: "کالا", price: "5", category: "ممنوع" });
     await page.goto(`/dashboard/stores/${storeId}/categories`);
+    await waitForHydration(page, "form:has(input[name=storeId])");
     await page.getByRole("button", { name: "حذف", exact: true }).click();
     // submit the dialog form directly WITHOUT ticking the confirmation
     await page.evaluate(() => document.querySelector<HTMLFormElement>('form:has(input[name=categoryId])')!.requestSubmit());
@@ -98,6 +99,7 @@ test.describe("products: lifecycle and display", () => {
 
     // rename: the slug (URL) must not change
     await page.goto(`/dashboard/stores/${storeId}/products/${created.id}`);
+    await waitForHydration(page, "form:has(input[name=price])");
     await page.fill("input[name=name]", "اسم کاملاً جدید");
     await page.getByRole("button", { name: "ذخیره تغییرات" }).click();
     await expect(page.getByText("تغییرات محصول ذخیره شد.")).toBeVisible();
@@ -126,6 +128,7 @@ test.describe("products: lifecycle and display", () => {
     await signUpAndIn(page);
     const storeId = await createStoreViaUi(page, "فروشگاه خطا");
     await page.goto(`/dashboard/stores/${storeId}/products/new`);
+    await waitForHydration(page, "form:has(input[name=price])");
     await page.fill("input[name=name]", "کالا");
     await page.fill("input[name=price]", "۱۲٫۵");
     await page.fill("input[name=stockQuantity]", "2000000");
@@ -145,6 +148,7 @@ test.describe("products: lifecycle and display", () => {
     expect((await db.product.findMany({ where: { storeId }, orderBy: { slug: "asc" } })).map((p) => p.slug)).toEqual(["green-tea", "green-tea-2", "my-custom-slug"]);
 
     await page.goto(`/dashboard/stores/${storeId}/products/new`);
+    await waitForHydration(page, "form:has(input[name=price])");
     await page.fill("input[name=name]", "Dup");
     await page.fill("input[name=slug]", "green-tea");
     await page.fill("input[name=price]", "۱۲٬۵۰۰");
@@ -254,6 +258,8 @@ test.describe("tenant isolation (two real users) for products and categories", (
 
     const text = async (url: string) => {
       const r = await page.goto(url);
+      // the not-found UI renders a moment after navigation resolves; read the text only once it is there
+      await expect(page.getByRole("heading", { name: "صفحه پیدا نشد" })).toBeVisible();
       return { status: r!.status(), body: await page.locator("body").innerText() };
     };
     const missing = await text("/dashboard/stores/cmnonexistent00000000/products");
@@ -304,6 +310,7 @@ test.describe("tenant isolation (two real users) for products and categories", (
 
     // 1) edit form: swap storeId and productId to B's, inject forged identity fields
     await page.goto(`/dashboard/stores/${aStore}/products/${aProd.id}`);
+    await waitForHydration(page, "form:has(input[name=price])");
     await page.evaluate((t) => {
       const form = document.querySelector<HTMLFormElement>("form:has(input[name=price])")!;
       form.querySelector<HTMLInputElement>("input[name=storeId]")!.value = t.bStore;
@@ -321,6 +328,7 @@ test.describe("tenant isolation (two real users) for products and categories", (
 
     // 2) status button: tamper the hidden ids of a status form
     await page.goto(`/dashboard/stores/${aStore}/products`);
+    await waitForHydration(page, "form:has(input[name=status])");
     await page.evaluate((t) => {
       const form = document.querySelector<HTMLFormElement>("form:has(input[name=status])")!;
       form.querySelector<HTMLInputElement>("input[name=storeId]")!.value = t.bStore;
@@ -333,6 +341,7 @@ test.describe("tenant isolation (two real users) for products and categories", (
 
     // 3) delete dialog: B's product id with confirmation
     await page.goto(`/dashboard/stores/${aStore}/products`);
+    await waitForHydration(page, "form:has(input[name=status])");
     await page.getByTestId("product-row").first().getByRole("button", { name: "حذف", exact: true }).click();
     const sentDelete = await page.evaluate((t) => {
       const form = document.querySelector<HTMLFormElement>("[role=dialog] form")!;
@@ -348,6 +357,7 @@ test.describe("tenant isolation (two real users) for products and categories", (
 
     // 4) cross-store category: inject B's category as an <option> in A's create form
     await page.goto(`/dashboard/stores/${aStore}/products/new`);
+    await waitForHydration(page, "form:has(input[name=price])");
     await page.evaluate((id) => {
       const sel = document.querySelector<HTMLSelectElement>("select[name=categoryId]")!;
       const o = document.createElement("option"); o.value = id; o.textContent = "INJECTED"; sel.appendChild(o); sel.value = id;
@@ -361,6 +371,7 @@ test.describe("tenant isolation (two real users) for products and categories", (
 
     // 5) and the same on an existing product's edit form
     await page.goto(`/dashboard/stores/${aStore}/products/${aProd.id}`);
+    await waitForHydration(page, "form:has(input[name=price])");
     await page.evaluate((id) => {
       const sel = document.querySelector<HTMLSelectElement>("select[name=categoryId]")!;
       const o = document.createElement("option"); o.value = id; o.textContent = "INJECTED"; sel.appendChild(o); sel.value = id;
@@ -371,6 +382,7 @@ test.describe("tenant isolation (two real users) for products and categories", (
 
     // 6) category delete with B's category id
     await page.goto(`/dashboard/stores/${aStore}/categories`);
+    await waitForHydration(page, "form:has(input[name=storeId])");
     await page.getByRole("button", { name: "حذف", exact: true }).click();
     await page.evaluate((t) => {
       const form = document.querySelector<HTMLFormElement>("[role=dialog] form")!;
@@ -394,6 +406,7 @@ test.describe("UI polish", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await signUpAndIn(page);
     const storeId = await createStoreViaUi(page, "فروشگاه رنگ");
+    await waitForHydration(page, "form:has(input[name=primaryColor])");
     const form = page.locator("form:has(input[name=primaryColor])");
     const box = (await form.boundingBox())!;
     const leftGap = box.x;

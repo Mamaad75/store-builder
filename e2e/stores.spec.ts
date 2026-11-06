@@ -1,5 +1,5 @@
 import type { Browser } from "@playwright/test";
-import { createStoreViaUi, db, expect, randomIp, signUpAndIn, test } from "./helpers";
+import { createStoreViaUi, db, expect, randomIp, signUpAndIn, test, waitForHydration } from "./helpers";
 
 test.afterAll(() => db.$disconnect());
 
@@ -84,9 +84,12 @@ test.describe("tenant isolation (two real users)", () => {
     const b = await newUserSession(browser);
     const bId = await createStoreViaUi(b.page, "فروشگاه محرمانه ب");
 
+    const notFoundHeading = page.getByRole("heading", { name: "صفحه پیدا نشد" });
     const foreign = await page.goto(`/dashboard/stores/${bId}`);
+    await expect(notFoundHeading).toBeVisible(); // render completes a moment after navigation resolves
     const foreignText = await page.locator("body").innerText();
     const missing = await page.goto("/dashboard/stores/cmnonexistent0000000000000");
+    await expect(notFoundHeading).toBeVisible();
     const missingText = await page.locator("body").innerText();
     expect(foreign!.status()).toBe(404);
     expect(missing!.status()).toBe(404);
@@ -113,6 +116,7 @@ test.describe("tenant isolation (two real users)", () => {
 
     // --- forged UPDATE: swap the hidden storeId to B's id, add forged ownership fields, submit
     await page.goto(`/dashboard/stores/${aId}`);
+    await waitForHydration(page, "form:has(input[name=primaryColor])");
     await page.evaluate((target) => {
       const form = document.querySelector<HTMLFormElement>("form:has(input[name=primaryColor])")!;
       form.querySelector<HTMLInputElement>("input[name=storeId]")!.value = target.bId;
@@ -135,6 +139,7 @@ test.describe("tenant isolation (two real users)", () => {
     // --- forged DELETE: target B's id with B's exact name. The UI keeps the button disabled (the typed
     // name does not match A's store), so submit the form directly, exactly like a crafted request would.
     await page.goto(`/dashboard/stores/${aId}`);
+    await waitForHydration(page, "form:has(input[name=confirmName])");
     const sentDelete = await page.evaluate((target) => {
       const form = document.querySelector<HTMLFormElement>("form:has(input[name=confirmName])")!;
       form.querySelector<HTMLInputElement>("input[name=storeId]")!.value = target.bId;
