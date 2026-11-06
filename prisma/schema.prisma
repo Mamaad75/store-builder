@@ -22,8 +22,9 @@ enum PageType {
 }
 
 enum ProductStatus {
-  DRAFT
-  ACTIVE
+  DRAFT // not published
+  ACTIVE // eligible to appear on the published storefront
+  ARCHIVED // removed from the active catalog
 }
 
 enum DomainKind {
@@ -143,19 +144,20 @@ model ProductCategory {
 }
 
 model Product {
-  id          String        @id @default(cuid())
-  storeId     String
-  categoryId  String?
-  imageId     String?
-  name        String
-  slug        String
-  description String        @default("")
-  price       Int
-  inStock     Boolean       @default(true)
-  status      ProductStatus @default(DRAFT)
-  position    Int           @default(0)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  storeId       String
+  categoryId    String?
+  imageId       String?
+  name          String
+  slug          String
+  description   String        @default("")
+  price         Int
+  stockQuantity Int           @default(0)
+  searchKey     String        @default("")
+  status        ProductStatus @default(DRAFT)
+  position      Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
   category ProductCategory? @relation(fields: [storeId, categoryId], references: [storeId, id], onDelete: Restrict)
@@ -164,6 +166,7 @@ model Product {
   @@unique([storeId, slug])
   @@index([storeId, status, position])
   @@index([storeId, categoryId])
+  @@index([storeId, createdAt(sort: Desc), id])
 }
 
 model Media {

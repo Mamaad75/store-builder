@@ -66,3 +66,30 @@ export async function createStoreViaUi(page: Page, name: string, templateName?: 
   await page.waitForURL(/\/dashboard\/stores\/(?!new$)[^/]+$/);
   return new URL(page.url()).pathname.split("/").pop()!;
 }
+
+/** Creates a category through the UI (store's "categories" tab). */
+export async function createCategoryViaUi(page: Page, storeId: string, name: string) {
+  await page.goto(`/dashboard/stores/${storeId}/categories`);
+  await page.fill("input[name=name]", name);
+  await page.getByRole("button", { name: "افزودن دسته" }).click();
+  await expect(page.getByText("دسته‌بندی ساخته شد.")).toBeVisible();
+}
+
+/** Creates a product through the UI form; the new product is always a DRAFT. */
+export async function createProductViaUi(
+  page: Page,
+  storeId: string,
+  p: { name: string; price: string; stock?: string; category?: string; slug?: string },
+) {
+  await page.goto(`/dashboard/stores/${storeId}/products/new`);
+  await page.fill("input[name=name]", p.name);
+  if (p.slug) await page.fill("input[name=slug]", p.slug);
+  await page.fill("input[name=price]", p.price);
+  await page.fill("input[name=stockQuantity]", p.stock ?? "1");
+  if (p.category) await page.selectOption("select[name=categoryId]", { label: p.category });
+  await page.getByRole("button", { name: "ساخت محصول" }).click();
+  await page.waitForURL(/\/products(\?|$)/);
+}
+
+export const productRow = (page: Page, name: string) => page.getByTestId("product-row").filter({ hasText: name });
+export const notice = (page: Page) => page.getByRole("status");

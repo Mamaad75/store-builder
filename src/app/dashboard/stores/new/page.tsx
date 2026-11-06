@@ -11,7 +11,7 @@ export default async function NewStorePage() {
   await requireUser();
   const templates = await listActiveTemplates();
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 }, maxWidth: 800 }}>
+    <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 }, maxWidth: 800, mx: "auto" }}>
       <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 800 }}>
         ساخت فروشگاه جدید
       </Typography>

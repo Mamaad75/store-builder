@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import { DeleteStoreForm, StoreSettingsForm } from "@/components/StoreForms";
 import { requireUser } from "@/modules/auth/session";
 import { NotFoundError } from "@/modules/stores/errors";
@@ -24,11 +23,8 @@ export default async function StorePage({ params }: { params: Promise<{ storeId:
   }
   const settings = templateSettingsSchema.parse(store.settings);
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 }, maxWidth: 800 }}>
+    <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 } }}>
       <Stack spacing={4}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 800 }}>
-          {store.name}
-        </Typography>
         <StoreSettingsForm store={{ id: store.id, name: store.name, primaryColor: settings.primaryColor, contact: settings.contact, social: settings.social }} />
         <Divider />
         <DeleteStoreForm storeId={store.id} storeName={store.name} />

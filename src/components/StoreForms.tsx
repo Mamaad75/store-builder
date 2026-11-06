@@ -11,6 +11,7 @@ import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import ColorField from "@/components/ColorField";
 import {
   createStoreAction,
   deleteStoreAction,
@@ -72,7 +73,7 @@ export function StoreSettingsForm({ store }: { store: StoreSettingsValues }) {
         {state.error && <Alert severity="error">{state.error}</Alert>}
         {state.success && <Alert severity="success">{state.success}</Alert>}
         <TextField name="name" label="نام فروشگاه" defaultValue={store.name} required error={!!fe(state, "name")} helperText={fe(state, "name")} />
-        <TextField name="primaryColor" label="رنگ اصلی" type="color" defaultValue={store.primaryColor} sx={{ maxWidth: 160 }} error={!!fe(state, "primaryColor")} />
+        <ColorField name="primaryColor" label="رنگ اصلی" defaultValue={store.primaryColor} error={!!fe(state, "primaryColor")} />
         <Typography sx={{ fontWeight: 700, pt: 1 }}>اطلاعات تماس</Typography>
         <TextField name="phone" label="تلفن" defaultValue={store.contact.phone} slotProps={ltr} />
         <TextField name="email" label="ایمیل" defaultValue={store.contact.email} slotProps={ltr} />

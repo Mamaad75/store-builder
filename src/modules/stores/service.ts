@@ -27,7 +27,7 @@ function parseOrThrow<T extends z.ZodType>(schema: T, input: unknown): z.infer<T
   return r.data;
 }
 
-function parseStoreId(storeId: unknown): string {
+export function parseStoreId(storeId: unknown): string {
   const r = storeIdSchema.safeParse(storeId);
   if (!r.success) throw new NotFoundError();
   return r.data;

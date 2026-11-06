@@ -5,7 +5,7 @@ PostgreSQL/Prisma + S3-compatible storage + Auth.js. Modular monolith; stores ar
 renderer, not one project per customer.
 
 ## Status
-Step 4 of 12 (store management with owner-scoped authorization).
+Phase 5 of 15 implemented (products and categories). The full roadmap is in `docs/roadmap.md` and every approved decision is recorded in `docs/decisions.md`.
 
 ## Development
 ```bash
