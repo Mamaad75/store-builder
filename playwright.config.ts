@@ -8,8 +8,12 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   workers: 1,
-  retries: 0,
-  reporter: [["list"]],
+  // One retry in CI only. A test that passes on retry is reported as "flaky" (see scripts/ci-summarize-playwright.mjs),
+  // never as a plain pass. Local runs never retry.
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI
+    ? [["list"], ["github"], ["json", { outputFile: "playwright-report/results.json" }]]
+    : [["list"]],
   globalSetup: "./e2e/global-setup.ts",
   use: { baseURL: `http://localhost:${PORT}`, locale: "fa-IR", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

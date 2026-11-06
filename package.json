@@ -2,6 +2,7 @@
   "name": "store-builder",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.28.0",
   "description": "Multi-tenant SaaS storefront website builder (MVP)",
   "scripts": {
     "dev": "next dev",
