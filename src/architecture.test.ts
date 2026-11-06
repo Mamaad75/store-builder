@@ -100,3 +100,72 @@ describe("architecture guard: catalog writes go through withStoreMutation", () =
     expect(rel(creators)).toEqual(["src/modules/stores/service.ts"]);
   });
 });
+
+describe("architecture guard: storefront rendering is independent of the dashboard and of data access", () => {
+  const FORBIDDEN_IN_TEMPLATES = /from\s+["'](@mui\/[^"']*|@emotion\/[^"']*|next\/[^"']*|next|@prisma\/client|@\/lib\/db|@\/auth|@\/theme\/[^"']*|@\/components\/[^"']*|@\/app\/[^"']*|@\/modules\/[^"']*)["']/;
+  const templateFiles = () => files("src/templates");
+
+  it("nothing under src/templates imports MUI, Next, Prisma, the DB, auth, modules or dashboard components", () => {
+    const offenders = templateFiles()
+      .filter((f) => FORBIDDEN_IN_TEMPLATES.test(read(f)))
+      .map((f) => `${f}: ${read(f).match(FORBIDDEN_IN_TEMPLATES)?.[1]}`);
+    expect(offenders).toEqual([]);
+  });
+
+  it("the generic engine never imports a concrete template (adding a template does not touch the core)", () => {
+    const offenders = files("src/templates/engine").filter((f) => /from\s+["'][^"']*(general|coffee|fashion)[^"']*["']/.test(read(f)));
+    expect(offenders).toEqual([]);
+    // the registry is the single place that knows concrete templates
+    const importers = templateFiles().filter((f) => /from\s+["']\.\/general["']/.test(read(f)));
+    expect(rel(importers)).toEqual(["src/templates/registry.ts"]);
+  });
+
+  it("the root layout does not load the dashboard UI library; dashboard and auth layouts opt in", () => {
+    expect(read("src/app/layout.tsx")).not.toMatch(/from\s+["'](@\/theme\/[^"']*|@mui\/[^"']*)["']/);
+    for (const f of ["src/app/dashboard/layout.tsx", "src/app/(auth)/layout.tsx"]) expect(read(f), f).toMatch(/from\s+["']@\/theme\/ThemeRegistry["']/);
+  });
+
+  it("storefront routes and components render without MUI", () => {
+    const offenders = files("src/app/preview").filter((f) => /@mui\//.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it("only the storefront repository and the published reader touch the database", () => {
+    expect(rel(files("src/modules/storefront").filter(touchesDb))).toEqual(["src/modules/storefront/published.ts", "src/modules/storefront/repository.ts"]);
+  });
+
+  it("the draft repository filters by owner and by ACTIVE status in the query itself", () => {
+    const src = read("src/modules/storefront/repository.ts");
+    expect(src).toMatch(/where:\s*\{\s*id:\s*storeId,\s*ownerId:\s*this\.ownerId\s*\}/);
+    expect(src).toMatch(/where:\s*\{\s*status:\s*"ACTIVE"\s*\}/);
+    expect(src).not.toMatch(/\.(create|update|upsert|delete)\w*\(/); // read-only
+  });
+
+  it("the published reader reads the pinned snapshot only (no live catalog tables)", () => {
+    const src = read("src/modules/storefront/published.ts");
+    expect(src).toMatch(/publishedVersion/);
+    expect(src).not.toMatch(/\bproducts\b|\bcategories\b|\bpages\b|db\.(product|page|productCategory)/);
+  });
+
+  it("the preview loader authenticates on the server first, maps NotFoundError to notFound(), and the layout runs it before streaming", () => {
+    const load = read("src/app/preview/[storeId]/load.ts");
+    expect(load.indexOf("requireUser()")).toBeGreaterThan(-1);
+    expect(load.indexOf("requireUser()")).toBeLessThan(load.indexOf("getDraftPreview("));
+    expect(load).toMatch(/instanceof NotFoundError/);
+    expect(load).toMatch(/notFound\(\)/);
+    expect(read("src/app/preview/[storeId]/layout.tsx")).toMatch(/await loadPreview\(/);
+    const page = read("src/app/preview/[storeId]/[[...path]]/page.tsx");
+    expect(page).toMatch(/await loadPreview\(/);
+    expect(page).not.toMatch(/getDraftPreview|@\/lib\/db/); // the page cannot bypass the loader
+    expect(page).toMatch(/robots:\s*\{\s*index:\s*false/);
+    expect(page).toMatch(/dynamic\s*=\s*"force-dynamic"/);
+  });
+
+  it("the proxy and next.config protect and de-index /preview", () => {
+    expect(read("src/proxy.ts")).toMatch(/"\/preview\/:path\*"/);
+    const cfg = read("next.config.ts");
+    expect(cfg).toMatch(/\/preview\/:path\*/);
+    expect(cfg).toMatch(/X-Robots-Tag/);
+    expect(cfg).toMatch(/no-store/);
+  });
+});

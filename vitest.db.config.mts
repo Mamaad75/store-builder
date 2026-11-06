@@ -9,7 +9,7 @@ export default defineConfig({
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
   test: {
     environment: "node",
-    include: ["src/**/*.db.test.ts"],
+    include: ["src/**/*.db.test.{ts,tsx}"],
     globalSetup: ["src/test/db-global-setup.ts"],
     env: {
       DATABASE_URL: urls.test,

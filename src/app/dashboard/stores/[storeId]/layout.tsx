@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -30,6 +31,17 @@ export default async function StoreLayout({ children, params }: { children: Reac
             {store.name}
           </Typography>
           <Chip size="small" label={STATUS_LABEL[store.status]} />
+          <Button
+            component="a"
+            href={`/preview/${encodeURIComponent(store.id)}`}
+            target="_blank"
+            rel="noopener"
+            size="small"
+            variant="outlined"
+            sx={{ marginInlineStart: "auto" }}
+          >
+            پیش‌نمایش پیش‌نویس
+          </Button>
         </Stack>
         <StoreTabs storeId={store.id} />
         {children}

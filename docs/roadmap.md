@@ -13,7 +13,7 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 | 4 | Store management | Owner-scoped store CRUD, 10-store limit | Done | high |
 | CI-0 | Initial CI | Independent verification on GitHub (no deployment) | Implemented; first GitHub run passed (run 1, commit `2605ba8`) | low |
 | 5 | Products and categories | Owner-scoped catalog, lifecycle, search, atomic `draftRevision` | Implemented and tested; awaiting review | high |
-| 6 | Renderer and "general" template | Section prop schemas, shared renderer, first real storefront, owner-only draft preview; URL helper using `APP_ORIGIN` and `STORE_ROOT_DOMAIN` | Next | high |
+| 6 | Renderer and "general" template | Section prop schemas, shared renderer, first real storefront, owner-only draft preview; URL helper using `APP_ORIGIN` and `STORE_ROOT_DOMAIN` | Implemented and tested; awaiting review (URL helper for `APP_ORIGIN`/`STORE_ROOT_DOMAIN` is deferred to phase 10, where the first public URL exists) | high |
 | 7 | Media and images | S3 abstraction, validated uploads (no SVG), logo, product images, cleanup | Planned | high |
 | 8 | Customisation and pages | Section content editing, ordering, page visibility, colours, typography from an allow-list, logo | Planned | high |
 | 9 | Remaining templates | "Coffee and food" and "Fashion" templates | Planned | high |

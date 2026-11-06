@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 
 /**
- * Early redirect for unauthenticated dashboard requests. This is a convenience layer only;
+ * Early redirect for unauthenticated dashboard and draft-preview requests. This is a convenience layer only;
  * authorisation is enforced again on the server in layouts/actions via requireUser().
  */
 export const proxy = auth((req) => {
@@ -14,4 +14,4 @@ export const proxy = auth((req) => {
   return NextResponse.next();
 });
 
-export const config = { matcher: ["/dashboard/:path*"] };
+export const config = { matcher: ["/dashboard/:path*", "/preview/:path*"] };

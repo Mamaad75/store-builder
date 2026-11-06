@@ -88,3 +88,23 @@ Pinned Actions (verified with `git ls-remote` against the upstream repositories;
 | `actions/setup-node` | v7.1.0 | `949feb2413d6458794dcd2491c4babbbce0c15c1` |
 | `pnpm/action-setup` | v6.1.1 | `73e46992e05b19abd31f2f3c20e0e7370d762115` |
 | `actions/upload-artifact` | v7.0.2 | `cf430e030ddbb5b0abf93d22962f4752f3646cd9` |
+
+## Phase 6: storefront renderer, `general` template and draft preview
+
+Full architecture: [`docs/storefront.md`](storefront.md).
+
+| ID | Decision | Status |
+|---|---|---|
+| D6-1 | **One data contract**, `StorefrontData` (`src/templates/storefront-data.ts`, strict Zod, `schemaVersion: 1`), is what every template renders. The draft preview builds it from the live tables; phase 10 will store exactly this shape in `StoreVersion.snapshot` and read it through the same schema. No second data model. | Implemented |
+| D6-2 | The existing section model is reused and **tightened**: every section type has a strict props schema (unknown keys rejected, links must be internal paths). Persisted JSON is validated at the boundary (`parseSections`, `storefrontDataSchema`), never trusted by TypeScript type alone. All three seeds satisfy the strict schemas, so no data migration and **no database migration** is needed. | Implemented |
+| D6-3 | **Compatibility rule:** invalid, unknown or legacy sections are skipped when rendering and reported to the owner in the preview banner. They are **never modified or deleted** (tested: the JSON in the database is byte-identical afterwards). Invalid store settings fall back to the template defaults, also reported, also unmodified. | Implemented |
+| D6-4 | Templates are independent React implementations behind `TemplateModule` (`key`, `version`, `Layout`, one component per section type). They live in `src/templates/<key>` and are registered in a single file (`registry.ts`). The engine never imports a concrete template; an architecture test enforces it, so adding a template does not touch the core. | Implemented |
+| D6-5 | The template is chosen from the persisted `TemplateVersion` (key + version). An unregistered key/version (`coffee`, `fashion` until phase 9) yields an explicit "unsupported template" outcome with a friendly page; it is never rendered with another template. | Implemented |
+| D6-6 | Storefront code (`src/templates`, `src/app/preview`) does not import MUI, Next UI, Prisma, auth or dashboard components (architecture test). To make this true the root layout no longer loads MUI; `ThemeRegistry` moved into the dashboard and auth layouts, the landing page and the root not-found page. Dashboard behavior is unchanged. | Implemented |
+| D6-7 | **Visibility rule:** only `ACTIVE` products are part of storefront data. `DRAFT`/`ARCHIVED` products never enter it (the preview shows only a count to the owner). Stock is independent of status: an ACTIVE product with zero stock is shown as "ناموجود". Prices are integer Toman. | Implemented |
+| D6-8 | **Preview security model:** `/preview/<storeId>/...`. The owner id comes from the server session only; ownership is a SQL condition (`DraftStorefrontRepository`). Missing, foreign and malformed store ids give the same 404 (real HTTP 404, produced in the layout before any streaming). `proxy.ts` also redirects anonymous requests to login. Responses are `no-store`, `X-Robots-Tag: noindex, nofollow, noarchive` and `robots` metadata. A banner always marks the page as a private draft. Read-only: no revision bump, no version row, nothing published. | Implemented |
+| D6-9 | Public storefront URLs are fixed by page type (`/`, `/products`, `/products/<slug>`, `/about`, `/contact`) and do not depend on the editable `page.slug`. Product URLs use the percent-encoded Persian slug; the router decodes safely. | Implemented |
+| D6-10 | `readPublishedStorefront(storeId)` exists and is tested but has **no route and no writer** yet (phase 10). It reads only the snapshot pinned by `publishedVersionId`, never the live tables, and returns `null` for unpublished stores or snapshots that fail the contract. | Implemented |
+| D6-11 | Images are placeholders (initial letter on a brand-colored block); no upload, no fake media. Contact/social links are built from validated values with fixed schemes and hosts, so a stored value can never produce a `javascript:` link. Brand color text color is chosen for WCAG AA contrast. | Implemented |
+
+Known limitations (deliberate): inside an existing store, an unknown storefront path renders the not-found UI with HTTP 200 (Next streams it after the loading boundary); missing/foreign stores are a true 404. No cart, checkout or orders; product detail says to contact the store. Pagination is link-based (12 per page).
