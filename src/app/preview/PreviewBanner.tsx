@@ -12,7 +12,7 @@ export default function PreviewBanner({ storeId, notes }: { storeId: string; not
         </span>
         <a href={`/dashboard/stores/${encodeURIComponent(storeId)}/products`}>بازگشت به داشبورد</a>
       </div>
-      {(notes.excludedProductCount > 0 || skipped > 0 || notes.settingsFallback) && (
+      {(notes.excludedProductCount > 0 || skipped > 0 || notes.settingsFallback || notes.dormantSectionCount > 0) && (
         <ul className={s.notes}>
           {notes.excludedProductCount > 0 && (
             <li data-testid="preview-note-excluded">
@@ -20,6 +20,9 @@ export default function PreviewBanner({ storeId, notes }: { storeId: string; not
             </li>
           )}
           {skipped > 0 && <li>{skipped.toLocaleString("fa-IR")} بخش نامعتبر در صفحه‌ها نادیده گرفته شد (داده‌ها تغییری نکرده‌اند).</li>}
+          {notes.dormantSectionCount > 0 && (
+            <li data-testid="preview-note-dormant">{notes.dormantSectionCount.toLocaleString("fa-IR")} بخش غیرفعال (متعلق به قالب دیگر) در این قالب نمایش داده نمی‌شود؛ داده‌های آن حفظ شده است.</li>
+          )}
           {notes.settingsFallback && <li>تنظیمات فروشگاه نامعتبر بود؛ از تنظیمات پیش‌فرض قالب استفاده شد.</li>}
         </ul>
       )}

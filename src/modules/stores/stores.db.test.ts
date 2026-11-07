@@ -2,6 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { makeUser, prisma, resetDb } from "@/test/db-helpers";
 import { NotFoundError, StoreLimitError, ValidationError } from "./errors";
 import { StoreRepository } from "./repository";
+import { coffeeTheme } from "@/templates/coffee/definition";
+import { setExtraThemesForTests } from "@/templates/theme-catalog";
 import { createStore, deleteStore, getStore, listStores, updateStore } from "./service";
 
 beforeEach(resetDb);
@@ -37,9 +39,15 @@ describe("createStore", () => {
     const v1 = await prisma.templateVersion.findFirstOrThrow({ where: { templateId: t.id } });
     await prisma.templateVersion.create({ data: { templateId: t.id, version: 2, defaultSettings: v1.defaultSettings!, defaultPages: v1.defaultPages! } });
     await prisma.templateVersion.create({ data: { templateId: t.id, version: 3, isActive: false, defaultSettings: v1.defaultSettings!, defaultPages: v1.defaultPages! } });
-    const { id } = await createStore(u.id, { name: "x", templateKey: "coffee" });
-    const s = await prisma.store.findUniqueOrThrow({ where: { id }, include: { templateVersion: true } });
-    expect(s.templateVersion.version).toBe(2);
+    // a version must also exist in code (a store is never created on a theme that cannot be shown): register coffee@2 for this test
+    setExtraThemesForTests([{ ...coffeeTheme, version: 2 }]);
+    try {
+      const { id } = await createStore(u.id, { name: "x", templateKey: "coffee" });
+      const s = await prisma.store.findUniqueOrThrow({ where: { id }, include: { templateVersion: true } });
+      expect(s.templateVersion.version).toBe(2);
+    } finally {
+      setExtraThemesForTests([]);
+    }
   });
   it("rejects unknown templates and mass-assigned fields, creating nothing", async () => {
     const u = await makeUser();

@@ -1,3 +1,5 @@
+import { businessCategoryLabel } from "@/lib/business-categories";
+import { resolveThemeDefinition } from "@/templates/theme-catalog";
 import type { Metadata } from "next";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -40,7 +42,7 @@ export default async function DashboardPage() {
                   <CardContent>
                     <Typography sx={{ fontWeight: 700 }}>{s.name}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      قالب: {s.templateVersion.template.name}
+                      {businessCategoryLabel(s.businessCategory)} · قالب: {resolveThemeDefinition(s.templateVersion.template.key, s.templateVersion.version)?.meta.name ?? s.templateVersion.template.name}
                     </Typography>
                     <Chip size="small" label={STATUS_LABEL[s.status]} />
                   </CardContent>

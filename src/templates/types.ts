@@ -1,6 +1,8 @@
 import type { ReactElement, ReactNode } from "react";
 import type { EditorSpec } from "./editor";
+import type { ExtraSection } from "./section-parse";
 import type { Section, SectionType } from "./sections";
+import type { ThemeDefinition } from "./theme";
 import type { StorefrontData, StorefrontPage, StorefrontProduct } from "./storefront-data";
 
 /** Query parameters a storefront page understands (already parsed and bounded by the engine). */
@@ -46,7 +48,15 @@ export interface LayoutProps {
  * the supported section types are exactly the keys of `sections`. Templates are plain React with no
  * dashboard (MUI) dependency and no data access.
  */
+export interface ExtraSectionComponentProps {
+  section: ExtraSection;
+  ctx: RenderContext;
+}
+export type ExtraSectionComponent = (props: ExtraSectionComponentProps) => ReactElement | null;
+
 export interface TemplateModule {
+  /** The pure half (identity, metadata, extra section definitions, editor spec): see theme.ts. */
+  readonly definition: ThemeDefinition;
   readonly key: string;
   readonly version: number;
   readonly name: string;
@@ -54,6 +64,8 @@ export interface TemplateModule {
   readonly Layout: (props: LayoutProps) => ReactElement;
   /** Which sections the dashboard may add/remove/reorder on each page (template-specific, see editor.ts). */
   readonly editor: EditorSpec;
-  /** One component per supported section type. */
-  readonly sections: { readonly [T in SectionType]?: SectionComponent<T> };
+  /** EVERY core section type must be implemented, so content stays portable between themes. */
+  readonly sections: { readonly [T in SectionType]: SectionComponent<T> };
+  /** Components for the theme-specific section types declared in `definition.sectionDefinitions`. */
+  readonly extraSections: { readonly [type: string]: ExtraSectionComponent };
 }

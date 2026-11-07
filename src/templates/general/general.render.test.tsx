@@ -4,6 +4,7 @@ import { makeStorefront, CATEGORY_TEA, PRODUCT_A, PRODUCT_B } from "@/test/store
 import StorefrontRenderer from "../engine/StorefrontRenderer";
 import { buildView } from "../engine/view";
 import type { StorefrontData } from "../storefront-data";
+import type { TemplateModule } from "../types";
 import { generalTemplate } from "./index";
 
 const CDN = "https://cdn.example.test/bucket";
@@ -147,7 +148,7 @@ describe("general template: safety", () => {
   it("unsupported section types in a template are skipped, not fatal", () => {
     const v = buildView(makeStorefront(), { basePath: "/p", segments: [] });
     if (v.status !== "ok") throw new Error();
-    const partial = { ...generalTemplate, sections: { hero: generalTemplate.sections.hero } };
+    const partial = { ...generalTemplate, sections: { hero: generalTemplate.sections.hero } } as unknown as TemplateModule;
     const h = renderToStaticMarkup(<StorefrontRenderer template={partial} ctx={v.ctx} />);
     expect(h).toContain("<h1");
     expect(h).not.toContain("محصولات ویژه");

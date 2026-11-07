@@ -5,12 +5,12 @@ import { findMediaInTx } from "@/modules/media/repository";
 import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { withStoreMutation, type MutationContext } from "@/modules/stores/mutation";
 import { parseStoreId } from "@/modules/stores/service";
-import { defaultSectionProps } from "@/templates/section-defaults";
-import { IMAGE_SECTION_TYPES } from "@/templates/section-fields";
 import { MAX_SECTIONS_PER_PAGE, NON_HIDEABLE_PAGES, type PageEditorRules } from "@/templates/editor";
-import { PAGE_TYPES, SECTION_TYPES, sectionPropsSchemas, type PageType, type Section, type SectionType } from "@/templates/sections";
-import { resolveTemplate } from "@/templates/registry";
-import { analyzePage, sectionsEqual, type InvalidEntry } from "./analyze";
+import { defaultPropsOf, getSectionDefinition } from "@/templates/section-registry";
+import type { PageSection } from "@/templates/section-parse";
+import { PAGE_TYPES, type PageType } from "@/templates/sections";
+import { resolveThemeDefinition } from "@/templates/theme-catalog";
+import { analyzePage, imageIdOf, sectionsEqual, serializeEntries, type Entry, type InvalidEntry } from "./analyze";
 import { NoChange, PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } from "./errors";
 import { PageRepository, findPageInTx, templateOfInTx, writePage, type PageRow } from "./repository";
 
@@ -24,7 +24,7 @@ import { PageRepository, findPageInTx, templateOfInTx, writePage, type PageRow }
  */
 
 const pageTypeSchema = z.enum(PAGE_TYPES);
-const sectionTypeSchema = z.enum(SECTION_TYPES);
+const sectionTypeSchema = z.string().min(1).max(80);
 const revisionSchema = z.number().int().min(1).max(2_147_483_647);
 const sectionIdSchema = z.string().min(1).max(40);
 
@@ -63,9 +63,20 @@ export interface PageSummary {
   archivedCount: number;
 }
 
+export interface DormantView {
+  id: string;
+  type: string;
+  label: string;
+  /** Truncated JSON of the stored value, for display only. */
+  preview: string;
+}
+
 export interface PageEditorView extends PageSummary {
   storeId: string;
-  sections: Section[];
+  /** Active sections (rendered and editable with the store's current theme). */
+  sections: PageSection[];
+  /** Valid sections the current theme does not approve: kept untouched, not rendered, removable by the owner. */
+  dormant: DormantView[];
   issues: EditorIssue[];
   /** Section images by media id (READY media of this store only). */
   images: Record<string, { key: string; width: number; height: number }>;
@@ -86,8 +97,8 @@ const preview = (raw: unknown) => {
 async function resolveSpec(repo: PageRepository, storeId: string) {
   const t = await repo.templateOf(storeId);
   if (!t) throw new NotFoundError();
-  const tpl = resolveTemplate(t.templateVersion.template.key, t.templateVersion.version);
-  return tpl ? tpl.editor : null;
+  const theme = resolveThemeDefinition(t.templateVersion.template.key, t.templateVersion.version);
+  return theme ? theme.editor : null;
 }
 
 const archivedCount = (row: PageRow) => (Array.isArray(row.legacySections) ? row.legacySections.length : 0);
@@ -101,7 +112,7 @@ export async function listPages(ownerId: string, storeId: unknown): Promise<{ su
   return {
     supported: spec !== null,
     pages: rows.map((r) => {
-      const a = spec ? analyzePage(r.sections, spec.pages[r.type]) : { sections: [], invalid: [] as InvalidEntry[] };
+      const a = spec ? analyzePage(r.sections, spec.pages[r.type]) : { entries: [] as Entry[], sections: [], dormant: [] as Entry[], invalid: [] as InvalidEntry[] };
       const count = Array.isArray(r.sections) ? r.sections.length : 0;
       return {
         type: r.type,
@@ -110,7 +121,7 @@ export async function listPages(ownerId: string, storeId: unknown): Promise<{ su
         isVisible: r.isVisible,
         canHide: !NON_HIDEABLE_PAGES.includes(r.type),
         revision: r.revision,
-        sectionCount: spec ? a.sections.length : count,
+        sectionCount: spec ? a.entries.length : count,
         invalidCount: a.invalid.length,
         archivedCount: archivedCount(r),
       };
@@ -127,7 +138,10 @@ export async function getPageEditor(ownerId: string, storeId: unknown, pageType:
   if (!spec) throw new UnsupportedTemplateError();
   const rules = spec.pages[type];
   const a = analyzePage(row.sections, rules);
-  const imageIds = a.sections.flatMap((s) => ("imageId" in s.props && s.props.imageId ? [s.props.imageId] : []));
+  const imageIds = a.entries.flatMap((e) => {
+    const id = imageIdOf(e.section);
+    return id ? [id] : [];
+  });
   const media = await repo.readyMedia(sid, imageIds);
   return {
     storeId: sid,
@@ -137,10 +151,11 @@ export async function getPageEditor(ownerId: string, storeId: unknown, pageType:
     isVisible: row.isVisible,
     canHide: !NON_HIDEABLE_PAGES.includes(type),
     revision: row.revision,
-    sectionCount: a.sections.length,
+    sectionCount: a.entries.length,
     invalidCount: a.invalid.length,
     archivedCount: archivedCount(row),
     sections: a.sections,
+    dormant: a.dormant.map((d) => ({ id: d.section.id, type: d.section.type, label: getSectionDefinition(d.section.type)?.label ?? d.section.type, preview: preview(d.raw) })),
     issues: a.invalid.map((i) => ({ index: i.index, reason: i.reason, preview: preview(i.raw) })),
     images: Object.fromEntries(media.map((m) => [m.id, { key: m.key, width: m.width ?? 1, height: m.height ?? 1 }])),
     rules,
@@ -155,14 +170,18 @@ export interface EditResult {
   revision: number;
 }
 
-type Edit = (env: { ctx: MutationContext; page: PageRow; rules: PageEditorRules; sections: Section[]; invalid: InvalidEntry[] }) => Promise<{
-  sections?: Section[];
+type Edit = (env: { ctx: MutationContext; page: PageRow; rules: PageEditorRules; entries: Entry[]; invalid: InvalidEntry[] }) => Promise<{
+  /** The new FULL list (active and dormant entries); omitted when only visibility changes. */
+  entries?: Entry[];
   isVisible?: boolean;
   legacySections?: unknown[];
   /** Media ids that were referenced before and may be unreferenced now. */
   release?: string[];
   recovery?: boolean;
 }>;
+
+const activeEntry = (section: PageSection): Entry => ({ kind: "active", section, raw: section });
+const activeOf = (entries: readonly Entry[]) => entries.filter((e) => e.kind === "active").map((e) => e.section);
 
 async function mutatePage(ownerId: string, storeId: unknown, pageType: unknown, expectedRevision: unknown, edit: Edit): Promise<EditResult> {
   const sid = parseStoreId(storeId);
@@ -175,16 +194,19 @@ async function mutatePage(ownerId: string, storeId: unknown, pageType: unknown, 
       const page = await findPageInTx(ctx, type);
       if (!page) throw new NotFoundError();
       const t = await templateOfInTx(ctx);
-      const tpl = t ? resolveTemplate(t.templateVersion.template.key, t.templateVersion.version) : null;
-      if (!tpl) throw new UnsupportedTemplateError();
+      const theme = t ? resolveThemeDefinition(t.templateVersion.template.key, t.templateVersion.version) : null;
+      if (!theme) throw new UnsupportedTemplateError();
       if (page.revision !== expected) throw new ConflictError(); // someone else changed this page since the form was loaded
-      const rules = tpl.editor.pages[type];
+      const rules = theme.editor.pages[type];
       const a = analyzePage(page.sections, rules);
-      const out = await edit({ ctx, page, rules, sections: a.sections, invalid: a.invalid });
+      const out = await edit({ ctx, page, rules, entries: a.entries, invalid: a.invalid });
       if (a.invalid.length > 0 && !out.recovery) throw new PageNeedsRecoveryError(a.invalid.length);
-      const nextSections = out.sections ?? (out.recovery ? a.sections : undefined);
       const data: Parameters<typeof writePage>[2] = {};
-      if (nextSections !== undefined && !sectionsEqual(nextSections, page.sections)) data.sections = nextSections as never;
+      if (out.entries !== undefined) {
+        // Unchanged entries (active AND dormant) are written back exactly as stored; only deliberate changes differ.
+        const next = serializeEntries(out.entries);
+        if (!sectionsEqual(next, page.sections)) data.sections = next as never;
+      }
       if (out.isVisible !== undefined && out.isVisible !== page.isVisible) data.isVisible = out.isVisible;
       if (out.legacySections !== undefined) data.legacySections = out.legacySections as never;
       if (Object.keys(data).length === 0) throw new NoChange();
@@ -208,15 +230,18 @@ async function mutatePage(ownerId: string, storeId: unknown, pageType: unknown, 
 export async function addSection(ownerId: string, storeId: unknown, pageType: unknown, input: { type: unknown }, expectedRevision: unknown): Promise<EditResult> {
   const t = sectionTypeSchema.safeParse(input.type);
   if (!t.success) throw new ValidationError({ type: ["نوع بخش نامعتبر است"] });
-  const type: SectionType = t.data;
-  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ rules, sections }) => {
-    if (!rules.allowed.includes(type)) throw new ValidationError({ type: ["این بخش برای این صفحه مجاز نیست"] });
-    if (sections.length >= MAX_SECTIONS_PER_PAGE) throw new SectionLimitError(MAX_SECTIONS_PER_PAGE);
-    if (rules.singletons.includes(type) && sections.some((s) => s.type === type)) throw new ValidationError({ type: ["این بخش فقط یک‌بار در صفحه مجاز است"] });
+  const type = t.data;
+  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ rules, entries }) => {
+    // Only types the current theme approves for this page can be added (extra types of OTHER themes are refused).
+    if (!rules.allowed.includes(type) || !getSectionDefinition(type)) throw new ValidationError({ type: ["این بخش برای این صفحه مجاز نیست"] });
+    if (entries.length >= MAX_SECTIONS_PER_PAGE) throw new SectionLimitError(MAX_SECTIONS_PER_PAGE);
+    if (rules.singletons.includes(type) && entries.some((e) => e.kind === "active" && e.section.type === type)) {
+      throw new ValidationError({ type: ["این بخش فقط یک‌بار در صفحه مجاز است"] });
+    }
     let id = newSectionId();
-    while (sections.some((s) => s.id === id)) id = newSectionId();
-    const section = { id, type, props: defaultSectionProps(type) } as Section;
-    return { sections: [...sections, section] };
+    while (entries.some((e) => e.section.id === id)) id = newSectionId();
+    const section = { id, type, props: defaultPropsOf(type) } as PageSection;
+    return { entries: [...entries, activeEntry(section)] };
   });
 }
 
@@ -230,30 +255,49 @@ export async function updateSection(
 ): Promise<EditResult> {
   const sid = sectionIdSchema.safeParse(sectionId);
   if (!sid.success) throw new NotFoundError();
-  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ sections }) => {
-    const current = sections.find((s) => s.id === sid.data);
-    if (!current) throw new NotFoundError();
+  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ entries }) => {
+    const current = entries.find((e) => e.kind === "active" && e.section.id === sid.data);
+    if (!current) throw new NotFoundError(); // dormant sections are not editable (they are not part of the active theme)
     if (typeof props !== "object" || props === null || Array.isArray(props)) throw new ValidationError({ _form: ["اطلاعات بخش نامعتبر است"] });
+    const def = getSectionDefinition(current.section.type);
+    if (!def) throw new NotFoundError();
     // The type comes from the stored section (never from the client); hidden fields such as imageId are preserved.
-    const parsed = sectionPropsSchemas[current.type].safeParse({ ...current.props, ...(props as Record<string, unknown>) });
+    const parsed = def.schema.safeParse({ ...current.section.props, ...(props as Record<string, unknown>) });
     if (!parsed.success) throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
-    const next = { ...current, props: parsed.data } as Section;
-    return { sections: sections.map((s) => (s.id === current.id ? next : s)) };
+    const next = activeEntry({ ...current.section, props: parsed.data } as PageSection);
+    // An update that changes nothing keeps the stored value untouched (so it is a true no-op).
+    if (sectionsEqual(next.raw, current.raw)) return { entries };
+    return { entries: entries.map((e) => (e === current ? next : e)) };
   });
 }
 
 export async function removeSection(ownerId: string, storeId: unknown, pageType: unknown, sectionId: unknown, expectedRevision: unknown): Promise<EditResult> {
   const sid = sectionIdSchema.safeParse(sectionId);
   if (!sid.success) throw new NotFoundError();
-  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ rules, sections }) => {
-    const current = sections.find((s) => s.id === sid.data);
+  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ rules, entries }) => {
+    const current = entries.find((e) => e.kind === "active" && e.section.id === sid.data);
     if (!current) throw new NotFoundError();
     // A section the page cannot work without (e.g. the product grid) is never removed.
-    if (rules.required.includes(current.type) && sections.filter((s) => s.type === current.type).length === 1) {
+    if (rules.required.includes(current.section.type) && activeOf(entries).filter((s) => s.type === current.section.type).length === 1) {
       throw new ValidationError({ sections: ["این بخش برای عملکرد صفحه لازم است و حذف نمی‌شود"] });
     }
-    const imageId = "imageId" in current.props ? current.props.imageId : null;
-    return { sections: sections.filter((s) => s.id !== current.id), release: imageId ? [imageId] : [] };
+    const imageId = imageIdOf(current.section);
+    return { entries: entries.filter((e) => e !== current), release: imageId ? [imageId] : [] };
+  });
+}
+
+/**
+ * Explicit deletion of a DORMANT section by the owner (the only way a dormant section is ever deleted). Its media
+ * reference is released through the normal reference-aware rule (kept while anything else still uses it).
+ */
+export async function removeDormantSection(ownerId: string, storeId: unknown, pageType: unknown, sectionId: unknown, expectedRevision: unknown): Promise<EditResult> {
+  const sid = sectionIdSchema.safeParse(sectionId);
+  if (!sid.success) throw new NotFoundError();
+  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ entries }) => {
+    const current = entries.find((e) => e.kind === "dormant" && e.section.id === sid.data);
+    if (!current) throw new NotFoundError();
+    const imageId = imageIdOf(current.section);
+    return { entries: entries.filter((e) => e !== current), release: imageId ? [imageId] : [] };
   });
 }
 
@@ -269,14 +313,17 @@ export async function moveSection(
   const dir = z.enum(["up", "down"]).safeParse(direction);
   if (!sid.success) throw new NotFoundError();
   if (!dir.success) throw new ValidationError({ direction: ["جهت نامعتبر است"] });
-  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ sections }) => {
-    const i = sections.findIndex((s) => s.id === sid.data);
-    if (i === -1) throw new NotFoundError();
-    const j = dir.data === "up" ? i - 1 : i + 1;
-    if (j < 0 || j >= sections.length) return { sections }; // already at the edge: a no-op
-    const next = [...sections];
-    [next[i], next[j]] = [next[j]!, next[i]!];
-    return { sections: next };
+  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ entries }) => {
+    // Reordering swaps with the neighbouring ACTIVE section; dormant entries never move (their positions are kept).
+    const activeIdx = entries.flatMap((e, i) => (e.kind === "active" ? [i] : []));
+    const k = activeIdx.findIndex((i) => entries[i]!.section.id === sid.data);
+    if (k === -1) throw new NotFoundError();
+    const k2 = dir.data === "up" ? k - 1 : k + 1;
+    if (k2 < 0 || k2 >= activeIdx.length) return { entries }; // already at the edge: a no-op
+    const next = [...entries];
+    const [a, b] = [activeIdx[k]!, activeIdx[k2]!];
+    [next[a], next[b]] = [next[b]!, next[a]!];
+    return { entries: next };
   });
 }
 
@@ -291,18 +338,19 @@ export async function setSectionImage(
 ): Promise<EditResult> {
   const sid = sectionIdSchema.safeParse(sectionId);
   if (!sid.success) throw new NotFoundError();
-  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ ctx, sections }) => {
-    const current = sections.find((s) => s.id === sid.data);
+  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ ctx, entries }) => {
+    const current = entries.find((e) => e.kind === "active" && e.section.id === sid.data);
     if (!current) throw new NotFoundError();
-    if (!IMAGE_SECTION_TYPES.includes(current.type) || !("imageId" in current.props)) throw new ValidationError({ imageId: ["این بخش تصویر ندارد"] });
+    const def = getSectionDefinition(current.section.type);
+    if (!def?.image || !("imageId" in current.section.props)) throw new ValidationError({ imageId: ["این بخش تصویر ندارد"] });
     if (mediaId !== null) {
       const media = await findMediaInTx(ctx, mediaId);
       // Missing, other store's, PENDING and DELETING media are indistinguishable.
       if (!media || media.status !== "READY") throw new NotFoundError();
     }
-    const previous = current.props.imageId;
-    const next = { ...current, props: { ...current.props, imageId: mediaId } } as Section;
-    return { sections: sections.map((s) => (s.id === current.id ? next : s)), release: previous && previous !== mediaId ? [previous] : [] };
+    const previous = imageIdOf(current.section);
+    const next = activeEntry({ ...current.section, props: { ...current.section.props, imageId: mediaId } } as PageSection);
+    return { entries: entries.map((e) => (e === current ? next : e)), release: previous && previous !== mediaId ? [previous] : [] };
   });
 }
 
@@ -315,22 +363,24 @@ export async function setPageVisibility(ownerId: string, storeId: unknown, pageT
 }
 
 /**
- * Explicit recovery for a page with invalid/unknown section data: the offending entries are MOVED (verbatim, with
- * their position and reason) to `legacySections`, the editable list keeps the valid ones. Nothing is deleted.
+ * Explicit recovery for a page with INVALID (corrupted) section data: the offending entries are MOVED (verbatim, with
+ * their position and reason) to `legacySections`; active and dormant entries stay exactly as stored. Nothing is deleted.
  */
 export async function recoverPage(ownerId: string, storeId: unknown, pageType: unknown, expectedRevision: unknown): Promise<EditResult> {
-  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ page, rules, sections, invalid }) => {
+  return mutatePage(ownerId, storeId, pageType, expectedRevision, async ({ page, rules, entries, invalid }) => {
     if (invalid.length === 0) return { recovery: true };
     const archivedAt = new Date().toISOString();
     const previous = Array.isArray(page.legacySections) ? page.legacySections : [];
     // The page must stay functional: a required section that only existed in invalid form is re-created with defaults.
-    const kept = [...sections];
+    const kept = [...entries];
     for (const t of rules.required) {
-      if (!kept.some((s) => s.type === t)) kept.push({ id: newSectionId(), type: t, props: defaultSectionProps(t) } as Section);
+      if (!kept.some((e) => e.kind === "active" && e.section.type === t)) {
+        kept.push(activeEntry({ id: newSectionId(), type: t, props: defaultPropsOf(t) } as PageSection));
+      }
     }
     return {
       recovery: true,
-      sections: kept,
+      entries: kept,
       legacySections: [...previous, ...invalid.map((i) => ({ archivedAt, index: i.index, reason: i.reason, raw: i.raw ?? null }))],
     };
   });

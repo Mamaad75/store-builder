@@ -70,7 +70,7 @@ describe("general template editor spec", () => {
   });
   it.each(PAGE_TYPES)("%s: allowed sections are renderable, singletons/required are allowed", (page) => {
     const r = spec.pages[page];
-    for (const t of r.allowed) expect(generalTemplate.sections[t], `${page}: ${t} has no component`).toBeTypeOf("function");
+    for (const t of r.allowed) expect((generalTemplate.sections as Record<string, unknown>)[t] ?? generalTemplate.extraSections[t], `${page}: ${t} has no component`).toBeTypeOf("function");
     for (const t of [...r.singletons, ...r.required]) expect(r.allowed).toContain(t);
   });
   it("every seeded general page is fully editable out of the box", () => {
@@ -86,18 +86,31 @@ describe("general template editor spec", () => {
 describe("analyzePage", () => {
   const rules = generalTemplate.editor.pages.ABOUT;
   const ok = { id: "a", type: "richText", props: { title: "t", body: "b" } };
-  it("accepts valid approved sections", () => {
-    expect(analyzePage([ok], rules)).toEqual({ sections: [ok], invalid: [] });
+  it("accepts valid approved sections as ACTIVE", () => {
+    const a = analyzePage([ok], rules);
+    expect(a.sections).toEqual([ok]);
+    expect(a.entries).toEqual([{ kind: "active", section: ok, raw: ok }]);
+    expect(a.dormant).toEqual([]);
+    expect(a.invalid).toEqual([]);
   });
   it.each([
     ["unknown type", { id: "x", type: "carousel", props: {} }, "unsupported_type"],
     ["invalid props", { id: "x", type: "richText", props: { title: 1 } }, "invalid_props"],
     ["not an object", 5, "invalid_envelope"],
-    ["not approved for the page", { id: "x", type: "productGrid", props: { title: "t" } }, "not_allowed"],
   ])("flags %s without dropping it", (_n, raw, reason) => {
     const a = analyzePage([ok, raw], rules);
     expect(a.sections).toEqual([ok]);
     expect(a.invalid).toEqual([{ index: 1, reason, raw }]);
+  });
+  it("a valid section that this theme does not approve is DORMANT: kept verbatim in its position, never invalid", () => {
+    const wrong = { id: "w", type: "productGrid", props: { title: "t" } };
+    const theirs = { id: "o", type: "coffee.openingHours", props: { title: "t", body: "", note: "" } };
+    const a = analyzePage([ok, wrong, theirs], rules);
+    expect(a.invalid).toEqual([]);
+    expect(a.sections).toEqual([ok]);
+    expect(a.dormant.map((d) => d.section.id)).toEqual(["w", "o"]);
+    expect(a.entries.map((e) => e.kind)).toEqual(["active", "dormant", "dormant"]);
+    expect(a.dormant[0]!.raw).toBe(wrong); // the stored value itself, not a re-serialised copy
   });
   it("flags duplicate ids and extra copies of a singleton", () => {
     expect(analyzePage([ok, ok], rules).invalid.map((i) => i.reason)).toEqual(["invalid_envelope"]);
@@ -106,7 +119,7 @@ describe("analyzePage", () => {
     expect(analyzePage([ci("a"), ci("b")], contact).invalid.map((i) => i.reason)).toEqual(["duplicate_singleton"]);
   });
   it.each([null, undefined, {}, "x", 5])("a stored %j is one not_an_array issue carrying the raw value", (raw) => {
-    expect(analyzePage(raw, rules)).toEqual({ sections: [], invalid: [{ index: -1, reason: "not_an_array", raw }] });
+    expect(analyzePage(raw, rules)).toEqual({ entries: [], sections: [], dormant: [], invalid: [{ index: -1, reason: "not_an_array", raw }] });
   });
   it("does not mutate its input", () => {
     const input = [ok, { id: "x", type: "carousel", props: {} }];

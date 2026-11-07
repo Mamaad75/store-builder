@@ -6,7 +6,7 @@ import { createStore } from "@/modules/stores/service";
 import { buildView } from "@/templates/engine/view";
 import { storefrontDataSchema } from "@/templates/storefront-data";
 import { revision, snapshotRows, twoTenants, validProduct } from "@/test/catalog-helpers";
-import { makeMedia, makeUser, prisma, publishStore, resetDb } from "@/test/db-helpers";
+import { makeMedia, makeUnregisteredThemeStore, makeUser, prisma, publishStore, resetDb } from "@/test/db-helpers";
 import { DraftStorefrontRepository } from "./repository";
 import { readPublishedStorefront } from "./published";
 import { getDraftPreview } from "./service";
@@ -232,10 +232,18 @@ describe("draft preview data: read-only and compatibility", () => {
     expect((await prisma.store.findUniqueOrThrow({ where: { id: a1 } })).settings).toEqual({ primaryColor: "javascript:1" });
   });
 
-  it("a store on a template that has no renderer yet previews as 'unsupported_template' (coffee until phase 9)", async () => {
+  it("a store on a theme that no code registers previews as 'unsupported_template' (never rendered with another theme)", async () => {
+    const { a } = await twoTenants();
+    const legacy = await makeUnregisteredThemeStore(a.id);
+    const { data } = await getDraftPreview(a.id, legacy.id);
+    expect(buildView(data, { basePath: "/p", segments: [] })).toEqual({ status: "unsupported_template", key: "legacy-demo", version: 1 });
+  });
+
+  it("coffee and fashion stores (version 1) render with their own themes (phase 9A)", async () => {
     const { a, a2 } = await twoTenants();
     const { data } = await getDraftPreview(a.id, a2);
-    expect(buildView(data, { basePath: "/p", segments: [] })).toEqual({ status: "unsupported_template", key: "coffee", version: 1 });
+    expect(data.template.key).toBe("coffee");
+    expect(buildView(data, { basePath: "/p", segments: [] }).status).toBe("ok");
   });
 });
 

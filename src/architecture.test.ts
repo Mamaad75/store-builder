@@ -273,3 +273,79 @@ describe("architecture guard: page editing (draft only, owner-scoped, template-a
     expect(offenders).toEqual([]);
   });
 });
+
+describe("architecture guard: business category, themes and the section registry (phase 9A)", () => {
+  const inFiles = (re: RegExp, roots = prodFiles()) => rel(roots.filter((f) => re.test(read(f))));
+
+  it("the renderer side never reads the business category (themes, engine, preview routes, storefront data)", () => {
+    const roots = [...files("src/templates"), ...files("src/app/preview"), ...files("src/modules/storefront"), ...files("src/modules/pages"), ...files("src/modules/products"), ...files("src/modules/categories"), ...files("src/modules/media")];
+    expect(inFiles(/businessCategory|business-categories/, roots)).toEqual([]);
+  });
+
+  it("the category is written only by store creation and by the dedicated compare-and-set (no draftRevision involved)", () => {
+    expect(inFiles(/businessCategory:\s*(category\.key|next)\b/)).toEqual(["src/modules/stores/repository.ts", "src/modules/stores/service.ts"]);
+    const repo = read("src/modules/stores/repository.ts");
+    const fn = repo.slice(repo.indexOf("async setBusinessCategory"), repo.indexOf("/** Optimistic update"));
+    expect(fn).toMatch(/ownerId:\s*this\.ownerId/);
+    expect(fn).toMatch(/businessCategory:\s*expected/);
+    expect(fn).not.toMatch(/draftRevision/);
+  });
+
+  it("starter text is applied during creation only (the category update never touches pages)", () => {
+    expect(inFiles(/applyStarterCopy\(/)).toEqual(["src/modules/stores/service.ts", "src/modules/stores/starter-content.ts"]);
+    const svc = read("src/modules/stores/service.ts");
+    const update = svc.slice(svc.indexOf("export async function updateBusinessCategory"), svc.indexOf("export async function deleteStore"));
+    expect(update).not.toMatch(/page|applyStarterCopy|settings|product/i);
+  });
+
+  it("the database CHECK validates only the key format: no category name appears in it, and the migration adds no allowlist", () => {
+    const dir = readdirSync("prisma/migrations").find((d) => d.includes("phase9a_business_category"))!;
+    const sql = read(`prisma/migrations/${dir}/migration.sql`);
+    const check = sql.split("\n").find((l) => l.includes("ADD CONSTRAINT \"Store_businessCategory_format\""))!;
+    expect(check).toMatch(/\^\[a-z\]\[a-z0-9-\]\{0,39\}\$/);
+    expect(check).not.toMatch(/coffee|fashion|appliances|general|IN \(/);
+    expect(read("prisma/schema.prisma")).not.toMatch(/enum\s+\w*Category/i);
+  });
+
+  it("the core engine and the section registry name no concrete theme or business category", () => {
+    const core = [
+      ...files("src/templates/engine"),
+      "src/templates/section-registry.ts",
+      "src/templates/section-parse.ts",
+      "src/templates/sections.ts",
+      "src/templates/types.ts",
+      "src/templates/editor.ts",
+      "src/templates/theme.ts",
+      "src/templates/storefront-data.ts",
+    ];
+    for (const f of core) expect(read(f), f).not.toMatch(/["'](general|coffee|fashion|coffee-food|home-appliances)["']/);
+  });
+
+  it("only the catalogs know concrete themes: one pure catalog and one React registry", () => {
+    expect(inFiles(/from\s+["']\.\/(general|coffee|fashion)\/definition["']/, files("src/templates"))).toEqual(["src/templates/theme-catalog.ts"]);
+    expect(inFiles(/from\s+["']\.\/(general|coffee|fashion)["']/, files("src/templates"))).toEqual(["src/templates/registry.ts"]);
+  });
+
+  it("theme definitions are pure (no React, no CSS, no data layer) so server code and scripts can use them", () => {
+    for (const f of files("src/templates").filter((x) => /\/definition\.ts$|\/editor\.ts$/.test(x.split(path.sep).join("/")))) {
+      expect(read(f), f).not.toMatch(/from\s+["'](react|react-dom|[^"']*\.css|@\/modules|@\/lib\/db|@prisma\/client)/);
+    }
+    for (const f of ["src/templates/theme-catalog.ts", "src/templates/section-registry.ts", "src/templates/section-parse.ts"]) {
+      expect(read(f), f).not.toMatch(/from\s+["'](react|react-dom|[^"']*\.css)/);
+    }
+  });
+
+  it("editing and store creation use the PURE catalog (never the React registry), and extra section types are namespaced by theme", () => {
+    expect(inFiles(/from\s+["']@\/templates\/registry["']/, [...files("src/modules"), ...files("src/app/dashboard"), ...files("src/components")])).toEqual([]);
+    const reg = read("src/templates/section-registry.ts");
+    expect(reg).toMatch(/startsWith\(`\$\{theme\.key\}\.`\)/);
+  });
+
+  it("dormant handling keeps stored values: edits serialize the stored raw value of every entry", () => {
+    const svc = read("src/modules/pages/service.ts");
+    expect(svc).toMatch(/serializeEntries\(out\.entries\)/);
+    expect(read("src/modules/pages/analyze.ts")).toMatch(/raw: item/);
+    expect(svc).toMatch(/export async function removeDormantSection/);
+    expect(svc).toMatch(/e\.kind === "dormant" && e\.section\.id === sid\.data/);
+  });
+});

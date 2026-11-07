@@ -17,13 +17,18 @@ const cards = (page: Page) => page.getByTestId("section-card");
 async function openEditor(page: Page, storeId: string, slug: string) {
   await page.goto(`/dashboard/stores/${storeId}/pages/${slug}`);
   await waitForHydration(page, "[data-testid=page-editor] form");
+  await waitForHydration(page, "select[name=sectionType]"); // the controlled select is hydrated separately under load
 }
+
+/** The previous editor action has fully finished (the page-level button is enabled again): the next click is not queued behind it. */
+const settled = (page: Page) => expect(page.getByTestId("visibility-toggle")).toBeEnabled({ timeout: 20_000 });
 // Editor actions do several queries inside a locked transaction; allow a slow (throttled/CI) machine a generous result timeout.
 const success = (page: Page, text: string) => expect(page.getByRole("alert").filter({ hasText: text }).first()).toBeVisible({ timeout: 20_000 });
 const sectionsOf = async (storeId: string, type: string) =>
   ((await db.page.findFirstOrThrow({ where: { storeId, type: type as never } })).sections as { id: string; type: string; props: Record<string, unknown> }[]);
 
 async function addSection(page: Page, label: string) {
+  await waitForHydration(page, "select[name=sectionType]");
   await page.locator("select[name=sectionType]").selectOption({ label });
   await page.getByRole("button", { name: "افزودن", exact: true }).click();
 }
@@ -63,6 +68,7 @@ test.describe("page editor", () => {
     expect((await db.store.findUniqueOrThrow({ where: { id: storeId } })).draftRevision).toBe(rev1);
 
     // reorder: move the new section up, the order is persisted and shown in the preview
+    await settled(page);
     await cards(page).nth(1).locator("button[aria-expanded]").first().click();
     await cards(page).nth(1).getByRole("button", { name: /بالا بردن/ }).click();
     await success(page, "ترتیب بخش‌ها تغییر کرد.");
@@ -73,6 +79,7 @@ test.describe("page editor", () => {
     await expect(cards(page).first().getByRole("button", { name: /بالا بردن/ })).toBeDisabled();
 
     // remove
+    await settled(page);
     await cards(page).first().getByRole("button", { name: "حذف بخش" }).click();
     await success(page, "بخش حذف شد.");
     expect((await sectionsOf(storeId, "ABOUT")).map((s) => s.type)).toEqual(["richText"]);
@@ -286,9 +293,17 @@ test.describe("isolation and templates", () => {
     await other.context.close();
   });
 
-  test("a store on a template without an editor yet explains it instead of failing", async ({ page }) => {
+  test("a store pinned to an unregistered theme explains it instead of failing", async ({ page }) => {
     await signUpAndIn(page);
-    const storeId = await createStoreViaUi(page, "فروشگاه کافه", "قهوه و مواد غذایی");
+    const storeId = await createStoreViaUi(page, "فروشگاه قدیمی", "فروشگاه عمومی");
+    const general = await db.templateVersion.findFirstOrThrow({ where: { template: { key: "general" } } });
+    const t = await db.template.upsert({ where: { key: "legacy-demo" }, create: { key: "legacy-demo", name: "Legacy" }, update: {} });
+    const tv = await db.templateVersion.upsert({
+      where: { templateId_version: { templateId: t.id, version: 1 } },
+      create: { templateId: t.id, version: 1, defaultSettings: general.defaultSettings!, defaultPages: general.defaultPages! },
+      update: {},
+    });
+    await db.store.update({ where: { id: storeId }, data: { templateVersionId: tv.id } });
     await page.goto(`/dashboard/stores/${storeId}/pages`);
     await expect(page.getByText("هنوز در دسترس نیست")).toBeVisible();
     await expect(page.getByTestId("page-row")).toHaveCount(0);

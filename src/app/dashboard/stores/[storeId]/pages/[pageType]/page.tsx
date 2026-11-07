@@ -63,6 +63,7 @@ export default async function EditPagePage({ params }: { params: Promise<{ store
         isVisible={view.isVisible}
         canHide={view.canHide}
         sections={view.sections}
+        dormant={view.dormant}
         issues={view.issues}
         archivedCount={view.archivedCount}
         allowed={[...view.rules.allowed]}

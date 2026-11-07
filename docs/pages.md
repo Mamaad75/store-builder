@@ -25,6 +25,8 @@ dashboard (MUI forms)  ->  pageEditAction (one Server Action, `intent` whitelist
 * **Conflicts.** `Page.revision` is a per-page token carried by every form. A stale form is an explicit `ConflictError` ("the page was changed at the same time, reload"); nothing is overwritten. Different pages (and product edits) do not conflict with each other.
 * **No-ops** (same values, moving past an edge, hiding an already hidden page, recovering a clean page) write nothing and bump neither `draftRevision` nor `Page.revision`. The same rule now applies to store settings (`updateStore`).
 
+> Phase 9A refines this: a valid section that the active theme merely does not approve is now **dormant**, not invalid (see [`themes.md`](themes.md)). The invalid-JSON rules below are unchanged.
+
 ## Invalid and legacy section JSON
 
 Stored JSON is never trusted by type: it is validated when read. A page is "needing recovery" when it contains entries that are not an array, not an object, of an unknown type, with props that fail the strict schema, with duplicate ids, valid but not approved for that page by the template, or extra copies of a singleton.

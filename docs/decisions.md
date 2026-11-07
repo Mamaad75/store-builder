@@ -139,3 +139,17 @@ Full description: [`docs/pages.md`](pages.md).
 | D8-5 | Section images reuse the phase 7 pipeline; the reference is validated (same store, `READY`) in the mutation transaction; reference-aware release is preserved; the storefront contract gains `images` (by media id, relative keys). | Implemented |
 | D8-6 | Typography: Vazirmatn only; size scale, heading weight and body weight come from explicit allow-lists; colors are strict `#RRGGBB`; no arbitrary CSS, HTML, scripts or external fonts. Old settings parse with defaults. | Implemented |
 | D8-7 | Everything is draft-only; no publishing, snapshot writing or public routing. The preview reflects edits immediately. | Implemented |
+
+## Phase 9A: business categories, theme modules and the section registry
+
+Full description: [`docs/themes.md`](themes.md).
+
+| ID | Decision | Status |
+|---|---|---|
+| D9A-1 | **Business category** (what is sold) and **theme** (visual direction) are separate. Category = `Store.businessCategory` (format-only CHECK; the registry in code is the allowlist, so a new category needs no migration); theme = the existing `Template`/`TemplateVersion` rows. No separate commerce models per category. | Implemented (migration `phase9a_business_category`) |
+| D9A-2 | Backfill by inferred category from the current template key (best effort, editable). Category starter text is applied **only at creation**; changing the category never modifies pages, sections, products, categories, settings, colors or typography. | Implemented |
+| D9A-3 | The category is store metadata: changing it is an atomic owner-scoped compare-and-set that does **not** increment `draftRevision` (the renderer does not read it), writes nothing for a no-op and reports concurrent changes as `ConflictError`. | Implemented |
+| D9A-4 | Themes are pure `ThemeDefinition` + React `TemplateModule`; every theme must implement all core sections. Version 1 seeds and stores of general/coffee/fashion stay valid; coffee and fashion version 1 gain real renderers. Theme versions stay immutable. | Implemented |
+| D9A-5 | Section **definition registry**: core types in the core, theme-specific types namespaced by theme (`coffee.openingHours`, `fashion.sizeGuide`). Validation of persisted JSON is global and independent of the active theme. | Implemented |
+| D9A-6 | Three section states: active, **dormant** (valid, known, not approved by the active theme: preserved verbatim and in place, never rendered, deletable only by the owner) and invalid (Phase 8 recovery unchanged). Preservation = all keys/values, array and section order and references unchanged (not byte equality). Dormant sections keep participating in media reference protection. | Implemented (changes Phase 8's "not allowed" handling as approved) |
+| D9A-7 | Store creation requires a theme that exists in the database AND in code; the creation form asks for category and theme separately (category only suggests a theme). | Implemented |

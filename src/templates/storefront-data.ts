@@ -2,7 +2,8 @@ import { z } from "zod";
 import { MAX_PRICE_TOMAN } from "@/lib/money";
 import { MEDIA_KEY_RE } from "@/lib/storage/keys";
 import { isCanonicalSlug } from "@/lib/text";
-import { DEFAULT_TYPOGRAPHY, PAGE_TYPES, SECTION_TYPES, sectionPropsSchemas, typographySchema, type Section, type SectionType } from "./sections";
+import { pageSectionSchema, type PageSection } from "./section-parse";
+import { DEFAULT_TYPOGRAPHY, PAGE_TYPES, typographySchema } from "./sections";
 
 /**
  * The ONE data contract a storefront is rendered from.
@@ -42,17 +43,14 @@ export const storefrontStoreSchema = z
   })
   .strict();
 
-const sectionSchemas = SECTION_TYPES.map((type) =>
-  z.object({ id: z.string().min(1).max(40), type: z.literal(type), props: sectionPropsSchemas[type] }).strict(),
-) as unknown as [z.ZodType<Section>, ...z.ZodType<Section>[]];
-
 export const storefrontPageSchema = z
   .object({
     type: z.enum(PAGE_TYPES),
     title: z.string().min(1).max(80),
     slug: z.string().min(1).max(60),
     position: z.number().int().min(0).max(1000),
-    sections: z.array(z.union(sectionSchemas)).max(30),
+    // Any valid section of the global registry (core or theme-specific); validated by its own strict schema.
+    sections: z.array(pageSectionSchema).max(30),
   })
   .strict();
 
@@ -98,9 +96,9 @@ export const storefrontDataSchema = z
   });
 
 export type StorefrontData = z.infer<typeof storefrontDataSchema>;
+export type { PageSection };
 export type StorefrontStore = z.infer<typeof storefrontStoreSchema>;
 export type StorefrontPage = z.infer<typeof storefrontPageSchema>;
 export type StorefrontCategory = z.infer<typeof storefrontCategorySchema>;
 export type StorefrontProduct = z.infer<typeof storefrontProductSchema>;
 
-export type SectionOfType<T extends SectionType> = Extract<Section, { type: T }>;

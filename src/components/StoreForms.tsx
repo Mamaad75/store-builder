@@ -15,30 +15,85 @@ import ColorField from "@/components/ColorField";
 import {
   createStoreAction,
   deleteStoreAction,
+  updateBusinessCategoryAction,
   updateStoreAction,
   type StoreFormState,
 } from "@/app/dashboard/actions";
 
 const fe = (s: StoreFormState, k: string) => s.fieldErrors?.[k]?.[0];
 
-export function CreateStoreForm({ templates }: { templates: { key: string; name: string }[] }) {
+interface ThemeOption {
+  key: string;
+  name: string;
+  description: string;
+}
+
+/**
+ * Two independent choices: what the merchant SELLS (business category: label + starter text) and the VISUAL THEME.
+ * Choosing a category only suggests a theme; any combination can be created.
+ */
+export function CreateStoreForm({ templates, categories }: { templates: ThemeOption[]; categories: { key: string; name: string; description: string; suggestedThemes: string[] }[] }) {
   const [state, action, pending] = useActionState(createStoreAction, {});
-  const [selected, setSelected] = useState(templates[0]?.key ?? "");
+  const [category, setCategory] = useState(categories[0]?.key ?? "general");
+  const [theme, setTheme] = useState(() => {
+    const first = categories[0]?.suggestedThemes.find((k) => templates.some((t) => t.key === k));
+    return first ?? templates[0]?.key ?? "";
+  });
+  const pickCategory = (key: string) => {
+    setCategory(key);
+    const suggested = categories.find((c) => c.key === key)?.suggestedThemes.find((k) => templates.some((t) => t.key === k));
+    if (suggested) setTheme(suggested);
+  };
+  const choice = (selected: boolean) => ({ borderColor: selected ? "primary.main" : "divider", borderWidth: 2 });
   return (
     <form action={action}>
       <Stack spacing={3}>
         {state.error && <Alert severity="error">{state.error}</Alert>}
         <TextField name="name" label="نام فروشگاه" required error={!!fe(state, "name")} helperText={fe(state, "name")} />
-        <Box>
-          <Typography sx={{ mb: 1, fontWeight: 600 }}>قالب فروشگاه</Typography>
-          <input type="hidden" name="templateKey" value={selected} />
+        <Box component="fieldset" sx={{ border: 0, p: 0, m: 0 }}>
+          <Typography component="legend" sx={{ mb: 0.5, fontWeight: 600 }}>
+            چه چیزی می‌فروشید؟
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            فقط متن اولیهٔ فروشگاه را تعیین می‌کند و بعداً قابل تغییر است.
+          </Typography>
+          <input type="hidden" name="businessCategory" value={category} />
+          <Grid container spacing={2}>
+            {categories.map((c) => (
+              <Grid key={c.key} size={{ xs: 12, sm: 6, md: 3 }}>
+                <Card variant="outlined" sx={choice(category === c.key)} data-category-key={c.key}>
+                  <CardActionArea onClick={() => pickCategory(c.key)} aria-pressed={category === c.key}>
+                    <CardContent>
+                      <Typography sx={{ fontWeight: 700 }}>{c.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {c.description}
+                      </Typography>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          {fe(state, "businessCategory") && <Alert severity="error" sx={{ mt: 1 }}>{fe(state, "businessCategory")}</Alert>}
+        </Box>
+        <Box component="fieldset" sx={{ border: 0, p: 0, m: 0 }}>
+          <Typography component="legend" sx={{ mb: 0.5, fontWeight: 600 }}>
+            ظاهر فروشگاه (قالب)
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            هر قالب با هر نوع فروشگاهی کار می‌کند.
+          </Typography>
+          <input type="hidden" name="templateKey" value={theme} />
           <Grid container spacing={2}>
             {templates.map((t) => (
               <Grid key={t.key} size={{ xs: 12, sm: 4 }}>
-                <Card variant="outlined" sx={{ borderColor: selected === t.key ? "primary.main" : "divider", borderWidth: 2 }}>
-                  <CardActionArea onClick={() => setSelected(t.key)} aria-pressed={selected === t.key}>
+                <Card variant="outlined" sx={choice(theme === t.key)} data-theme-key={t.key}>
+                  <CardActionArea onClick={() => setTheme(t.key)} aria-pressed={theme === t.key}>
                     <CardContent>
                       <Typography sx={{ fontWeight: 700 }}>{t.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t.description}
+                      </Typography>
                     </CardContent>
                   </CardActionArea>
                 </Card>
@@ -50,6 +105,41 @@ export function CreateStoreForm({ templates }: { templates: { key: string; name:
         <Button type="submit" variant="contained" size="large" disabled={pending}>
           ساخت فروشگاه
         </Button>
+      </Stack>
+    </form>
+  );
+}
+
+/** Metadata-only change: it does not touch content, colors, typography or products. */
+export function BusinessCategoryForm({ storeId, current, categories }: { storeId: string; current: string; categories: { key: string; name: string }[] }) {
+  const [state, action, pending] = useActionState(updateBusinessCategoryAction, {});
+  const known = categories.some((c) => c.key === current);
+  return (
+    <form action={action}>
+      <input type="hidden" name="storeId" value={storeId} />
+      <input type="hidden" name="expected" value={current} />
+      <Stack spacing={1.5}>
+        <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
+          دسته‌بندی کسب‌وکار
+        </Typography>
+        {state.error && <Alert severity="error">{state.error}</Alert>}
+        {state.success && <Alert severity="success">{state.success}</Alert>}
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { sm: "flex-start" } }}>
+          <TextField select name="businessCategory" label="چه چیزی می‌فروشید؟" defaultValue={current} size="small" sx={{ minWidth: 240 }} slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}>
+            {!known && <option value={current}>{current}</option>}
+            {categories.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.name}
+              </option>
+            ))}
+          </TextField>
+          <Button type="submit" variant="outlined" size="small" disabled={pending}>
+            ذخیرهٔ دسته‌بندی
+          </Button>
+        </Stack>
+        <Typography variant="caption" color="text.secondary">
+          فقط یک برچسب است: صفحه‌ها، محصولات، رنگ‌ها و قالب تغییری نمی‌کنند.
+        </Typography>
       </Stack>
     </form>
   );

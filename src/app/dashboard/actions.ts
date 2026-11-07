@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/modules/auth/session";
 import { ConflictError, NotFoundError, StoreLimitError, ValidationError } from "@/modules/stores/errors";
-import { createStore, deleteStore, updateStore } from "@/modules/stores/service";
+import { createStore, deleteStore, updateBusinessCategory, updateStore } from "@/modules/stores/service";
 
 export interface StoreFormState {
   error?: string;
@@ -36,7 +36,7 @@ export async function createStoreAction(_prev: StoreFormState, fd: FormData): Pr
   const user = await requireUser();
   let id: string;
   try {
-    ({ id } = await createStore(user.id, { name: str(fd, "name"), templateKey: str(fd, "templateKey") }));
+    ({ id } = await createStore(user.id, { name: str(fd, "name"), templateKey: str(fd, "templateKey"), businessCategory: str(fd, "businessCategory") || undefined }));
   } catch (e) {
     return toState(e);
   }
@@ -59,6 +59,19 @@ export async function updateStoreAction(_prev: StoreFormState, fd: FormData): Pr
   }
   revalidatePath("/dashboard");
   return { success: "تغییرات ذخیره شد." };
+}
+
+/** Metadata only: no content change, no draft revision bump (see updateBusinessCategory). */
+export async function updateBusinessCategoryAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
+  const user = await requireUser();
+  const storeId = str(fd, "storeId");
+  try {
+    const r = await updateBusinessCategory(user.id, storeId, { businessCategory: str(fd, "businessCategory"), expected: str(fd, "expected") });
+    revalidatePath(`/dashboard/stores/${encodeURIComponent(storeId)}`);
+    return { success: r.changed ? "دسته‌بندی ذخیره شد." : "تغییری وجود نداشت." };
+  } catch (e) {
+    return toState(e, storeId);
+  }
 }
 
 export async function deleteStoreAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {

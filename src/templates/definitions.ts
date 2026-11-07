@@ -1,10 +1,6 @@
 import { z } from "zod";
-import {
-  pageDefinitionSchema,
-  templateSettingsSchema,
-  type PageDefinition,
-  type TemplateSettingsInput,
-} from "./sections";
+import { pageDefinitionSchema, type PageDefinition } from "./section-parse";
+import { templateSettingsSchema, type TemplateSettingsInput } from "./sections";
 
 export interface TemplateDefinition {
   key: "coffee" | "fashion" | "general";

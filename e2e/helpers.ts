@@ -76,12 +76,19 @@ export async function signUpAndIn(page: Page): Promise<string> {
   return email;
 }
 
-/** Creates a store through the UI and returns its id. */
-export async function createStoreViaUi(page: Page, name: string, templateName?: string): Promise<string> {
+/** Legacy labels used by older specs -> the theme key of the card to click. */
+const THEME_BY_LABEL: Record<string, string> = { "فروشگاه عمومی": "general", "قهوه و مواد غذایی": "coffee", "پوشاک": "fashion" };
+
+/**
+ * Creates a store through the UI and returns its id. `templateName` is a legacy label ("فروشگاه عمومی", ...) or a theme key;
+ * `category` (optional) is a business category key chosen independently of the theme.
+ */
+export async function createStoreViaUi(page: Page, name: string, templateName?: string, category?: string): Promise<string> {
   await page.goto("/dashboard/stores/new");
   await waitForHydration(page, "form:has(input[name=templateKey])");
   await page.fill("input[name=name]", name);
-  if (templateName) await page.getByText(templateName, { exact: true }).click();
+  if (category) await page.locator(`[data-category-key=${category}] button`).click();
+  if (templateName) await page.locator(`[data-theme-key=${THEME_BY_LABEL[templateName] ?? templateName}] button`).click();
   await page.getByRole("button", { name: "ساخت فروشگاه" }).click();
   await page.waitForURL(/\/dashboard\/stores\/(?!new$)[^/]+$/);
   return new URL(page.url()).pathname.split("/").pop()!;

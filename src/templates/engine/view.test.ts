@@ -11,12 +11,12 @@ describe("template registry / version resolution", () => {
     expect(resolveTemplate("general", 1)?.key).toBe("general");
     expect(resolveTemplate("general", 2)).toBeNull();
     expect(resolveTemplate("general", 0)).toBeNull();
-    expect(resolveTemplate("coffee", 1)).toBeNull(); // phase 9
+    expect(resolveTemplate("legacy-demo", 1)).toBeNull(); // a theme no code registers
     expect(resolveTemplate("__proto__", 1)).toBeNull();
     expect(resolveTemplate("constructor", 1)).toBeNull();
   });
   it("lists registered templates", () => {
-    expect(listRegisteredTemplates()).toEqual([{ key: "general", version: 1, name: "عمومی" }]);
+    expect(listRegisteredTemplates().map((t) => `${t.key}@${t.version}`)).toEqual(["general@1", "coffee@1", "fashion@1"]);
   });
 });
 
@@ -27,7 +27,7 @@ describe("buildView", () => {
     if (v.status === "ok") expect(v.template.key).toBe("general");
   });
   it("unsupported template key or version is an explicit outcome, not a fallback", () => {
-    expect(buildView(makeStorefront({ template: { key: "coffee", version: 1 } }), req())).toEqual({ status: "unsupported_template", key: "coffee", version: 1 });
+    expect(buildView(makeStorefront({ template: { key: "legacy-demo", version: 1 } }), req())).toEqual({ status: "unsupported_template", key: "legacy-demo", version: 1 });
     expect(buildView(makeStorefront({ template: { key: "general", version: 9 } }), req())).toEqual({ status: "unsupported_template", key: "general", version: 9 });
   });
   it.each([null, undefined, 5, "x", {}, [], { ...makeStorefront(), pages: "nope" }])("malformed data is invalid_data and never throws (%#)", (raw) => {

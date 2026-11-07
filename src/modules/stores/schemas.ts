@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BUSINESS_CATEGORY_KEY_RE } from "@/lib/business-categories";
 import { TYPOGRAPHY_SIZE_SCALES } from "@/templates/sections";
 
 export const MAX_STORES_PER_USER = 10;
@@ -12,6 +13,8 @@ export const createStoreSchema = z
   .object({
     name,
     templateKey: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
+    /** Optional; when absent a best-effort category is inferred from the theme. Validated against the registry in the service. */
+    businessCategory: z.string().regex(BUSINESS_CATEGORY_KEY_RE, "دسته‌بندی نامعتبر است").optional(),
   })
   .strict();
 
@@ -52,3 +55,11 @@ export const updateStoreSchema = z
 
 export type CreateStoreInput = z.infer<typeof createStoreSchema>;
 export type UpdateStoreInput = z.infer<typeof updateStoreSchema>;
+
+/** Changing the category is store METADATA: it carries the value the form was loaded with (compare-and-set). */
+export const updateBusinessCategorySchema = z
+  .object({
+    businessCategory: z.string().regex(BUSINESS_CATEGORY_KEY_RE, "دسته‌بندی نامعتبر است"),
+    expected: z.string().regex(BUSINESS_CATEGORY_KEY_RE),
+  })
+  .strict();

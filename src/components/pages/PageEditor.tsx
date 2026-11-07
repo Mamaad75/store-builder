@@ -14,9 +14,9 @@ import Typography from "@mui/material/Typography";
 import { pageEditAction, type EditorState } from "@/app/dashboard/pages-actions";
 import { removeSectionImageAction, uploadSectionImageAction } from "@/app/dashboard/media-actions";
 import ImageUploader from "@/components/ImageUploader";
-import { SECTION_LABELS } from "@/templates/section-defaults";
-import { IMAGE_SECTION_TYPES, LINK_TARGETS, SECTION_FIELDS, type FieldSpec } from "@/templates/section-fields";
-import type { Section } from "@/templates/sections";
+import { LINK_TARGETS, type FieldSpec } from "@/templates/section-fields";
+import type { PageSection } from "@/templates/section-parse";
+import { getSectionDefinition } from "@/templates/section-registry";
 
 /** Plain, serialisable view of the page (built on the server). */
 export interface PageEditorProps {
@@ -26,7 +26,9 @@ export interface PageEditorProps {
   revision: number;
   isVisible: boolean;
   canHide: boolean;
-  sections: Section[];
+  sections: PageSection[];
+  /** Valid sections the current theme does not approve: kept in place, not rendered, removable. */
+  dormant: { id: string; type: string; label: string; preview: string }[];
   issues: { index: number; reason: string; preview: string }[];
   archivedCount: number;
   allowed: string[];
@@ -42,7 +44,6 @@ const REASON_LABEL: Record<string, string> = {
   invalid_envelope: "بخش ناقص یا تکراری",
   unsupported_type: "نوع بخش ناشناخته",
   invalid_props: "مقادیر نامعتبر",
-  not_allowed: "این بخش برای قالب فعلی مجاز نیست",
   duplicate_singleton: "نسخهٔ اضافی بخش یگانه",
 };
 
@@ -153,20 +154,25 @@ export default function PageEditor(p: PageEditorProps) {
 
       <Stack spacing={1.5}>
         {p.sections.map((s, i) => {
-          const fields = SECTION_FIELDS[s.type];
+          const def = getSectionDefinition(s.type);
+          if (!def) return null;
+          const fields = def.fields;
+          const label = def.label;
           const required = p.required.includes(s.type) && p.sections.filter((x) => x.type === s.type).length === 1;
-          const imageId = "imageId" in s.props ? s.props.imageId : null;
+          const props = s.props as Record<string, unknown>;
+          const imageId = typeof props.imageId === "string" ? props.imageId : null;
           const img = imageId ? p.imageUrls[imageId] : undefined;
+          const heading = typeof props.title === "string" ? props.title : "";
           const fieldErrors = state.sectionId === s.id ? state.fieldErrors : undefined;
           return (
             <Accordion key={s.id} variant="outlined" disableGutters data-testid="section-card" data-section-type={s.type} defaultExpanded={state.sectionId === s.id && !!state.error}>
-              <AccordionSummary aria-label={`${SECTION_LABELS[s.type]} (${(i + 1).toLocaleString("fa-IR")})`}>
+              <AccordionSummary aria-label={`${label} (${(i + 1).toLocaleString("fa-IR")})`}>
                 <Typography sx={{ fontWeight: 700 }}>
-                  {(i + 1).toLocaleString("fa-IR")}. {SECTION_LABELS[s.type]}
+                  {(i + 1).toLocaleString("fa-IR")}. {label}
                 </Typography>
-                {"title" in s.props && s.props.title && (
+                {heading && (
                   <Typography color="text.secondary" sx={{ mx: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: { xs: 120, sm: 320 } }}>
-                    {s.props.title}
+                    {heading}
                   </Typography>
                 )}
               </AccordionSummary>
@@ -178,7 +184,7 @@ export default function PageEditor(p: PageEditorProps) {
                       <HiddenFields base={hidden} intent="update" sectionId={s.id} />
                       <Stack spacing={2}>
                         {fields.map((f) => (
-                          <Field key={f.name} spec={f} value={(s.props as Record<string, unknown>)[f.name]} error={fieldErrors?.[f.name]?.[0]} />
+                          <Field key={f.name} spec={f} value={props[f.name]} error={fieldErrors?.[f.name]?.[0]} />
                         ))}
                         <Box>
                           <Button type="submit" variant="contained" size="small" disabled={pending || blocked}>
@@ -192,7 +198,7 @@ export default function PageEditor(p: PageEditorProps) {
                       این بخش تنظیم خاصی ندارد.
                     </Typography>
                   )}
-                  {IMAGE_SECTION_TYPES.includes(s.type) && (
+                  {def.image && (
                     <ImageUploader
                       title="تصویر بخش"
                       help="JPEG، PNG یا WebP؛ حداکثر ۵ مگابایت. هر کسی که نشانی تصویر را داشته باشد می‌تواند آن را ببیند."
@@ -207,13 +213,13 @@ export default function PageEditor(p: PageEditorProps) {
                   <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
                     <form action={act}>
                       <HiddenFields base={hidden} intent="up" sectionId={s.id} />
-                      <Button type="submit" size="small" variant="outlined" disabled={pending || blocked || i === 0} aria-label={`بالا بردن ${SECTION_LABELS[s.type]}`}>
+                      <Button type="submit" size="small" variant="outlined" disabled={pending || blocked || i === 0} aria-label={`بالا بردن ${label}`}>
                         ↑ بالا
                       </Button>
                     </form>
                     <form action={act}>
                       <HiddenFields base={hidden} intent="down" sectionId={s.id} />
-                      <Button type="submit" size="small" variant="outlined" disabled={pending || blocked || i === p.sections.length - 1} aria-label={`پایین بردن ${SECTION_LABELS[s.type]}`}>
+                      <Button type="submit" size="small" variant="outlined" disabled={pending || blocked || i === p.sections.length - 1} aria-label={`پایین بردن ${label}`}>
                         ↓ پایین
                       </Button>
                     </form>
@@ -231,6 +237,33 @@ export default function PageEditor(p: PageEditorProps) {
         })}
         {p.sections.length === 0 && !blocked && <Alert severity="info">این صفحه هنوز بخشی ندارد.</Alert>}
       </Stack>
+
+      {p.dormant.length > 0 && (
+        <Paper variant="outlined" sx={{ p: 2 }} data-testid="dormant-panel">
+          <Stack spacing={1.5}>
+            <Typography sx={{ fontWeight: 700 }}>بخش‌های غیرفعال در این قالب ({p.dormant.length.toLocaleString("fa-IR")})</Typography>
+            <Typography variant="body2" color="text.secondary">
+              این بخش‌ها متعلق به قالب دیگری هستند. در فروشگاه نمایش داده نمی‌شوند ولی هیچ‌چیز آن‌ها (متن و تصویر) تغییر یا حذف نشده است و با بازگشت به قالب مناسب دوباره فعال می‌شوند. فقط شما می‌توانید آن‌ها را حذف کنید.
+            </Typography>
+            {p.dormant.map((d) => (
+              <Stack key={d.id} direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: { sm: "center" }, justifyContent: "space-between" }} data-testid="dormant-item" data-section-type={d.type}>
+                <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 600 }}>{d.label}</Typography>
+                  <Box component="pre" dir="ltr" sx={{ m: 0, p: 1, bgcolor: "action.hover", borderRadius: 1, fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-all", maxWidth: "100%" }}>
+                    {d.preview}
+                  </Box>
+                </Stack>
+                <form action={act}>
+                  <HiddenFields base={hidden} intent="removeDormant" sectionId={d.id} />
+                  <Button type="submit" size="small" color="error" disabled={pending || blocked}>
+                    حذف بخش غیرفعال
+                  </Button>
+                </form>
+              </Stack>
+            ))}
+          </Stack>
+        </Paper>
+      )}
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <form action={act}>
@@ -250,7 +283,7 @@ export default function PageEditor(p: PageEditorProps) {
               <option value="">انتخاب کنید…</option>
               {addable.map((t) => (
                 <option key={t} value={t}>
-                  {SECTION_LABELS[t as Section["type"]]}
+                  {getSectionDefinition(t)?.label ?? t}
                 </option>
               ))}
             </TextField>

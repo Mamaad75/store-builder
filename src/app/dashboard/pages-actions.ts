@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/modules/auth/session";
 import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } from "@/modules/pages/errors";
 import { appearanceUrl, pagesUrl } from "@/modules/pages/urls";
-import { addSection, getPageEditor, moveSection, recoverPage, removeSection, setPageVisibility, updateSection } from "@/modules/pages/service";
+import { addSection, getPageEditor, moveSection, recoverPage, removeDormantSection, removeSection, setPageVisibility, updateSection } from "@/modules/pages/service";
 import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { updateStore } from "@/modules/stores/service";
-import { propsFromForm } from "@/templates/section-fields";
+import { propsFromFields } from "@/templates/section-fields";
+import { getSectionDefinition } from "@/templates/section-registry";
 
 export interface EditorState {
   error?: string;
@@ -65,7 +66,9 @@ export async function pageEditAction(_prev: EditorState, fd: FormData): Promise<
         const view = await getPageEditor(user.id, storeId, pageType);
         const current = view.sections.find((s) => s.id === sectionId);
         if (!current) throw new NotFoundError();
-        const props = propsFromForm(current.type, (name) => (fd.has(`f_${name}`) ? str(fd, `f_${name}`) : null));
+        const def = getSectionDefinition(current.type);
+        if (!def) throw new NotFoundError();
+        const props = propsFromFields(def.fields, (name) => (fd.has(`f_${name}`) ? str(fd, `f_${name}`) : null));
         ({ changed } = await updateSection(user.id, storeId, pageType, sectionId, props, expected));
         message = "بخش ذخیره شد.";
         break;
@@ -73,6 +76,10 @@ export async function pageEditAction(_prev: EditorState, fd: FormData): Promise<
       case "remove":
         ({ changed } = await removeSection(user.id, storeId, pageType, sectionId, expected));
         message = "بخش حذف شد.";
+        break;
+      case "removeDormant":
+        ({ changed } = await removeDormantSection(user.id, storeId, pageType, sectionId, expected));
+        message = "بخش غیرفعال حذف شد.";
         break;
       case "up":
       case "down":

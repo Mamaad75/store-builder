@@ -55,75 +55,6 @@ export type SectionProps<T extends SectionType> = z.infer<(typeof sectionPropsSc
 /** A validated section: `props` has the exact type for its `type`. */
 export type Section = { [T in SectionType]: { id: string; type: T; props: SectionProps<T> } }[SectionType];
 
-const sectionIdSchema = z.string().min(1).max(40);
-
-/** Persisted-JSON envelope. Props are validated against the schema of their type. */
-export const sectionEnvelopeSchema = z
-  .object({
-    id: sectionIdSchema,
-    type: z.enum(SECTION_TYPES),
-    props: z.record(z.string(), z.unknown()),
-  })
-  .superRefine((section, ctx) => {
-    const r = sectionPropsSchemas[section.type].safeParse(section.props);
-    if (!r.success) {
-      for (const issue of r.error.issues) ctx.addIssue({ code: "custom", path: ["props", ...issue.path], message: issue.message });
-    }
-  });
-
-export type SectionIssueReason = "not_an_array" | "invalid_envelope" | "unsupported_type" | "invalid_props";
-
-export interface SectionIssue {
-  index: number;
-  id?: string;
-  type?: string;
-  reason: SectionIssueReason;
-}
-
-export type ParsedSection = { ok: true; section: Section } | { ok: false; issue: Omit<SectionIssue, "index"> };
-
-/** Validates ONE persisted section. Never throws, whatever the input is. */
-export function parseSection(raw: unknown): ParsedSection {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return { ok: false, issue: { reason: "invalid_envelope" } };
-  const { id, type, props } = raw as Record<string, unknown>;
-  const idr = sectionIdSchema.safeParse(id);
-  if (!idr.success || typeof type !== "string") return { ok: false, issue: { reason: "invalid_envelope" } };
-  if (!(SECTION_TYPES as readonly string[]).includes(type)) return { ok: false, issue: { reason: "unsupported_type", id: idr.data, type } };
-  const t = type as SectionType;
-  if (typeof props !== "object" || props === null || Array.isArray(props)) return { ok: false, issue: { reason: "invalid_props", id: idr.data, type } };
-  const pr = sectionPropsSchemas[t].safeParse(props);
-  if (!pr.success) return { ok: false, issue: { reason: "invalid_props", id: idr.data, type } };
-  return { ok: true, section: { id: idr.data, type: t, props: pr.data } as Section };
-}
-
-/**
- * Validates a persisted `sections` array. Invalid sections are SKIPPED (and reported as issues); the
- * stored data is never modified or deleted by rendering.
- */
-export function parseSections(raw: unknown): { sections: Section[]; issues: SectionIssue[] } {
-  if (!Array.isArray(raw)) return { sections: [], issues: [{ index: -1, reason: "not_an_array" }] };
-  const sections: Section[] = [];
-  const issues: SectionIssue[] = [];
-  const seen = new Set<string>();
-  raw.forEach((item, index) => {
-    const r = parseSection(item);
-    if (!r.ok) issues.push({ index, ...r.issue });
-    else if (seen.has(r.section.id)) issues.push({ index, id: r.section.id, type: r.section.type, reason: "invalid_envelope" });
-    else {
-      seen.add(r.section.id);
-      sections.push(r.section);
-    }
-  });
-  return { sections, issues };
-}
-
-export const pageDefinitionSchema = z.object({
-  type: z.enum(PAGE_TYPES),
-  title: z.string().min(1).max(80),
-  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(60),
-  sections: z.array(sectionEnvelopeSchema),
-});
-
 /**
  * Typography is a closed set of choices: the font family is fixed (Vazirmatn, bundled with the app) and sizes/weights come
  * from explicit allow-lists. There is deliberately no free-form family, URL or CSS value anywhere.
@@ -156,7 +87,6 @@ export const templateSettingsSchema = z.object({
   typography: typographySchema.default(DEFAULT_TYPOGRAPHY),
 });
 
-export type PageDefinition = z.infer<typeof pageDefinitionSchema>;
 export type TemplateSettings = z.infer<typeof templateSettingsSchema>;
 /** Settings as written by a seed/definition (typography optional). */
 export type TemplateSettingsInput = z.input<typeof templateSettingsSchema>;

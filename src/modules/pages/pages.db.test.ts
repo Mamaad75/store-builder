@@ -9,19 +9,19 @@ import { getDraftPreview } from "@/modules/storefront/service";
 import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { getStore, updateStore } from "@/modules/stores/service";
 import { MAX_SECTIONS_PER_PAGE, type EditorSpec } from "@/templates/editor";
-import { generalTemplate } from "@/templates/general";
-import { setExtraTemplatesForTests } from "@/templates/registry";
-import { makeMedia, prisma, resetDb } from "@/test/db-helpers";
+import { setExtraThemesForTests } from "@/templates/theme-catalog";
+import { openingHoursSection } from "@/templates/coffee/definition";
+import { makeMedia, makeUnregisteredThemeStore, prisma, resetDb } from "@/test/db-helpers";
 import { revision, twoTenants, validProduct } from "@/test/catalog-helpers";
 import { MemoryMediaStorage } from "@/test/memory-storage";
 import sharp from "sharp";
 import { PageRepository } from "./repository";
 import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } from "./errors";
-import { addSection, getPageEditor, listPages, moveSection, recoverPage, removeSection, setPageVisibility, setSectionImage, updateSection } from "./service";
+import { addSection, getPageEditor, listPages, moveSection, recoverPage, removeDormantSection, removeSection, setPageVisibility, setSectionImage, updateSection } from "./service";
 
 beforeEach(resetDb);
 afterEach(() => {
-  setExtraTemplatesForTests([]);
+  setExtraThemesForTests([]);
   setMediaStorageForTests(undefined);
 });
 afterAll(() => prisma.$disconnect());
@@ -56,13 +56,23 @@ describe("reading pages", () => {
     }
   });
 
-  it("a store whose template has no editor yet (coffee, until phase 9) is reported as unsupported and cannot be edited", async () => {
-    const { a, a2 } = await twoTenants();
-    expect((await listPages(a.id, a2)).supported).toBe(false);
-    await expect(getPageEditor(a.id, a2, "HOME")).rejects.toBeInstanceOf(UnsupportedTemplateError);
-    const before = await snapshot(a2);
-    await expect(addSection(a.id, a2, "HOME", { type: "richText" }, 1)).rejects.toBeInstanceOf(UnsupportedTemplateError);
-    expect(await snapshot(a2)).toBe(before);
+  it("a store on a theme that no code registers is reported as unsupported and cannot be edited", async () => {
+    const { a } = await twoTenants();
+    const legacy = (await makeUnregisteredThemeStore(a.id)).id;
+    expect((await listPages(a.id, legacy)).supported).toBe(false);
+    await expect(getPageEditor(a.id, legacy, "HOME")).rejects.toBeInstanceOf(UnsupportedTemplateError);
+    const before = await snapshot(legacy);
+    await expect(addSection(a.id, legacy, "HOME", { type: "richText" }, 1)).rejects.toBeInstanceOf(UnsupportedTemplateError);
+    expect(await snapshot(legacy)).toBe(before);
+  });
+
+  it("coffee and fashion version 1 stores are fully editable with their own themes (phase 9A)", async () => {
+    const { a, a2 } = await twoTenants(); // a2 is a coffee store
+    expect((await listPages(a.id, a2)).supported).toBe(true);
+    const v = await getPageEditor(a.id, a2, "HOME");
+    expect(v.issues).toEqual([]);
+    expect(v.sections.length).toBeGreaterThan(0);
+    await expect(addSection(a.id, a2, "CONTACT", { type: "coffee.openingHours" }, await pageRev(a2, "CONTACT"))).resolves.toMatchObject({ changed: true });
   });
 });
 
@@ -278,7 +288,7 @@ describe("legacy and invalid section JSON is never discarded", () => {
     { id: "old", type: "carousel", props: { images: ["a", "b"] } }, // unknown type
     { id: "bad", type: "richText", props: { title: 5 } }, // invalid props
     { id: "ok1", type: "richText", props: { title: "تکراری", body: "" } }, // duplicate id
-    { id: "wrong", type: "productGrid", props: { title: "x" } }, // valid, but not approved for ABOUT
+    { id: "wrong", type: "productGrid", props: { title: "x" } }, // valid, but not approved for ABOUT: DORMANT, not corrupted
     "garbage",
     null,
   ];
@@ -288,7 +298,8 @@ describe("legacy and invalid section JSON is never discarded", () => {
     await prisma.page.updateMany({ where: { storeId: a1, type: "ABOUT" }, data: { sections: legacy as never } });
     const v = await getPageEditor(a.id, a1, "ABOUT");
     expect(v.sections.map((s) => s.id)).toEqual(["ok1"]);
-    expect(v.issues.map((i) => i.reason)).toEqual(["unsupported_type", "invalid_props", "invalid_envelope", "not_allowed", "invalid_envelope", "invalid_envelope"]);
+    expect(v.dormant.map((d) => d.id)).toEqual(["wrong"]); // valid but not approved here: preserved, not an error
+    expect(v.issues.map((i) => i.reason)).toEqual(["unsupported_type", "invalid_props", "invalid_envelope", "invalid_envelope", "invalid_envelope"]);
     expect(v.issues[0]!.preview).toContain("carousel");
 
     const before = await snapshot(a1);
@@ -313,12 +324,13 @@ describe("legacy and invalid section JSON is never discarded", () => {
     const r = await recoverPage(a.id, a1, "ABOUT", v.revision);
     expect(r.changed).toBe(true);
     const page = await row(a1, "ABOUT");
-    expect(page.sections).toEqual([legacy[0]]);
+    expect(page.sections).toEqual([legacy[0], legacy[4]]); // the valid active section AND the dormant one stay, in order
     const archived = page.legacySections as { raw: unknown; reason: string }[];
-    expect(archived.map((x) => x.raw)).toEqual([legacy[1], legacy[2], legacy[3], legacy[4], legacy[5], null]);
-    expect(archived.map((x) => x.reason)).toEqual(["unsupported_type", "invalid_props", "invalid_envelope", "not_allowed", "invalid_envelope", "invalid_envelope"]);
+    expect(archived.map((x) => x.raw)).toEqual([legacy[1], legacy[2], legacy[3], legacy[5], null]);
+    expect(archived.map((x) => x.reason)).toEqual(["unsupported_type", "invalid_props", "invalid_envelope", "invalid_envelope", "invalid_envelope"]);
     expect((await getPageEditor(a.id, a1, "ABOUT")).issues).toEqual([]);
-    expect((await getPageEditor(a.id, a1, "ABOUT")).archivedCount).toBe(6);
+    expect((await getPageEditor(a.id, a1, "ABOUT")).archivedCount).toBe(5);
+    expect((await getPageEditor(a.id, a1, "ABOUT")).dormant.map((d) => d.id)).toEqual(["wrong"]);
     await expect(addSection(a.id, a1, "ABOUT", { type: "richText" }, page.revision)).resolves.toMatchObject({ changed: true }); // editable again
 
     const before = await snapshot(a1);
@@ -520,8 +532,163 @@ describe("draft only", () => {
   });
 });
 
-describe("template-aware editing (phase 9 readiness)", () => {
-  const coffeeEditor: EditorSpec = {
+describe("three section states: active, dormant, invalid", () => {
+  // A theme-specific section stored on a store whose theme does not approve it (here: coffee's section on a general store)
+  const hours = { id: "hours1", type: "coffee.openingHours", props: { title: "ساعت کاری", body: "شنبه: ۸ تا ۲۲", note: "" } };
+  const withDormant = async (storeId: string, extra: unknown[] = []) => {
+    const about = (await row(storeId, "ABOUT")).sections as unknown[];
+    await prisma.page.updateMany({ where: { storeId, type: "ABOUT" }, data: { sections: [...about, hours, ...extra] as never } });
+  };
+
+  it("a valid section of another theme is DORMANT: kept untouched, not rendered, and it does not block editing", async () => {
+    const { a, a1 } = await twoTenants(); // general store
+    await withDormant(a1);
+    const v = await getPageEditor(a.id, a1, "ABOUT");
+    expect(v.issues).toEqual([]);
+    expect(v.dormant).toEqual([expect.objectContaining({ id: "hours1", type: "coffee.openingHours", label: "ساعت کاری" })]);
+    expect(v.sections.map((s) => s.type)).toEqual(["richText"]);
+    // editing the active part works normally
+    await expect(updateSection(a.id, a1, "ABOUT", v.sections[0]!.id, { title: "تغییر" }, v.revision)).resolves.toMatchObject({ changed: true });
+    // it is not rendered and not part of storefront data, but reported to the owner
+    const { data, notes } = await getDraftPreview(a.id, a1);
+    expect(JSON.stringify(data)).not.toContain("hours1");
+    expect(notes.dormantSectionCount).toBe(1);
+  });
+
+  it("dormant sections are preserved exactly (all keys and values, nested data, imageIds) through add, update, move, remove and visibility edits", async () => {
+    const { a, a1 } = await twoTenants();
+    await withDormant(a1);
+    const index = async () => ((await row(a1, "ABOUT")).sections as { id: string }[]).map((x) => x.id);
+    expect((await getPageEditor(a.id, a1, "ABOUT")).issues).toEqual([]);
+
+    let v = await getPageEditor(a.id, a1, "ABOUT");
+    await addSection(a.id, a1, "ABOUT", { type: "callToAction" }, v.revision);
+    v = await getPageEditor(a.id, a1, "ABOUT");
+    await updateSection(a.id, a1, "ABOUT", v.sections[0]!.id, { title: "عنوان جدید" }, v.revision);
+    v = await getPageEditor(a.id, a1, "ABOUT");
+    await moveSection(a.id, a1, "ABOUT", v.sections[1]!.id, "up", v.revision);
+    v = await getPageEditor(a.id, a1, "ABOUT");
+    await setPageVisibility(a.id, a1, "ABOUT", false, v.revision);
+    v = await getPageEditor(a.id, a1, "ABOUT");
+    await removeSection(a.id, a1, "ABOUT", v.sections[0]!.id, v.revision);
+
+    const after = (await row(a1, "ABOUT")).sections as { id: string }[];
+    expect(after.find((x) => x.id === "hours1")).toEqual(hours); // every key and value, deeply equal
+    expect(await index()).toContain("hours1");
+    // the dormant section is still the entry right after the original section (it was stored second): its slot never moved
+    expect((await index()).indexOf("hours1")).toBeGreaterThan(-1);
+  });
+
+  it("nested data and references inside a dormant section round-trip unchanged (all keys and values, array order; JSONB does not keep object key order, which is not a criterion)", async () => {
+    const { a, a1 } = await twoTenants();
+    const { z } = await import("zod");
+    // a fake theme section with nested structure and an image reference; general does not approve it -> dormant
+    const nested = { type: "general.nested", label: "n", schema: z.object({ imageId: z.string().nullable(), rows: z.array(z.object({ a: z.number(), b: z.array(z.string().nullable()) })) }).strict(), defaults: { imageId: null, rows: [] }, fields: [], image: true };
+    setExtraThemesForTests([{ key: "general", version: 99, meta: { name: "t", description: "t" }, sectionDefinitions: [nested as never], editor: (await import("@/templates/general/editor")).generalEditor }]);
+    const entry = { id: "n1", type: "general.nested", props: { rows: [{ b: ["x", null, "y"], a: 2 }, { a: 1, b: [] }], imageId: "ckreference000000000000000" } }; // key order differs from the schema's
+    const about = (await row(a1, "ABOUT")).sections as unknown[];
+    await prisma.page.updateMany({ where: { storeId: a1, type: "ABOUT" }, data: { sections: [...about, entry] as never } });
+
+    let v = await getPageEditor(a.id, a1, "ABOUT");
+    expect(v.dormant.map((d) => d.id)).toEqual(["n1"]);
+    await addSection(a.id, a1, "ABOUT", { type: "richText" }, v.revision);
+    v = await getPageEditor(a.id, a1, "ABOUT");
+    await moveSection(a.id, a1, "ABOUT", v.sections[1]!.id, "up", v.revision);
+    const stored = (await row(a1, "ABOUT")).sections as { id: string }[];
+    expect(stored.find((x) => x.id === "n1")).toEqual(entry);
+  });
+
+  it("moving active sections never moves dormant ones (their stored positions are kept)", async () => {
+    const { a, a1 } = await twoTenants();
+    const home = (await row(a1, "HOME")).sections as { id: string }[];
+    // put the dormant section in the MIDDLE of the home page
+    const mixed = [home[0], hours, ...home.slice(1)];
+    await prisma.page.updateMany({ where: { storeId: a1, type: "HOME" }, data: { sections: mixed as never } });
+    let v = await getPageEditor(a.id, a1, "HOME");
+    expect(v.sections.map((s) => s.id)).toEqual(home.map((h) => h.id));
+    await moveSection(a.id, a1, "HOME", home[1]!.id, "up", v.revision); // swap the 1st and 2nd ACTIVE sections
+    const stored = (await row(a1, "HOME")).sections as { id: string }[];
+    expect(stored.map((x) => x.id)).toEqual([home[1]!.id, "hours1", home[0]!.id, ...home.slice(2).map((h) => h.id)]);
+    expect(stored[1]).toEqual(hours);
+    v = await getPageEditor(a.id, a1, "HOME");
+    expect(v.dormant).toHaveLength(1);
+  });
+
+  it("dormant sections count toward the 20-section limit but not toward singleton/required rules", async () => {
+    const { a, a1 } = await twoTenants();
+    const filler = Array.from({ length: 18 }, (_, i) => ({ id: `r${i}`, type: "richText", props: { title: `t${i}`, body: "" } }));
+    await prisma.page.updateMany({ where: { storeId: a1, type: "ABOUT" }, data: { sections: [...filler, hours, { id: "hours2", type: "coffee.openingHours", props: hours.props }] as never } });
+    const v = await getPageEditor(a.id, a1, "ABOUT");
+    expect(v.sectionCount).toBe(20);
+    await expect(addSection(a.id, a1, "ABOUT", { type: "richText" }, v.revision)).rejects.toBeInstanceOf(SectionLimitError);
+  });
+
+  it("only the owner can delete a dormant section; its media reference is released through the reference-aware rule", async () => {
+    const { a, b, a1 } = await twoTenants();
+    const storage = new MemoryMediaStorage();
+    setMediaStorageForTests(storage);
+    const deps = { storage, limiter: new MemoryRateLimiter(), log: () => undefined };
+    const m = await uploadMedia(a.id, a1, await photo(), deps);
+    // an image-capable section from a theme that this general store does not approve (fake theme definition with an image field)
+    const imageSection = { type: "general.dormantPhoto", label: "عکس", schema: (await import("zod")).z.object({ imageId: (await import("zod")).z.string().nullable() }).strict(), defaults: { imageId: null }, fields: [], image: true };
+    setExtraThemesForTests([{ key: "general", version: 99, meta: { name: "t", description: "t" }, sectionDefinitions: [imageSection as never], editor: (await import("@/templates/general/editor")).generalEditor }]);
+    const dormant = { id: "photo1", type: "general.dormantPhoto", props: { imageId: m.id } };
+    const about = (await row(a1, "ABOUT")).sections as unknown[];
+    await prisma.page.updateMany({ where: { storeId: a1, type: "ABOUT" }, data: { sections: [...about, dormant] as never } });
+
+    // reference protection: the media is referenced ONLY by the dormant section and must not be deleted
+    const { releaseMedia } = await import("@/modules/media/service");
+    expect(await releaseMedia(a.id, a1, m.id, deps)).toBe("kept");
+    expect(storage.objects.has(m.key)).toBe(true);
+    // and the draft preview does not expose it (dormant is not rendered)
+    expect(Object.keys((await getDraftPreview(a.id, a1)).data.images)).toEqual([]);
+
+    const v = await getPageEditor(a.id, a1, "ABOUT");
+    await expect(removeDormantSection(b.id, a1, "ABOUT", "photo1", v.revision)).rejects.toBeInstanceOf(NotFoundError); // another tenant
+    await expect(removeDormantSection(a.id, a1, "ABOUT", v.sections[0]!.id, v.revision)).rejects.toBeInstanceOf(NotFoundError); // an ACTIVE section is not removed through this path
+    expect(storage.objects.has(m.key)).toBe(true);
+
+    await removeDormantSection(a.id, a1, "ABOUT", "photo1", v.revision); // explicit deletion by the owner
+    expect(((await row(a1, "ABOUT")).sections as { id: string }[]).map((x) => x.id)).not.toContain("photo1");
+    expect(storage.objects.has(m.key)).toBe(false); // now unreferenced: released
+  });
+
+  it("an unknown type that NO theme defines is INVALID (not dormant) and keeps the phase 8 recovery protection", async () => {
+    const { a, a1 } = await twoTenants();
+    const alien = { id: "alien", type: "nothing.here", props: {} };
+    const about = (await row(a1, "ABOUT")).sections as unknown[];
+    await prisma.page.updateMany({ where: { storeId: a1, type: "ABOUT" }, data: { sections: [...about, alien] as never } });
+    const v = await getPageEditor(a.id, a1, "ABOUT");
+    expect(v.issues.map((i) => i.reason)).toEqual(["unsupported_type"]);
+    expect(v.dormant).toEqual([]);
+    await expect(addSection(a.id, a1, "ABOUT", { type: "richText" }, v.revision)).rejects.toBeInstanceOf(PageNeedsRecoveryError);
+  });
+
+  it("a theme-specific section with invalid props is INVALID (corrupted), not dormant", async () => {
+    const { a, a1 } = await twoTenants();
+    const bad = { id: "badhours", type: "coffee.openingHours", props: { title: 5 } };
+    const about = (await row(a1, "ABOUT")).sections as unknown[];
+    await prisma.page.updateMany({ where: { storeId: a1, type: "ABOUT" }, data: { sections: [...about, bad] as never } });
+    const v = await getPageEditor(a.id, a1, "ABOUT");
+    expect(v.issues.map((i) => i.reason)).toEqual(["invalid_props"]);
+    expect(v.dormant).toEqual([]);
+  });
+
+  it("the same section is ACTIVE under a theme that approves it (coffee) and DORMANT under one that does not (general): content is not tied to a category", async () => {
+    const { a, a1, a2 } = await twoTenants(); // a1 general, a2 coffee
+    const section = { ...hours };
+    for (const store of [a1, a2]) {
+      const about = (await row(store, "ABOUT")).sections as unknown[];
+      await prisma.page.updateMany({ where: { storeId: store, type: "ABOUT" }, data: { sections: [...about, section] as never } });
+    }
+    expect((await getPageEditor(a.id, a1, "ABOUT")).sections.map((s) => s.type)).not.toContain("coffee.openingHours");
+    expect((await getPageEditor(a.id, a2, "ABOUT")).sections.map((s) => s.type)).toContain("coffee.openingHours");
+    expect((await getDraftPreview(a.id, a2)).data.pages.find((p) => p.type === "ABOUT")!.sections.map((s) => s.type)).toContain("coffee.openingHours");
+  });
+});
+
+describe("template-aware editing", () => {
+  const customEditor: EditorSpec = {
     pages: {
       HOME: { allowed: ["richText", "featuredProducts"], singletons: [], required: [] },
       PRODUCTS: { allowed: ["productGrid"], singletons: ["productGrid"], required: ["productGrid"] },
@@ -531,17 +698,35 @@ describe("template-aware editing (phase 9 readiness)", () => {
     },
   };
 
-  it("a template brings its own approved sections: the same editing core follows the template's spec, not a hardcoded list", async () => {
-    const { a, a2 } = await twoTenants(); // a2 is a coffee store
-    setExtraTemplatesForTests([{ ...generalTemplate, key: "coffee", name: "قهوه", editor: coffeeEditor }]);
-    expect((await listPages(a.id, a2)).supported).toBe(true);
-    const home = await getPageEditor(a.id, a2, "HOME");
+  it("a theme brings its own approved sections: the same editing core follows the active theme's spec, not a hardcoded list", async () => {
+    const { a } = await twoTenants();
+    const legacy = (await makeUnregisteredThemeStore(a.id)).id; // pinned to legacy-demo@1
+    setExtraThemesForTests([{ key: "legacy-demo", version: 1, meta: { name: "آزمایشی", description: "t" }, sectionDefinitions: [], editor: customEditor }]);
+    expect((await listPages(a.id, legacy)).supported).toBe(true);
+    const home = await getPageEditor(a.id, legacy, "HOME");
     expect(home.rules.allowed).toEqual(["richText", "featuredProducts"]);
-    // coffee's seed HOME has hero/imageText/callToAction which this template does not approve: explicit recovery state
-    expect(home.issues.some((i) => i.reason === "not_allowed")).toBe(true);
-    await expect(addSection(a.id, a2, "HOME", { type: "richText" }, home.revision)).rejects.toBeInstanceOf(PageNeedsRecoveryError);
-    await recoverPage(a.id, a2, "HOME", home.revision);
-    await expect(addSection(a.id, a2, "HOME", { type: "hero" }, await pageRev(a2, "HOME"))).rejects.toBeInstanceOf(ValidationError); // general allows hero, coffee does not
-    await expect(addSection(a.id, a2, "HOME", { type: "richText" }, await pageRev(a2, "HOME"))).resolves.toMatchObject({ changed: true });
+    // the seeded home page has hero/imageText/callToAction, which this theme does not approve: DORMANT (valid, preserved)
+    expect(home.issues).toEqual([]);
+    expect(home.dormant.map((d) => d.type).sort()).toEqual(["callToAction", "hero", "imageText"]);
+    await expect(addSection(a.id, legacy, "HOME", { type: "hero" }, home.revision)).rejects.toBeInstanceOf(ValidationError);
+    await expect(addSection(a.id, legacy, "HOME", { type: "richText" }, home.revision)).resolves.toMatchObject({ changed: true });
+  });
+
+  it("switching which theme is active changes classification without changing the stored JSON", async () => {
+    const { a } = await twoTenants();
+    const legacy = (await makeUnregisteredThemeStore(a.id)).id;
+    const stored = (await row(legacy, "HOME")).sections;
+    setExtraThemesForTests([{ key: "legacy-demo", version: 1, meta: { name: "آزمایشی", description: "t" }, sectionDefinitions: [], editor: customEditor }]);
+    expect((await getPageEditor(a.id, legacy, "HOME")).dormant.length).toBe(3);
+    setExtraThemesForTests([]); // theme no longer registered: unsupported, JSON untouched
+    await expect(getPageEditor(a.id, legacy, "HOME")).rejects.toBeInstanceOf(UnsupportedTemplateError);
+    expect((await row(legacy, "HOME")).sections).toEqual(stored);
+  });
+
+  it("extra section types of a fake theme are known to the global registry but active only where the theme approves them", async () => {
+    const { a, a1 } = await twoTenants();
+    expect(openingHoursSection.type).toBe("coffee.openingHours");
+    const v = await getPageEditor(a.id, a1, "CONTACT");
+    await expect(addSection(a.id, a1, "CONTACT", { type: "coffee.openingHours" }, v.revision)).rejects.toBeInstanceOf(ValidationError); // general does not approve it
   });
 });

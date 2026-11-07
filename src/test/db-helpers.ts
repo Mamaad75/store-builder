@@ -37,3 +37,27 @@ export async function publishStore(storeId: string) {
     return tx.store.update({ where: { id: storeId }, data: { status: "PUBLISHED", publishedVersionId: v.id, publishedAt: new Date() } });
   });
 }
+
+/**
+ * A store pinned to a theme version that no code registers (a "retired" theme): used to prove that unsupported themes
+ * fail safely. Pages and settings are copied from the general seed.
+ */
+export async function makeUnregisteredThemeStore(ownerId: string, name = "Legacy shop") {
+  const general = await prisma.templateVersion.findFirstOrThrow({ where: { template: { key: "general" } } });
+  const template = await prisma.template.upsert({ where: { key: "legacy-demo" }, create: { key: "legacy-demo", name: "Legacy" }, update: {} });
+  const tv = await prisma.templateVersion.upsert({
+    where: { templateId_version: { templateId: template.id, version: 1 } },
+    create: { templateId: template.id, version: 1, defaultSettings: general.defaultSettings as never, defaultPages: general.defaultPages as never },
+    update: {},
+  });
+  const pages = general.defaultPages as { type: string; title: string; slug: string; sections: unknown }[];
+  return prisma.store.create({
+    data: {
+      ownerId,
+      templateVersionId: tv.id,
+      name,
+      settings: general.defaultSettings as never,
+      pages: { create: pages.map((p, i) => ({ type: p.type as never, title: p.title, slug: p.slug, sections: p.sections as never, position: i })) },
+    },
+  });
+}

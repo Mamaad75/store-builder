@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TEMPLATE_DEFINITIONS, templateDefinitionSchema } from "./definitions";
-import { SECTION_TYPES, parseSection, parseSections } from "./sections";
+import { parseSection, parseSections } from "./section-parse";
+import { SECTION_TYPES } from "./sections";
 
 const hero = { id: "h", type: "hero", props: { title: "سلام", subtitle: "", buttonText: "برو", buttonLink: "/products", imageId: null } };
 

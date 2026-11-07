@@ -6,7 +6,8 @@ import Stack from "@mui/material/Stack";
 import { removeStoreLogoAction, uploadStoreLogoAction } from "@/app/dashboard/media-actions";
 import ImageUploader from "@/components/ImageUploader";
 import { mediaPublicUrl } from "@/lib/storage";
-import { DeleteStoreForm, StoreSettingsForm } from "@/components/StoreForms";
+import { BusinessCategoryForm, DeleteStoreForm, StoreSettingsForm } from "@/components/StoreForms";
+import { BUSINESS_CATEGORIES } from "@/lib/business-categories";
 import { requireUser } from "@/modules/auth/session";
 import { NotFoundError } from "@/modules/stores/errors";
 import { getStore } from "@/modules/stores/service";
@@ -37,6 +38,8 @@ export default async function StorePage({ params }: { params: Promise<{ storeId:
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 } }}>
       <Stack spacing={4}>
         <StoreSettingsForm store={{ id: store.id, name: store.name, primaryColor: settings.primaryColor, contact: settings.contact, social: settings.social }} />
+        <Divider />
+        <BusinessCategoryForm storeId={store.id} current={store.businessCategory} categories={BUSINESS_CATEGORIES.map((c) => ({ key: c.key, name: c.name }))} />
         <Divider />
         <ImageUploader
           title="لوگوی فروشگاه"

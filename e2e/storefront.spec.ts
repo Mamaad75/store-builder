@@ -124,9 +124,18 @@ test.describe("draft storefront preview", () => {
     await other.context.close();
   });
 
-  test("a store on a template without a renderer yet gets a friendly explanation, not a crash", async ({ page }) => {
+  test("a store pinned to a theme that no code registers gets a friendly explanation, not a crash", async ({ page }) => {
     await signUpAndIn(page);
-    const storeId = await createStoreViaUi(page, "کافه", "قهوه و مواد غذایی");
+    const storeId = await createStoreViaUi(page, "کافه", "فروشگاه عمومی");
+    // simulate a retired theme: point the store at a version nothing registers
+    const general = await db.templateVersion.findFirstOrThrow({ where: { template: { key: "general" } } });
+    const t = await db.template.upsert({ where: { key: "legacy-demo" }, create: { key: "legacy-demo", name: "Legacy" }, update: {} });
+    const tv = await db.templateVersion.upsert({
+      where: { templateId_version: { templateId: t.id, version: 1 } },
+      create: { templateId: t.id, version: 1, defaultSettings: general.defaultSettings!, defaultPages: general.defaultPages! },
+      update: {},
+    });
+    await db.store.update({ where: { id: storeId }, data: { templateVersionId: tv.id } });
     const res = await page.goto(`/preview/${storeId}`);
     expect(res?.status()).toBe(200);
     await expect(page.getByTestId("preview-unsupported_template")).toContainText("این قالب هنوز پیش‌نمایش ندارد");

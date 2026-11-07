@@ -84,6 +84,9 @@ model Store {
   publishedVersionId String?
   publishedAt        DateTime?
   logoId             String?
+  // What the merchant sells (a label; validated against the application's category registry, NOT a DB allowlist).
+  // Independent of the visual theme (templateVersionId); the renderer never reads it.
+  businessCategory   String      @default("general")
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 

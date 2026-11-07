@@ -64,8 +64,13 @@ export const IMAGE_SECTION_TYPES: readonly SectionType[] = ["hero", "imageText"]
 
 /** Builds the candidate props from a form: whitelisted fields only, text normalised, numbers parsed. Validation happens later. */
 export function propsFromForm(type: SectionType, get: (name: string) => string | null): Record<string, unknown> {
+  return propsFromFields(SECTION_FIELDS[type], get);
+}
+
+/** Same, for any field list (core or theme-specific section definitions). */
+export function propsFromFields(fields: readonly FieldSpec[], get: (name: string) => string | null): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const f of SECTION_FIELDS[type]) {
+  for (const f of fields) {
     const raw = get(f.name);
     if (raw === null) continue;
     out[f.name] = f.kind === "number" ? parseIntegerInput(raw) : f.kind === "link" ? raw.trim() : normalizeFaText(raw);

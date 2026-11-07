@@ -26,7 +26,7 @@ export const SECTION_DEFAULTS: { [T in SectionType]: SectionProps<T> } = {
   callToAction: { title: "عنوان", buttonText: "تماس با ما", buttonLink: "/contact" },
 };
 
-/** Fresh copy; throws if a default ever stops satisfying its schema. */
+/** Fresh copy; throws if a default ever stops satisfying its schema. (Registry-wide variant: `defaultPropsOf` in section-registry.ts.) */
 export function defaultSectionProps<T extends SectionType>(type: T): SectionProps<T> {
   return sectionPropsSchemas[type].parse(structuredClone(SECTION_DEFAULTS[type])) as SectionProps<T>;
 }

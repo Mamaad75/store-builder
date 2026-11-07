@@ -9,6 +9,7 @@ export const storeSelect = {
   name: true,
   status: true,
   settings: true,
+  businessCategory: true,
   draftRevision: true,
   publishedAt: true,
   createdAt: true,
@@ -45,6 +46,25 @@ export class StoreRepository {
 
   find(storeId: string): Promise<StoreView | null> {
     return this.client.store.findFirst({ where: { id: storeId, ownerId: this.ownerId }, select: storeSelect });
+  }
+
+  /**
+   * Compare-and-set of the business category (store METADATA, not draft content): one atomic statement that carries the
+   * owner in its condition and does NOT touch draftRevision (the renderer never reads the category).
+   * Returns "changed", "unchanged" (already the target value), "conflict" (changed by someone else) or "notfound".
+   */
+  async setBusinessCategory(storeId: string, expected: string, next: string): Promise<"changed" | "unchanged" | "conflict" | "notfound"> {
+    // Writing the value that is already there is not a change: no UPDATE, no updatedAt bump.
+    if (expected !== next) {
+      const res = await this.client.store.updateMany({
+        where: { id: storeId, ownerId: this.ownerId, businessCategory: expected },
+        data: { businessCategory: next },
+      });
+      if (res.count === 1) return "changed";
+    }
+    const cur = await this.client.store.findFirst({ where: { id: storeId, ownerId: this.ownerId }, select: { businessCategory: true } });
+    if (!cur) return "notfound";
+    return cur.businessCategory === next ? "unchanged" : "conflict";
   }
 
   /** Optimistic update: succeeds only if the row is still owned by the user and at the expected revision. */
