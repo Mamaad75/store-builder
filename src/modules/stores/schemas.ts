@@ -63,3 +63,11 @@ export const updateBusinessCategorySchema = z
     expected: z.string().regex(BUSINESS_CATEGORY_KEY_RE),
   })
   .strict();
+
+/** Switching the draft's theme: carries the draft revision the compatibility report was computed from. */
+export const switchThemeSchema = z
+  .object({
+    targetKey: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/, "قالب نامعتبر است"),
+    expectedDraftRevision: z.coerce.number().int().min(1).max(2_000_000_000),
+  })
+  .strict();

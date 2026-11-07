@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/modules/auth/session";
 import { ConflictError, NotFoundError, StoreLimitError, ValidationError } from "@/modules/stores/errors";
 import { createStore, deleteStore, updateBusinessCategory, updateStore } from "@/modules/stores/service";
+import { switchTheme, ThemeSwitchBlockedError } from "@/modules/stores/theme-switch";
+import { appearanceUrl } from "@/modules/pages/urls";
 
 export interface StoreFormState {
   error?: string;
@@ -72,6 +74,29 @@ export async function updateBusinessCategoryAction(_prev: StoreFormState, fd: Fo
   } catch (e) {
     return toState(e, storeId);
   }
+}
+
+/**
+ * Draft-only theme switch. The page the owner confirmed on carries the draft revision its compatibility report was
+ * computed from; a stale revision, a blocked report or an unavailable theme is refused without writing anything.
+ */
+export async function switchThemeAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
+  const user = await requireUser();
+  const storeId = str(fd, "storeId");
+  let key: string;
+  try {
+    const r = await switchTheme(user.id, storeId, { targetKey: str(fd, "targetKey"), expectedDraftRevision: str(fd, "expectedDraftRevision") });
+    key = r.theme.key;
+  } catch (e) {
+    if (e instanceof ThemeSwitchBlockedError) {
+      return { error: "تغییر قالب انجام نشد: ابتدا مشکلات سازگاری فهرست‌شده را در قالب فعلی برطرف کنید. هیچ داده‌ای تغییر نکرد." };
+    }
+    if (e instanceof ValidationError) return { error: e.fieldErrors.targetKey?.[0] ?? "قالب انتخاب‌شده معتبر نیست.", fieldErrors: e.fieldErrors };
+    if (e instanceof ConflictError) return { error: "پیش‌نویس پس از بررسی سازگاری تغییر کرده است. بررسی را دوباره انجام دهید." };
+    return toState(e, storeId);
+  }
+  revalidatePath(`/dashboard/stores/${encodeURIComponent(storeId)}`, "layout");
+  redirect(`${appearanceUrl(storeId)}?switched=${encodeURIComponent(key)}`);
 }
 
 export async function deleteStoreAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {

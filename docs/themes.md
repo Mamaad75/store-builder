@@ -46,6 +46,25 @@ Preservation criterion (not byte equality: JSONB does not keep object key order)
 * `fashion.sizeGuide` `{ title, intro, table ("a | b" lines, first line = header), note }` - an accessible table. Approved on products and about.
 All text is rendered as escaped React text.
 
+## Theme switching (9B)
+
+A switch changes **one column**: `Store.templateVersionId` (and bumps `draftRevision`, because the draft renders differently). Nothing else is written - no page, section, product, category, media, setting, snapshot, published pointer or status. The section state (active / dormant / invalid) is *derived* from the stored JSON and the active theme on every read, so "becoming dormant" and "reappearing" need no data change and a round trip cannot lose anything.
+
+* **Compatibility report** (`src/modules/pages/compat.ts`, pure): for every stored entry of every page (hidden pages included) the state under the current and under the target theme is computed with the editor's own `analyzePage`, so the report cannot disagree with what the editor will show. Labels: `stays_active`, `becomes_dormant`, `becomes_active`, `stays_dormant`, `stays_invalid` (**pre-existing**, never blocks), `becomes_invalid` (**new**, blocks), `invalid_becomes_active/dormant`. Required-section violations are listed per page (`missingRequired`, with `alsoMissingNow`) and block.
+* **Blocking rule:** the switch is refused (`ThemeSwitchBlockedError`, full report) when it would introduce a new invalid entry (e.g. an extra copy of a type the target treats as a singleton) or leave a page without a type the target requires. Nothing is repaired automatically: the owner fixes the page under the current theme first. Pre-existing invalid data never blocks and is left exactly as stored (the Phase 8 recovery stays an explicit action).
+* **Concurrency:** the report carries the `draftRevision` it was computed from. `switchTheme` runs inside `withStoreMutation` (ownership in SQL, store lock, revision bump), checks that the revision is exactly one behind, **re-computes the report under the lock** and only then writes the pointer (conditional on the previous pointer). A stale report or concurrent draft edit is a `ConflictError`; a switch to the current theme writes nothing and does not bump the revision.
+* **Targets:** only the latest *active* version of an active theme key that also exists in the code catalog. A newer DB version without code is "unavailable" (never silently replaced by the old one); version upgrades are out of scope.
+* **Candidate-theme preview:** `/preview/<storeId>?theme=<key>` renders the draft with another theme. Owner-only (same ownership-in-SQL read and identical 404), read-only (no write call on that path, enforced by an architecture test), never reads published data, `noindex`/no-store like every preview, shows a banner "not applied", and carries `theme=` on its internal links. An unknown/inactive/malformed key shows a neutral notice.
+* **Published storefront:** nothing a switch or a candidate preview does can reach it. The published storefront reads only the immutable `StoreVersion.snapshot` named by the published pointer, which carries its own `template {key, version}`. (There is no snapshot writer until phase 10; the tests publish by hand and compare output before/after.)
+* **Media:** a switch touches no media row. Active, dormant and invalid sections all live in `Page.sections` and are matched by `isMediaReferenced`; **archived** sections (`Page.legacySections`, where the Phase 8 recovery moves invalid entries) are now matched too (a phase 8 gap closed in 9B). Nothing in the application removes archived entries, so their media stay protected indefinitely; a dormant section's media is released only by explicitly removing that dormant section.
+
+## Known limitations (9B)
+
+* The report is computed for the whole store at once; very large stores are not paginated (a store has at most 5 pages x 20 sections).
+* Mixed states are possible by design: a store can keep dormant sections of several themes at once.
+* Starter text, the new theme's `defaultSettings` and `defaultPages` are never applied by a switch (content is not rewritten).
+* Version upgrades of a theme (coffee@1 -> coffee@2) are not offered.
+
 ## Known limitations (9A)
 
 * Theme switching, the compatibility report and theme previews are phase 9B; the home-appliances theme and any product specification model are phase 9C (`Product.specs` is deliberately not added).

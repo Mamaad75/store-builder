@@ -16,7 +16,7 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 | 6 | Renderer and "general" template | Section prop schemas, shared renderer, first real storefront, owner-only draft preview; URL helper using `APP_ORIGIN` and `STORE_ROOT_DOMAIN` | Implemented and tested; awaiting review (URL helper for `APP_ORIGIN`/`STORE_ROOT_DOMAIN` is deferred to phase 10, where the first public URL exists) | high |
 | 7 | Media and images | S3 abstraction, validated uploads (no SVG), logo, product images, cleanup | Implemented and tested; awaiting review | high |
 | 8 | Customisation and pages | Section content editing, ordering, page visibility, colours, typography from an allow-list, logo | Implemented and tested; awaiting review | high |
-| 9 | Remaining templates | "Coffee and food" and "Fashion" templates | 9A implemented and tested (awaiting review); 9B theme switching and 9C home-appliances theme not started | high |
+| 9 | Remaining templates | "Coffee and food" and "Fashion" templates | 9A accepted; 9B theme preview and switching implemented and tested (awaiting review); 9C home-appliances theme not started | high |
 | 10 | Publishing and subdomains | Immutable `StoreVersion` snapshots, publish/unpublish/rollback, subdomain claim, Host routing, slug history and redirect design, real `getPublishedSlug`, slug-change confirmation UX | Planned | high |
 | 11 | SEO and metadata | Titles, descriptions, Open Graph, sitemap, robots, canonical, basic JSON-LD | Planned | medium |
 | 12 | Platform polish and accounts | Landing page, onboarding, change password and sign out everywhere, error pages, accessibility pass, legal pages, password reset (email) | Planned | medium |
@@ -49,3 +49,11 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 ## Constraints that apply to every phase
 
 Deployment restrictions in `docs/decisions.md` stay in force: nothing is purchased, connected to, or deployed without explicit approval at phase 14.
+
+## Recorded for phase 13 (from the phase 9A storage investigation)
+
+1. Choose a maintained MinIO-compatible image or another S3-compatible server; verify bucket policies and **all** existing storage security tests before switching.
+2. Fix the development `docker-compose.yml` MinIO start (the default `bitnamilegacy/minio` entrypoint restarts MinIO ~5 s after it first reports ready; CI already bypasses it, see `docs/media.md`).
+3. Keep the failure-only MinIO diagnostics step in CI.
+4. If the storage job fails again, investigate the printed diagnostics instead of assuming the same cause.
+5. Never weaken a storage security assertion (anonymous LIST/PUT/DELETE must each get a real 403; ECONNRESET must fail the test).

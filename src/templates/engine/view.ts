@@ -16,6 +16,8 @@ export interface ViewRequest {
   searchParams?: Record<string, string | string[] | undefined>;
   /** Builds public image URLs; omitted => images render as placeholders. */
   mediaUrl?: (key: string) => string | null;
+  /** Query string carried on every internal link (candidate-theme preview). Must already be validated by the caller. */
+  carryQuery?: string;
 }
 
 /**
@@ -35,6 +37,6 @@ export function buildView(raw: unknown, req: ViewRequest): StorefrontView {
   return {
     status: "ok",
     template,
-    ctx: { data, page: route.page, query: route.query, product: route.product, basePath: req.basePath, href: makeHref(req.basePath), mediaUrl: req.mediaUrl ?? (() => null) },
+    ctx: { data, page: route.page, query: route.query, product: route.product, basePath: req.basePath, href: makeHref(req.basePath, req.carryQuery), mediaUrl: req.mediaUrl ?? (() => null) },
   };
 }

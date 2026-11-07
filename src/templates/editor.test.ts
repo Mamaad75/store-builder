@@ -89,7 +89,7 @@ describe("analyzePage", () => {
   it("accepts valid approved sections as ACTIVE", () => {
     const a = analyzePage([ok], rules);
     expect(a.sections).toEqual([ok]);
-    expect(a.entries).toEqual([{ kind: "active", section: ok, raw: ok }]);
+    expect(a.entries).toEqual([{ kind: "active", section: ok, raw: ok, index: 0 }]); // `index` = position in the stored array
     expect(a.dormant).toEqual([]);
     expect(a.invalid).toEqual([]);
   });

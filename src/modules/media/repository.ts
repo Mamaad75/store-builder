@@ -43,7 +43,10 @@ export async function deleteMediaRow(ctx: MutationContext, id: string, status: M
 /**
  * Is the media referenced by anything that must keep the object alive?
  *  - a product image, the store logo (also protected by the composite foreign keys)
- *  - any page section that mentions the media id (sections are JSON, so no FK can protect them)
+ *  - any page section that mentions the media id (sections are JSON, so no FK can protect them), in ANY state: active,
+ *    dormant (another theme's section) or invalid
+ *  - any ARCHIVED section (`Page.legacySections`, where the Phase 8 recovery moves invalid entries): an archived
+ *    reference keeps its media alive; nothing removes archived entries, so the protection does not lapse
  *  - any StoreVersion snapshot (the published site and its rollbacks) that mentions the object key
  * New kinds of reference must be added here.
  */
@@ -56,6 +59,7 @@ export async function isMediaReferenced(ctx: MutationContext, media: { id: strin
   const rows = await ctx.tx.$queryRaw<{ used: boolean }[]>`
     SELECT (
       EXISTS (SELECT 1 FROM "Page" WHERE "storeId" = ${ctx.storeId} AND position(${media.id} in "sections"::text) > 0)
+      OR EXISTS (SELECT 1 FROM "Page" WHERE "storeId" = ${ctx.storeId} AND "legacySections" IS NOT NULL AND position(${media.id} in "legacySections"::text) > 0)
       OR EXISTS (SELECT 1 FROM "StoreVersion" WHERE "storeId" = ${ctx.storeId} AND position(${media.key} in "snapshot"::text) > 0)
     ) AS used`;
   return rows[0]?.used === true;

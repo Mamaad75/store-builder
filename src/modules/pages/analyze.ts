@@ -24,6 +24,8 @@ export interface Entry {
   kind: "active" | "dormant";
   section: PageSection;
   raw: unknown;
+  /** Position in the stored array; set by `analyzePage` (entries created by an edit have none yet). */
+  index?: number;
 }
 
 export interface PageAnalysis {
@@ -53,14 +55,14 @@ export function analyzePage(raw: unknown, rules: PageEditorRules): PageAnalysis 
     if (ids.has(s.id)) return void invalid.push({ index, reason: "invalid_envelope", raw: item });
     if (!rules.allowed.includes(s.type)) {
       ids.add(s.id);
-      return void entries.push({ kind: "dormant", section: s, raw: item });
+      return void entries.push({ kind: "dormant", section: s, raw: item, index });
     }
     if (rules.singletons.includes(s.type)) {
       if (singletonSeen.has(s.type)) return void invalid.push({ index, reason: "duplicate_singleton", raw: item });
       singletonSeen.add(s.type);
     }
     ids.add(s.id);
-    entries.push({ kind: "active", section: s, raw: item });
+    entries.push({ kind: "active", section: s, raw: item, index });
   });
   return {
     entries,

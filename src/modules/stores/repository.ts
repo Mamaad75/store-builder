@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import type { MutationContext } from "./mutation";
 
 type Client = Prisma.TransactionClient | typeof db;
 
@@ -83,4 +84,48 @@ export class StoreRepository {
     });
     return res.count === 1;
   }
+
+  /** Everything the theme-switch report needs, owner-scoped in SQL: the current theme, the draft revision and every page. */
+  themeContext(storeId: string) {
+    return this.client.store.findFirst({
+      where: { id: storeId, ownerId: this.ownerId },
+      select: {
+        draftRevision: true,
+        templateVersionId: true,
+        templateVersion: { select: { id: true, version: true, template: { select: { key: true, name: true } } } },
+        pages: { select: { type: true, title: true, isVisible: true, sections: true }, orderBy: [{ position: "asc" }, { id: "asc" }] },
+      },
+    });
+  }
+}
+
+/** Theme versions are global (not tenant data): the latest ACTIVE version of an active theme key, or null. */
+export const findLatestActiveThemeVersion = (key: string, client: Client = db) =>
+  client.templateVersion.findFirst({
+    where: { isActive: true, template: { key, isActive: true } },
+    orderBy: { version: "desc" },
+    select: { id: true, version: true, template: { select: { key: true, name: true } } },
+  });
+
+/** Same read inside a store mutation (the context proves ownership, the store lock and the revision bump). */
+export const themeContextInTx = (ctx: MutationContext) =>
+  new StoreRepository(ctx.ownerId, ctx.tx).themeContext(ctx.storeId);
+
+/**
+ * THE only write of a theme switch: the draft's theme pointer. Conditional on the previous pointer (so a stale decision
+ * cannot overwrite a newer one) and carrying the owner in its condition. No page, product, media or settings row is
+ * touched, and nothing published (StoreVersion / publishedVersionId / status) is touched.
+ */
+export async function setTemplateVersionInTx(ctx: MutationContext, expectedVersionId: string, nextVersionId: string): Promise<boolean> {
+  const res = await ctx.tx.store.updateMany({
+    where: { id: ctx.storeId, ownerId: ctx.ownerId, templateVersionId: expectedVersionId },
+    data: { templateVersionId: nextVersionId },
+  });
+  return res.count === 1;
+}
+
+/** Default settings of a theme version (global data): the fallback used when a store's settings are invalid. */
+export async function themeVersionDefaults(versionId: string): Promise<unknown> {
+  const v = await db.templateVersion.findUnique({ where: { id: versionId }, select: { defaultSettings: true } });
+  return v?.defaultSettings ?? {};
 }

@@ -30,7 +30,8 @@ export function listUrl(ctx: RenderContext, params: { category?: string; page?: 
   if (params.category) q.set("category", params.category);
   if (params.page && params.page > 1) q.set("page", String(params.page));
   const s = q.toString();
-  return ctx.href("/products") + (s ? `?${s}` : "");
+  const base = ctx.href("/products"); // may already carry a query (candidate-theme preview)
+  return base + (s ? `${base.includes("?") ? "&" : "?"}${s}` : "");
 }
 
 /** Image of a section (`imageId` -> contract `images` map -> public URL), or null for the placeholder. */

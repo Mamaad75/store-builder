@@ -2,11 +2,14 @@ import { digitsToAscii } from "@/lib/text";
 import type { StorefrontStore } from "../storefront-data";
 
 /** Joins the storefront base path and an internal path ("/products" -> "/preview/abc/products"). */
-export function makeHref(basePath: string) {
+export function makeHref(basePath: string, carryQuery = "") {
   const base = basePath.replace(/\/+$/, "");
+  // `carryQuery` (e.g. "theme=fashion") is appended to every internal link so the candidate-theme preview stays on the
+  // candidate while the owner clicks around; it is built by the engine from a validated key, never from raw input.
+  const tail = carryQuery ? `?${carryQuery}` : "";
   return (path: string): string => {
-    if (!path.startsWith("/") || path.startsWith("//")) return base || "/";
-    return path === "/" ? base || "/" : `${base}${path}`;
+    if (!path.startsWith("/") || path.startsWith("//")) return (base || "/") + tail;
+    return (path === "/" ? base || "/" : `${base}${path}`) + tail;
   };
 }
 

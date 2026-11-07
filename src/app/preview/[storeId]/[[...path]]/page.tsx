@@ -4,7 +4,8 @@ import { mediaPublicUrl } from "@/lib/storage";
 import StorefrontRenderer from "@/templates/engine/StorefrontRenderer";
 import { buildView } from "@/templates/engine/view";
 import s from "../../preview.module.css";
-import { loadPreview } from "../load";
+import CandidateBanner from "../../CandidateBanner";
+import { loadCandidatePreview, loadPreview } from "../load";
 
 // Per-request and never cached or indexed: this is private, owner-only draft content.
 export const dynamic = "force-dynamic";
@@ -23,8 +24,22 @@ type Params = { storeId: string; path?: string[] };
 
 export default async function PreviewPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { storeId, path = [] } = await params;
-  const preview = await loadPreview(storeId); // authenticates (requireUser) and enforces ownership first
-  const view = buildView(preview.data, { basePath: `/preview/${encodeURIComponent(storeId)}`, segments: path, searchParams: await searchParams, mediaUrl: safeMediaUrl });
+  const sp = await searchParams;
+  // `?theme=<key>` previews another theme with this store's draft data. It is validated here AND in the service; a
+  // repeated or malformed value is treated as "unavailable", never as the store's own theme.
+  const rawTheme = sp.theme;
+  const themeKey = typeof rawTheme === "string" && /^[a-z][a-z0-9-]{0,39}$/.test(rawTheme) ? rawTheme : null;
+  const wantsCandidate = rawTheme !== undefined;
+  if (wantsCandidate && !themeKey) return <CandidateBanner storeId={storeId} unavailable />;
+  const preview = themeKey ? await loadCandidatePreview(storeId, themeKey) : await loadPreview(storeId); // authenticates (requireUser) and enforces ownership first
+  if (!preview) return <CandidateBanner storeId={storeId} unavailable />;
+  const view = buildView(preview.data, {
+    basePath: `/preview/${encodeURIComponent(storeId)}`,
+    segments: path,
+    searchParams: sp,
+    mediaUrl: safeMediaUrl,
+    ...(themeKey ? { carryQuery: `theme=${themeKey}` } : {}),
+  });
 
   if (view.status === "not_found") notFound();
   if (view.status !== "ok") {
@@ -42,5 +57,10 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
       </main>
     );
   }
-  return <StorefrontRenderer template={view.template} ctx={view.ctx} />;
+  return (
+    <>
+      {preview.candidate && <CandidateBanner storeId={storeId} candidate={preview.candidate} dormantCount={preview.notes.dormantSectionCount} />}
+      <StorefrontRenderer template={view.template} ctx={view.ctx} />
+    </>
+  );
 }

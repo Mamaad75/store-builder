@@ -349,3 +349,59 @@ describe("architecture guard: business category, themes and the section registry
     expect(svc).toMatch(/e\.kind === "dormant" && e\.section\.id === sid\.data/);
   });
 });
+
+describe("architecture guard: theme switching and candidate preview (phase 9B)", () => {
+  const WRITE_CALL = /\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(|\$executeRaw|\$queryRaw/;
+  const inFiles = (re: RegExp) => rel(prodFiles().filter((f) => re.test(read(f))));
+
+  it("the theme pointer is written in exactly one place (repository), only inside a store mutation, and by nothing else", () => {
+    expect(inFiles(/templateVersionId:\s*nextVersionId/)).toEqual(["src/modules/stores/repository.ts"]);
+    const sw = read("src/modules/stores/theme-switch.ts");
+    expect(sw).toMatch(/withStoreMutation\(ownerId, id,/);
+    expect(sw).toMatch(/setTemplateVersionInTx\(/);
+    // the switch service reaches no table other than through the store repository: no page, media, product or snapshot access
+    expect(sw).not.toMatch(WRITE_CALL);
+    expect(sw).not.toMatch(/from\s+["']@\/lib\/db["']|@\/modules\/(media|products|categories)|writePage|storeVersion/i);
+    const repo = read("src/modules/stores/repository.ts");
+    const write = repo.slice(repo.indexOf("export async function setTemplateVersionInTx"), repo.indexOf("/** Default settings of a theme version"));
+    expect(write).toMatch(/ownerId:\s*ctx\.ownerId/);
+    expect(write).toMatch(/templateVersionId:\s*expectedVersionId/);
+    expect(write.match(/updateMany\(/g)?.length).toBe(1);
+    expect(write).not.toMatch(/page|media|product|storeVersion|publishedVersion|status/i);
+  });
+
+  it("the report is computed by the pure compat module (no I/O) and the switch re-evaluates it under the store lock", () => {
+    const compat = read("src/modules/pages/compat.ts");
+    expect(compat).not.toMatch(/from\s+["'](@\/lib\/db|@prisma\/client)["']/);
+    expect(compat).not.toMatch(WRITE_CALL);
+    const sw = read("src/modules/stores/theme-switch.ts");
+    const body = sw.slice(sw.indexOf("export async function switchTheme"));
+    expect(body).toMatch(/computeCompatibility\(/);
+    expect(body).toMatch(/expectedDraftRevision \+ 1/);
+    expect(body).toMatch(/canSwitch\) throw new ThemeSwitchBlockedError/);
+  });
+
+  it("the candidate-theme preview and the preview routes perform no writes and never read published data", () => {
+    for (const f of ["src/modules/storefront/service.ts", "src/modules/storefront/repository.ts", "src/app/preview/[storeId]/[[...path]]/page.tsx", "src/app/preview/[storeId]/load.ts", "src/app/preview/CandidateBanner.tsx"]) {
+      const src = read(f);
+      expect(src, f).not.toMatch(WRITE_CALL);
+      expect(src, f).not.toMatch(/readPublishedStorefront|publishedVersion|storeVersion/i);
+    }
+    // the theme comes from a validated key resolved to the latest ACTIVE version that the code also knows
+    expect(read("src/modules/storefront/service.ts")).toMatch(/findLatestActiveThemeVersion\(opts\.candidateThemeKey\)/);
+  });
+
+  it("media protection scans every place a section can live: active/dormant/invalid sections, archived sections and snapshots", () => {
+    const repo = read("src/modules/media/repository.ts");
+    const fn = repo.slice(repo.indexOf("export async function isMediaReferenced"), repo.indexOf("export async function setStoreLogoRow"));
+    expect(fn).toMatch(/"sections"::text/);
+    expect(fn).toMatch(/"legacySections"::text/);
+    expect(fn).toMatch(/"snapshot"::text/);
+  });
+
+  it("the switch action authenticates first and carries the report's revision from a hidden form field", () => {
+    const actions = read("src/app/dashboard/actions.ts");
+    expect(actions).toMatch(/export async function switchThemeAction\([^)]*\)[^{]*\{\n\s*const user = await requireUser\(\)/);
+    expect(actions).toMatch(/expectedDraftRevision: str\(fd, "expectedDraftRevision"\)/);
+  });
+});
