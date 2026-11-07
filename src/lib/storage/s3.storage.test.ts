@@ -79,16 +79,37 @@ describe("S3 storage: put, public read, list, delete", () => {
 });
 
 describe.skipIf(!enforces)("public access is read-only (server enforces the bucket policy)", () => {
+  /**
+   * A server may reject an anonymous write before reading its body and reset the connection (seen once on MinIO in CI:
+   * ECONNRESET). A reset is still a rejection, so it is accepted ONLY together with a check that nothing changed.
+   * A response, when one arrives, must be 403 (never a success).
+   */
+  const rejected = async (send: () => Promise<Response>): Promise<number | "reset"> => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return (await send()).status;
+      } catch {
+        // connection reset by the server: retry to obtain a real status, then fall through to "reset"
+      }
+    }
+    return "reset";
+  };
+
   it("anonymous users can neither list the bucket, nor write, nor delete", async () => {
     const config = getStorageConfig();
     const key = newMediaKey("storeanon");
     await storage.put(key, await body(), { contentType: "image/webp" });
+
     const listing = await fetch(`${config.publicBaseUrl}/?list-type=2&prefix=stores/`);
     expect(listing.status).toBe(403);
-    const put = await fetch(url(newMediaKey("storeanon")), { method: "PUT", body: "x" });
-    expect(put.status).toBe(403);
-    const del = await fetch(url(key), { method: "DELETE" });
-    expect(del.status).toBe(403);
+
+    const writeKey = newMediaKey("storeanon");
+    const put = await rejected(() => fetch(url(writeKey), { method: "PUT", body: "x" }));
+    expect(put === "reset" || put === 403, `anonymous PUT answered ${put}`).toBe(true);
+    expect(await storage.exists(writeKey)).toBe(false); // nothing was written, whatever the transport did
+
+    const del = await rejected(() => fetch(url(key), { method: "DELETE" }));
+    expect(del === "reset" || del === 403, `anonymous DELETE answered ${del}`).toBe(true);
     expect(await storage.exists(key)).toBe(true); // the anonymous DELETE had no effect
     await storage.delete(key);
   });
