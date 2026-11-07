@@ -78,39 +78,40 @@ describe("S3 storage: put, public read, list, delete", () => {
   }, 30_000);
 });
 
+/**
+ * Each step reports WHICH call failed (a bare "read ECONNRESET" does not say whether it came from the privileged SDK
+ * client or from the anonymous request). Labelling only adds context to a failure; it never turns a failure into a pass.
+ */
+async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    const err = e as Error & { code?: string; cause?: { code?: string; message?: string } };
+    throw new Error(`[${label}] ${err.name}: ${err.message} (code=${err.code ?? err.cause?.code ?? "-"})\n${err.stack ?? ""}`, { cause: e });
+  }
+}
+
+/** Anonymous access is read-only. The three protections are separate tests: one failing does not hide the others. */
 describe.skipIf(!enforces)("public access is read-only (server enforces the bucket policy)", () => {
-  /**
-   * A server may reject an anonymous write before reading its body and reset the connection (seen once on MinIO in CI:
-   * ECONNRESET). A reset is still a rejection, so it is accepted ONLY together with a check that nothing changed.
-   * A response, when one arrives, must be 403 (never a success).
-   */
-  const rejected = async (send: () => Promise<Response>): Promise<number | "reset"> => {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        return (await send()).status;
-      } catch {
-        // connection reset by the server: retry to obtain a real status, then fall through to "reset"
-      }
-    }
-    return "reset";
-  };
-
-  it("anonymous users can neither list the bucket, nor write, nor delete", async () => {
+  it("anonymous users cannot list the bucket", async () => {
     const config = getStorageConfig();
-    const key = newMediaKey("storeanon");
-    await storage.put(key, await body(), { contentType: "image/webp" });
-
-    const listing = await fetch(`${config.publicBaseUrl}/?list-type=2&prefix=stores/`);
+    const listing = await step("anonymous LIST", () => fetch(`${config.publicBaseUrl}/?list-type=2&prefix=stores/`));
     expect(listing.status).toBe(403);
+  });
 
-    const writeKey = newMediaKey("storeanon");
-    const put = await rejected(() => fetch(url(writeKey), { method: "PUT", body: "x" }));
-    expect(put === "reset" || put === 403, `anonymous PUT answered ${put}`).toBe(true);
-    expect(await storage.exists(writeKey)).toBe(false); // nothing was written, whatever the transport did
+  it("anonymous users cannot write an object", async () => {
+    const key = newMediaKey("storeanon");
+    const put = await step("anonymous PUT", () => fetch(url(key), { method: "PUT", body: "x" }));
+    expect(put.status).toBe(403);
+    expect(await step("privileged exists(written key)", () => storage.exists(key))).toBe(false); // independent proof that nothing was written
+  });
 
-    const del = await rejected(() => fetch(url(key), { method: "DELETE" }));
-    expect(del === "reset" || del === 403, `anonymous DELETE answered ${del}`).toBe(true);
-    expect(await storage.exists(key)).toBe(true); // the anonymous DELETE had no effect
-    await storage.delete(key);
+  it("anonymous users cannot delete an object", async () => {
+    const key = newMediaKey("storeanon");
+    await step("privileged put(seed object)", async () => storage.put(key, await body(), { contentType: "image/webp" }));
+    const del = await step("anonymous DELETE", () => fetch(url(key), { method: "DELETE" }));
+    expect(del.status).toBe(403);
+    expect(await step("privileged exists(seed object)", () => storage.exists(key))).toBe(true); // the anonymous DELETE had no effect
+    await step("privileged delete(seed object)", () => storage.delete(key));
   });
 });
