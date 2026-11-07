@@ -125,6 +125,12 @@ jobs:
         run: ./scripts/ci-start-minio.sh
       - name: Storage integration tests (real S3 API)
         run: pnpm test:storage
+      - name: MinIO diagnostics (only when the storage tests failed)
+        if: failure()
+        run: |
+          docker ps -a --filter name=minio-ci --format 'table {{.Names}}\t{{.Status}}\t{{.RunningFor}}'
+          docker inspect minio-ci --format 'restarts={{.RestartCount}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}} started={{.State.StartedAt}}'
+          docker logs --timestamps minio-ci 2>&1 | tail -n 150
 
   e2e:
     name: E2E tests (Playwright, Chromium)
