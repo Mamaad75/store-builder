@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { mediaPublicUrl } from "@/lib/storage";
 import StorefrontRenderer from "@/templates/engine/StorefrontRenderer";
 import { buildView } from "@/templates/engine/view";
 import s from "../../preview.module.css";
@@ -9,12 +10,21 @@ import { loadPreview } from "../load";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "پیش‌نمایش پیش‌نویس", robots: { index: false, follow: false, nocache: true } };
 
+/** An unconfigured/invalid storage URL must never break the preview: images fall back to placeholders. */
+function safeMediaUrl(key: string): string | null {
+  try {
+    return mediaPublicUrl(key);
+  } catch {
+    return null;
+  }
+}
+
 type Params = { storeId: string; path?: string[] };
 
 export default async function PreviewPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { storeId, path = [] } = await params;
   const preview = await loadPreview(storeId); // authenticates (requireUser) and enforces ownership first
-  const view = buildView(preview.data, { basePath: `/preview/${encodeURIComponent(storeId)}`, segments: path, searchParams: await searchParams });
+  const view = buildView(preview.data, { basePath: `/preview/${encodeURIComponent(storeId)}`, segments: path, searchParams: await searchParams, mediaUrl: safeMediaUrl });
 
   if (view.status === "not_found") notFound();
   if (view.status !== "ok") {

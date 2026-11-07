@@ -21,9 +21,13 @@ export async function makeStore(ownerId: string, name = "Shop") {
   return prisma.store.create({ data: { ownerId, templateVersionId: tv.id, name, settings: {} } });
 }
 
-export async function makeMedia(storeId: string, uploadedById: string) {
+/** A schema-valid media row (key shape, type and limits are enforced by CHECK constraints). */
+export async function makeMedia(storeId: string, uploadedById: string, over: { status?: "PENDING" | "READY" | "DELETING"; sizeBytes?: number; key?: string } = {}) {
   n += 1;
-  return prisma.media.create({ data: { storeId, uploadedById, key: `k${n}`, mimeType: "image/png", sizeBytes: 10 } });
+  const key = over.key ?? `stores/${storeId}/${n.toString(16).padStart(32, "0")}.webp`;
+  return prisma.media.create({
+    data: { storeId, uploadedById, key, mimeType: "image/webp", sizeBytes: over.sizeBytes ?? 10, width: 100, height: 100, status: over.status ?? "READY" },
+  });
 }
 
 /** Publishes a store the way the publishing service will: version + pointer + status in one transaction. */

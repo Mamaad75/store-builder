@@ -4,6 +4,9 @@ import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { removeProductImageAction, uploadProductImageAction } from "@/app/dashboard/media-actions";
+import ImageUploader from "@/components/ImageUploader";
+import { mediaPublicUrl } from "@/lib/storage";
 import DeleteProductButton from "@/components/catalog/DeleteProductButton";
 import Notice from "@/components/catalog/Notice";
 import ProductForm from "@/components/catalog/ProductForm";
@@ -14,6 +17,14 @@ import { listCategories } from "@/modules/categories/service";
 import { getProduct } from "@/modules/products/service";
 import type { ProductStatus } from "@/modules/products/status";
 import { NotFoundError } from "@/modules/stores/errors";
+
+function safeUrl(key: string): string | null {
+  try {
+    return mediaPublicUrl(key);
+  } catch {
+    return null; // storage not configured: show the placeholder, never break the page
+  }
+}
 
 export const metadata: Metadata = { title: "ویرایش محصول" };
 
@@ -63,6 +74,17 @@ export default async function EditProductPage({
               stockQuantity: product.stockQuantity,
               categoryId: product.categoryId,
             }}
+          />
+          <Divider />
+          <ImageUploader
+            title="تصویر محصول"
+            help="JPEG، PNG یا WebP؛ حداکثر ۵ مگابایت. تصویر بهینه و به WebP تبدیل می‌شود و اطلاعات مکانی/دوربین آن حذف می‌شود. هر کسی که نشانی تصویر را داشته باشد می‌تواند آن را ببیند."
+            testId="product-image"
+            hidden={{ storeId, productId: product.id }}
+            imageUrl={product.image ? safeUrl(product.image.key) : null}
+            image={product.image?.width && product.image.height ? { width: product.image.width, height: product.image.height } : null}
+            uploadAction={uploadProductImageAction}
+            removeAction={removeProductImageAction}
           />
           <Divider />
           <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>

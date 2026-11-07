@@ -13,12 +13,32 @@ export function StockBadge({ stock }: { stock: number }) {
 
 export const initial = (name: string) => Array.from(name.trim())[0] ?? "؟";
 
+/** Product image from the contract (public URL built by the host), or the initial-letter placeholder. */
+export function ProductArt({ product, ctx, eager = false }: { product: StorefrontProduct; ctx: RenderContext; eager?: boolean }) {
+  const url = product.image ? ctx.mediaUrl(product.image.key) : null;
+  if (!product.image || !url) return <>{initial(product.name)}</>;
+  return (
+    // Decorative in cards (the product name is the adjacent link text); descriptive on the detail page.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className={s.img}
+      src={url}
+      alt={eager ? product.name : ""}
+      width={product.image.width}
+      height={product.image.height}
+      loading={eager ? "eager" : "lazy"}
+      decoding="async"
+      {...(eager ? { fetchPriority: "high" as const } : {})}
+    />
+  );
+}
+
 export default function ProductCard({ product, category, ctx }: { product: StorefrontProduct; category: StorefrontCategory | null; ctx: RenderContext }) {
   return (
     <li>
       <article className={s.card}>
-        <div className={s.cardArt} aria-hidden="true">
-          {initial(product.name)}
+        <div className={s.cardArt} aria-hidden={product.image ? undefined : "true"}>
+          <ProductArt product={product} ctx={ctx} />
         </div>
         <div className={s.cardBody}>
           {category && <span className={s.cardCategory}>{category.name}</span>}

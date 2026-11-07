@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { getTestStorageEnv } from "./src/test/storage-env";
 
 const PORT = 3100;
 export const E2E_DATABASE_URL =
@@ -28,6 +29,8 @@ export default defineConfig({
       AUTH_SECRET: "e2e-only-secret-e2e-only-secret-0123456789",
       AUTH_TRUST_HOST: "true",
       RATE_LIMIT_BACKEND: "postgres",
+      // Isolated "-e2e" bucket on a local S3-compatible server (MinIO in CI); never production storage (see src/test/storage-env.ts).
+      ...getTestStorageEnv("e2e"),
       // The tests act as the trusted proxy: they set X-Forwarded-For per test to get isolated buckets.
       TRUST_PROXY_HEADERS: "true",
       TRUSTED_PROXY_HOPS: "1",

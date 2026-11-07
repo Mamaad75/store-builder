@@ -14,6 +14,16 @@ const source = (over: Partial<StorefrontSource> = {}): StorefrontSource => ({
   ...over,
 });
 
+describe("buildStorefrontData: media", () => {
+  const key = (c: string) => `stores/s1/${c.repeat(32)}.webp`;
+  it("exposes only READY images with known dimensions (PENDING/DELETING/unsized never reach templates)", () => {
+    const mk = (id: string, status: string, w: number | null = 10, h: number | null = 10) => ({ id, name: id, slug: id, description: "", price: 1, stockQuantity: 1, categoryId: null, image: { key: key(id[0]!), width: w, height: h, status } });
+    const { data } = buildStorefrontData(source({ categories: [], products: [mk("a", "READY"), mk("b", "PENDING"), mk("c", "DELETING"), mk("d", "READY", null, null)], store: { name: "x", settings: general.settings, logo: { key: key("e"), width: 5, height: 5, status: "DELETING" } } }));
+    expect(data.products.map((p) => p.image?.key ?? null)).toEqual([key("a"), null, null, null]);
+    expect(data.store.logo).toBeNull();
+  });
+});
+
 describe("buildStorefrontData (pure)", () => {
   it("builds valid data and reports only a count for excluded products", () => {
     const { data, notes } = buildStorefrontData(source());

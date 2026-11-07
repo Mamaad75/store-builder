@@ -14,6 +14,8 @@ export interface ViewRequest {
   basePath: string;
   segments: string[];
   searchParams?: Record<string, string | string[] | undefined>;
+  /** Builds public image URLs; omitted => images render as placeholders. */
+  mediaUrl?: (key: string) => string | null;
 }
 
 /**
@@ -33,6 +35,6 @@ export function buildView(raw: unknown, req: ViewRequest): StorefrontView {
   return {
     status: "ok",
     template,
-    ctx: { data, page: route.page, query: route.query, product: route.product, basePath: req.basePath, href: makeHref(req.basePath) },
+    ctx: { data, page: route.page, query: route.query, product: route.product, basePath: req.basePath, href: makeHref(req.basePath), mediaUrl: req.mediaUrl ?? (() => null) },
   };
 }

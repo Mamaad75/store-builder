@@ -17,6 +17,7 @@ export class DraftStorefrontRepository {
       select: {
         name: true,
         settings: true,
+        logo: { select: { key: true, width: true, height: true, status: true } },
         templateVersion: { select: { version: true, defaultSettings: true, template: { select: { key: true } } } },
         pages: {
           where: { isVisible: true },
@@ -29,7 +30,7 @@ export class DraftStorefrontRepository {
         },
         products: {
           where: { status: "ACTIVE" },
-          select: { id: true, name: true, slug: true, description: true, price: true, stockQuantity: true, categoryId: true },
+          select: { id: true, name: true, slug: true, description: true, price: true, stockQuantity: true, categoryId: true, image: { select: { key: true, width: true, height: true, status: true } } },
           orderBy: [{ position: "asc" }, { createdAt: "desc" }, { id: "asc" }],
         },
         _count: { select: { products: { where: { status: { not: "ACTIVE" } } } } },
@@ -37,7 +38,7 @@ export class DraftStorefrontRepository {
     });
     if (!store) return null;
     return {
-      store: { name: store.name, settings: store.settings },
+      store: { name: store.name, settings: store.settings, logo: store.logo },
       template: { key: store.templateVersion.template.key, version: store.templateVersion.version, defaultSettings: store.templateVersion.defaultSettings },
       pages: store.pages,
       categories: store.categories,

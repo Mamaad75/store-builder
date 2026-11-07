@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
+import { ensureTestBucket, getTestStorageEnv } from "../src/test/storage-env";
 
 export default async function globalSetup() {
   const url = process.env.E2E_DATABASE_URL ?? "postgresql://storebuilder:storebuilder@localhost:5432/storebuilder_e2e";
@@ -17,4 +18,5 @@ export default async function globalSetup() {
   const env = { ...process.env, DATABASE_URL: url };
   execSync("pnpm exec prisma migrate deploy", { env, stdio: "pipe" });
   execSync("pnpm exec prisma db seed", { env, stdio: "pipe" }); // the three templates
+  await ensureTestBucket(getTestStorageEnv("e2e")); // isolated bucket, public read-only
 }

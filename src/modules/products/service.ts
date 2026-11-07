@@ -2,6 +2,7 @@ import { z } from "zod";
 import { makeSearchKey, normalizeSearchQuery, slugify, uniqueSlug } from "@/lib/text";
 import { mapCatalogDbError } from "@/modules/catalog-errors";
 import { findInTx as findCategoryInTx } from "@/modules/categories/repository";
+import { releaseMedia } from "@/modules/media/service";
 import { CatalogLimitError, ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { withStoreMutation, type MutationContext } from "@/modules/stores/mutation";
 import { getStore, parseStoreId } from "@/modules/stores/service";
@@ -10,6 +11,7 @@ import {
   countInTx,
   deleteProductRow,
   findInTx,
+  findProductImageInTx,
   insertProduct,
   setStatusRow,
   slugsStartingWith,
@@ -197,7 +199,12 @@ export async function changeProductStatus(
 export async function deleteProduct(ownerId: string, storeId: unknown, productId: unknown): Promise<void> {
   const sid = parseStoreId(storeId);
   const pid = parseId(productId);
-  await withStoreMutation(ownerId, sid, async (ctx) => {
-    if (!(await deleteProductRow(ctx, pid))) throw new NotFoundError();
+  const imageId = await withStoreMutation(ownerId, sid, async (ctx) => {
+    const cur = await findProductImageInTx(ctx, pid);
+    if (!cur || !(await deleteProductRow(ctx, pid))) throw new NotFoundError();
+    return cur.imageId;
   });
+  // The product row is gone, so its image is now unreferenced (unless something else still uses it): release it.
+  // Never fails the delete; whatever cannot be removed now is handled by the media cleanup.
+  if (imageId) await releaseMedia(ownerId, sid, imageId).catch(() => undefined);
 }

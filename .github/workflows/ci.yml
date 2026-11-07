@@ -1,6 +1,7 @@
 # Initial CI (CI-0). Verification only: no deployment, no secrets, no external infrastructure.
 # Everything runs on GitHub-hosted runners against job-local, throw-away PostgreSQL containers.
-# The only network access is fetching public dependencies (npm registry, Docker Hub image, Playwright browser).
+# The only network access is fetching public dependencies (npm registry, Docker Hub images, Playwright browser).
+# Storage tests use a throw-away MinIO container with test-only credentials and an isolated bucket.
 name: CI
 
 on:
@@ -80,6 +81,51 @@ jobs:
       - name: Database tests
         run: pnpm test:db
 
+  storage:
+    name: Storage tests (MinIO + PostgreSQL 16)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: storebuilder
+          POSTGRES_PASSWORD: storebuilder # throw-away value for this job's own container only
+          POSTGRES_DB: storebuilder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U storebuilder"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The test setup creates and drops its own isolated "storebuilder_test" database and refuses any other name.
+      DATABASE_URL: postgresql://storebuilder:storebuilder@localhost:5432/storebuilder
+      # Throw-away MinIO container for this job only; test-only credentials, isolated "-test"/"-e2e" buckets.
+      MINIO_ROOT_USER: ci-test-user
+      MINIO_ROOT_PASSWORD: ci-test-secret-0123456789
+      TEST_S3_ENDPOINT: http://127.0.0.1:9000
+      TEST_S3_ACCESS_KEY_ID: ci-test-user
+      TEST_S3_SECRET_ACCESS_KEY: ci-test-secret-0123456789
+      # MinIO enforces bucket policies, so the "anonymous users are read-only" checks run here.
+      STORAGE_TEST_ENFORCES_POLICY: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - name: Start MinIO (throw-away, test-only credentials)
+        run: ./scripts/ci-start-minio.sh
+      - name: Storage integration tests (real S3 API)
+        run: pnpm test:storage
+
   e2e:
     name: E2E tests (Playwright, Chromium)
     runs-on: ubuntu-24.04
@@ -101,6 +147,12 @@ jobs:
     env:
       # The E2E setup recreates an isolated "storebuilder_e2e" database and refuses any other name.
       DATABASE_URL: postgresql://storebuilder:storebuilder@localhost:5432/storebuilder
+      # Throw-away MinIO container for this job only; test-only credentials, isolated "-test"/"-e2e" buckets.
+      MINIO_ROOT_USER: ci-test-user
+      MINIO_ROOT_PASSWORD: ci-test-secret-0123456789
+      TEST_S3_ENDPOINT: http://127.0.0.1:9000
+      TEST_S3_ACCESS_KEY_ID: ci-test-user
+      TEST_S3_SECRET_ACCESS_KEY: ci-test-secret-0123456789
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,6 +164,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+      - name: Start MinIO (throw-away, test-only credentials)
+        run: ./scripts/ci-start-minio.sh
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       # Playwright retries a failed test once in CI (playwright.config.ts). A test that only passes on retry

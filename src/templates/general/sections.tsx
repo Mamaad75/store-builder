@@ -3,7 +3,7 @@ import { formatToman } from "@/lib/money";
 import { buildContactLinks } from "../engine/links";
 import { categoryOf, featuredProducts, listProducts, listUrl } from "../engine/listing";
 import type { SectionComponent } from "../types";
-import ProductCard, { StockBadge, initial } from "./ProductCard";
+import ProductCard, { ProductArt, StockBadge, initial } from "./ProductCard";
 import s from "./general.module.css";
 
 function Section({ title, children, alt, id, level = 2 }: { title?: string; children: ReactNode; alt?: boolean; id: string; level?: 1 | 2 }) {
@@ -167,8 +167,8 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
           )}
         </nav>
         <div className={s.detail}>
-          <div className={s.detailArt} aria-hidden="true">
-            {initial(p.name)}
+          <div className={s.detailArt} aria-hidden={p.image ? undefined : "true"}>
+            <ProductArt product={p} ctx={ctx} eager />
           </div>
           <div>
             <h1 id={`${section.id}-title`} className={s.detailTitle}>

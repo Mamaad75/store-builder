@@ -20,10 +20,13 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset",
     "test:db": "vitest run --config vitest.db.config.mts",
+    "test:storage": "vitest run --config vitest.storage.config.mts",
     "db:cleanup": "tsx scripts/cleanup-rate-limits.ts",
+    "media:cleanup": "tsx scripts/cleanup-media.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1164.0",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -37,6 +40,7 @@
     "next-auth": "5.0.0-beta.32",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "sharp": "^0.35.5",
     "stylis": "^4.4.0",
     "stylis-plugin-rtl": "^2.1.1",
     "zod": "^4.6.7"

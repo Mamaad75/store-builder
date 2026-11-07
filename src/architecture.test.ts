@@ -169,3 +169,59 @@ describe("architecture guard: storefront rendering is independent of the dashboa
     expect(cfg).toMatch(/no-store/);
   });
 });
+
+describe("architecture guard: media and object storage", () => {
+  const inFiles = (re: RegExp) => rel(prodFiles().filter((f) => re.test(read(f))));
+
+  it("the AWS SDK is imported only by the S3 storage implementation", () => {
+    expect(inFiles(/from\s+["']@aws-sdk\//)).toEqual(["src/lib/storage/s3.ts"]);
+  });
+
+  it("sharp is imported only by the image pipeline, and the pipeline is used only by uploadMedia", () => {
+    expect(inFiles(/from\s+["']sharp["']/)).toEqual(["src/modules/media/process.ts"]);
+    expect(inFiles(/from\s+["'][^"']*\/process["']|from\s+["']\.\/process["']/)).toEqual(["src/modules/media/service.ts"]);
+    expect(read("src/modules/media/service.ts").match(/processImage\(/g)).toHaveLength(1);
+  });
+
+  it("S3 configuration (secrets) is read only by the storage config module", () => {
+    expect(inFiles(/process\.env\.S3_|source\.S3_/)).toEqual(["src/lib/storage/config.ts"]);
+  });
+
+  it("application code depends on the MediaStorage interface: only the storage barrel instantiates the S3 implementation", () => {
+    expect(inFiles(/new S3MediaStorage\(/)).toEqual(["src/lib/storage/index.ts"]);
+    expect(inFiles(/from\s+["'](@\/lib\/storage\/s3|\.\/s3)["']/)).toEqual(["src/lib/storage/index.ts"]);
+  });
+
+  it("objects are written (put) in exactly one place: the upload pipeline", () => {
+    expect(inFiles(/\bstorage\.put\(/)).toEqual(["src/modules/media/service.ts"]);
+  });
+
+  it("media rows are written only by the media repository; references only by their own repositories", () => {
+    expect(inFiles(/\.media\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/)).toEqual(["src/modules/media/repository.ts"]);
+    expect(inFiles(/data:\s*\{\s*logoId\b/)).toEqual(["src/modules/media/repository.ts"]);
+    expect(inFiles(/data:\s*\{\s*imageId\b/)).toEqual(["src/modules/products/repository.ts"]);
+  });
+
+  it("every media write that has an owner goes through withStoreMutation (a MutationContext is required)", () => {
+    const repo = read("src/modules/media/repository.ts");
+    const ownerFns = repo.slice(0, repo.indexOf("// ---- system (cleanup) access"));
+    expect(ownerFns).toMatch(/MutationContext/);
+    expect(ownerFns).not.toMatch(/\bdb\./); // no direct, un-scoped client in the owner section
+  });
+
+  it("templates never import the storage client: only the pure key format", () => {
+    const offenders = files("src/templates").filter((f) => /from\s+["']@\/lib\/storage(?!\/keys)/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the storage URL is built in one place and no hardcoded host is persisted", () => {
+    expect(inFiles(/getPublicBaseUrl\(\)/)).toEqual(["src/lib/storage/index.ts"]);
+    expect(read("prisma/schema.prisma")).not.toMatch(/https?:\/\//);
+    expect(read("src/modules/media/repository.ts")).not.toMatch(/https?:\/\//);
+  });
+
+  it("media upload actions authenticate first and Server Action bodies are capped", () => {
+    expect(read("src/app/dashboard/media-actions.ts")).toMatch(/uploadMedia\(user\.id/);
+    expect(read("next.config.ts")).toMatch(/bodySizeLimit:\s*"6mb"/);
+  });
+});

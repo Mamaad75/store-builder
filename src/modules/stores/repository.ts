@@ -13,6 +13,7 @@ export const storeSelect = {
   publishedAt: true,
   createdAt: true,
   updatedAt: true,
+  logo: { select: { id: true, key: true, width: true, height: true } },
   templateVersion: { select: { version: true, template: { select: { key: true, name: true } } } },
 } satisfies Prisma.StoreSelect;
 

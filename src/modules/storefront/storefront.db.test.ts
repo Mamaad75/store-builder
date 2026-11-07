@@ -6,7 +6,7 @@ import { createStore } from "@/modules/stores/service";
 import { buildView } from "@/templates/engine/view";
 import { storefrontDataSchema } from "@/templates/storefront-data";
 import { revision, snapshotRows, twoTenants, validProduct } from "@/test/catalog-helpers";
-import { makeUser, prisma, publishStore, resetDb } from "@/test/db-helpers";
+import { makeMedia, makeUser, prisma, publishStore, resetDb } from "@/test/db-helpers";
 import { DraftStorefrontRepository } from "./repository";
 import { readPublishedStorefront } from "./published";
 import { getDraftPreview } from "./service";
@@ -55,6 +55,47 @@ describe("draft preview data: product eligibility (phase 5 rules)", () => {
     const { data } = await getDraftPreview(a.id, a1);
     expect(data.products[0]!.price).toBe(1_000_000_000);
     expect(storefrontDataSchema.safeParse(data).success).toBe(true);
+  });
+});
+
+describe("draft preview data: images", () => {
+  it("exposes only the relative key and real dimensions of READY images of ACTIVE products and of the logo", async () => {
+    const { a, a1 } = await twoTenants();
+    const shown = await activeProduct(a.id, a1, { name: "با تصویر" });
+    const media = await makeMedia(a1, a.id);
+    await prisma.product.update({ where: { id: shown.id }, data: { imageId: media.id } });
+    const logo = await makeMedia(a1, a.id);
+    await prisma.store.update({ where: { id: a1 }, data: { logoId: logo.id } });
+
+    const { data } = await getDraftPreview(a.id, a1);
+    expect(data.products[0]!.image).toEqual({ key: media.key, width: 100, height: 100 });
+    expect(data.store.logo).toEqual({ key: logo.key, width: 100, height: 100 });
+    expect(JSON.stringify(data)).not.toMatch(/https?:|localhost|bucket/); // never a host
+  });
+
+  it("a DRAFT/ARCHIVED product's image never reaches the storefront data, even though its URL would be public", async () => {
+    const { a, a1 } = await twoTenants();
+    const draft = await createProduct(a.id, a1, validProduct({ name: "پیش‌نویس تصویردار" }));
+    const media = await makeMedia(a1, a.id);
+    await prisma.product.update({ where: { id: draft.id }, data: { imageId: media.id } });
+    const { data } = await getDraftPreview(a.id, a1);
+    expect(data.products).toEqual([]);
+    expect(JSON.stringify(data)).not.toContain(media.key);
+  });
+
+  it("media that is not READY is never exposed", async () => {
+    const { a, a1 } = await twoTenants();
+    const p = await activeProduct(a.id, a1);
+    const media = await makeMedia(a1, a.id, { status: "DELETING" });
+    await prisma.product.update({ where: { id: p.id }, data: { imageId: media.id } });
+    expect((await getDraftPreview(a.id, a1)).data.products[0]!.image).toBeNull();
+  });
+
+  it("another tenant's media is never part of my storefront (composite FK + owner-scoped read)", async () => {
+    const { a, b, a1, b1 } = await twoTenants();
+    await activeProduct(a.id, a1);
+    await makeMedia(b1, b.id);
+    expect(JSON.stringify((await getDraftPreview(a.id, a1)).data)).not.toContain(`stores/${b1}/`);
   });
 });
 

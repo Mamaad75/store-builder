@@ -108,3 +108,20 @@ Full architecture: [`docs/storefront.md`](storefront.md).
 | D6-11 | Images are placeholders (initial letter on a brand-colored block); no upload, no fake media. Contact/social links are built from validated values with fixed schemes and hosts, so a stored value can never produce a `javascript:` link. Brand color text color is chosen for WCAG AA contrast. | Implemented |
 
 Known limitations (deliberate): inside an existing store, an unknown storefront path renders the not-found UI with HTTP 200 (Next streams it after the loading boundary); missing/foreign stores are a true 404. No cart, checkout or orders; product detail says to contact the store. Pagination is link-based (12 per page).
+
+## Phase 7: media and images
+
+Full description: [`docs/media.md`](media.md).
+
+| ID | Decision | Status |
+|---|---|---|
+| D7-1 | `sharp` and `@aws-sdk/client-s3` are approved. All S3 code lives in `src/lib/storage/s3.ts`; application modules depend on the `MediaStorage` interface only (architecture test). | Implemented |
+| D7-2 | Images are served from direct, public, read-only S3-compatible URLs built in one place (`mediaPublicUrl` from `S3_PUBLIC_BASE_URL`). The database and snapshots store relative keys, never a host. Keys are server-generated with 128 random bits. Anyone with a URL can read the image; the mechanism must not be used for private files. | Implemented |
+| D7-3 | Limits: 5 MB upload, 25 MP decoded input, 2048 x 2048 output, 100 images and 100 MB (processed bytes) per store; all enforced on the server; quotas are race-free (reservation inside the store-row lock). | Implemented |
+| D7-4 | Every accepted image is re-encoded as WebP (type, extension, key and recorded metadata always agree; a CHECK constraint enforces it). EXIF/GPS/ICC are stripped, transparency kept; animated, polyglot, malformed and oversized inputs are rejected. | Implemented |
+| D7-5 | Product images and the store logo share one upload pipeline. `Store.logoId` is nullable with a composite FK `(id, logoId) -> Media(storeId, id)`; `Product.image` and `Store.logo` use `NO ACTION` so that deleting a whole store (cascade) works while deleting a referenced media row is refused. | Implemented (migration `20261107075639_phase7_media`) |
+| D7-6 | Consistency: ordering + `Media.status` (PENDING/READY/DELETING) + idempotent cleanup instead of pretending S3 and PostgreSQL are atomic. A media object is never deleted while referenced by a product, the logo, a page section or any `StoreVersion` snapshot (published site and rollbacks). | Implemented |
+| D7-7 | Upload rate limit via the existing shared limiter: 20 per 10 minutes per user and store. Ownership and forged ids are checked in SQL; foreign, missing, PENDING and DELETING media are indistinguishable (not found). | Implemented |
+| D7-8 | CI gets a throw-away MinIO container (test-only credentials, isolated `-test`/`-e2e` buckets, loopback only) for storage integration tests and E2E; no deployment jobs or secrets. | Implemented; verified by GitHub Actions (see delivery report) |
+| D7-9 | The storefront contract gains optional `store.logo` and `product.image` (`{key,width,height}`, default null) under the same `schemaVersion: 1`; the renderer receives a URL builder from the host. Hero/imageText section images stay placeholders (phase 8). | Implemented |
+| D7-10 | Server Action body limit raised to 6 MB for uploads (the pipeline enforces the real 5 MB limit). | Implemented |

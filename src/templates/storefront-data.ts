@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_PRICE_TOMAN } from "@/lib/money";
+import { MEDIA_KEY_RE } from "@/lib/storage/keys";
 import { isCanonicalSlug } from "@/lib/text";
 import { PAGE_TYPES, SECTION_TYPES, sectionPropsSchemas, type Section, type SectionType } from "./sections";
 
@@ -19,6 +20,16 @@ export const STOREFRONT_SCHEMA_VERSION = 1;
 const slug = z.string().refine(isCanonicalSlug, "canonical slug expected");
 const id = z.string().min(1).max(64);
 
+/**
+ * A published image reference: the RELATIVE object key plus its real dimensions. No host or bucket is ever stored
+ * here (nor in the database): the public URL is built at render time by `RenderContext.mediaUrl`.
+ * Optional with a null default so data/snapshots written before media existed stay valid under schemaVersion 1.
+ */
+export const mediaRefSchema = z
+  .object({ key: z.string().regex(MEDIA_KEY_RE), width: z.number().int().min(1).max(2048), height: z.number().int().min(1).max(2048) })
+  .strict();
+export type MediaRef = z.infer<typeof mediaRefSchema>;
+
 export const storefrontStoreSchema = z
   .object({
     name: z.string().min(1).max(80),
@@ -26,6 +37,7 @@ export const storefrontStoreSchema = z
     primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     contact: z.object({ phone: z.string().max(40), email: z.string().max(254), address: z.string().max(300) }).strict(),
     social: z.object({ instagram: z.string().max(64), telegram: z.string().max(64), whatsapp: z.string().max(64) }).strict(),
+    logo: mediaRefSchema.nullable().default(null),
   })
   .strict();
 
@@ -54,6 +66,7 @@ export const storefrontProductSchema = z
     price: z.number().int().min(0).max(MAX_PRICE_TOMAN),
     stockQuantity: z.number().int().min(0).max(1_000_000),
     categoryId: id.nullable(),
+    image: mediaRefSchema.nullable().default(null),
   })
   .strict();
 

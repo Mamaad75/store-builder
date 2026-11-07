@@ -23,6 +23,7 @@ export default function Layout({ ctx, children }: LayoutProps) {
     "--accent": accent,
     "--primary-soft": `color-mix(in srgb, ${primary} 12%, white)`,
   } as CSSProperties;
+  const logoUrl = store.logo ? ctx.mediaUrl(store.logo.key) : null;
   const links = buildContactLinks(store.contact, store.social);
   const nav = NAV.filter((n) => pages.some((p) => p.type === n.type)).map((n) => ({ ...n, title: pages.find((p) => p.type === n.type)!.title }));
   const currentType = ctx.page.type === "PRODUCT_DETAIL" ? "PRODUCTS" : ctx.page.type;
@@ -35,9 +36,14 @@ export default function Layout({ ctx, children }: LayoutProps) {
       <header className={s.header}>
         <div className={`${s.container} ${s.headerInner}`}>
           <a className={s.brand} href={ctx.href("/")}>
-            <span className={s.brandMark} aria-hidden="true">
-              {initial(store.name)}
-            </span>
+            {logoUrl && store.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className={s.logo} src={logoUrl} alt="" width={store.logo.width} height={store.logo.height} decoding="async" />
+            ) : (
+              <span className={s.brandMark} aria-hidden="true">
+                {initial(store.name)}
+              </span>
+            )}
             {store.name}
           </a>
           <nav className={s.nav} aria-label="منوی اصلی">

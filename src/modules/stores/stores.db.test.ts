@@ -166,7 +166,7 @@ describe("deleteStore (owner)", () => {
   it("physically deletes the store with its pages, products, categories, media and versions; other stores survive", async () => {
     const { a, a1, a2 } = await twoUsersWithStores();
     const cat = await prisma.productCategory.create({ data: { storeId: a1, name: "c", slug: "c" } });
-    const media = await prisma.media.create({ data: { storeId: a1, uploadedById: a.id, key: "k1", mimeType: "image/png", sizeBytes: 5 } });
+    const media = await prisma.media.create({ data: { storeId: a1, uploadedById: a.id, key: `stores/${a1}/${"0".repeat(32)}.webp`, mimeType: "image/webp", sizeBytes: 5 } });
     await prisma.product.create({ data: { storeId: a1, name: "p", slug: "p", price: 100, categoryId: cat.id, imageId: media.id } });
     await prisma.domain.create({ data: { storeId: a1, kind: "SUBDOMAIN", host: "gone" } });
     const v = await prisma.storeVersion.create({ data: { storeId: a1, number: 1, draftRevision: 1, snapshot: {} } });

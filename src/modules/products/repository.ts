@@ -14,6 +14,7 @@ export const productSelect = {
   status: true,
   categoryId: true,
   category: { select: { id: true, name: true } },
+  image: { select: { id: true, key: true, width: true, height: true } },
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.ProductSelect;
@@ -128,5 +129,15 @@ export async function setStatusRow(
 
 export async function deleteProductRow(ctx: MutationContext, id: string): Promise<boolean> {
   const res = await ctx.tx.product.deleteMany({ where: scope(ctx, id) });
+  return res.count === 1;
+}
+
+// ---- product image reference (written only here, through a MutationContext) ----
+
+export const findProductImageInTx = (ctx: MutationContext, id: string) =>
+  ctx.tx.product.findFirst({ where: scope(ctx, id), select: { id: true, imageId: true } });
+
+export async function setProductImageRow(ctx: MutationContext, id: string, imageId: string | null): Promise<boolean> {
+  const res = await ctx.tx.product.updateMany({ where: scope(ctx, id), data: { imageId } });
   return res.count === 1;
 }

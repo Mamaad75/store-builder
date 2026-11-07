@@ -6,8 +6,9 @@ import { buildView } from "../engine/view";
 import type { StorefrontData } from "../storefront-data";
 import { generalTemplate } from "./index";
 
-function render(data: StorefrontData, segments: string[] = [], sp?: Record<string, string>) {
-  const v = buildView(data, { basePath: "/preview/s1", segments, searchParams: sp });
+const CDN = "https://cdn.example.test/bucket";
+function render(data: StorefrontData, segments: string[] = [], sp?: Record<string, string>, mediaUrl: (k: string) => string | null = (k) => `${CDN}/${k}`) {
+  const v = buildView(data, { basePath: "/preview/s1", segments, searchParams: sp, mediaUrl });
   if (v.status !== "ok") throw new Error(`view ${v.status}`);
   return renderToStaticMarkup(<StorefrontRenderer template={v.template} ctx={v.ctx} />);
 }
@@ -155,5 +156,41 @@ describe("general template: safety", () => {
     const h = render(makeStorefront(), ["products"]);
     expect(h).not.toContain(PRODUCT_B.id + '"');
     expect(h).not.toMatch(/DRAFT|ARCHIVED|ownerId|storeId/);
+  });
+});
+
+describe("general template: images", () => {
+  const key = `stores/s1/${"a".repeat(32)}.webp`;
+  const withImage = () => {
+    const d = makeStorefront({ products: [{ ...PRODUCT_A, image: { key, width: 800, height: 600 } }, PRODUCT_B] });
+    d.store.logo = { key: `stores/s1/${"b".repeat(32)}.webp`, width: 120, height: 120 };
+    return d;
+  };
+  it("renders product images with the host-built URL, real dimensions and lazy loading in cards", () => {
+    const h = render(withImage(), ["products"]);
+    expect(h).toContain(`src="${CDN}/${key}"`);
+    expect(h).toContain('width="800"');
+    expect(h).toContain('height="600"');
+    expect(h).toContain('loading="lazy"');
+    expect(h).toContain('alt=""'); // decorative in the card: the product name is the adjacent link text
+  });
+  it("product detail image is described by the product name and loaded eagerly", () => {
+    const h = render(withImage(), ["products", PRODUCT_A.slug]);
+    expect(h).toContain(`alt="${PRODUCT_A.name}"`);
+    expect(h).toContain('loading="eager"');
+  });
+  it("renders the logo in the header on every page", () => {
+    for (const segs of [[], ["products"], ["contact"]]) expect(render(withImage(), segs)).toContain(`src="${CDN}/stores/s1/${"b".repeat(32)}.webp"`);
+  });
+  it("products without an image, and URLs that cannot be built, fall back to the placeholder (no broken <img>)", () => {
+    const none = render(makeStorefront(), ["products"]);
+    expect(none).not.toContain("<img");
+    const noUrl = render(withImage(), ["products"], undefined, () => null);
+    expect(noUrl).not.toContain("<img");
+    expect(noUrl).toContain("چای سبز");
+  });
+  it("never renders a host that did not come from the injected URL builder", () => {
+    const h = render(withImage(), ["products"], undefined, (k) => `https://only-this-host.test/${k}`);
+    expect([...h.matchAll(/src="(https?:[^"]+)"/g)].every((m) => m[1]!.startsWith("https://only-this-host.test/"))).toBe(true);
   });
 });

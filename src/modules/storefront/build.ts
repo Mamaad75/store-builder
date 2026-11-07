@@ -1,13 +1,23 @@
 import { STOREFRONT_SCHEMA_VERSION, storefrontDataSchema, type StorefrontData } from "@/templates/storefront-data";
 import { parseSections, templateSettingsSchema, type SectionIssue, type TemplateSettings } from "@/templates/sections";
 
+/** Image columns as stored; only READY images with known dimensions are ever exposed to templates. */
+export interface MediaSource {
+  key: string;
+  width: number | null;
+  height: number | null;
+  status: string;
+}
+
+const toMediaRef = (m: MediaSource | null | undefined) => (m && m.status === "READY" && m.width && m.height ? { key: m.key, width: m.width, height: m.height } : null);
+
 /** Plain rows as the repository hands them over (JSON columns are `unknown`: they are validated here). */
 export interface StorefrontSource {
-  store: { name: string; settings: unknown };
+  store: { name: string; settings: unknown; logo?: MediaSource | null };
   template: { key: string; version: number; defaultSettings: unknown };
   pages: { type: string; title: string; slug: string; position: number; sections: unknown }[];
   categories: { id: string; name: string; slug: string }[];
-  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; categoryId: string | null }[];
+  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; categoryId: string | null; image?: MediaSource | null }[];
   /** Products that exist but are not storefront-eligible (draft/archived). Only a count: never their data. */
   excludedProductCount: number;
 }
@@ -62,10 +72,10 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
   const candidate = {
     schemaVersion: STOREFRONT_SCHEMA_VERSION,
     template: { key: src.template.key, version: src.template.version },
-    store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social },
+    store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social, logo: toMediaRef(src.store.logo) },
     pages,
     categories: src.categories,
-    products: src.products,
+    products: src.products.map(({ image, ...p }) => ({ ...p, image: toMediaRef(image) })),
   };
   const parsed = storefrontDataSchema.safeParse(candidate);
   if (!parsed.success) throw new StorefrontBuildError("storefront data violates the contract");

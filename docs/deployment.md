@@ -55,3 +55,13 @@ only when the app is behind a proxy that sets the correct `Host`.
    passed Zod validation (login/registration) and are removed an hour after their window ends.
 
 If you switch to a Redis backend, key expiry (`EXPIRE`) replaces this job.
+
+## Object storage (phase 7)
+
+| Variable | Notes |
+|---|---|
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_FORCE_PATH_STYLE` | S3-compatible server (MinIO in development). |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Server-only, **write** access. Never sent to the browser, never logged. Use a key restricted to this one bucket. |
+| `S3_PUBLIC_BASE_URL` | Public base URL for reading objects (`<base>/<key>`). The only place a host/bucket appears; stored data holds relative keys. |
+
+The bucket policy must allow **anonymous `s3:GetObject` on objects only**: no `ListBucket`, no anonymous write or delete. Anyone who has an image URL can read that image, so the bucket must never hold private files. Run `pnpm media:cleanup` periodically (see `docs/media.md`); scheduling it is a phase 13/14 task. Nothing in this repository provisions storage or touches an external account.

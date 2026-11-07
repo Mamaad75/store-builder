@@ -27,6 +27,12 @@ enum ProductStatus {
   ARCHIVED // removed from the active catalog
 }
 
+enum MediaStatus {
+  PENDING // row reserved (quota counted), object may or may not exist yet
+  READY // object stored and usable
+  DELETING // being removed; never referenced again, physical delete in progress/retried
+}
+
 enum DomainKind {
   SUBDOMAIN
   CUSTOM
@@ -77,11 +83,13 @@ model Store {
   draftRevision      Int         @default(1)
   publishedVersionId String?
   publishedAt        DateTime?
+  logoId             String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   templateVersion  TemplateVersion   @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  logo             Media?            @relation("StoreLogo", fields: [id, logoId], references: [storeId, id], onDelete: NoAction)
   publishedVersion StoreVersion?     @relation("PublishedVersion", fields: [id, publishedVersionId], references: [storeId, id], onDelete: Restrict)
   versions         StoreVersion[]    @relation("AllVersions")
   pages            Page[]
@@ -161,7 +169,7 @@ model Product {
 
   store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
   category ProductCategory? @relation(fields: [storeId, categoryId], references: [storeId, id], onDelete: Restrict)
-  image    Media?           @relation(fields: [storeId, imageId], references: [storeId, id], onDelete: Restrict)
+  image    Media?           @relation(fields: [storeId, imageId], references: [storeId, id], onDelete: NoAction)
 
   @@unique([storeId, slug])
   @@index([storeId, status, position])
@@ -170,22 +178,25 @@ model Product {
 }
 
 model Media {
-  id           String   @id @default(cuid())
+  id           String      @id @default(cuid())
   storeId      String
   uploadedById String
-  key          String   @unique
+  key          String      @unique
   mimeType     String
   sizeBytes    Int
   width        Int?
   height       Int?
-  createdAt    DateTime @default(now())
+  status       MediaStatus @default(READY)
+  createdAt    DateTime    @default(now())
 
   store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
   uploadedBy User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   products   Product[]
+  logoOf     Store[]   @relation("StoreLogo")
 
   @@unique([storeId, id])
   @@index([storeId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Domain {
