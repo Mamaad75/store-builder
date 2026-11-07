@@ -91,17 +91,26 @@ async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Anonymous request on its own fresh TCP connection ("Connection: close"). CI evidence (run 10): the anonymous LIST and PUT died
+ * with undici "other side closed" (bytesRead 0) while DELETE, issued later, got its 403 - the signature of a pooled keep-alive
+ * socket the server had already closed, not of a policy decision. A dedicated connection removes that race; it changes nothing
+ * about what is asserted: the response must still be a real 403 and the independent privileged checks still run.
+ */
+const anonymous = (input: string, init: RequestInit = {}) =>
+  fetch(input, { ...init, headers: { connection: "close", ...(init.headers as Record<string, string> | undefined) } });
+
 /** Anonymous access is read-only. The three protections are separate tests: one failing does not hide the others. */
 describe.skipIf(!enforces)("public access is read-only (server enforces the bucket policy)", () => {
   it("anonymous users cannot list the bucket", async () => {
     const config = getStorageConfig();
-    const listing = await step("anonymous LIST", () => fetch(`${config.publicBaseUrl}/?list-type=2&prefix=stores/`));
+    const listing = await step("anonymous LIST", () => anonymous(`${config.publicBaseUrl}/?list-type=2&prefix=stores/`));
     expect(listing.status).toBe(403);
   });
 
   it("anonymous users cannot write an object", async () => {
     const key = newMediaKey("storeanon");
-    const put = await step("anonymous PUT", () => fetch(url(key), { method: "PUT", body: "x" }));
+    const put = await step("anonymous PUT", () => anonymous(url(key), { method: "PUT", body: "x" }));
     expect(put.status).toBe(403);
     expect(await step("privileged exists(written key)", () => storage.exists(key))).toBe(false); // independent proof that nothing was written
   });
@@ -109,7 +118,7 @@ describe.skipIf(!enforces)("public access is read-only (server enforces the buck
   it("anonymous users cannot delete an object", async () => {
     const key = newMediaKey("storeanon");
     await step("privileged put(seed object)", async () => storage.put(key, await body(), { contentType: "image/webp" }));
-    const del = await step("anonymous DELETE", () => fetch(url(key), { method: "DELETE" }));
+    const del = await step("anonymous DELETE", () => anonymous(url(key), { method: "DELETE" }));
     expect(del.status).toBe(403);
     expect(await step("privileged exists(seed object)", () => storage.exists(key))).toBe(true); // the anonymous DELETE had no effect
     await step("privileged delete(seed object)", () => storage.delete(key));
