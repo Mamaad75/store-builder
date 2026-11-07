@@ -1,4 +1,5 @@
 import type { TemplateModule } from "../types";
+import { generalEditor } from "./editor";
 import Layout from "./Layout";
 import { CallToAction, CategoryFilter, ContactInfo, FeaturedProducts, Hero, ImageText, ProductDetail, ProductGrid, RichText } from "./sections";
 
@@ -8,6 +9,7 @@ export const generalTemplate: TemplateModule = {
   version: 1,
   name: "عمومی",
   Layout,
+  editor: generalEditor,
   sections: {
     hero: Hero,
     featuredProducts: FeaturedProducts,

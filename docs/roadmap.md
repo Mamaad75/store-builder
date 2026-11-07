@@ -15,7 +15,7 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 | 5 | Products and categories | Owner-scoped catalog, lifecycle, search, atomic `draftRevision` | Implemented and tested; awaiting review | high |
 | 6 | Renderer and "general" template | Section prop schemas, shared renderer, first real storefront, owner-only draft preview; URL helper using `APP_ORIGIN` and `STORE_ROOT_DOMAIN` | Implemented and tested; awaiting review (URL helper for `APP_ORIGIN`/`STORE_ROOT_DOMAIN` is deferred to phase 10, where the first public URL exists) | high |
 | 7 | Media and images | S3 abstraction, validated uploads (no SVG), logo, product images, cleanup | Implemented and tested; awaiting review | high |
-| 8 | Customisation and pages | Section content editing, ordering, page visibility, colours, typography from an allow-list, logo | Planned | high |
+| 8 | Customisation and pages | Section content editing, ordering, page visibility, colours, typography from an allow-list, logo | Implemented and tested; awaiting review | high |
 | 9 | Remaining templates | "Coffee and food" and "Fashion" templates | Planned | high |
 | 10 | Publishing and subdomains | Immutable `StoreVersion` snapshots, publish/unpublish/rollback, subdomain claim, Host routing, slug history and redirect design, real `getPublishedSlug`, slug-change confirmation UX | Planned | high |
 | 11 | SEO and metadata | Titles, descriptions, Open Graph, sitemap, robots, canonical, basic JSON-LD | Planned | medium |

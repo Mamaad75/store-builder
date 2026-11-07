@@ -1,12 +1,24 @@
 import type { ReactNode } from "react";
 import { formatToman } from "@/lib/money";
 import { buildContactLinks } from "../engine/links";
-import { categoryOf, featuredProducts, listProducts, listUrl } from "../engine/listing";
+import { categoryOf, featuredProducts, listProducts, listUrl, sectionImage } from "../engine/listing";
 import type { SectionComponent } from "../types";
 import ProductCard, { ProductArt, StockBadge, initial } from "./ProductCard";
 import s from "./general.module.css";
 
-function Section({ title, children, alt, id, level = 2 }: { title?: string; children: ReactNode; alt?: boolean; id: string; level?: 1 | 2 }) {
+function Section({
+  title,
+  children,
+  alt,
+  id,
+  level = 2,
+}: {
+  title?: string;
+  children: ReactNode;
+  alt?: boolean;
+  id: string;
+  level?: 1 | 2;
+}) {
   const H = `h${level}` as "h1" | "h2";
   return (
     <section className={`${s.section} ${alt ? s.sectionAlt : ""}`} aria-labelledby={title ? `${id}-title` : undefined}>
@@ -47,10 +59,19 @@ export const Hero: SectionComponent<"hero"> = ({ section, ctx }) => {
             </div>
           )}
         </div>
-        {/* Image placeholder: media upload arrives in a later phase. */}
-        <div className={s.heroArt} aria-hidden="true">
-          {initial(ctx.data.store.name)}
-        </div>
+        {(() => {
+          const img = sectionImage(ctx, section.props.imageId);
+          return img ? (
+            <div className={s.heroArt}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className={s.img} src={img.url} alt="" width={img.width} height={img.height} decoding="async" />
+            </div>
+          ) : (
+            <div className={s.heroArt} aria-hidden="true">
+              {initial(ctx.data.store.name)}
+            </div>
+          );
+        })()}
       </div>
     </section>
   );
@@ -131,7 +152,11 @@ export const ProductGrid: SectionComponent<"productGrid"> = ({ section, ctx }) =
           {list.totalPages > 1 && (
             <nav className={s.pager} aria-label="صفحه‌بندی محصولات">
               {list.page > 1 && (
-                <a className={`${s.btn} ${s.btnGhost}`} rel="prev" href={listUrl(ctx, { category: list.category?.slug, page: list.page - 1 })}>
+                <a
+                  className={`${s.btn} ${s.btnGhost}`}
+                  rel="prev"
+                  href={listUrl(ctx, { category: list.category?.slug, page: list.page - 1 })}
+                >
                   صفحه قبل
                 </a>
               )}
@@ -139,7 +164,11 @@ export const ProductGrid: SectionComponent<"productGrid"> = ({ section, ctx }) =
                 صفحه {list.page.toLocaleString("fa-IR")} از {list.totalPages.toLocaleString("fa-IR")}
               </span>
               {list.page < list.totalPages && (
-                <a className={`${s.btn} ${s.btnGhost}`} rel="next" href={listUrl(ctx, { category: list.category?.slug, page: list.page + 1 })}>
+                <a
+                  className={`${s.btn} ${s.btnGhost}`}
+                  rel="next"
+                  href={listUrl(ctx, { category: list.category?.slug, page: list.page + 1 })}
+                >
                   صفحه بعد
                 </a>
               )}
@@ -162,7 +191,8 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
           <a href={ctx.href("/")}>خانه</a> / <a href={ctx.href("/products")}>محصولات</a>
           {category && (
             <>
-              {" "}/ <a href={listUrl(ctx, { category: category.slug })}>{category.name}</a>
+              {" "}
+              / <a href={listUrl(ctx, { category: category.slug })}>{category.name}</a>
             </>
           )}
         </nav>
@@ -176,7 +206,11 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
             </h1>
             <p className={s.detailPrice}>{formatToman(p.price)}</p>
             <StockBadge stock={p.stockQuantity} />
-            {p.description ? <p className={s.prose} style={{ marginTop: 18 }}>{p.description}</p> : null}
+            {p.description ? (
+              <p className={s.prose} style={{ marginTop: 18 }}>
+                {p.description}
+              </p>
+            ) : null}
             <p className={s.note}>برای سفارش با فروشگاه تماس بگیرید. خرید آنلاین در این نسخه فعال نیست.</p>
           </div>
         </div>
@@ -191,21 +225,29 @@ export const RichText: SectionComponent<"richText"> = ({ section, ctx }) => (
   </Section>
 );
 
-export const ImageText: SectionComponent<"imageText"> = ({ section }) => (
-  <Section id={section.id} alt>
-    <div className={s.split}>
-      <div>
-        <h2 id={`${section.id}-title`} className={s.sectionTitle}>
-          {section.props.title}
-        </h2>
-        {section.props.body ? <p className={s.prose}>{section.props.body}</p> : null}
+export const ImageText: SectionComponent<"imageText"> = ({ section, ctx }) => {
+  const img = sectionImage(ctx, section.props.imageId);
+  return (
+    <Section id={section.id} alt>
+      <div className={s.split}>
+        <div>
+          <h2 id={`${section.id}-title`} className={s.sectionTitle}>
+            {section.props.title}
+          </h2>
+          {section.props.body ? <p className={s.prose}>{section.props.body}</p> : null}
+        </div>
+        <div className={s.splitArt} aria-hidden={img ? undefined : "true"}>
+          {img ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className={s.img} src={img.url} alt="" width={img.width} height={img.height} loading="lazy" decoding="async" />
+          ) : (
+            initial(section.props.title)
+          )}
+        </div>
       </div>
-      <div className={s.splitArt} aria-hidden="true">
-        {initial(section.props.title)}
-      </div>
-    </div>
-  </Section>
-);
+    </Section>
+  );
+};
 
 export const ContactInfo: SectionComponent<"contactInfo"> = ({ section, ctx }) => {
   const links = buildContactLinks(ctx.data.store.contact, ctx.data.store.social);
@@ -223,7 +265,11 @@ export const ContactInfo: SectionComponent<"contactInfo"> = ({ section, ctx }) =
               <span className={s.contactLabel}>{l.label}</span>
               <span className={s.contactValue} dir={l.kind === "address" ? undefined : "ltr"}>
                 {l.href ? (
-                  <a href={l.href} rel={l.href.startsWith("http") ? "noopener noreferrer" : undefined} target={l.href.startsWith("http") ? "_blank" : undefined}>
+                  <a
+                    href={l.href}
+                    rel={l.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                    target={l.href.startsWith("http") ? "_blank" : undefined}
+                  >
                     {l.value}
                   </a>
                 ) : (

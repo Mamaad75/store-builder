@@ -42,7 +42,7 @@ export default function ProductCard({ product, category, ctx }: { product: Store
         </div>
         <div className={s.cardBody}>
           {category && <span className={s.cardCategory}>{category.name}</span>}
-          <h3 style={{ fontSize: "1rem" }}>
+          <h3 style={{ fontSize: "1em" }}>
             <a className={s.cardName} href={ctx.href(`/products/${encodeURIComponent(product.slug)}`)}>
               {product.name}
             </a>

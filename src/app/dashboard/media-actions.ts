@@ -14,8 +14,11 @@ import {
   setStoreLogo,
   uploadMedia,
 } from "@/modules/media/service";
+import { pageUrl } from "@/modules/pages/urls";
+import { setSectionImage } from "@/modules/pages/service";
 import { productUrl, productsUrl, storeUrl } from "@/modules/products/list-url";
-import { NotFoundError } from "@/modules/stores/errors";
+import { PageNeedsRecoveryError } from "@/modules/pages/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 
 export interface MediaFormState {
   error?: string;
@@ -122,4 +125,43 @@ export async function removeStoreLogoAction(_prev: MediaFormState, fd: FormData)
   }
   revalidatePath(storeUrl(storeId));
   return { success: "لوگوی فروشگاه حذف شد." };
+}
+
+/** Section image (hero / image+text): same pipeline; the reference is validated against this store under the store lock. */
+export async function uploadSectionImageAction(_prev: MediaFormState, fd: FormData): Promise<MediaFormState> {
+  const user = await requireUser();
+  const storeId = str(fd, "storeId");
+  const pageType = str(fd, "pageType");
+  const sectionId = str(fd, "sectionId");
+  const bytes = await readFile(fd);
+  if (!Buffer.isBuffer(bytes)) return bytes;
+  let mediaId: string | null = null;
+  try {
+    const media = await uploadMedia(user.id, storeId, bytes);
+    mediaId = media.id;
+    await setSectionImage(user.id, storeId, pageType, sectionId, media.id, str(fd, "expectedRevision"));
+  } catch (e) {
+    if (mediaId) await releaseMedia(user.id, storeId, mediaId).catch(() => undefined);
+    if (e instanceof ConflictError) return { error: "این صفحه هم‌زمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید." };
+    if (e instanceof PageNeedsRecoveryError) return { error: "این صفحه بخش نامعتبر دارد؛ ابتدا آن را بازیابی کنید." };
+    if (e instanceof ValidationError) return { error: "این بخش تصویر ندارد." };
+    return toState(e, pageUrl(storeId, pageType));
+  }
+  revalidatePath(pageUrl(storeId, pageType));
+  return { success: "تصویر بخش ذخیره شد." };
+}
+
+export async function removeSectionImageAction(_prev: MediaFormState, fd: FormData): Promise<MediaFormState> {
+  const user = await requireUser();
+  const storeId = str(fd, "storeId");
+  const pageType = str(fd, "pageType");
+  try {
+    await setSectionImage(user.id, storeId, pageType, str(fd, "sectionId"), null, str(fd, "expectedRevision"));
+  } catch (e) {
+    if (e instanceof ConflictError) return { error: "این صفحه هم‌زمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید." };
+    if (e instanceof PageNeedsRecoveryError) return { error: "این صفحه بخش نامعتبر دارد؛ ابتدا آن را بازیابی کنید." };
+    return toState(e, pageUrl(storeId, pageType));
+  }
+  revalidatePath(pageUrl(storeId, pageType));
+  return { success: "تصویر بخش حذف شد." };
 }

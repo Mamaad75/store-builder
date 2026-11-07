@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from "react";
+import type { EditorSpec } from "./editor";
 import type { Section, SectionType } from "./sections";
 import type { StorefrontData, StorefrontPage, StorefrontProduct } from "./storefront-data";
 
@@ -51,6 +52,8 @@ export interface TemplateModule {
   readonly name: string;
   /** Page chrome: header/navigation, main landmark, footer. */
   readonly Layout: (props: LayoutProps) => ReactElement;
+  /** Which sections the dashboard may add/remove/reorder on each page (template-specific, see editor.ts). */
+  readonly editor: EditorSpec;
   /** One component per supported section type. */
   readonly sections: { readonly [T in SectionType]?: SectionComponent<T> };
 }

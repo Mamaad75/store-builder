@@ -21,10 +21,12 @@ export function makeStorefront(over: Partial<StorefrontData> = {}): StorefrontDa
       contact: { phone: "۰۲۱-۱۲۳۴۵۶۷۸", email: "shop@example.com", address: "تهران، خیابان آزادی" },
       social: { instagram: "@shop_sample", telegram: "", whatsapp: "" },
       logo: null,
+      typography: { fontFamily: "vazirmatn", sizeScale: "normal", headingWeight: 800, bodyWeight: 400 },
     },
     pages: general.pages.map((p, i) => ({ ...p, position: i })) as StorefrontData["pages"],
     categories: [CATEGORY_TEA, CATEGORY_COFFEE],
     products: [PRODUCT_A, PRODUCT_B],
+    images: {},
     ...over,
   };
 }

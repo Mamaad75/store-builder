@@ -225,3 +225,51 @@ describe("architecture guard: media and object storage", () => {
     expect(read("next.config.ts")).toMatch(/bodySizeLimit:\s*"6mb"/);
   });
 });
+
+describe("architecture guard: page editing (draft only, owner-scoped, template-aware)", () => {
+  const inFiles = (re: RegExp) => rel(prodFiles().filter((f) => re.test(read(f))));
+
+  it("page rows are written only by the pages repository (and nested-created with a new store)", () => {
+    expect(inFiles(/\.page\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/)).toEqual(["src/modules/pages/repository.ts"]);
+    expect(inFiles(/pages:\s*\{\s*create:/)).toEqual(["src/modules/stores/service.ts"]);
+  });
+
+  it("every page mutation runs inside withStoreMutation via the single mutatePage (revision check + rollback of no-ops)", () => {
+    const src = read("src/modules/pages/service.ts");
+    expect(src.match(/withStoreMutation\(/g)).toHaveLength(1);
+    expect(src).toMatch(/page\.revision !== expected/);
+    expect(src).toMatch(/throw new NoChange\(\)/);
+    for (const fn of ["addSection", "updateSection", "removeSection", "moveSection", "setSectionImage", "setPageVisibility", "recoverPage"]) {
+      expect(src, fn).toMatch(new RegExp(`export async function ${fn}\\([\\s\\S]*?mutatePage\\(`));
+    }
+  });
+
+  it("the repository writes pages only with the revision the caller verified, and the owner in the SQL condition", () => {
+    const src = read("src/modules/pages/repository.ts");
+    expect(src).toMatch(/revision:\s*page\.revision/);
+    expect(src).toMatch(/store:\s*\{\s*ownerId:\s*ctx\.ownerId\s*\}/);
+    expect(src).toMatch(/store:\s*\{\s*ownerId:\s*this\.ownerId\s*\}/);
+  });
+
+  it("the editing service names no concrete template: approved sections come from the template's editor spec", () => {
+    const offenders = files("src/modules/pages").filter((f) => /["'](general|coffee|fashion)["']/.test(read(f)));
+    expect(offenders).toEqual([]);
+    expect(read("src/templates/types.ts")).toMatch(/readonly editor: EditorSpec/);
+  });
+
+  it("hiding is guarded by NON_HIDEABLE_PAGES in the service", () => {
+    expect(read("src/modules/pages/service.ts")).toMatch(/NON_HIDEABLE_PAGES\.includes\(type\)/);
+  });
+
+  it("no raw HTML injection and no external fonts/stylesheets anywhere in the app or templates", () => {
+    expect(inFiles(/dangerouslySetInnerHTML/)).toEqual([]);
+    expect(inFiles(/@import\s+url\(|fonts\.googleapis|fonts\.gstatic|<link[^>]+stylesheet/)).toEqual([]);
+    expect(read("src/templates/general/general.module.css")).not.toMatch(/@import|url\(\s*["']?https?:/);
+  });
+
+  it("the page editor actions authenticate first and the editing UI imports no data layer", () => {
+    expect(read("src/app/dashboard/pages-actions.ts")).toMatch(/export async function pageEditAction\([^)]*\)[^{]*\{\n\s*const user = await requireUser\(\)/);
+    const offenders = files("src/components/pages").filter((f) => /from\s+["'](@\/lib\/db|@prisma\/client|@\/modules\/[^"']*repository)["']/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+});

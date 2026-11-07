@@ -32,3 +32,11 @@ export function listUrl(ctx: RenderContext, params: { category?: string; page?: 
   const s = q.toString();
   return ctx.href("/products") + (s ? `?${s}` : "");
 }
+
+/** Image of a section (`imageId` -> contract `images` map -> public URL), or null for the placeholder. */
+export function sectionImage(ctx: RenderContext, imageId: string | null): { url: string; width: number; height: number } | null {
+  if (!imageId) return null;
+  const ref = ctx.data.images[imageId];
+  const url = ref ? ctx.mediaUrl(ref.key) : null;
+  return ref && url ? { url, width: ref.width, height: ref.height } : null;
+}

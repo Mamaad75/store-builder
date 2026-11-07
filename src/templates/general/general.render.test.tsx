@@ -194,3 +194,37 @@ describe("general template: images", () => {
     expect([...h.matchAll(/src="(https?:[^"]+)"/g)].every((m) => m[1]!.startsWith("https://only-this-host.test/"))).toBe(true);
   });
 });
+
+describe("general template: typography and section images (phase 8)", () => {
+  it("applies the typography choices as closed CSS values (size percent and weights), nothing else", () => {
+    const d = makeStorefront();
+    d.store.typography = { fontFamily: "vazirmatn", sizeScale: "large", headingWeight: 600, bodyWeight: 500 };
+    const h = render(d);
+    expect(h).toContain("font-size:110%");
+    expect(h).toContain("--w-heading:600");
+    expect(h).toContain("--w-body:500");
+    for (const [scale, pct] of [["small", "92%"], ["normal", "100%"]] as const) {
+      d.store.typography = { ...d.store.typography, sizeScale: scale };
+      expect(render(d)).toContain(`font-size:${pct}`);
+    }
+  });
+  it("the font family is not configurable in markup (no font-family inline style)", () => {
+    expect(render(makeStorefront())).not.toMatch(/font-family/);
+  });
+  const key = `stores/s1/${"c".repeat(32)}.webp`;
+  it("hero and image+text sections render the referenced image from the contract's images map", () => {
+    const d = makeStorefront();
+    d.images = { m1: { key, width: 640, height: 480 } };
+    const home = d.pages.find((p) => p.type === "HOME")!;
+    home.sections = home.sections.map((s) => ("imageId" in s.props ? ({ ...s, props: { ...s.props, imageId: "m1" } } as typeof s) : s));
+    const h = render(d);
+    expect(h.match(new RegExp(`src="${CDN}/${key}"`, "g"))?.length).toBe(2); // hero + imageText
+    expect(h).toContain('width="640"');
+  });
+  it("an imageId that is not in the images map (not READY / foreign / missing) renders the placeholder, never an <img>", () => {
+    const d = makeStorefront();
+    const home = d.pages.find((p) => p.type === "HOME")!;
+    home.sections = home.sections.map((s) => ("imageId" in s.props ? ({ ...s, props: { ...s.props, imageId: "ghost" } } as typeof s) : s));
+    expect(render(d)).not.toContain("<img");
+  });
+});

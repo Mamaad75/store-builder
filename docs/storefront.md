@@ -47,3 +47,7 @@ Create `src/templates/<key>/index.ts` exporting a `TemplateModule`, add it to `r
 ## Compatibility decisions
 
 See D6-2/D6-3 in [`decisions.md`](decisions.md): stored data is never rewritten by rendering; invalid sections/settings are skipped or defaulted and reported.
+
+## Phase 8 additions to the contract (same `schemaVersion: 1`, all optional with defaults)
+
+`store.typography` (closed allow-lists, see `docs/pages.md`) and `images` (`{ [mediaId]: { key, width, height } }`, relative keys, at most 60) are added; data written earlier parses with the defaults. Templates get section images through `sectionImage(ctx, imageId)`; an id that is not in `images` renders the placeholder.

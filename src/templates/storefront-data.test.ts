@@ -59,6 +59,21 @@ describe("storefront data contract", () => {
       expect(ok(makeStorefront({ products: [{ ...PRODUCT_A, image: { key, width: 1, height: 1, url: "https://x" } as never }] }))).toBe(false);
     });
   });
+  it("typography and images default for data written before phase 8, and reject anything outside the allow-lists", () => {
+    const legacy = JSON.parse(JSON.stringify(makeStorefront()));
+    delete legacy.store.typography;
+    delete legacy.images;
+    const r = storefrontDataSchema.safeParse(legacy);
+    expect(r.success && r.data.store.typography.fontFamily).toBe("vazirmatn");
+    expect(r.success && r.data.images).toEqual({});
+    const bad = makeStorefront();
+    (bad.store.typography as { fontFamily: string }).fontFamily = "Arial";
+    expect(ok(bad)).toBe(false);
+    const tooMany = makeStorefront();
+    for (let i = 0; i < 61; i++) tooMany.images[`m${i}`] = { key: `stores/s1/${"a".repeat(32)}.webp`, width: 1, height: 1 };
+    expect(ok(tooMany)).toBe(false);
+    expect(ok(makeStorefront({ images: { m1: { key: "https://evil.example/x.webp", width: 1, height: 1 } } }))).toBe(false);
+  });
   it("rejects a page with an invalid section (never partially accepted)", () => {
     const d = makeStorefront();
     (d.pages[0]!.sections as unknown[]).push({ id: "x", type: "hero", props: {} });

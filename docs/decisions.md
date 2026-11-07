@@ -125,3 +125,17 @@ Full description: [`docs/media.md`](media.md).
 | D7-8 | CI gets a throw-away MinIO container (test-only credentials, isolated `-test`/`-e2e` buckets, loopback only) for storage integration tests and E2E; no deployment jobs or secrets. | Implemented; verified by GitHub Actions (see delivery report) |
 | D7-9 | The storefront contract gains optional `store.logo` and `product.image` (`{key,width,height}`, default null) under the same `schemaVersion: 1`; the renderer receives a URL builder from the host. Hero/imageText section images stay placeholders (phase 8). | Implemented |
 | D7-10 | Server Action body limit raised to 6 MB for uploads (the pipeline enforces the real 5 MB limit). | Implemented |
+
+## Phase 8: page editing and appearance
+
+Full description: [`docs/pages.md`](pages.md).
+
+| ID | Decision | Status |
+|---|---|---|
+| D8-1 | Sections are edited with forms (add, edit, remove, up/down; no drag and drop) from the **current template's approved registry** (`TemplateModule.editor`: allowed / singletons / required per page). The core names no template, so phase 9 only adds specs. At most 20 sections per page. | Implemented |
+| D8-2 | `HOME` and `PRODUCTS` cannot be hidden (service rule + CHECK constraint). Hiding `PRODUCT_DETAIL` is allowed; this makes product URLs "not found" in the preview. | Implemented |
+| D8-3 | Every edit runs in `withStoreMutation`; new `Page.revision` is the optimistic-concurrency token, so stale forms get the existing explicit `ConflictError`. No-ops roll back and bump nothing (also applied to `updateStore`). | Implemented (migration `20261107083537_phase8_pages`) |
+| D8-4 | Invalid/legacy section JSON is never discarded or overwritten: edits are refused until an explicit recovery MOVES the entries verbatim into `Page.legacySections`. | Implemented |
+| D8-5 | Section images reuse the phase 7 pipeline; the reference is validated (same store, `READY`) in the mutation transaction; reference-aware release is preserved; the storefront contract gains `images` (by media id, relative keys). | Implemented |
+| D8-6 | Typography: Vazirmatn only; size scale, heading weight and body weight come from explicit allow-lists; colors are strict `#RRGGBB`; no arbitrary CSS, HTML, scripts or external fonts. Old settings parse with defaults. | Implemented |
+| D8-7 | Everything is draft-only; no publishing, snapshot writing or public routing. The preview reflects edits immediately. | Implemented |

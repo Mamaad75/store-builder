@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TYPOGRAPHY_SIZE_SCALES } from "@/templates/sections";
 
 export const MAX_STORES_PER_USER = 10;
 
@@ -11,6 +12,17 @@ export const createStoreSchema = z
   .object({
     name,
     templateKey: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
+  })
+  .strict();
+
+const numeric = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v);
+
+/** Closed allow-lists only: no font family, URL or CSS value can be supplied. */
+export const typographyPatchSchema = z
+  .object({
+    sizeScale: z.enum(TYPOGRAPHY_SIZE_SCALES, { error: "اندازهٔ متن نامعتبر است" }).optional(),
+    headingWeight: z.preprocess(numeric, z.union([z.literal(600), z.literal(700), z.literal(800)], { error: "ضخامت عنوان نامعتبر است" })).optional(),
+    bodyWeight: z.preprocess(numeric, z.union([z.literal(400), z.literal(500)], { error: "ضخامت متن نامعتبر است" })).optional(),
   })
   .strict();
 
@@ -34,6 +46,7 @@ export const updateStoreSchema = z
       .object({ instagram: handle.optional(), telegram: handle.optional(), whatsapp: handle.optional() })
       .strict()
       .optional(),
+    typography: typographyPatchSchema.optional(),
   })
   .strict();
 

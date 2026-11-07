@@ -5,6 +5,8 @@ import type { LayoutProps } from "../types";
 import { initial } from "./ProductCard";
 import s from "./general.module.css";
 
+const SIZE_SCALE = { small: 0.92, normal: 1, large: 1.1 } as const;
+
 const NAV: { type: "HOME" | "PRODUCTS" | "ABOUT" | "CONTACT"; path: string }[] = [
   { type: "HOME", path: "/" },
   { type: "PRODUCTS", path: "/products" },
@@ -17,7 +19,11 @@ export default function Layout({ ctx, children }: LayoutProps) {
   const primary = store.primaryColor;
   // Text/links drawn on white must stay readable even for a light brand color.
   const accent = contrastRatio(primary, "#ffffff") >= 4.5 ? primary : "#1f2937";
+  const t = store.typography;
   const vars = {
+    fontSize: `${Math.round(SIZE_SCALE[t.sizeScale] * 100)}%`,
+    "--w-heading": String(t.headingWeight),
+    "--w-body": String(t.bodyWeight),
     "--primary": primary,
     "--on-primary": readableTextOn(primary),
     "--accent": accent,

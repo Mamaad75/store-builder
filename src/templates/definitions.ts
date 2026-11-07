@@ -3,14 +3,14 @@ import {
   pageDefinitionSchema,
   templateSettingsSchema,
   type PageDefinition,
-  type TemplateSettings,
+  type TemplateSettingsInput,
 } from "./sections";
 
 export interface TemplateDefinition {
   key: "coffee" | "fashion" | "general";
   name: string;
   version: number;
-  settings: TemplateSettings;
+  settings: TemplateSettingsInput;
   pages: PageDefinition[];
 }
 

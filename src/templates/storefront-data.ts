@@ -2,7 +2,7 @@ import { z } from "zod";
 import { MAX_PRICE_TOMAN } from "@/lib/money";
 import { MEDIA_KEY_RE } from "@/lib/storage/keys";
 import { isCanonicalSlug } from "@/lib/text";
-import { PAGE_TYPES, SECTION_TYPES, sectionPropsSchemas, type Section, type SectionType } from "./sections";
+import { DEFAULT_TYPOGRAPHY, PAGE_TYPES, SECTION_TYPES, sectionPropsSchemas, typographySchema, type Section, type SectionType } from "./sections";
 
 /**
  * The ONE data contract a storefront is rendered from.
@@ -38,6 +38,7 @@ export const storefrontStoreSchema = z
     contact: z.object({ phone: z.string().max(40), email: z.string().max(254), address: z.string().max(300) }).strict(),
     social: z.object({ instagram: z.string().max(64), telegram: z.string().max(64), whatsapp: z.string().max(64) }).strict(),
     logo: mediaRefSchema.nullable().default(null),
+    typography: typographySchema.default(DEFAULT_TYPOGRAPHY),
   })
   .strict();
 
@@ -78,6 +79,8 @@ export const storefrontDataSchema = z
     pages: z.array(storefrontPageSchema).max(20),
     categories: z.array(storefrontCategorySchema).max(50),
     products: z.array(storefrontProductSchema).max(500),
+    /** Images referenced by sections (hero/imageText `imageId`), keyed by media id. Relative keys only. */
+    images: z.record(id, mediaRefSchema).default({}),
   })
   .strict()
   .superRefine((d, ctx) => {
@@ -87,6 +90,7 @@ export const storefrontDataSchema = z
         ctx.addIssue({ code: "custom", path: ["products", i, "categoryId"], message: "unknown category" });
       }
     });
+    if (Object.keys(d.images).length > 60) ctx.addIssue({ code: "custom", path: ["images"], message: "too many images" });
     const dup = (xs: string[]) => new Set(xs).size !== xs.length;
     if (dup(d.pages.map((p) => p.type))) ctx.addIssue({ code: "custom", path: ["pages"], message: "duplicate page type" });
     if (dup(d.products.map((p) => p.slug))) ctx.addIssue({ code: "custom", path: ["products"], message: "duplicate product slug" });

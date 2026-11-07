@@ -37,7 +37,24 @@ export class DraftStorefrontRepository {
       },
     });
     if (!store) return null;
+    // Images referenced by section props (`imageId`): READY media of THIS store only (owner-scoped in SQL).
+    const ids = new Set<string>();
+    for (const page of store.pages) {
+      if (!Array.isArray(page.sections)) continue;
+      for (const sec of page.sections as unknown[]) {
+        const id = (sec as { props?: { imageId?: unknown } } | null)?.props?.imageId;
+        if (typeof id === "string" && id.length > 0 && id.length <= 64) ids.add(id);
+      }
+    }
+    const media =
+      ids.size === 0
+        ? []
+        : await db.media.findMany({
+            where: { id: { in: [...ids].slice(0, 200) }, storeId, status: "READY", store: { ownerId: this.ownerId } },
+            select: { id: true, key: true, width: true, height: true, status: true },
+          });
     return {
+      images: Object.fromEntries(media.map((m) => [m.id, { key: m.key, width: m.width, height: m.height, status: m.status }])),
       store: { name: store.name, settings: store.settings, logo: store.logo },
       template: { key: store.templateVersion.template.key, version: store.templateVersion.version, defaultSettings: store.templateVersion.defaultSettings },
       pages: store.pages,

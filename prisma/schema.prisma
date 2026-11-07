@@ -118,16 +118,20 @@ model StoreVersion {
 }
 
 model Page {
-  id        String   @id @default(cuid())
-  storeId   String
-  type      PageType
-  title     String
-  slug      String
-  sections  Json
-  isVisible Boolean  @default(true)
-  position  Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  storeId        String
+  type           PageType
+  title          String
+  slug           String
+  sections       Json
+  isVisible      Boolean  @default(true)
+  position       Int      @default(0)
+  // Optimistic-concurrency token for the editor: bumped on every change of this page, compared with what the form was loaded with.
+  revision       Int      @default(1)
+  // Invalid/unknown section entries moved out of `sections` by the explicit recovery action (never deleted).
+  legacySections Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 

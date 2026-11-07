@@ -16,6 +16,7 @@ export const SECTION_TYPES = [
 export type SectionType = (typeof SECTION_TYPES)[number];
 
 export const PAGE_TYPES = ["HOME", "PRODUCTS", "PRODUCT_DETAIL", "ABOUT", "CONTACT"] as const;
+export type PageType = (typeof PAGE_TYPES)[number];
 
 /**
  * Internal links only: a path that starts with a single "/" and contains no whitespace, backslash,
@@ -123,12 +124,39 @@ export const pageDefinitionSchema = z.object({
   sections: z.array(sectionEnvelopeSchema),
 });
 
+/**
+ * Typography is a closed set of choices: the font family is fixed (Vazirmatn, bundled with the app) and sizes/weights come
+ * from explicit allow-lists. There is deliberately no free-form family, URL or CSS value anywhere.
+ */
+export const TYPOGRAPHY_SIZE_SCALES = ["small", "normal", "large"] as const;
+export const TYPOGRAPHY_HEADING_WEIGHTS = [600, 700, 800] as const;
+export const TYPOGRAPHY_BODY_WEIGHTS = [400, 500] as const;
+
+export const typographySchema = z
+  .object({
+    fontFamily: z.literal("vazirmatn"),
+    sizeScale: z.enum(TYPOGRAPHY_SIZE_SCALES),
+    headingWeight: z.union([z.literal(600), z.literal(700), z.literal(800)]),
+    bodyWeight: z.union([z.literal(400), z.literal(500)]),
+  })
+  .strict();
+
+export type Typography = z.infer<typeof typographySchema>;
+export const DEFAULT_TYPOGRAPHY: Typography = { fontFamily: "vazirmatn", sizeScale: "normal", headingWeight: 800, bodyWeight: 400 };
+
+/** Strict `#RRGGBB` only (no names, no short form, no alpha, no functions). */
+export const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
 export const templateSettingsSchema = z.object({
-  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  primaryColor: hexColorSchema,
   direction: z.enum(["rtl", "ltr"]),
   contact: z.object({ phone: z.string(), email: z.string(), address: z.string() }),
   social: z.object({ instagram: z.string(), telegram: z.string(), whatsapp: z.string() }),
+  // Settings stored before phase 8 have no typography: they parse with the defaults (and are persisted normalised on the next save).
+  typography: typographySchema.default(DEFAULT_TYPOGRAPHY),
 });
 
 export type PageDefinition = z.infer<typeof pageDefinitionSchema>;
 export type TemplateSettings = z.infer<typeof templateSettingsSchema>;
+/** Settings as written by a seed/definition (typography optional). */
+export type TemplateSettingsInput = z.input<typeof templateSettingsSchema>;

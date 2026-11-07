@@ -12,9 +12,17 @@ import { generalTemplate } from "./general";
 const TEMPLATES: readonly TemplateModule[] = [generalTemplate];
 
 const index = new Map(TEMPLATES.map((t) => [`${t.key}@${t.version}`, t]));
+const extra = new Map<string, TemplateModule>();
 
 export function resolveTemplate(key: string, version: number): TemplateModule | null {
-  return index.get(`${key}@${version}`) ?? null;
+  const k = `${key}@${version}`;
+  return extra.get(k) ?? index.get(k) ?? null;
+}
+
+/** Test seam: registers (or, with an empty list, clears) extra templates so tests can prove template-specific behaviour. */
+export function setExtraTemplatesForTests(templates: readonly TemplateModule[]): void {
+  extra.clear();
+  for (const t of templates) extra.set(`${t.key}@${t.version}`, t);
 }
 
 export function listRegisteredTemplates(): { key: string; version: number; name: string }[] {
