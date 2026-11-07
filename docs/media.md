@@ -92,3 +92,7 @@ Store deletion removes rows by cascade; the objects are removed by step 3 after 
 * `*.storage.test.ts` (PostgreSQL + a real S3-compatible server): put, anonymous public read, list, delete, idempotent delete, read-only public access (policy enforcing servers), real transport failure, pipeline end to end. In CI this runs against MinIO.
 * `e2e/media.spec.ts`: upload through the UI, image loaded from the bucket in the browser, preview, replace/remove (objects really deleted), invalid files, forged ids, logo.
 * Test storage is isolated: `src/test/storage-env.ts` only accepts a loopback endpoint and a bucket ending in `-test`/`-e2e`, and never reads the production `S3_*` variables.
+
+## CI note: MinIO image
+
+Run 5 showed that `minio/minio` is no longer pullable from Docker Hub. CI and `docker-compose.yml` use `bitnamilegacy/minio` (a real MinIO server), pinned by tag and digest in `scripts/ci-start-minio.sh`. The image is unmaintained, so it is only used for throw-away test/dev containers. A maintained replacement (for example an image built from MinIO's own releases) is a phase 13 decision.
