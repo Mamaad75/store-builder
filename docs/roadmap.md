@@ -57,3 +57,8 @@ Deployment restrictions in `docs/decisions.md` stay in force: nothing is purchas
 3. Keep the failure-only MinIO diagnostics step in CI.
 4. If the storage job fails again, investigate the printed diagnostics instead of assuming the same cause.
 5. Never weaken a storage security assertion (anonymous LIST/PUT/DELETE must each get a real 403; ECONNRESET must fail the test).
+
+## Future work (recorded, not scheduled)
+
+* **Archived-content cleanup and recovery** (from 9B): an explicit, owner-driven way to review archived (`legacySections`) entries, restore them into a page or delete them, with confirmation and the normal reference-aware media release. Until then archived entries and the media they reference are kept indefinitely and never removed automatically.
+

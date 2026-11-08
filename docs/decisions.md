@@ -159,3 +159,4 @@ Full description: [`docs/themes.md`](themes.md).
 | D9B-4 | Only the latest active version of a theme key that also exists in code is a valid target; upgrades are out of scope. | Implemented |
 | D9B-5 | Candidate-theme preview via `?theme=`: owner-only, read-only, isolated from published data. | Implemented |
 | D9B-6 | `isMediaReferenced` also scans `Page.legacySections` (archived sections); archived entries are never removed by the application, so their media stay protected. | Implemented |
+| D9B-7 | Known limitation, accepted: archived entries (`legacySections`) have no owner-facing removal, so media referenced only by them stays protected indefinitely. No automatic deletion of archived content or media, no destructive cleanup in 9B; an explicit, owner-driven archived-content cleanup/recovery capability is future work. | Accepted limitation |

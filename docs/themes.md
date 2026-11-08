@@ -60,6 +60,8 @@ A switch changes **one column**: `Store.templateVersionId` (and bumps `draftRevi
 
 ## Known limitations (9B)
 
+* **Archived content has no owner-facing removal.** Entries archived by the Phase 8 recovery (`Page.legacySections`) are kept verbatim and their media references are protected, but nothing lets the owner review, restore or delete them. Media referenced **only** by archived entries therefore stays protected (and stored) indefinitely. By decision, nothing deletes archived content or media automatically, the protection is unchanged, and an explicit archived-content cleanup/recovery capability is recorded as future work (see the roadmap).
+
 * The report is computed for the whole store at once; very large stores are not paginated (a store has at most 5 pages x 20 sections).
 * Mixed states are possible by design: a store can keep dormant sections of several themes at once.
 * Starter text, the new theme's `defaultSettings` and `defaultPages` are never applied by a switch (content is not rewritten).
