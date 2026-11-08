@@ -89,10 +89,10 @@ describe("the compatibility report is read-only and describes the switch", () =>
 
   it("only registered, active themes are offered", async () => {
     const { a, a1 } = await twoTenants();
-    expect((await listSwitchableThemes(a.id, a1)).themes.map((t) => t.key)).toEqual(["general", "coffee", "fashion"]);
+    expect((await listSwitchableThemes(a.id, a1)).themes.map((t) => t.key)).toEqual(["general", "coffee", "fashion", "appliances"]);
     await prisma.template.update({ where: { key: "fashion" }, data: { isActive: false } });
     const l = await listSwitchableThemes(a.id, a1);
-    expect(l.themes.map((t) => t.key)).toEqual(["general", "coffee"]);
+    expect(l.themes.map((t) => t.key)).toEqual(["general", "coffee", "appliances"]);
     expect(l.current?.key).toBe("general");
   });
 });

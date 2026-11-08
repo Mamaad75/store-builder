@@ -40,7 +40,7 @@ describe("creation: business category and theme are independent choices", () => 
     const u = await makeUser();
     const got: Record<string, string> = {};
     for (const t of THEMES) got[t] = (await cat((await createStore(u.id, { name: t, templateKey: t })).id)).businessCategory;
-    expect(got).toEqual({ general: "general", coffee: "coffee-food", fashion: "fashion" });
+    expect(got).toEqual({ general: "general", coffee: "coffee-food", fashion: "fashion", appliances: "home-appliances" });
   });
 
   it("rejects unknown or malformed categories and creates nothing", async () => {
@@ -63,10 +63,10 @@ describe("creation: business category and theme are independent choices", () => 
     await makeUser();
     const t = await prisma.template.upsert({ where: { key: "legacy-demo" }, create: { key: "legacy-demo", name: "x" }, update: {} });
     await prisma.templateVersion.create({ data: { templateId: t.id, version: 1, defaultSettings: {}, defaultPages: [] } });
-    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["general", "coffee", "fashion"]);
+    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["general", "coffee", "fashion", "appliances"]);
     expect((await listActiveTemplates())[1]!.name).toBe("گرم و ادیتوریال");
     await prisma.template.update({ where: { key: "coffee" }, data: { isActive: false } });
-    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["general", "fashion"]);
+    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["general", "fashion", "appliances"]);
   });
 });
 

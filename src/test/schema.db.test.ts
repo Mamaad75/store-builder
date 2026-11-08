@@ -6,16 +6,16 @@ beforeEach(resetDb);
 afterAll(() => prisma.$disconnect());
 
 describe("template seed", () => {
-  it("creates exactly the three agreed templates at version 1", async () => {
+  it("creates exactly the four agreed templates at version 1", async () => {
     const t = await prisma.template.findMany({ include: { versions: true }, orderBy: { key: "asc" } });
-    expect(t.map((x) => x.key)).toEqual(["coffee", "fashion", "general"]);
+    expect(t.map((x) => x.key)).toEqual(["appliances", "coffee", "fashion", "general"]);
     expect(t.every((x) => x.versions.length === 1 && x.versions[0]!.version === 1)).toBe(true);
   });
   it("is idempotent and never overwrites an existing version", async () => {
     const v = await prisma.templateVersion.findFirstOrThrow({ where: { template: { key: "coffee" } } });
     await prisma.templateVersion.update({ where: { id: v.id }, data: { defaultSettings: { custom: true } } });
     await seedTemplates(prisma);
-    expect(await prisma.templateVersion.count()).toBe(3);
+    expect(await prisma.templateVersion.count()).toBe(4);
     const after = await prisma.templateVersion.findUniqueOrThrow({ where: { id: v.id } });
     expect(after.defaultSettings).toEqual({ custom: true });
   });

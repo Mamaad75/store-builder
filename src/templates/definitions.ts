@@ -3,7 +3,7 @@ import { pageDefinitionSchema, type PageDefinition } from "./section-parse";
 import { templateSettingsSchema, type TemplateSettingsInput } from "./sections";
 
 export interface TemplateDefinition {
-  key: "coffee" | "fashion" | "general";
+  key: "appliances" | "coffee" | "fashion" | "general";
   name: string;
   version: number;
   settings: TemplateSettingsInput;
@@ -78,6 +78,19 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       cta: "خرید کنید",
       aboutTitle: "درباره برند ما",
       aboutBody: "برند ما پوشاک راحت و شیک را برای هر سلیقه‌ای ارائه می‌دهد. این متن را از بخش ویرایش تغییر دهید.",
+    }),
+  },
+  {
+    key: "appliances",
+    name: "لوازم خانگی",
+    version: 1,
+    settings: { primaryColor: "#1664c0", direction: "rtl", contact: emptyContact, social: emptySocial },
+    pages: pages({
+      heroTitle: "لوازم خانگی مطمئن برای خانهٔ شما",
+      heroSubtitle: "کالاهای اصل با گارانتی و مشخصات روشن",
+      cta: "مشاهده محصولات",
+      aboutTitle: "درباره فروشگاه",
+      aboutBody: "ما لوازم خانگی معتبر را با راهنمایی روشن و پشتیبانی عرضه می‌کنیم. این متن را از بخش ویرایش تغییر دهید.",
     }),
   },
   {

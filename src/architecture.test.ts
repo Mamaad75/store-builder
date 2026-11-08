@@ -405,3 +405,57 @@ describe("architecture guard: theme switching and candidate preview (phase 9B)",
     expect(actions).toMatch(/expectedDraftRevision: str\(fd, "expectedDraftRevision"\)/);
   });
 });
+
+describe("architecture guard: product specifications and the appliances theme (phase 9C)", () => {
+  const inFiles = (re: RegExp, among = prodFiles()) => rel(among.filter((f) => re.test(read(f))));
+
+  it("the specs library is pure and shared (no React, no database, no Prisma)", () => {
+    for (const f of ["src/lib/product-specs.ts", "src/lib/spec-presets.ts"]) {
+      expect(read(f), f).not.toMatch(/from\s+["'](react|react-dom|@prisma\/client|@\/lib\/db|@\/modules\/[^"']*)["']/);
+    }
+  });
+
+  it("specs are written to the product row only from the products service (explicit patch) and its create path", () => {
+    expect(inFiles(/c\.specs\s*=|specs:\s*data\.specs/)).toEqual(["src/modules/products/service.ts"]);
+    const svc = read("src/modules/products/service.ts");
+    // the update path writes specs ONLY when the patch carries them and they differ: unrelated edits never touch stored specs
+    expect(svc).toMatch(/if \(patch\.specs !== undefined && !specsUnchanged\(cur\.specs, patch\.specs\)\) c\.specs = patch\.specs;/);
+    // every other product write (status, image, delete) names its columns explicitly
+    const repo = read("src/modules/products/repository.ts");
+    expect(repo.slice(repo.indexOf("export async function setStatusRow"))).not.toMatch(/specs/);
+  });
+
+  it("the product form sends specs only for the explicit 'replace' and 'clear' intents", () => {
+    const f = read("src/modules/products/specs-form.ts");
+    expect(f).toMatch(/intent === "clear"\) return \[\]/);
+    expect(f).toMatch(/intent !== "replace"\) return undefined/);
+    expect(read("src/app/dashboard/catalog-actions.ts")).toMatch(/specs: specsFromForm\(fd\)/);
+  });
+
+  it("every theme renders specs through the shared escaping components: ProductSpecs on the detail page and CardSpecs on cards", () => {
+    for (const theme of ["general", "coffee", "fashion", "appliances"]) {
+      const src = files(`src/templates/${theme}`).map((f) => read(f)).join("\n");
+      expect(src, theme).toMatch(/<ProductSpecs\b/);
+      expect(src, theme).toMatch(/<CardSpecs\b/);
+      expect(src, theme).not.toMatch(/dangerouslySetInnerHTML/);
+    }
+    const engine = read("src/templates/engine/Specs.tsx");
+    expect(engine).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
+    expect(engine).toMatch(/cardSpecs\(specs\)/); // the two-row rule lives in one place
+  });
+
+  it("no template or dashboard source injects raw HTML", () => {
+    expect(inFiles(/dangerouslySetInnerHTML/, [...files("src/templates"), ...files("src/components"), ...files("src/app")])).toEqual([]);
+  });
+
+  it("the appliances theme is registered in the catalog, the module registry and the seed definitions (and nowhere is a theme key hardcoded in the engine)", () => {
+    expect(read("src/templates/theme-catalog.ts")).toMatch(/appliancesTheme/);
+    expect(read("src/templates/registry.ts")).toMatch(/appliancesTemplate/);
+    expect(read("src/templates/definitions.ts")).toMatch(/key: "appliances"/);
+    expect(inFiles(/appliances/, files("src/templates/engine"))).toEqual([]);
+  });
+
+  it("the snapshot budget constants are derived from real validators in a test (docs and code cannot drift)", () => {
+    expect(read("src/lib/product-specs.size.test.ts")).toMatch(/SPECS_WORST_CASE_JSON_BYTES_PER_PRODUCT/);
+  });
+});

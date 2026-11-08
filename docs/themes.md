@@ -58,6 +58,53 @@ A switch changes **one column**: `Store.templateVersionId` (and bumps `draftRevi
 * **Published storefront:** nothing a switch or a candidate preview does can reach it. The published storefront reads only the immutable `StoreVersion.snapshot` named by the published pointer, which carries its own `template {key, version}`. (There is no snapshot writer until phase 10; the tests publish by hand and compare output before/after.)
 * **Media:** a switch touches no media row. Active, dormant and invalid sections all live in `Page.sections` and are matched by `isMediaReferenced`; **archived** sections (`Page.legacySections`, where the Phase 8 recovery moves invalid entries) are now matched too (a phase 8 gap closed in 9B). Nothing in the application removes archived entries, so their media stay protected indefinitely; a dormant section's media is released only by explicitly removing that dormant section.
 
+## Home & Appliances theme and product specifications (9C)
+
+### The `appliances` theme
+Key `appliances`, version 1, display name "تمیز و کاتالوگی": a clean, technical visual direction (cool neutrals, the store's primary colour as the accent, white product tiles with the image *contained* rather than cropped, a bordered spec table). It is a theme, not a category: any business category can use it and a home-appliances store can use any theme. It implements all nine core sections (enforced by the shared theme contract tests) and registers like the others: `definition.ts` + catalog line + registry line + seed definition (`definitions.ts`). Existing themes, stores and seeds are untouched. The `home-appliances` category now suggests `appliances` first (still only a suggestion), and a store created without a category on this theme infers `home-appliances`.
+
+* `appliances.serviceInfo` `{ title, items ("title: text" lines, at most 14 shown), note }` - warranty, delivery and after-sales points as plain text cards. Singleton; approved on home, about and contact. This is the only theme-specific section in 9C. A product comparison table (needs product ids inside section JSON that must stay valid when products are deleted) and a brand strip (needs media with reference protection) were considered and deliberately not built.
+
+### Product specifications (`Product.specs`)
+`specs` is an ordered JSONB array of `{ label, value }` text rows that belongs to the **product** (never to a theme, a section or a business category).
+
+| Rule | Value |
+|---|---|
+| rows per product | at most **30** |
+| label | 1-**40** characters |
+| value | 1-**120** characters |
+| labels | unique within a product (case-insensitive); no control characters; Persian letters normalised (`normalizeFa`) |
+| default | `[]` (existing products are not rewritten) |
+
+* **Migration `20261108093000_phase9c_product_specs`:** `ADD COLUMN "specs" JSONB NOT NULL DEFAULT '[]'` + `CHECK (jsonb_typeof(specs) = 'array' AND jsonb_array_length(specs) <= 30)`. A constant default makes it metadata-only on PostgreSQL 16: no row rewrite, every existing product reads as an empty list. The database only guarantees "an array of at most 30 elements"; element rules are enforced by the application on write and re-checked on read. Rollback = drop the column (only specs are lost).
+* **Write vs stored schemas** (`src/lib/product-specs.ts`): the write schema normalises and limits; the *stored* schema only checks. `analyzeSpecs` classifies a stored value as valid or invalid (`not_an_array`, `too_many_rows`, `invalid_row`, `duplicate_label`) and never rewrites it.
+* **Invalid stored specifications are never silently lost.** The original JSON is preserved byte for byte. The product list shows a "مشخصات نامعتبر" flag, the edit page shows a warning with the stored value, and the draft preview says how many products are affected (and renders them without specs). Editing any other field cannot touch them: the update path writes `specs` only when the patch carries them (`undefined` = untouched), and the form sends specs only for the two explicit intents `replace` and `clear` (the default for an invalid value is `keep`, which sends nothing). Repair is always the owner's explicit choice: "replace with new specifications" or "clear". Status changes, activation, image attachment and theme switches never touch specs either.
+* **Presets** (`src/lib/spec-presets.ts`) are optional label suggestions ("add these rows, then fill in the values"; rows left without a value are not saved). They are never validation rules and are not tied to a business category: every store is offered every preset; a category only decides which are listed first.
+* **Rendering** (`src/templates/engine/Specs.tsx`, one place for every theme): product listing cards show at most the **first two** rows, the detail page shows **all** rows, as a definition list of escaped React text (no HTML, no markdown, no links). No rows = no element at all (never an empty heading or list). All four themes render them with their own styling.
+* **Storefront contract:** `storefrontProductSchema.specs` is optional with an empty default, so schemaVersion-1 data and snapshots written before specs existed stay valid (tested, including a stored snapshot). Invalid stored specs reach the contract as `[]`.
+* **Search and filtering:** none in 9C (no storefront search exists). Later, exact label+value filters (e.g. brand) can use JSONB containment (`specs @> '[{"label":"برند","value":"..."}]'`, GIN-indexable). Numeric ranges would need typed attributes; `{label, value}` rows migrate to such a table by backfill.
+
+### Snapshot size budget (phase 10 input)
+The earlier planning estimate (~2.5 MB for 500 products) was wrong; the validated figures (recomputed from the real validators in `src/lib/product-specs.size.test.ts` and in a DB test) are:
+
+| | per product | 500 products |
+|---|---|---|
+| **Worst case** (30 rows, 40/120-unit labels/values of 3-byte characters, compact JSON) | **15,121 bytes** | **7,560,500 bytes (~7.2 MiB)** |
+| Same value in PostgreSQL's `jsonb::text` form (adds spaces after `:` and `,`) | 15,240 bytes | ~7.3 MiB |
+| Typical (about a dozen short Persian rows) | under 1 KiB | under ~0.6 MB |
+
+3 bytes per UTF-16 unit is the maximum JSON allows without escaping (BMP characters from U+0800); quotes/backslashes (2 bytes per unit) and astral characters (2 bytes per unit) are lighter. For perspective a product description can already weigh 15,000 bytes at its limit, so the worst case adds about the same again. All fields at their maximum (descriptions, specs, page sections) can approach ~17 MB for a full store.
+
+**Is an explicit guard needed for Phase 10?** Not for specs on their own: they are bounded by the validators. But the combined worst case justifies a **snapshot-level size guard in Phase 10** (measure the serialized snapshot and refuse to publish above a documented ceiling, e.g. 20 MiB, with a clear owner-facing message) rather than restricting specs further. `SPECS_WORST_CASE_JSON_BYTES_PER_PRODUCT/STORE` are exported for that purpose. No snapshot writer exists yet, so nothing is enforced in 9C.
+
+## Known limitations (9C)
+
+* Specs are free text: no units, numeric types, ranges or storefront filtering; consistent labels depend on the owner (presets help).
+* Spec values are not part of the dashboard product search.
+* Only one theme-specific section for appliances; no comparison table or brand strip.
+* The product form edits up to 30 rows with plain inputs (no drag-and-drop reordering; use delete and re-add).
+* No snapshot size guard yet (recommended for phase 10, see above).
+
 ## Known limitations (9B)
 
 * **Archived content has no owner-facing removal.** Entries archived by the Phase 8 recovery (`Page.legacySections`) are kept verbatim and their media references are protected, but nothing lets the owner review, restore or delete them. Media referenced **only** by archived entries therefore stays protected (and stored) indefinitely. By decision, nothing deletes archived content or media automatically, the protection is unchanged, and an explicit archived-content cleanup/recovery capability is recorded as future work (see the roadmap).

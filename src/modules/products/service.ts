@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { specsUnchanged } from "@/lib/product-specs";
 import { makeSearchKey, normalizeSearchQuery, slugify, uniqueSlug } from "@/lib/text";
 import { mapCatalogDbError } from "@/modules/catalog-errors";
 import { findInTx as findCategoryInTx } from "@/modules/categories/repository";
@@ -102,6 +103,7 @@ export async function createProduct(ownerId: string, storeId: unknown, input: un
         stockQuantity: data.stockQuantity,
         categoryId: data.categoryId,
         searchKey: makeSearchKey(data.name),
+        specs: data.specs,
       });
     });
   } catch (e) {
@@ -137,6 +139,9 @@ export async function updateProduct(
     if (patch.stockQuantity !== undefined && patch.stockQuantity !== cur.stockQuantity) c.stockQuantity = patch.stockQuantity;
     if (patch.categoryId !== undefined && patch.categoryId !== cur.categoryId) c.categoryId = patch.categoryId;
     if (patch.slug !== undefined && patch.slug !== cur.slug) c.slug = patch.slug;
+    // Specs are written ONLY when explicitly supplied and different. Editing any other field never touches them, so
+    // invalid stored specs survive an unrelated edit; replacing or clearing them is a deliberate action by the owner.
+    if (patch.specs !== undefined && !specsUnchanged(cur.specs, patch.specs)) c.specs = patch.specs;
     return c;
   };
 

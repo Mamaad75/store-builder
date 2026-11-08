@@ -30,7 +30,7 @@ export class DraftStorefrontRepository {
         },
         products: {
           where: { status: "ACTIVE" },
-          select: { id: true, name: true, slug: true, description: true, price: true, stockQuantity: true, categoryId: true, image: { select: { key: true, width: true, height: true, status: true } } },
+          select: { id: true, name: true, slug: true, description: true, price: true, stockQuantity: true, categoryId: true, specs: true, image: { select: { key: true, width: true, height: true, status: true } } },
           orderBy: [{ position: "asc" }, { createdAt: "desc" }, { id: "asc" }],
         },
         _count: { select: { products: { where: { status: { not: "ACTIVE" } } } } },

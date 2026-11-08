@@ -1,3 +1,4 @@
+import { CardSpecs } from "../engine/Specs";
 import type { StorefrontCategory, StorefrontProduct } from "../storefront-data";
 import type { RenderContext } from "../types";
 import { formatToman } from "@/lib/money";
@@ -47,6 +48,7 @@ export default function ProductCard({ product, category, ctx }: { product: Store
               {product.name}
             </a>
           </h3>
+          <CardSpecs specs={product.specs} classes={{ list: s.cardSpecs, row: s.cardSpecRow, term: s.cardSpecTerm, def: s.cardSpecDef }} />
           <StockBadge stock={product.stockQuantity} />
           <p className={s.price}>{formatToman(product.price)}</p>
         </div>

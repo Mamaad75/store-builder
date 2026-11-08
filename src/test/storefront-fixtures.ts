@@ -6,8 +6,8 @@ const general = TEMPLATE_DEFINITIONS.find((t) => t.key === "general")!;
 export const CATEGORY_TEA = { id: "cat-tea", name: "چای", slug: "چای" };
 export const CATEGORY_COFFEE = { id: "cat-coffee", name: "قهوه", slug: "قهوه" };
 
-export const PRODUCT_A = { id: "p-a", name: "چای سبز", slug: "چای-سبز", description: "چای سبز ایرانی\nبسته‌بندی ۲۵۰ گرمی", price: 125000, stockQuantity: 20, categoryId: CATEGORY_TEA.id, image: null };
-export const PRODUCT_B = { id: "p-b", name: "قهوه اسپرسو", slug: "قهوه-اسپرسو", description: "", price: 980000, stockQuantity: 0, categoryId: CATEGORY_COFFEE.id, image: null };
+export const PRODUCT_A = { id: "p-a", name: "چای سبز", slug: "چای-سبز", description: "چای سبز ایرانی\nبسته‌بندی ۲۵۰ گرمی", price: 125000, stockQuantity: 20, categoryId: CATEGORY_TEA.id, image: null, specs: [] };
+export const PRODUCT_B = { id: "p-b", name: "قهوه اسپرسو", slug: "قهوه-اسپرسو", description: "", price: 980000, stockQuantity: 0, categoryId: CATEGORY_COFFEE.id, image: null, specs: [] };
 
 /** A complete, valid storefront built from the real `general` seed pages. */
 export function makeStorefront(over: Partial<StorefrontData> = {}): StorefrontData {
@@ -23,7 +23,8 @@ export function makeStorefront(over: Partial<StorefrontData> = {}): StorefrontDa
       logo: null,
       typography: { fontFamily: "vazirmatn", sizeScale: "normal", headingWeight: 800, bodyWeight: 400 },
     },
-    pages: general.pages.map((p, i) => ({ ...p, position: i })) as StorefrontData["pages"],
+    // deep copy: tests mutate their data, and the seed definition must never be shared between them
+    pages: structuredClone(general.pages.map((p, i) => ({ ...p, position: i }))) as StorefrontData["pages"],
     categories: [CATEGORY_TEA, CATEGORY_COFFEE],
     products: [PRODUCT_A, PRODUCT_B],
     images: {},

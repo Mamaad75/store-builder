@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CardSpecs, ProductSpecs } from "../engine/Specs";
 import { formatNumberFa, formatToman } from "@/lib/money";
 import { buildContactLinks } from "../engine/links";
 import { categoryOf, featuredProducts, listProducts, listUrl, sectionImage } from "../engine/listing";
@@ -63,6 +64,7 @@ function MenuList({ ctx, items }: { ctx: RenderContext; items: StorefrontProduct
                   </a>
                 </h3>
                 {p.description && <p className={s.rowDesc}>{p.description}</p>}
+                <CardSpecs specs={p.specs} classes={{ list: s.cardSpecs, row: s.cardSpecRow, term: s.cardSpecTerm, def: s.cardSpecDef }} />
                 <div className={s.rowMeta}>
                   {category && <span>{category.name}</span>}
                   <Stock stock={p.stockQuantity} />
@@ -234,6 +236,7 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
             <p className={s.note}>برای سفارش با فروشگاه تماس بگیرید. خرید آنلاین در این نسخه فعال نیست.</p>
           </div>
         </div>
+        <ProductSpecs specs={p.specs} classes={{ wrap: s.specs, title: s.specsTitle, list: s.specsList, row: s.specsRow, term: s.specsTerm, def: s.specsDef }} />
       </div>
     </section>
   );

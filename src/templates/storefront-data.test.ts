@@ -80,3 +80,22 @@ describe("storefront data contract", () => {
     expect(ok(d)).toBe(false);
   });
 });
+
+describe("product specifications in the storefront contract", () => {
+  const { specs: _unused, ...legacyProduct } = PRODUCT_A;
+  void _unused;
+  it("schema-version-1 data WITHOUT specs stays valid and reads as an empty list (old snapshots remain readable)", () => {
+    const r = storefrontDataSchema.safeParse({ ...makeStorefront(), products: [legacyProduct] });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.products[0]!.specs).toEqual([]);
+  });
+  it("accepts valid specs and rejects malformed ones", () => {
+    const ok = (specs: unknown) => storefrontDataSchema.safeParse(makeStorefront({ products: [{ ...PRODUCT_A, specs } as never] })).success;
+    expect(ok([{ label: "برند", value: "الف" }])).toBe(true);
+    expect(ok([])).toBe(true);
+    expect(ok([{ label: "", value: "x" }])).toBe(false);
+    expect(ok([{ label: "l", value: "v", extra: 1 }])).toBe(false);
+    expect(ok(Array.from({ length: 31 }, (_, i) => ({ label: `l${i}`, value: "v" })))).toBe(false);
+    expect(ok("text")).toBe(false);
+  });
+});

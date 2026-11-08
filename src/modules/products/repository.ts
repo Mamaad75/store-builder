@@ -11,6 +11,7 @@ export const productSelect = {
   description: true,
   price: true,
   stockQuantity: true,
+  specs: true, // raw stored JSON: analysed (never rewritten) by lib/product-specs
   status: true,
   categoryId: true,
   category: { select: { id: true, name: true } },
@@ -100,6 +101,7 @@ export interface NewProductRow {
   stockQuantity: number;
   categoryId: string | null;
   searchKey: string;
+  specs: Prisma.InputJsonValue;
 }
 
 export async function insertProduct(ctx: MutationContext, data: NewProductRow) {

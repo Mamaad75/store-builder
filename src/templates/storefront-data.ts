@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_PRICE_TOMAN } from "@/lib/money";
+import { MAX_SPEC_ROWS, specRowSchema } from "@/lib/product-specs";
 import { MEDIA_KEY_RE } from "@/lib/storage/keys";
 import { isCanonicalSlug } from "@/lib/text";
 import { pageSectionSchema, type PageSection } from "./section-parse";
@@ -66,6 +67,9 @@ export const storefrontProductSchema = z
     stockQuantity: z.number().int().min(0).max(1_000_000),
     categoryId: id.nullable(),
     image: mediaRefSchema.nullable().default(null),
+    // Product specifications (product data, independent of theme and category). Optional with an empty default, so
+    // schemaVersion-1 data and snapshots written before specs existed stay valid.
+    specs: z.array(specRowSchema).max(MAX_SPEC_ROWS).default([]),
   })
   .strict();
 

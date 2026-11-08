@@ -21,6 +21,8 @@ export interface BusinessCategory {
   readonly description: string;
   /** Themes to pre-select, best first. Only a suggestion: every theme can be used with every category. */
   readonly suggestedThemes: readonly string[];
+  /** Spec presets to list first in the product form. Only a hint: every preset is available to every store. */
+  readonly suggestedSpecPresets: readonly string[];
   /** Text used ONCE, when a store is created (never re-applied when the category is changed later). */
   readonly starter: StarterCopy;
 }
@@ -31,6 +33,7 @@ export const BUSINESS_CATEGORIES: readonly BusinessCategory[] = [
     name: "عمومی",
     description: "فروشگاهی با محصولات متنوع.",
     suggestedThemes: ["general"],
+    suggestedSpecPresets: ["general"],
     starter: {
       heroTitle: "به فروشگاه ما خوش آمدید",
       heroSubtitle: "محصولات متنوع با کیفیت مطمئن",
@@ -44,6 +47,7 @@ export const BUSINESS_CATEGORIES: readonly BusinessCategory[] = [
     name: "قهوه و مواد غذایی",
     description: "قهوه، چای، شیرینی و مواد غذایی.",
     suggestedThemes: ["coffee", "general"],
+    suggestedSpecPresets: ["general"],
     starter: {
       heroTitle: "قهوه تازه، هر روز",
       heroSubtitle: "دانه‌های برشته‌شده و محصولات خوش‌طعم برای شروع بهتر روز شما",
@@ -57,6 +61,7 @@ export const BUSINESS_CATEGORIES: readonly BusinessCategory[] = [
     name: "پوشاک",
     description: "لباس، کیف، کفش و اکسسوری.",
     suggestedThemes: ["fashion", "general"],
+    suggestedSpecPresets: ["general"],
     starter: {
       heroTitle: "استایل خودتان را پیدا کنید",
       heroSubtitle: "جدیدترین مدل‌های پوشاک با کیفیت و قیمت مناسب",
@@ -69,7 +74,8 @@ export const BUSINESS_CATEGORIES: readonly BusinessCategory[] = [
     key: "home-appliances",
     name: "لوازم خانگی",
     description: "لوازم برقی و وسایل کاربردی منزل.",
-    suggestedThemes: ["general"],
+    suggestedThemes: ["appliances", "general"],
+    suggestedSpecPresets: ["appliance", "general"],
     starter: {
       heroTitle: "لوازم خانگی مطمئن برای خانهٔ شما",
       heroSubtitle: "کالاهای اصل با گارانتی و مشخصات روشن",
@@ -88,5 +94,5 @@ export const businessCategoryLabel = (key: string): string => byKey.get(key)?.na
 
 /** Best-effort starting category for a theme key (used by the migration backfill and by callers that pass no category). */
 export function inferCategoryFromThemeKey(themeKey: string): string {
-  return themeKey === "coffee" ? "coffee-food" : themeKey === "fashion" ? "fashion" : "general";
+  return themeKey === "coffee" ? "coffee-food" : themeKey === "fashion" ? "fashion" : themeKey === "appliances" ? "home-appliances" : "general";
 }

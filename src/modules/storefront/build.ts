@@ -1,3 +1,4 @@
+import { analyzeSpecs } from "@/lib/product-specs";
 import { STOREFRONT_SCHEMA_VERSION, storefrontDataSchema, type StorefrontData } from "@/templates/storefront-data";
 import { parseSections, type SectionIssue } from "@/templates/section-parse";
 import { DEFAULT_TYPOGRAPHY, templateSettingsSchema, type TemplateSettings } from "@/templates/sections";
@@ -19,7 +20,7 @@ export interface StorefrontSource {
   template: { key: string; version: number; defaultSettings: unknown };
   pages: { type: string; title: string; slug: string; position: number; sections: unknown }[];
   categories: { id: string; name: string; slug: string }[];
-  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; categoryId: string | null; image?: MediaSource | null }[];
+  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; categoryId: string | null; image?: MediaSource | null; specs?: unknown }[];
   /** READY media of the store that sections may reference, by media id (only ids found here can ever be rendered). */
   images?: Record<string, MediaSource>;
   /** Products that exist but are not storefront-eligible (draft/archived). Only a count: never their data. */
@@ -33,6 +34,8 @@ export interface StorefrontNotes {
   skippedSections: { pageType: string; issues: SectionIssue[] }[];
   /** Valid sections the store's theme does not approve (kept in the database, not rendered). */
   dormantSectionCount: number;
+  /** Products whose STORED specifications are invalid: shown without specs, the stored value is untouched. */
+  invalidSpecsProductCount: number;
 }
 
 export class StorefrontBuildError extends Error {
@@ -69,6 +72,7 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
 
   const skippedSections: StorefrontNotes["skippedSections"] = [];
   let dormantSectionCount = 0;
+  let invalidSpecsProductCount = 0;
   const theme = resolveThemeDefinition(src.template.key, src.template.version);
   const pages = [...src.pages]
     .sort((a, b) => a.position - b.position)
@@ -99,13 +103,17 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
     store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social, logo: toMediaRef(src.store.logo), typography: resolved.typography },
     pages,
     categories: src.categories,
-    products: src.products.map(({ image, ...p }) => ({ ...p, image: toMediaRef(image) })),
+    products: src.products.map(({ image, specs, ...p }) => {
+      const a = analyzeSpecs(specs ?? []);
+      if (!a.ok) invalidSpecsProductCount += 1; // never rendered, never repaired here
+      return { ...p, image: toMediaRef(image), specs: a.ok ? a.rows : [] };
+    }),
     images,
   };
   const parsed = storefrontDataSchema.safeParse(candidate);
   if (!parsed.success) throw new StorefrontBuildError("storefront data violates the contract");
   return {
     data: parsed.data,
-    notes: { settingsFallback, excludedProductCount: src.excludedProductCount, skippedSections, dormantSectionCount },
+    notes: { settingsFallback, excludedProductCount: src.excludedProductCount, skippedSections, dormantSectionCount, invalidSpecsProductCount },
   };
 }

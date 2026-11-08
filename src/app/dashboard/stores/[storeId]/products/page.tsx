@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -13,6 +14,7 @@ import StatusButtons from "@/components/catalog/StatusButtons";
 import StatusChip from "@/components/catalog/StatusChip";
 import { LinkButton, TextLink } from "@/components/NextLinks";
 import { formatNumberFa, formatToman } from "@/lib/money";
+import { analyzeSpecs } from "@/lib/product-specs";
 import { requireUser } from "@/modules/auth/session";
 import { listCategories } from "@/modules/categories/service";
 import { productUrl, productsUrl } from "@/modules/products/list-url";
@@ -165,6 +167,9 @@ export default async function ProductsPage({
               </Typography>
               <Box>
                 <StatusChip status={p.status as ProductStatus} />
+                {!analyzeSpecs(p.specs).ok && (
+                  <Chip size="small" color="warning" label="مشخصات نامعتبر" sx={{ mt: 0.5 }} data-testid="specs-invalid-chip" />
+                )}
               </Box>
               <Stack direction="row" sx={{ flexWrap: "wrap", gap: 0.25, alignItems: "center", width: { xs: "100%", md: "auto" }, mt: { xs: 0.5, md: 0 } }}>
                 <StatusButtons storeId={storeId} productId={p.id} status={p.status as ProductStatus} returnTo="list" listParams={ctx} />

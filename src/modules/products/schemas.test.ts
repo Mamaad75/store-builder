@@ -5,7 +5,7 @@ import { activationSchema, createProductSchema, parseProductListParams, updatePr
 describe("createProductSchema", () => {
   it("normalises and applies defaults (blank slug => undefined, blank category => null)", () => {
     const r = createProductSchema.parse({ name: " چاي  سبز ", price: "۱٬۲۰۰", slug: "  ", categoryId: "" });
-    expect(r).toEqual({ name: "چای سبز", description: "", price: 1200, stockQuantity: 0, categoryId: null, slug: undefined });
+    expect(r).toEqual({ name: "چای سبز", description: "", price: 1200, stockQuantity: 0, categoryId: null, slug: undefined, specs: [] });
   });
   it("accepts the numeric boundaries exactly", () => {
     expect(createProductSchema.safeParse({ name: "a", price: 0, stockQuantity: 0 }).success).toBe(true);

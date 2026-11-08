@@ -16,7 +16,7 @@ describe("template registry / version resolution", () => {
     expect(resolveTemplate("constructor", 1)).toBeNull();
   });
   it("lists registered templates", () => {
-    expect(listRegisteredTemplates().map((t) => `${t.key}@${t.version}`)).toEqual(["general@1", "coffee@1", "fashion@1"]);
+    expect(listRegisteredTemplates().map((t) => `${t.key}@${t.version}`)).toEqual(["general@1", "coffee@1", "fashion@1", "appliances@1"]);
   });
 });
 

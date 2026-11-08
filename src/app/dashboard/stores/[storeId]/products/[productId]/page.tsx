@@ -6,6 +6,9 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { removeProductImageAction, uploadProductImageAction } from "@/app/dashboard/media-actions";
 import ImageUploader from "@/components/ImageUploader";
+import { getBusinessCategory } from "@/lib/business-categories";
+import { SPEC_PROBLEM_FA, analyzeSpecs, previewStoredSpecs } from "@/lib/product-specs";
+import { listSpecPresets } from "@/lib/spec-presets";
 import { mediaPublicUrl } from "@/lib/storage";
 import DeleteProductButton from "@/components/catalog/DeleteProductButton";
 import Notice from "@/components/catalog/Notice";
@@ -17,6 +20,7 @@ import { listCategories } from "@/modules/categories/service";
 import { getProduct } from "@/modules/products/service";
 import type { ProductStatus } from "@/modules/products/status";
 import { NotFoundError } from "@/modules/stores/errors";
+import { getStore } from "@/modules/stores/service";
 
 function safeUrl(key: string): string | null {
   try {
@@ -38,13 +42,14 @@ export default async function EditProductPage({
   const user = await requireUser();
   const { storeId, productId } = await params;
   const raw = await searchParams;
-  let product, categories;
+  let product, categories, store;
   try {
-    [product, categories] = await Promise.all([getProduct(user.id, storeId, productId), listCategories(user.id, storeId)]);
+    [product, categories, store] = await Promise.all([getProduct(user.id, storeId, productId), listCategories(user.id, storeId), getStore(user.id, storeId)]);
   } catch (e) {
     if (e instanceof NotFoundError) notFound(); // foreign and missing products look identical
     throw e;
   }
+  const analysis = analyzeSpecs(product.specs);
   return (
     <Stack spacing={2}>
       <Notice code={raw.notice} />
@@ -74,6 +79,12 @@ export default async function EditProductPage({
               stockQuantity: product.stockQuantity,
               categoryId: product.categoryId,
             }}
+            specs={
+              analysis.ok
+                ? { state: "valid", rows: analysis.rows }
+                : { state: "invalid", problem: SPEC_PROBLEM_FA[analysis.reason], preview: previewStoredSpecs(product.specs) }
+            }
+            presets={listSpecPresets(getBusinessCategory(store.businessCategory)?.suggestedSpecPresets).map((pr) => ({ key: pr.key, name: pr.name, labels: [...pr.labels] }))}
           />
           <Divider />
           <ImageUploader

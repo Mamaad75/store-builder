@@ -1,4 +1,5 @@
 import type { TemplateModule } from "./types";
+import { appliancesTemplate } from "./appliances";
 import { coffeeTemplate } from "./coffee";
 import { fashionTemplate } from "./fashion";
 import { generalTemplate } from "./general";
@@ -11,7 +12,7 @@ import { generalTemplate } from "./general";
  * Persisted stores point at a `TemplateVersion` row (key + version). A version that is not registered here resolves to
  * `null` and is reported as unsupported; it is never silently rendered with a different template.
  */
-const TEMPLATES: readonly TemplateModule[] = [generalTemplate, coffeeTemplate, fashionTemplate];
+const TEMPLATES: readonly TemplateModule[] = [generalTemplate, coffeeTemplate, fashionTemplate, appliancesTemplate];
 
 const index = new Map(TEMPLATES.map((t) => [`${t.key}@${t.version}`, t]));
 const extra = new Map<string, TemplateModule>();

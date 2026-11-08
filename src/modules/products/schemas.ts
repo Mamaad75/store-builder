@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_PRICE_TOMAN, parseIntegerInput } from "@/lib/money";
+import { specsInputSchema } from "@/lib/product-specs";
 import { SLUG_MAX, normalizeFa, normalizeFaText, slugify } from "@/lib/text";
 import { PRODUCT_STATUSES } from "./status";
 
@@ -49,6 +50,7 @@ export const createProductSchema = z
     stockQuantity: stockQuantity.optional().default(0),
     categoryId: categoryId.optional().default(null),
     slug: slug.optional(),
+    specs: specsInputSchema.optional().default([]),
   })
   .strict();
 
@@ -61,6 +63,8 @@ export const updateProductSchema = z
     stockQuantity: stockQuantity.optional(),
     categoryId: categoryId.optional(),
     slug: slug.optional(),
+    // Absent = leave the stored specs exactly as they are (even if invalid). Present = an explicit replacement ([] = clear).
+    specs: specsInputSchema.optional(),
     confirmSlugChange: z.boolean().optional(),
   })
   .strict();

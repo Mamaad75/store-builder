@@ -24,15 +24,15 @@ describe("theme catalog and module registry stay in sync", () => {
       expect(m?.definition, t.key).toBe(t);
     }
   });
-  it("the three version 1 themes exist and keep their identity (immutable)", () => {
-    expect(THEME_CATALOG.map((t) => [t.key, t.version])).toEqual([["general", 1], ["coffee", 1], ["fashion", 1]]);
+  it("the four version 1 themes exist and keep their identity (immutable)", () => {
+    expect(THEME_CATALOG.map((t) => [t.key, t.version])).toEqual([["general", 1], ["coffee", 1], ["fashion", 1], ["appliances", 1]]);
   });
   it("theme metadata describes a visual direction, not a business category", () => {
     for (const t of THEME_CATALOG) {
       expect(t.meta.name.length).toBeGreaterThan(0);
       expect(t.meta.description.length).toBeGreaterThan(0);
     }
-    expect(THEME_CATALOG.map((t) => t.meta.name)).toEqual(["ساده و همه‌منظوره", "گرم و ادیتوریال", "مینیمال و مدرن"]);
+    expect(THEME_CATALOG.map((t) => t.meta.name)).toEqual(["ساده و همه‌منظوره", "گرم و ادیتوریال", "مینیمال و مدرن", "تمیز و کاتالوگی"]);
   });
 });
 

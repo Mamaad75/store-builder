@@ -1,3 +1,4 @@
+import { appliancesTheme } from "./appliances/definition";
 import { coffeeTheme } from "./coffee/definition";
 import { fashionTheme } from "./fashion/definition";
 import { generalTheme } from "./general/definition";
@@ -8,7 +9,7 @@ import type { ThemeDefinition } from "./theme";
  * spec of a store's theme and to resolve section definitions; `registry.ts` maps the same (key, version) pairs to the
  * React modules (a test keeps the two in sync). Adding a theme = its `definition.ts` + one line here + one line there.
  */
-export const THEME_CATALOG: readonly ThemeDefinition[] = [generalTheme, coffeeTheme, fashionTheme];
+export const THEME_CATALOG: readonly ThemeDefinition[] = [generalTheme, coffeeTheme, fashionTheme, appliancesTheme];
 
 let extra: readonly ThemeDefinition[] = [];
 let all: readonly ThemeDefinition[] = THEME_CATALOG;

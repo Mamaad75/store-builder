@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import { createProductAction, updateProductAction, type CatalogFormState } from "@/app/dashboard/catalog-actions";
 import { MAX_PRICE_TOMAN, formatToman, parseIntegerInput } from "@/lib/money";
 import { slugify } from "@/lib/text";
+import ProductSpecsEditor, { type PresetOption, type SpecsInitial } from "./ProductSpecsEditor";
 
 export interface ProductFormValues {
   id: string;
@@ -26,12 +27,16 @@ interface Props {
   storeId: string;
   categories: { id: string; name: string }[];
   product?: ProductFormValues;
+  /** Stored specs of the product (valid rows, or an invalid stored value that must be preserved). */
+  specs?: SpecsInitial;
+  /** Every spec preset (any store may use any preset); optional label suggestions only. */
+  presets?: PresetOption[];
 }
 
 const fe = (s: CatalogFormState, k: string) => s.fieldErrors?.[k]?.[0];
 const ltr = { htmlInput: { dir: "ltr" as const } };
 
-export default function ProductForm({ mode, storeId, categories, product }: Props) {
+export default function ProductForm({ mode, storeId, categories, product, specs = { state: "valid", rows: [] }, presets = [] }: Props) {
   const [state, action, pending] = useActionState(mode === "create" ? createProductAction : updateProductAction, {});
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
@@ -127,6 +132,8 @@ export default function ProductForm({ mode, storeId, categories, product }: Prop
             </option>
           ))}
         </TextField>
+
+        <ProductSpecsEditor initial={specs} presets={presets} error={fe(state, "specs")} />
 
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { xs: "stretch", sm: "center" } }}>
           <Button type="submit" variant="contained" disabled={pending} sx={{ whiteSpace: "nowrap", flexShrink: 0 }}>

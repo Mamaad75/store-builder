@@ -169,6 +169,10 @@ model Product {
   price         Int
   stockQuantity Int           @default(0)
   searchKey     String        @default("")
+  // Ordered [{label, value}] text rows owned by the product (independent of theme and business category).
+  // Empty by default; the database only guarantees "an array of at most 30 elements" (see the phase9c migration):
+  // element-level validity is checked by the application and invalid stored values are preserved, never replaced.
+  specs         Json          @default("[]")
   status        ProductStatus @default(DRAFT)
   position      Int           @default(0)
   createdAt     DateTime      @default(now())

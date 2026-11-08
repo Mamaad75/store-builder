@@ -7,6 +7,7 @@ import { createCategory, deleteCategory, updateCategory } from "@/modules/catego
 import { buildProductsUrl, categoriesUrl, productUrl, productsUrl, storeUrl } from "@/modules/products/list-url";
 import type { NoticeCode } from "@/modules/products/notices";
 import { parseProductListParams } from "@/modules/products/schemas";
+import { specsFromForm } from "@/modules/products/specs-form";
 import { changeProductStatus, createProduct, deleteProduct, updateProduct } from "@/modules/products/service";
 import {
   CatalogLimitError,
@@ -62,6 +63,7 @@ export async function createProductAction(_prev: CatalogFormState, fd: FormData)
       stockQuantity: str(fd, "stockQuantity"),
       categoryId: str(fd, "categoryId"),
       slug: str(fd, "slug"),
+      specs: specsFromForm(fd),
     });
   } catch (e) {
     return toState(e, storeUrl(storeId));
@@ -81,6 +83,7 @@ export async function updateProductAction(_prev: CatalogFormState, fd: FormData)
       stockQuantity: str(fd, "stockQuantity"),
       categoryId: str(fd, "categoryId"),
       slug: str(fd, "slug"),
+      specs: specsFromForm(fd),
     });
   } catch (e) {
     return toState(e, productUrl(storeId, productId));

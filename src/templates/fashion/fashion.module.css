@@ -109,3 +109,16 @@
 .footerName { font-weight: var(--w-heading); letter-spacing: 0.06em; }
 .footerLinks { list-style: none; padding: 0; margin: 0; display: flex; gap: 6px 22px; flex-wrap: wrap; font-size: 0.9em; color: var(--muted); }
 .copy { margin-top: 18px; font-size: 0.8em; color: var(--muted); }
+
+/* product specifications (product data; same markup in every theme): card = first two rows, detail = all rows */
+.cardSpecs { margin: 4px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 1px; font-size: 0.8em; color: var(--muted); }
+.cardSpecRow { display: flex; gap: 6px; flex-wrap: wrap; }
+.cardSpecTerm { font-weight: 600; }
+.cardSpecTerm::after { content: ":"; }
+.cardSpecDef { margin: 0; overflow-wrap: anywhere; }
+.specs { margin-top: 56px; }
+.specsTitle { font-size: 1.15em; font-weight: var(--w-heading); letter-spacing: 0.03em; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--text); }
+.specsList { margin: 0; max-width: 640px; }
+.specsRow { display: grid; grid-template-columns: minmax(7em, 1fr) 2fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.specsTerm { color: var(--muted); overflow-wrap: anywhere; }
+.specsDef { margin: 0; overflow-wrap: anywhere; }
