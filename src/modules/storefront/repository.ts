@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { StorefrontSource } from "./build";
 
@@ -7,12 +8,16 @@ import type { StorefrontSource } from "./build";
  * (ACTIVE) products are selected; excluded products contribute a count and nothing else.
  */
 export class DraftStorefrontRepository {
-  constructor(private readonly ownerId: string) {
+  /** `client` is the database or a transaction (publishing reads the draft inside its locked transaction). */
+  constructor(
+    private readonly ownerId: string,
+    private readonly client: Prisma.TransactionClient | typeof db = db,
+  ) {
     if (!ownerId) throw new Error("DraftStorefrontRepository requires an ownerId");
   }
 
   async load(storeId: string): Promise<StorefrontSource | null> {
-    const store = await db.store.findFirst({
+    const store = await this.client.store.findFirst({
       where: { id: storeId, ownerId: this.ownerId },
       select: {
         name: true,
@@ -49,7 +54,7 @@ export class DraftStorefrontRepository {
     const media =
       ids.size === 0
         ? []
-        : await db.media.findMany({
+        : await this.client.media.findMany({
             where: { id: { in: [...ids].slice(0, 200) }, storeId, status: "READY", store: { ownerId: this.ownerId } },
             select: { id: true, key: true, width: true, height: true, status: true },
           });

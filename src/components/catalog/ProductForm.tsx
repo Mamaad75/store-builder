@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -74,6 +76,12 @@ export default function ProductForm({ mode, storeId, categories, product, specs 
             helperText={fe(state, "slug") ?? (mode === "create" ? "اگر خالی بگذارید از نام محصول ساخته می‌شود." : "با تغییر نام محصول، آدرس تغییر نمی‌کند.")}
             slotProps={ltr}
           />
+          {mode === "edit" && product && slug !== product.slug && (
+            <FormControlLabel
+              control={<Checkbox name="confirmSlugChange" value="true" />}
+              label="تغییر آدرس را تأیید می‌کنم (اگر محصول منتشر شده باشد، آدرس قبلی برای همیشه به آدرس جدید هدایت می‌شود)"
+            />
+          )}
           <Box>
             <Button size="small" type="button" onClick={() => setSlug(slugify(name, "product"))} disabled={!name.trim()}>
               ساخت دوباره از نام

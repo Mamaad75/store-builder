@@ -83,6 +83,7 @@ export async function updateProductAction(_prev: CatalogFormState, fd: FormData)
       stockQuantity: str(fd, "stockQuantity"),
       categoryId: str(fd, "categoryId"),
       slug: str(fd, "slug"),
+      confirmSlugChange: str(fd, "confirmSlugChange") === "true",
       specs: specsFromForm(fd),
     });
   } catch (e) {

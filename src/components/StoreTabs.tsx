@@ -13,6 +13,7 @@ export default function StoreTabs({ storeId }: { storeId: string }) {
     { label: "دسته‌بندی‌ها", href: `${base}/categories` },
     { label: "صفحه‌ها", href: `${base}/pages` },
     { label: "ظاهر", href: `${base}/appearance` },
+    { label: "انتشار", href: `${base}/publish` },
     { label: "تنظیمات", href: base },
   ];
   const active = tabs.find((t) => (t.href === base ? pathname === base : pathname.startsWith(t.href)));

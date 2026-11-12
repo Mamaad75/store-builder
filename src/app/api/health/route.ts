@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
-export function GET() {
-  return Response.json({ status: "ok" });
+import { platformOnly } from "@/lib/host-guard";
+
+export function GET(req: Request) {
+  return platformOnly(req) ?? Response.json({ status: "ok" });
 }

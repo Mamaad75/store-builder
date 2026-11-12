@@ -23,6 +23,7 @@
     "test:storage": "vitest run --config vitest.storage.config.mts",
     "db:cleanup": "tsx scripts/cleanup-rate-limits.ts",
     "media:cleanup": "tsx scripts/cleanup-media.ts",
+    "publish:stats": "tsx scripts/publish-stats.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

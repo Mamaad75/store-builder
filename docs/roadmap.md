@@ -17,7 +17,7 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 | 7 | Media and images | S3 abstraction, validated uploads (no SVG), logo, product images, cleanup | Implemented and tested; awaiting review | high |
 | 8 | Customisation and pages | Section content editing, ordering, page visibility, colours, typography from an allow-list, logo | Implemented and tested; awaiting review | high |
 | 9 | Remaining templates | "Coffee and food" and "Fashion" templates | 9A and 9B accepted; 9C home-appliances theme and product specifications implemented and tested (awaiting review) | high |
-| 10 | Publishing and subdomains | Immutable `StoreVersion` snapshots, publish/unpublish/rollback, subdomain claim, Host routing, slug history and redirect design, real `getPublishedSlug`, slug-change confirmation UX | Planned | high |
+| 10 | Publishing and subdomains | Immutable `StoreVersion` snapshots, publish/unpublish/rollback, subdomain claim, Host routing, slug history and redirect design, real `getPublishedSlug`, slug-change confirmation UX | Implemented and tested; awaiting review (see `docs/publishing.md`) | high |
 | 11 | SEO and metadata | Titles, descriptions, Open Graph, sitemap, robots, canonical, basic JSON-LD | Planned | medium |
 | 12 | Platform polish and accounts | Landing page, onboarding, change password and sign out everywhere, error pages, accessibility pass, legal pages, password reset (email) | Planned | medium |
 | 13 | Production readiness (code) | Dockerfile, standalone output, production compose, custom Caddy image, full CI/CD, env validation, readiness endpoint, CSP/HSTS, structured logs, backup and restore scripts, runbooks | Planned | high |

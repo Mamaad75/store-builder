@@ -7,12 +7,14 @@ import Typography from "@mui/material/Typography";
 import AppBar from "@mui/material/AppBar";
 import { logoutAction } from "@/app/actions-auth";
 import ThemeRegistry from "@/theme/ThemeRegistry";
+import { assertPlatformHost } from "@/lib/host-guard";
 import { requireUser } from "@/modules/auth/session";
 
 // Per-request: always evaluates the session on the server.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  await assertPlatformHost(); // never through a store host
   const user = await requireUser();
   return (
     <ThemeRegistry>

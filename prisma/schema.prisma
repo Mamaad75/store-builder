@@ -100,21 +100,27 @@ model Store {
   products         Product[]
   media            Media[]
   domains          Domain[]
+  publishedSlugs   PublishedSlug[]
 
   @@index([ownerId, createdAt])
   @@index([status])
 }
 
+/// Immutable (a database trigger refuses every UPDATE and every direct DELETE). `contentHash` and `snapshotBytes` describe
+/// the canonical UTF-8 JSON text the snapshot was written from; JSONB stores a normalised binary form of it.
 model StoreVersion {
   id            String   @id @default(cuid())
   storeId       String
   number        Int
   draftRevision Int
   snapshot      Json
+  contentHash   String   @default("")
+  snapshotBytes Int      @default(0)
   createdAt     DateTime @default(now())
 
-  store  Store   @relation("AllVersions", fields: [storeId], references: [id], onDelete: Cascade)
-  liveOf Store[] @relation("PublishedVersion")
+  store    Store                 @relation("AllVersions", fields: [storeId], references: [id], onDelete: Cascade)
+  liveOf   Store[]               @relation("PublishedVersion")
+  products StoreVersionProduct[]
 
   @@unique([storeId, number])
   @@unique([storeId, id])
@@ -231,4 +237,43 @@ model RateLimitBucket {
   resetAt DateTime
 
   @@index([resetAt])
+}
+
+/// Which slug each product has in each version. Immutable; written with the version.
+model StoreVersionProduct {
+  versionId String
+  productId String
+  slug      String
+
+  version StoreVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@id([versionId, productId])
+  @@unique([versionId, slug])
+}
+
+/// Every slug a product has ever been published under (append-only; productId deliberately has no foreign key so the
+/// reservation outlives the product).
+model PublishedSlug {
+  id        String   @id @default(cuid())
+  storeId   String
+  productId String
+  slug      String
+  createdAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, slug])
+  @@index([storeId, productId])
+}
+
+/// 30-day reservation of a released or orphaned subdomain. Independent of Store and Domain (no foreign keys), maintained by
+/// triggers on Domain.
+model SubdomainReservation {
+  host            String   @id
+  previousStoreId String
+  cause           String
+  releasedAt      DateTime @db.Timestamptz(6)
+  reservedUntil   DateTime @db.Timestamptz(6)
+
+  @@index([previousStoreId])
 }

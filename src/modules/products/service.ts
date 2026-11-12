@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { publishLimits } from "@/modules/publishing/constants";
+import { liveSlugOf } from "@/modules/publishing/repository";
 import { specsUnchanged } from "@/lib/product-specs";
 import { makeSearchKey, normalizeSearchQuery, slugify, uniqueSlug } from "@/lib/text";
 import { mapCatalogDbError } from "@/modules/catalog-errors";
@@ -14,6 +16,7 @@ import {
   findInTx,
   findProductImageInTx,
   insertProduct,
+  publishedSlugFacts,
   setStatusRow,
   slugsStartingWith,
   updateProductRow,
@@ -35,7 +38,10 @@ import { STATUS_LABEL_FA, canTransition, type ProductStatus } from "./status";
 /** `ownerId` always comes from the server session (requireUser()), never from request data. */
 
 export const SLUG_CONFIRM_MESSAGE =
-  "این محصول قبلاً منتشر شده است. با تغییر آدرس، پس از انتشار بعدی آدرس قبلی دیگر کار نمی‌کند. برای ادامه تأیید کنید.";
+  "این محصول در فروشگاه منتشرشده است. با تغییر آدرس و انتشار بعدی، آدرس قبلی برای همیشه به آدرس جدید هدایت می‌شود (ریدایرکت ۳۰۱). برای ادامه تأیید کنید.";
+export const SLUG_RESERVED_MESSAGE = "این آدرس قبلاً برای یک محصول در این فروشگاه منتشر شده و برای همیشه رزرو است؛ آدرس دیگری انتخاب کنید.";
+export const slugHistoryLimitMessage = (limit: number) =>
+  `این محصول قبلاً با ${(limit + 1).toLocaleString("fa-IR")} آدرس مختلف منتشر شده و بیش از ${limit.toLocaleString("fa-IR")} آدرس قبلی نگه‌داری نمی‌شود. برای تغییر آدرس به یکی از آدرس‌های منتشرشدهٔ قبلی برگردید.`;
 const SLUG_TAKEN = "این آدرس قبلاً برای محصول دیگری استفاده شده است";
 const INVALID_CATEGORY = "دسته انتخاب‌شده معتبر نیست";
 
@@ -51,6 +57,22 @@ function parseId(id: unknown): string {
   return r.data;
 }
 
+/**
+ * Slug rules that protect published URLs (under the store lock):
+ *  - a slug that was ever published for ANOTHER product of this store is reserved forever
+ *  - a product keeps at most 1 + maxHistoricalSlugsPerProduct published slugs; a new, never-published slug that would exceed
+ *    that is refused NOW (before the owner can publish), with a clear message
+ * A product may always return to a slug it was published under.
+ */
+async function assertSlugAvailable(ctx: MutationContext, productId: string | null, slug: string) {
+  const facts = await publishedSlugFacts(ctx, productId, slug);
+  if (facts.reservedForAnotherProduct) throw new ValidationError({ slug: [SLUG_RESERVED_MESSAGE] });
+  const limit = publishLimits().maxHistoricalSlugsPerProduct;
+  if (productId && !facts.ownPublished.includes(slug) && facts.ownPublished.length >= limit + 1) {
+    throw new ValidationError({ slug: [slugHistoryLimitMessage(limit)] });
+  }
+}
+
 async function assertCategoryInStore(ctx: MutationContext, categoryId: string) {
   if (!(await findCategoryInTx(ctx, categoryId))) throw new ValidationError({ categoryId: [INVALID_CATEGORY] });
 }
@@ -64,6 +86,8 @@ const DB_ERRORS = { unique: { slug: SLUG_TAKEN } };
  */
 export type GetPublishedSlug = (ctx: MutationContext, productId: string) => Promise<string | null>;
 export const noPublishedSlug: GetPublishedSlug = async () => null;
+/** The real implementation: the slug the product has in the LIVE published version (index lookup, no snapshot parsing). */
+export const livePublishedSlug: GetPublishedSlug = (ctx, productId) => liveSlugOf(ctx.tx, ctx.storeId, productId);
 
 export async function listProducts(ownerId: string, storeId: unknown, params: Partial<ProductListParams> = {}) {
   const sid = parseStoreId(storeId);
@@ -94,6 +118,7 @@ export async function createProduct(ownerId: string, storeId: unknown, input: un
       if (data.categoryId) await assertCategoryInStore(ctx, data.categoryId);
       // Generated under the store lock, so concurrent creates get distinct slugs; an explicit slug that
       // is taken is a validation error (the unique constraint is the final arbiter).
+      if (data.slug !== undefined) await assertSlugAvailable(ctx, null, data.slug);
       const slug = data.slug ?? uniqueSlug(slugify(data.name, "product"), await slugsStartingWith(ctx, slugify(data.name, "product")));
       return insertProduct(ctx, {
         name: data.name,
@@ -123,7 +148,7 @@ export async function updateProduct(
   input: unknown,
   deps: { getPublishedSlug?: GetPublishedSlug } = {},
 ): Promise<ProductView> {
-  const getPublishedSlug = deps.getPublishedSlug ?? noPublishedSlug;
+  const getPublishedSlug = deps.getPublishedSlug ?? livePublishedSlug;
   const sid = parseStoreId(storeId);
   const pid = parseId(productId);
   const patch = parseOrThrow(updateProductSchema, input);
@@ -157,6 +182,7 @@ export async function updateProduct(
       if (changes.slug !== undefined && patch.confirmSlugChange !== true && (await getPublishedSlug(ctx, pid)) != null) {
         throw new ValidationError({ slug: [SLUG_CONFIRM_MESSAGE] });
       }
+      if (changes.slug !== undefined) await assertSlugAvailable(ctx, pid, changes.slug);
       if (changes.categoryId) await assertCategoryInStore(ctx, changes.categoryId);
       if (!(await updateProductRow(ctx, pid, changes))) throw new NotFoundError();
       const updated = await findInTx(ctx, pid);

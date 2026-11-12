@@ -29,6 +29,9 @@ export default defineConfig({
       AUTH_SECRET: "e2e-only-secret-e2e-only-secret-0123456789",
       AUTH_TRUST_HOST: "true",
       RATE_LIMIT_BACKEND: "postgres",
+      // Store hosts are <label>.localhost:3100 (Chromium resolves *.localhost to loopback; other clients set the Host header).
+      APP_ROOT_DOMAIN: `localhost:${PORT}`,
+      APP_PROTOCOL: "http",
       // Isolated "-e2e" bucket on a local S3-compatible server (MinIO in CI); never production storage (see src/test/storage-env.ts).
       ...getTestStorageEnv("e2e"),
       // The tests act as the trusted proxy: they set X-Forwarded-For per test to get isolated buckets.

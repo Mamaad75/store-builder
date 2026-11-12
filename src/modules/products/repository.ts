@@ -85,12 +85,26 @@ export const countInTx = (ctx: MutationContext) => ctx.tx.product.count({ where:
 export const findInTx = (ctx: MutationContext, id: string) =>
   ctx.tx.product.findFirst({ where: scope(ctx, id), select: productSelect });
 
+/** Current slugs AND every slug ever published in this store (reserved forever): a generated slug avoids both. */
 export async function slugsStartingWith(ctx: MutationContext, base: string): Promise<Set<string>> {
   const rows = await ctx.tx.product.findMany({
     where: { ...scope(ctx), slug: { startsWith: base } },
     select: { slug: true },
   });
-  return new Set(rows.map((r) => r.slug));
+  const reserved = await ctx.tx.publishedSlug.findMany({ where: { storeId: ctx.storeId, slug: { startsWith: base } }, select: { slug: true } });
+  return new Set([...rows.map((r) => r.slug), ...reserved.map((r) => r.slug)]);
+}
+
+/** Published-slug rows relevant to assigning `slug` to `productId` (null = a product that does not exist yet). */
+export async function publishedSlugFacts(ctx: MutationContext, productId: string | null, slug: string) {
+  const rows = await ctx.tx.publishedSlug.findMany({
+    where: { storeId: ctx.storeId, OR: [{ slug }, ...(productId ? [{ productId }] : [])] },
+    select: { productId: true, slug: true },
+  });
+  return {
+    reservedForAnotherProduct: rows.some((r) => r.slug === slug && r.productId !== productId),
+    ownPublished: rows.filter((r) => r.productId === productId).map((r) => r.slug),
+  };
 }
 
 export interface NewProductRow {

@@ -162,7 +162,10 @@ describe("architecture guard: storefront rendering is independent of the dashboa
   });
 
   it("the proxy and next.config protect and de-index /preview", () => {
-    expect(read("src/proxy.ts")).toMatch(/"\/preview\/:path\*"/);
+    const proxy = read("src/proxy.ts");
+    // Phase 10: the proxy matcher is catch-all (host routing needs every request); /preview is still gated by the session check on the platform host.
+    expect(proxy).toMatch(/startsWith\("\/preview"\)\)\s*return\s*\(requireSession/);
+    expect(proxy).toMatch(/matcher:\s*\["\/\(\(\?!_next\/static/);
     const cfg = read("next.config.ts");
     expect(cfg).toMatch(/\/preview\/:path\*/);
     expect(cfg).toMatch(/X-Robots-Tag/);
@@ -457,5 +460,56 @@ describe("architecture guard: product specifications and the appliances theme (p
 
   it("the snapshot budget constants are derived from real validators in a test (docs and code cannot drift)", () => {
     expect(read("src/lib/product-specs.size.test.ts")).toMatch(/SPECS_WORST_CASE_JSON_BYTES_PER_PRODUCT/);
+  });
+});
+
+describe("architecture guard: the public (store host) path never reads draft data", () => {
+  const publicSrc = () => read("src/modules/publishing/public-read.ts");
+  // Every table name that appears in a FROM/JOIN of the public read module.
+  const tables = (src: string) => [...src.matchAll(/(?:FROM|JOIN)\s+"(\w+)"/gi)].map((m) => m[1]!);
+
+  it("public-read.ts reads only Domain, Store, StoreVersion, StoreVersionProduct and PublishedSlug", () => {
+    const used = new Set(tables(publicSrc()));
+    expect(used.size).toBeGreaterThan(0);
+    const allowed = new Set(["Domain", "Store", "StoreVersion", "StoreVersionProduct", "PublishedSlug"]);
+    for (const t of used) expect(allowed.has(t), `public path reads table ${t}`).toBe(true);
+    // none of the draft tables, by name
+    for (const draft of ["Product", "Category", "Page", "PageSection", "Media", "ProductMedia", "StoreSettings", "Theme"]) {
+      expect(used.has(draft), draft).toBe(false);
+    }
+  });
+
+  it("the Store table is read for status and the live pointer only (no draft columns)", () => {
+    const m = [...publicSrc().matchAll(/s\."(\w+)"/g)].map((x) => x[1]!);
+    const draftColumns = ["name", "description", "draftRevision", "settings", "themeKey", "themeVersion"];
+    for (const c of draftColumns) expect(m.includes(c), `Store.${c}`).toBe(false);
+  });
+
+  it("the store-host page and public-read import no dashboard, draft repository or owner-scoped module", () => {
+    const pageSrc = read("src/app/store-host/[label]/[[...path]]/page.tsx");
+    for (const src of [pageSrc, publicSrc()]) {
+      expect(src).not.toMatch(/from\s+["']@\/modules\/(stores|products|categories|pages|media|storefront)\b/);
+      expect(src).not.toMatch(/from\s+["']@\/app\/dashboard/);
+      expect(src).not.toMatch(/requireUser|getStorefront|DraftStorefrontRepository/);
+    }
+  });
+
+  it("only the raw Host header is read for routing; forwarded host headers are never read anywhere in src", () => {
+    const offenders = prodFiles().filter((f) => /x-forwarded-host|x-original-host|"forwarded"/i.test(read(f).replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, "")));
+    expect(rel(offenders)).toEqual([]);
+  });
+
+  it("the internal /store-host namespace is only produced by the proxy rewrite (never linked from application code)", () => {
+    const offenders = prodFiles().filter((f) => /store-host/.test(read(f)) && !/(proxy\.ts|store-routing\.ts|store-host\/\[label\])/.test(f));
+    expect(rel(offenders)).toEqual([]);
+  });
+
+  it("publishing writes immutable tables only by INSERT (no UPDATE/DELETE of versions or the per-version index in application code)", () => {
+    for (const f of prodFiles()) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/UPDATE\s+"(StoreVersion|StoreVersionProduct|PublishedSlug)"/i);
+      expect(src, f).not.toMatch(/DELETE\s+FROM\s+"(StoreVersion|StoreVersionProduct|PublishedSlug)"/i);
+      expect(src, f).not.toMatch(/\.(storeVersion|storeVersionProduct|publishedSlug)\.(update|updateMany|delete|deleteMany|upsert)\(/);
+    }
   });
 });
