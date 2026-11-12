@@ -19,6 +19,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset",
+    "db:studio": "node scripts/db-studio.mjs",
     "test:db": "vitest run --config vitest.db.config.mts",
     "test:storage": "vitest run --config vitest.storage.config.mts",
     "db:cleanup": "tsx scripts/cleanup-rate-limits.ts",

@@ -19,6 +19,8 @@ pnpm dev          # http://localhost:3000  (stores: http://<name>.localhost:3000
 
 Checks: `pnpm check` (typecheck + lint + unit tests + DB tests). Browser E2E tests: `pnpm test:e2e` (builds the app and uses an isolated `storebuilder_e2e` database). `E2E_CPU_THROTTLE=6 pnpm test:e2e` slows the main page 6x to expose timing races (hydration, late rendering) like those seen on slow CI runners. Database tests: `pnpm test:db` (needs PostgreSQL; uses an isolated `storebuilder_test` database that it recreates).
 
+Inspect the local database visually: `pnpm db:studio` (Prisma Studio at http://localhost:5555, local database only, loopback only). See `docs/local-database.md` (includes the DBeaver option for ER diagrams).
+
 The platform root domain is configured with `APP_ROOT_DOMAIN` / `APP_PROTOCOL`.
 Dev credentials in `docker-compose.yml` are for local use only.
 
