@@ -50,12 +50,29 @@ export function normalizeHostHeader(raw: string | null | undefined): string | nu
   return h;
 }
 
-/** rootDomain may include a port, e.g. "localhost:3000". The host must match it exactly, including the port. */
-export function resolveHost(hostHeader: string | null | undefined, rootDomain: string): HostResolution {
+/**
+ * Extra hosts that count as the platform, for development and tests ONLY: the loopback names with the root domain's port
+ * (so `http://127.0.0.1:3000` works when `APP_ROOT_DOMAIN=localhost:3000`). Anything other than an explicit
+ * "development" or "test" environment - production, staging, unset, misspelled - gets none: the only accepted hosts are then
+ * the configured root domain, `www.<root>` and `<label>.<root>`.
+ */
+export function platformAliases(rootDomain: string, nodeEnv: string | undefined): string[] {
+  if (nodeEnv !== "development" && nodeEnv !== "test") return [];
+  const port = /:(\d{1,5})$/.exec(rootDomain.trim())?.[1];
+  const suffix = port ? `:${port}` : "";
+  const root = rootDomain.trim().toLowerCase();
+  return ["localhost", "127.0.0.1", "[::1]"].map((h) => `${h}${suffix}`).filter((h) => h !== root);
+}
+
+/**
+ * rootDomain may include a port, e.g. "localhost:3000". The host must match it exactly, including the port.
+ * `aliases` are additional exact platform hosts (see platformAliases); they are never store hosts.
+ */
+export function resolveHost(hostHeader: string | null | undefined, rootDomain: string, aliases: readonly string[] = []): HostResolution {
   const host = normalizeHostHeader(hostHeader);
   if (!host) return { kind: "unknown" };
   const root = rootDomain.trim().toLowerCase();
-  if (host === root || host === `www.${root}`) return { kind: "platform" };
+  if (host === root || host === `www.${root}` || aliases.includes(host)) return { kind: "platform" };
   const suffix = `.${root}`;
   if (!host.endsWith(suffix)) return { kind: "unknown" };
   const label = host.slice(0, -suffix.length);

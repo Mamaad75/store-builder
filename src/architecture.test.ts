@@ -513,3 +513,46 @@ describe("architecture guard: the public (store host) path never reads draft dat
     }
   });
 });
+
+describe("architecture guard: host validation is enforced by the application (unknown hosts are never the platform)", () => {
+  it("the proxy builds its decision from getHostPolicy() and answers not_found with the neutral 404", () => {
+    const proxy = read("src/proxy.ts");
+    expect(proxy).toMatch(/getHostPolicy\(\)/);
+    expect(proxy).toMatch(/decideRoute\(.*policy\.rootDomain,\s*policy\.aliases\)/);
+    expect(proxy).toMatch(/decision\.kind === "not_found"\)\s*return neutralNotFound/);
+  });
+
+  it("decideRoute rejects unknown hosts before anything else", () => {
+    expect(read("src/lib/store-routing.ts")).toMatch(/host\.kind === "unknown"\)\s*return \{ kind: "not_found" \}/);
+  });
+
+  it("loopback aliases exist only for an explicit development or test environment (production, staging and unset are strict)", () => {
+    const src = read("src/lib/hostname.ts");
+    expect(src).toMatch(/nodeEnv !== "development" && nodeEnv !== "test"\)\s*return \[\]/);
+    expect(src).not.toMatch(/NODE_ENV/); // hostname.ts is pure: the environment is passed in
+  });
+
+  it("NODE_ENV is read for host policy in exactly one place, and nothing else passes aliases to the resolver", () => {
+    const readers = prodFiles().filter((f) => /NODE_ENV/.test(read(f)) && /platformAliases|host-policy|aliases/.test(read(f)));
+    expect(rel(readers)).toEqual(["src/lib/host-policy.ts"]);
+    const callers = prodFiles().filter((f) => /resolveHost\([^\n]*aliases/i.test(read(f)));
+    expect(rel(callers)).toEqual(["src/lib/host-guard.ts", "src/lib/hostname.ts", "src/lib/store-routing.ts"]); // hostname.ts is the definition itself
+  });
+
+  it("the platform-only guards require a recognised platform host (not merely 'not a store host')", () => {
+    const guard = read("src/lib/host-guard.ts");
+    expect(guard).toMatch(/kind === "platform"/);
+    expect(guard).toMatch(/if \(!isPlatformHostHeader\(/);
+    expect(guard).not.toMatch(/isStoreHostHeader/);
+    for (const f of [
+      "src/app/dashboard/layout.tsx",
+      "src/app/preview/[storeId]/layout.tsx",
+      "src/app/(auth)/layout.tsx",
+      "src/app/api/health/route.ts",
+      "src/app/api/auth/[...nextauth]/route.ts",
+    ]) {
+      expect(read(f), f).toMatch(/assertPlatformHost\(\)|platformOnly\(/);
+    }
+  });
+});
+

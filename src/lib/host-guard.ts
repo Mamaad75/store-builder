@@ -1,20 +1,25 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { getAppEnv } from "./env";
+import { getHostPolicy } from "./host-policy";
 import { resolveHost } from "./hostname";
 
-/** True when the RAW Host header names a store subdomain (forwarded-host headers are never consulted). */
-export const isStoreHostHeader = (host: string | null | undefined, rootDomain = getAppEnv().APP_ROOT_DOMAIN): boolean => resolveHost(host, rootDomain).kind === "store";
-
 /**
- * Second line of defence behind the proxy: platform-only pages (dashboard, authentication, preview) answer 404 when
- * reached through a store host, even if the proxy were somehow bypassed.
+ * True only when the RAW Host header names the configured platform host (root domain, `www.<root>`, or - in development and
+ * test only - a loopback alias). Store hosts and unknown hosts are both false. Forwarded-host headers are never consulted.
  */
-export async function assertPlatformHost(): Promise<void> {
-  if (isStoreHostHeader((await headers()).get("host"))) notFound();
+export function isPlatformHostHeader(host: string | null | undefined, policy = getHostPolicy()): boolean {
+  return resolveHost(host, policy.rootDomain, policy.aliases).kind === "platform";
 }
 
-/** Same guard for route handlers: returns a 404 response when the request arrived on a store host. */
+/**
+ * Second line of defence behind the proxy: platform-only pages (dashboard, authentication, preview) answer 404 when reached
+ * through a store host OR any unknown host, even if the proxy were somehow bypassed.
+ */
+export async function assertPlatformHost(): Promise<void> {
+  if (!isPlatformHostHeader((await headers()).get("host"))) notFound();
+}
+
+/** Same guard for route handlers: returns a 404 response unless the request arrived on the platform host. */
 export function platformOnly(req: Request): Response | null {
-  return isStoreHostHeader(req.headers.get("host")) ? new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } }) : null;
+  return isPlatformHostHeader(req.headers.get("host")) ? null : new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
 }

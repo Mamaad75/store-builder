@@ -12,10 +12,10 @@ pnpm db:studio
 
 Open **http://localhost:5555**. Stop it with `Ctrl+C`. A different port: `pnpm db:studio -- --port 5556`.
 
-`pnpm db:studio` runs `scripts/db-studio.mjs`, which wraps `prisma studio` with these guards:
+`pnpm db:studio` runs `scripts/db-studio.ts` (rules in `scripts/db-studio-guard.ts`, unit-tested), which wraps `prisma studio` with these guards:
 
 * It reads `DATABASE_URL` from the environment, then `.env.local`, then `.env` (the Prisma CLI itself reads only `.env`, so `.env.local` alone also works here). The password is never printed.
-* It **refuses to start** unless the database host is `localhost`, `127.0.0.1` or `::1`, so a staging or production URL can never be opened by mistake. It also refuses when `NODE_ENV=production`.
+* It **refuses to start** unless the database host is exactly `localhost`, `127.0.0.1` or `::1`, so a staging or production URL can never be opened by mistake. It also refuses when `NODE_ENV=production`, a non-PostgreSQL URL, a multi-host URL, userinfo tricks (`localhost@remote`), and connection parameters that can redirect the connection (`host`, `hostaddr`, `service`, `socket`, `servername`). The validated URL is passed to Prisma explicitly, so no `.env` file can override it.
 * It always binds to `127.0.0.1` (the loopback interface). The host cannot be changed from the command line; `--hostname` is rejected. Only `--port` and `--browser` are accepted. (Verified: the socket listens on 127.0.0.1 only and the machine's other addresses refuse the connection.)
 
 Prerequisite: the local PostgreSQL must be running (`pnpm db:up`, i.e. `docker compose up -d`) and migrated (`pnpm db:deploy`).

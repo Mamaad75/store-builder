@@ -288,7 +288,7 @@ describe("one consistent draft state per snapshot, under concurrent draft writes
 });
 
 describe("the lock-hold budget covers EVERY step, including everything after the large snapshot INSERT", () => {
-  const STEPS = ["checks", "rate-limit", "read-draft", "build", "serialize", "no-op-check", "number", "insert-version", "insert-products", "reserve-slugs", "pointer", "commit-fence"];
+  const STEPS = ["checks", "rate-limit", "read-draft", "build", "serialize", "no-op-check", "number", "insert-version", "insert-products", "reserve-slugs", "pointer", "deferred-work", "commit-fence"];
 
   it.each(STEPS)("a delay at step %s that exhausts the budget rolls everything back and releases the lock", async (step) => {
     const s = await publishableStore({ products: 2 });
@@ -315,20 +315,64 @@ describe("the lock-hold budget covers EVERY step, including everything after the
     expect(e).toBeInstanceOf(PublishTimedOutError);
   });
 
-  it("COMMIT-time work is NOT cancelled by statement_timeout (verified); publish reports the true hold including the commit as a budget overrun", async () => {
-    const s = await publishableStore({ products: 1 });
+  it("LIMITATION (documented): deferred work left to COMMIT is NOT cancelled by statement_timeout - a plain transaction runs it to completion", async () => {
     await prisma.$executeRawUnsafe(`CREATE FUNCTION test_slow_commit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(1.5); RETURN NULL; END $$`);
     await prisma.$executeRawUnsafe(`CREATE CONSTRAINT TRIGGER test_slow_commit_trg AFTER INSERT ON "StoreVersionProduct" DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION test_slow_commit()`);
+    const s = await publishableStore({ products: 1 });
     try {
-      setPublishLimitsForTests({ lockBudgetMs: 800 });
-      const r = await publish(s.owner.id, s.storeId);
-      expect(r.lockHeldMs).toBeGreaterThan(1_400); // the commit time is INCLUDED in the measured hold
-      expect(r.budgetExceeded).toBe(true); // and an overrun is visible, not hidden
+      const t0 = performance.now();
+      await db.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('statement_timeout', '300ms', true)`;
+        const v = await tx.storeVersion.create({ data: { id: "limit-demo", storeId: s.storeId, number: 1, draftRevision: 1, snapshot: {}, contentHash: "x", snapshotBytes: 1 } });
+        await tx.storeVersionProduct.create({ data: { versionId: v.id, productId: s.productIds[0]!, slug: "demo" } });
+      }, { timeout: 20_000 }); // COMMIT then runs the 1.5 s trigger despite the 300 ms statement_timeout
+      expect(performance.now() - t0).toBeGreaterThan(1_400);
+      expect(await prisma.storeVersion.count({ where: { storeId: s.storeId } })).toBe(1); // and it committed
     } finally {
       await prisma.$executeRawUnsafe(`DROP TRIGGER test_slow_commit_trg ON "StoreVersionProduct"`);
       await prisma.$executeRawUnsafe(`DROP FUNCTION test_slow_commit()`);
     }
   });
+
+  it("MITIGATION: publish runs deferred work as a budgeted step before the fence, so a slow deferred trigger is CANCELLED at the budget, everything rolls back and the lock is released", async () => {
+    const s = await publishableStore({ products: 1 });
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION test_slow_commit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(4); RETURN NULL; END $$`);
+    await prisma.$executeRawUnsafe(`CREATE CONSTRAINT TRIGGER test_slow_commit_trg AFTER INSERT ON "StoreVersionProduct" DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION test_slow_commit()`);
+    try {
+      setPublishLimitsForTests({ lockBudgetMs: 1_500 });
+      const t0 = performance.now();
+      const e = await raw(publish(s.owner.id, s.storeId));
+      const took = performance.now() - t0;
+      expect(e).toBeInstanceOf(PublishTimedOutError);
+      expect((e as PublishTimedOutError).step).toBe("deferred-work");
+      expect(took).toBeLessThan(3_500); // cancelled near the 1.5 s budget, not after the 4 s the trigger wanted
+      expect(await counts(s.storeId)).toBe(JSON.stringify([0, 0, 0, "DRAFT"]));
+      const t1 = performance.now();
+      await updateProduct(s.owner.id, s.storeId, s.productIds[0]!, { name: "قفل آزاد شد" }); // lock is free
+      expect(performance.now() - t1).toBeLessThan(2_000);
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER test_slow_commit_trg ON "StoreVersionProduct"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION test_slow_commit()`);
+    }
+  });
+
+  it("BACKSTOP: if the application stalls while holding the lock, PostgreSQL ends the session (budget + 2 s), rolling back and releasing the lock", async () => {
+    const s = await publishableStore({ products: 1 });
+    setPublishLimitsForTests({ lockBudgetMs: 800 }); // idle backstop = 2.8 s
+    setPublishHooksForTests({ beforeStep: async (name) => { if (name === "build") await sleep(6_000); } }); // the "application" freezes
+    const running = raw(publish(s.owner.id, s.storeId));
+    await sleep(4_000); // past the backstop, well before the stalled application wakes up
+    const t0 = performance.now();
+    const rows = await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "Store" WHERE id = ${s.storeId} FOR UPDATE NOWAIT`; // would throw if the lock were still held
+    expect(rows).toHaveLength(1);
+    expect(performance.now() - t0).toBeLessThan(2_000);
+    const e = await running;
+    expect(e).not.toBeNull(); // the stalled publish fails; it never commits
+    expect(await counts(s.storeId)).toBe(JSON.stringify([0, 0, 0, "DRAFT"]));
+    setPublishHooksForTests({});
+    setPublishLimitsForTests({});
+    expect((await publish(s.owner.id, s.storeId)).number).toBe(1); // and a retry works
+  }, 30_000);
 
   it("the publish path has NO deferred constraints or triggers, so there is no commit-time work to overrun", async () => {
     const rows = await prisma.$queryRaw<{ tbl: string; name: string }[]>`

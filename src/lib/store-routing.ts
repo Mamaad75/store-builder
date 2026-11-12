@@ -4,9 +4,12 @@ import { resolveHost } from "./hostname";
 export const STORE_ROUTE_PREFIX = "/store-host";
 
 export type RouteDecision =
-  /** A platform (or unknown) host: normal handling (auth gate for dashboard/preview). */
+  /** The configured platform host: normal handling (auth gate for dashboard/preview). */
   | { kind: "platform" }
-  /** The request must answer with the neutral 404: the internal namespace asked for directly, or an unsafe path. */
+  /**
+   * The request must answer with the neutral 404: an UNKNOWN host (not the configured root domain, `www.<root>` or a valid
+   * store subdomain: foreign domains, IP hosts, nested labels, wrong ports), the internal namespace asked for directly, or an unsafe path.
+   */
   | { kind: "not_found" }
   /** A store host: every path is a storefront path. `productSlug` is set for `/products/<slug>`. */
   | { kind: "store"; label: string; path: string; productSlug: string | null };
@@ -29,12 +32,13 @@ const decodeSlug = (segment: string): string | null => {
 
 /**
  * Pure routing decision from the raw Host header and the path. Only the Host header decides (never forwarded-host
- * headers). On a store host EVERY path becomes a storefront path, so dashboard, login, auth API, health and preview are
+ * headers). Hosts are validated here, in the application, whatever sits in front of it. On a store host EVERY path becomes a storefront path, so dashboard, login, auth API, health and preview are
  * simply not reachable there.
  */
-export function decideRoute(hostHeader: string | null | undefined, pathname: string, rootDomain: string): RouteDecision {
-  const host = resolveHost(hostHeader, rootDomain);
-  if (host.kind !== "store") {
+export function decideRoute(hostHeader: string | null | undefined, pathname: string, rootDomain: string, platformAliases: readonly string[] = []): RouteDecision {
+  const host = resolveHost(hostHeader, rootDomain, platformAliases);
+  if (host.kind === "unknown") return { kind: "not_found" };
+  if (host.kind === "platform") {
     return pathname === STORE_ROUTE_PREFIX || pathname.startsWith(`${STORE_ROUTE_PREFIX}/`) ? { kind: "not_found" } : { kind: "platform" };
   }
   if (!isSafeStorePath(pathname)) return { kind: "not_found" };

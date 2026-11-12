@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { getAppEnv } from "@/lib/env";
+import { getHostPolicy } from "@/lib/host-policy";
 import { normalizeHostHeader } from "@/lib/hostname";
 import { STORE_ROUTE_PREFIX, decideRoute } from "@/lib/store-routing";
 import { resolveProductRedirect } from "@/modules/publishing/public-read";
@@ -25,8 +26,10 @@ const neutralNotFound = (req: NextRequest) => NextResponse.rewrite(new URL("/--n
 
 export async function proxy(req: NextRequest, ev: never) {
   const env = getAppEnv();
-  // Only the raw Host header is trusted; X-Forwarded-Host / Forwarded / X-Original-Host are never read.
-  const decision = decideRoute(req.headers.get("host"), req.nextUrl.pathname, env.APP_ROOT_DOMAIN);
+  const policy = getHostPolicy();
+  // Only the raw Host header is trusted; X-Forwarded-Host / Forwarded / X-Original-Host are never read. Any host that is not
+  // the configured root domain, www.<root> or a valid store subdomain is answered here with the neutral 404 (unknown hosts).
+  const decision = decideRoute(req.headers.get("host"), req.nextUrl.pathname, policy.rootDomain, policy.aliases);
 
   if (decision.kind === "not_found") return neutralNotFound(req);
 

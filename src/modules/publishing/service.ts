@@ -90,6 +90,7 @@ export async function publishStore(ownerId: string, storeId: unknown, input: unk
       sid,
       async (ctx) => {
         const budget = new LockBudget(ctx.tx, limits.lockBudgetMs);
+        await budget.begin();
         await budget.step("checks", async () => {
           if (ctx.store.draftRevision !== expected) throw new ConflictError(); // the draft changed after the owner looked
           if (!(await hasSubdomain(ctx))) throw new SubdomainRequiredError();
@@ -130,6 +131,7 @@ export async function publishStore(ownerId: string, storeId: unknown, input: unk
         await budget.step("insert-products", () => insertVersionProducts(ctx, versionId, built.data.products.map((p) => ({ productId: p.id, slug: p.slug }))));
         await budget.step("reserve-slugs", () => reserveSlugs(ctx, built.data.products.map((p) => ({ id: p.id, name: p.name, slug: p.slug })), limits));
         await budget.step("pointer", () => setLive(ctx, versionId, now));
+        await budget.settleDeferred();
         await budget.fence();
         return { versionId, number, draftRevision: ctx.store.draftRevision, snapshotBytes: snap.bytes, contentHash: snap.hash, buildMs };
       },

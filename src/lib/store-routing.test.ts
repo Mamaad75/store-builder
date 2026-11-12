@@ -1,13 +1,35 @@
 import { describe, expect, it } from "vitest";
+import { platformAliases } from "./hostname";
 import { STORE_ROUTE_PREFIX, decideRoute, isSafeStorePath } from "./store-routing";
 
 const root = "localhost:3000";
 
 describe("decideRoute", () => {
-  it("platform and unknown hosts get normal handling", () => {
-    for (const host of ["localhost:3000", "www.localhost:3000", "127.0.0.1:3000", "evil.com", null, "mystore.localhost:3001"]) {
-      expect(decideRoute(host, "/dashboard", root), String(host)).toEqual({ kind: "platform" });
+  it("the configured platform host (root domain and www) gets normal handling", () => {
+    for (const host of ["localhost:3000", "www.localhost:3000", "LOCALHOST:3000"]) {
+      expect(decideRoute(host, "/dashboard", root), host).toEqual({ kind: "platform" });
     }
+  });
+
+  it("UNKNOWN hosts get the neutral 404 for every path: foreign domains, IP hosts, nested labels, wrong ports, missing or malformed Host", () => {
+    const unknown = [
+      "evil.com", "evil.com:3000", "127.0.0.1:3000", "127.0.0.1", "[::1]:3000", "10.0.0.5:3000", "localhost", "localhost:3001", "localhost:3000.evil.com",
+      "a.mystore.localhost:3000", "mystore.localhost:3001", "mystore.localhost", "admin.localhost:3000", "mystore.localhost.evil.com",
+      "mystore.localhost:3000, evil.com", "user@localhost:3000", null, undefined, "",
+    ];
+    for (const host of unknown) {
+      for (const p of ["/", "/dashboard", "/login", "/api/health", "/api/auth/session", "/preview/x", "/products/a"]) {
+        expect(decideRoute(host, p, root), `${String(host)} ${p}`).toEqual({ kind: "not_found" });
+      }
+    }
+  });
+
+  it("loopback aliases are platform hosts only when explicitly passed (development/test) and are never store hosts", () => {
+    const aliases = platformAliases(root, "development");
+    expect(decideRoute("127.0.0.1:3000", "/dashboard", root, aliases)).toEqual({ kind: "platform" });
+    expect(decideRoute("127.0.0.1:3000", "/dashboard", root)).toEqual({ kind: "not_found" });
+    expect(decideRoute("127.0.0.1:3001", "/dashboard", root, aliases)).toEqual({ kind: "not_found" });
+    expect(decideRoute("evil.com", "/dashboard", root, aliases)).toEqual({ kind: "not_found" });
   });
 
   it("the internal namespace is NEVER reachable on a platform or unknown host", () => {
