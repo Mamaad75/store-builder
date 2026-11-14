@@ -96,6 +96,20 @@ test.describe("SEO: metadata, canonical, structured data, robots.txt and sitemap
     expect(await v.locator('link[rel="canonical"]').getAttribute("href")).toBe(`${origin(l)}/products`);
     expect(await v.title()).toMatch(/\| فروشگاه سئو$/);
     expect(await jsonLd(v)).toEqual([]);
+    expect(await meta(v, 'meta[name="robots"]')).toBe("index, follow");
+    // ---- category page: indexable, canonical keeps the category, irrelevant/invalid parameters are dropped, an unknown category falls back
+    const cat = encodeURIComponent("چای");
+    for (const [qs, canon] of [
+      [`category=${cat}`, `/products?category=${cat}`],
+      [`category=${cat}&page=99&utm_source=x&sort=price`, `/products?category=${cat}`], // one page only: clamped to 1
+      [`category=nope&utm_source=x`, "/products"],
+    ] as const) {
+      const res = await v.goto(`${origin(l)}/products?${qs}`);
+      expect(res!.status(), qs).toBe(200);
+      expect(await v.locator('link[rel="canonical"]').getAttribute("href"), qs).toBe(`${origin(l)}${canon}`);
+      expect(await meta(v, 'meta[name="robots"]'), qs).toBe("index, follow");
+      expect(await meta(v, 'meta[property="og:url"]'), qs).toBe(`${origin(l)}${canon}`);
+    }
 
     // ---- product with stock
     await v.goto(`${origin(l)}/products/premium-tea`);
@@ -177,12 +191,14 @@ test.describe("SEO: the platform host", () => {
     expect(res.status()).toBe(200);
     const text = await res.text();
     expect(text).toMatch(/User-Agent: \*/i);
-    for (const p of ["/dashboard", "/preview", "/login", "/register", "/api/"]) expect(text).toContain(`Disallow: ${p}`);
+    for (const p of ["/dashboard", "/preview", "/api/"]) expect(text).toContain(`Disallow: ${p}`);
+    // crawlable on purpose: a blocked URL could never show its noindex
+    expect(text).not.toMatch(/Disallow: \/(login|register)/);
     expect(text).toMatch(/Allow: \//);
 
     for (const path of ["/login", "/register"]) {
       await page.goto(path);
-      expect(await meta(page, 'meta[name="robots"]'), path).toMatch(/noindex/);
+      expect(await meta(page, 'meta[name="robots"]'), path).toMatch(/^noindex, nofollow$/);
     }
     // an unknown host never reaches any of it
     expect((await page.request.get(`http://127.0.0.1:${PORT}/robots.txt`, { headers: { host: "evil.com" }, failOnStatusCode: false })).status()).toBe(404);

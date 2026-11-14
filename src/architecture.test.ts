@@ -670,8 +670,13 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
 
   it("the platform robots.txt blocks the application and nothing else is indexable by accident", () => {
     const src = read("src/app/robots.ts");
-    for (const p of ["/dashboard", "/preview", "/login", "/register", "/api/"]) expect(src).toContain(`"${p}"`);
-    for (const f of ["src/app/(auth)/login/page.tsx", "src/app/(auth)/register/page.tsx", "src/app/dashboard/layout.tsx", "src/app/preview/[storeId]/[[...path]]/page.tsx"]) {
+    for (const p of ["/dashboard", "/preview", "/api/"]) expect(src).toContain(`"${p}"`);
+    // login/register must stay crawlable so that their noindex directive can be read
+    for (const p of ["/login", "/register"]) expect(src).not.toContain(`"${p}"`);
+    for (const f of ["src/app/(auth)/login/page.tsx", "src/app/(auth)/register/page.tsx"]) {
+      expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
+    }
+    for (const f of ["src/app/dashboard/layout.tsx", "src/app/preview/[storeId]/[[...path]]/page.tsx"]) {
       expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false/);
     }
   });

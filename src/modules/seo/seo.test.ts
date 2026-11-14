@@ -24,6 +24,8 @@ const withStore = (over: Partial<StorefrontData["store"]>, base: Partial<Storefr
 const manyProducts = (n: number) =>
   Array.from({ length: n }, (_, i) => ({ ...PRODUCT_A, id: `p${i}`, name: `کالا ${i + 1}`, slug: `kala-${i + 1}`, categoryId: i % 2 === 0 ? "cat-tea" : "cat-coffee" }));
 
+const cat_tea = () => `/products?category=${encodeURIComponent("چای")}`;
+
 describe("text helpers", () => {
   it("cleanText collapses whitespace and strips control characters", () => {
     expect(cleanText("  a\n\n b\t\u0000c  ")).toBe("a b c");
@@ -98,6 +100,53 @@ describe("page metadata", () => {
     expect(pageTitle(p2)).toBe("محصولات - صفحه ۲ | فروشگاه نمونه");
     expect(canonicalPath(ctxFor(data, ["products"], { page: "999" }))).toBe("/products?page=3"); // 25 products = 3 pages
     expect(canonicalPath(ctxFor(data, ["products"], { category: "چای", page: "2" }))).toBe(`/products?category=${encodeURIComponent("چای")}&page=2`);
+  });
+
+  it("category pages are explicitly indexable with their own canonical; every page/category combination is self-canonical", () => {
+    const data = makeStorefront({ products: manyProducts(25) }); // tea: 13 -> 2 pages, coffee: 12 -> 1 page
+    const cat = (s: string) => `/products?category=${encodeURIComponent(s)}`;
+    const cases: [Record<string, string>, string][] = [
+      [{ category: "چای" }, cat("چای")],
+      [{ category: "قهوه" }, cat("قهوه")],
+      [{ category: "چای", page: "2" }, `${cat("چای")}&page=2`],
+      [{ category: "چای", page: "1" }, cat("چای")], // page 1 is the category page itself
+      [{ category: "چای", page: "99" }, `${cat("چای")}&page=2`], // clamped to the category's last page, not the global one
+      [{ category: "قهوه", page: "2" }, cat("قهوه")], // coffee has one page
+      [{ page: "3" }, "/products?page=3"],
+    ];
+    for (const [sp, path] of cases) {
+      const ctx = ctxFor(data, ["products"], sp);
+      const m = buildMetadata(ctx, BASE);
+      expect(canonicalPath(ctx), JSON.stringify(sp)).toBe(path);
+      expect(m.alternates?.canonical, JSON.stringify(sp)).toBe(`${BASE}${path}`);
+      expect(m.robots, JSON.stringify(sp)).toEqual({ index: true, follow: true });
+    }
+  });
+
+  it("invalid and irrelevant parameters are normalised safely (never echoed, never crash, never noindex)", () => {
+    const data = makeStorefront({ products: manyProducts(25) });
+    const tea = cat_tea();
+    const bad: Record<string, string | string[] | undefined>[] = [
+      { category: "no-such", page: "2" }, // unknown category is dropped, valid page kept
+      { category: ["چای", "قهوه"] }, // repeated parameter
+      { category: "", page: "" },
+      { category: "چای", page: "0" },
+      { category: "چای", page: "1.5" },
+      { category: "چای", page: "2abc" },
+      { category: "چای", page: "99999999999999999999" },
+      { category: "<script>alert(1)</script>", page: "NaN" },
+      { category: "چای", utm_source: "x", sort: "price", q: "tea" } as never,
+    ];
+    for (const sp of bad) {
+      const ctx = ctxFor(data, ["products"], sp as Record<string, string>);
+      const c = canonicalPath(ctx);
+      expect(c, JSON.stringify(sp)).toMatch(/^\/products(\?[^#]*)?$/);
+      for (const junk of ["utm", "sort", "q=", "script", "no-such", "NaN", "%5B"]) expect(c, JSON.stringify(sp)).not.toContain(junk);
+      expect(c).not.toMatch(/page=(0|1)(&|$)/);
+      expect(buildMetadata(ctx, BASE).robots).toEqual({ index: true, follow: true });
+    }
+    expect(canonicalPath(ctxFor(data, ["products"], { category: "چای", page: "0" }))).toBe(tea);
+    expect(canonicalPath(ctxFor(data, ["products"], { category: "no-such", page: "2" }))).toBe("/products?page=2");
   });
 
   it("junk parameters never reach the canonical URL (utm, unknown category, garbage page)", () => {

@@ -16,8 +16,9 @@ Everything here concerns the **public** store host (`<label>.<APP_ROOT_DOMAIN>`)
 
 * **Canonical URL** = `APP_PROTOCOL://<label>.<APP_ROOT_DOMAIN>` (configuration, never a request header) + the canonical path. Only the
   **parsed** query is ever part of it, so `?utm_source=...`, unknown categories and garbage page numbers collapse into the canonical
-  URL, and `?page=999` canonicalises to the last real page. Every public page is `index, follow`; pagination and category pages are
-  self-canonical (the storefront has no search, so there is no parameter space to de-duplicate beyond these).
+  URL, and `?page=999` canonicalises to the last real page. Every public page is `index, follow` (category pages explicitly included, each with its own canonical
+  `/products?category=slug`); pagination and category pages are self-canonical (`?category=slug&page=n`, page 1 omitted, page clamped to the
+  filtered list's last page, unknown categories dropped) (the storefront has no search, so there is no parameter space to de-duplicate beyond these).
 * **Open Graph and Twitter:** `og:type website`, `og:url`, `og:title`, `og:description`, `og:site_name`, `og:locale fa_IR`; the share
   image is the product photo on a product page, otherwise the store logo; with an image the Twitter card is `summary_large_image`,
   otherwise `summary`.
@@ -47,9 +48,11 @@ Everything here concerns the **public** store host (`<label>.<APP_ROOT_DOMAIN>`)
   publish, rollback and republish, not on draft edits). A store holds at most 500 products, far below the 50,000-URL limit (a guard
   truncates anyway), so no sitemap index is needed. A store that is unknown, never published, unpublished or on a foreign host gets the
   **same neutral 404** as every other path: nothing reveals whether a store exists.
-* **Platform host:** `/robots.txt` allows the root page (the landing page stays indexable, decision D11-4) and disallows `/dashboard`,
-  `/preview`, `/login`, `/register` and `/api/`. The login and register pages and the whole dashboard are `noindex, nofollow`; the draft
-  preview was already `noindex` (and `X-Robots-Tag`).
+* **Platform host:** `/robots.txt` allows the root page (the landing page stays indexable, decision D11-4) and disallows only `/dashboard`,
+  `/preview` and `/api/`. `/login` and `/register` are deliberately **not** disallowed: they are crawlable but `noindex, nofollow`
+  (a URL blocked in robots.txt is never fetched, so its `noindex` could not be read and the bare URL could still be indexed from
+  external links). The whole dashboard is `noindex, nofollow`; the draft preview was already `noindex` (and `X-Robots-Tag`).
+  robots.txt is advisory only: authentication and authorization remain the actual security boundary of every blocked path.
 * Store-host responses are `Cache-Control: no-store` today (the proxy applies it to everything on a store host so that publish,
   rollback and unpublish are visible at once). A caching strategy for crawlers and a CDN belongs to phase 13.
 
