@@ -77,7 +77,7 @@ Replacing or removing a product image, replacing or removing the logo, deleting 
 
 ## Cleanup (`runMediaCleanup`, `pnpm media:cleanup`)
 
-Idempotent and safe at any time, also while uploads run. Not scheduled by this repository (no infrastructure in this phase); run it from a scheduler later (phase 13/14).
+Idempotent and safe at any time, also while uploads run. Not scheduled by this repository (no infrastructure in this phase). **Scheduling it is a mandatory phase 14 release requirement** (periodic scheduler, non-zero exit detection, logs and alerts, verified recovery of failed items, tested in staging before production; `docs/roadmap.md` "Mandatory for phase 14", D10-13).
 
 1. **Expired PENDING rows** (older than the grace period): claim the row with a conditional `PENDING -> DELETING` update, delete the object, delete the row. If the upload completed meanwhile the claim fails and nothing is touched.
 2. **DELETING rows** older than the grace period: finish the physical delete.
@@ -91,7 +91,7 @@ The report (`pnpm media:cleanup` prints it as JSON) includes `unreferencedReadyS
 
 Store deletion removes rows by cascade; the objects are removed by step 3 after the grace period.
 
-**Known limits.** Nothing in this repository schedules the cleanup (no infrastructure in this phase): until `pnpm media:cleanup` runs, a replaced image whose release failed keeps its public URL and its quota slot. The reclaim step is a periodic scan (cost proportional to unreferenced READY rows, snapshot checks are text scans of the store's versions); at the quota of 100 images per store this is small, and the per-run bound protects the job.
+**Known limits.** Nothing in this repository schedules the cleanup (no infrastructure in this phase; scheduling is a mandatory phase 14 release gate, D10-13): until `pnpm media:cleanup` runs, a replaced image whose release failed keeps its public URL and its quota slot. The reclaim step is a periodic scan (cost proportional to unreferenced READY rows, snapshot checks are text scans of the store's versions); at the quota of 100 images per store this is small, and the per-run bound protects the job.
 
 ## Security limitations (known and accepted)
 
