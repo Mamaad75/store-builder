@@ -67,7 +67,9 @@ test.describe("publishing and host routing", () => {
     expect(res!.status()).toBe(200);
     await expect(vp.getByText("کتری زنده").first()).toBeVisible();
     await expect(vp.getByText("پیش‌نویس محرمانه")).toHaveCount(0);
-    await expect(vp.locator("meta[name=robots]")).toHaveCount(0); // a live store is indexable; the draft preview is not
+    // a live store is indexable (phase 11 states it explicitly); the draft preview is not
+    await expect(vp.locator("meta[name=robots]")).toHaveAttribute("content", /^index, follow$/);
+    await expect(vp.locator("meta[name=robots][content*=noindex]")).toHaveCount(0);
 
     // a draft edit does not reach the public site
     await page.goto(`/dashboard/stores/${storeId}/products`);
