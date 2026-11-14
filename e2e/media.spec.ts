@@ -60,6 +60,7 @@ test.describe("product images", () => {
     // preview: only ACTIVE products appear, so activate it first; the draft product (no image) stays hidden
     await page.goto(`/dashboard/stores/${storeId}/products`);
     await productRow(page, "چای تصویردار").getByRole("button", { name: "فعال‌سازی" }).click();
+    await page.waitForURL(/notice=status-activated/); // the status change has committed (a redirect follows success)
     await expect(productRow(page, "چای تصویردار")).toContainText("فعال");
     await page.goto(`/preview/${storeId}/products`);
     const card = page.locator("article", { hasText: "چای تصویردار" });

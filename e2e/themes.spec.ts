@@ -6,6 +6,7 @@ test.afterAll(() => db.$disconnect());
 const activate = async (page: Page, storeId: string, name: string) => {
   await page.goto(`/dashboard/stores/${storeId}/products`);
   await productRow(page, name).getByRole("button", { name: "فعال‌سازی" }).click();
+  await page.waitForURL(/notice=status-activated/); // the status change has committed (a redirect follows success)
   await expect(productRow(page, name)).toContainText("فعال");
 };
 const sectionsOf = async (storeId: string, type: string) => (await db.page.findFirstOrThrow({ where: { storeId, type: type as never } })).sections as { id: string; type: string; props: Record<string, unknown> }[];

@@ -13,6 +13,7 @@ async function newUserSession(browser: Browser) {
 async function activate(page: import("@playwright/test").Page, storeId: string, name: string) {
   await page.goto(`/dashboard/stores/${storeId}/products`);
   await productRow(page, name).getByRole("button", { name: "فعال‌سازی" }).click();
+  await page.waitForURL(/notice=status-activated/); // the status change has committed (a redirect follows success)
   await expect(productRow(page, name)).toContainText("فعال");
 }
 

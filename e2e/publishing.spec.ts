@@ -39,6 +39,7 @@ async function setLive(page: Page, storeId: string, version: number) {
 async function activateProduct(page: Page, storeId: string, name: string) {
   await page.goto(`/dashboard/stores/${storeId}/products`);
   await page.getByTestId("product-row").filter({ hasText: name }).getByRole("button", { name: "فعال‌سازی" }).click();
+  await page.waitForURL(/notice=status-activated/); // the status change has committed (a redirect follows success)
   await expect(page.getByTestId("product-row").filter({ hasText: name })).toContainText("فعال");
 }
 
