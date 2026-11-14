@@ -83,6 +83,8 @@ export const templateSettingsSchema = z.object({
   direction: z.enum(["rtl", "ltr"]),
   contact: z.object({ phone: z.string(), email: z.string(), address: z.string() }),
   social: z.object({ instagram: z.string(), telegram: z.string(), whatsapp: z.string() }),
+  // Optional short description for search results and link previews (phase 11). Settings stored earlier have none.
+  description: z.string().max(160).default(""),
   // Settings stored before phase 8 have no typography: they parse with the defaults (and are persisted normalised on the next save).
   typography: typographySchema.default(DEFAULT_TYPOGRAPHY),
 });

@@ -51,3 +51,9 @@ See D6-2/D6-3 in [`decisions.md`](decisions.md): stored data is never rewritten 
 ## Phase 8 additions to the contract (same `schemaVersion: 1`, all optional with defaults)
 
 `store.typography` (closed allow-lists, see `docs/pages.md`) and `images` (`{ [mediaId]: { key, width, height } }`, relative keys, at most 60) are added; data written earlier parses with the defaults. Templates get section images through `sectionImage(ctx, imageId)`; an id that is not in `images` renders the placeholder.
+
+## Phase 11 additions (SEO)
+
+`StorefrontData.store.description` is optional with **no default** (absent when the owner set none). The page metadata, canonical URL,
+Open Graph/Twitter cards, JSON-LD, `robots.txt` and `sitemap.xml` are derived from the same validated data: see `docs/seo.md`.
+

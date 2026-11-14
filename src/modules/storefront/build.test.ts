@@ -68,3 +68,17 @@ describe("buildStorefrontData (pure)", () => {
     expect(() => buildStorefrontData(source({ products }))).toThrow(StorefrontBuildError);
   });
 });
+
+describe("buildStorefrontData: the optional store description (phase 11)", () => {
+  it("is ABSENT from the data when the owner set none, so existing stores keep byte-identical snapshots", () => {
+    const { data } = buildStorefrontData(source());
+    expect("description" in data.store).toBe(false);
+    const blank = buildStorefrontData(source({ store: { name: "x", settings: { ...general.settings, description: "" } } }));
+    expect("description" in blank.data.store).toBe(false);
+    expect(JSON.stringify(blank.data)).toBe(JSON.stringify(buildStorefrontData(source({ store: { name: "x", settings: general.settings } })).data));
+  });
+  it("is carried into the data when set", () => {
+    const { data } = buildStorefrontData(source({ store: { name: "x", settings: { ...general.settings, description: "فروشگاه چای" } } }));
+    expect(data.store.description).toBe("فروشگاه چای");
+  });
+});

@@ -12,12 +12,14 @@ import { ByteLru } from "./lru";
 export interface LiveStore {
   storeId: string;
   versionId: string;
+  /** When this version went live (publish, rollback or republish); used as the sitemap `lastmod`. */
+  liveSince: Date;
 }
 
 /** The live version of the store that owns this subdomain, or null (unknown, never published, unpublished, released). */
 export async function resolveLiveStore(label: string): Promise<LiveStore | null> {
   const rows = await db.$queryRaw<LiveStore[]>`
-    SELECT s."id" AS "storeId", s."publishedVersionId" AS "versionId"
+    SELECT s."id" AS "storeId", s."publishedVersionId" AS "versionId", COALESCE(s."publishedAt", now()) AS "liveSince"
     FROM "Domain" d JOIN "Store" s ON s."id" = d."storeId"
     WHERE d."kind" = 'SUBDOMAIN' AND d."host" = ${label} AND s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL`;
   return rows[0] ?? null;

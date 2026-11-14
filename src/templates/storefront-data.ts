@@ -41,6 +41,9 @@ export const storefrontStoreSchema = z
     social: z.object({ instagram: z.string().max(64), telegram: z.string().max(64), whatsapp: z.string().max(64) }).strict(),
     logo: mediaRefSchema.nullable().default(null),
     typography: typographySchema.default(DEFAULT_TYPOGRAPHY),
+    // Owner-written short description (phase 11). Deliberately OPTIONAL WITHOUT a default and absent when empty: snapshots
+    // and drafts of stores that never set one are byte-for-byte what they were before, so no content hash changes.
+    description: z.string().max(160).optional(),
   })
   .strict();
 

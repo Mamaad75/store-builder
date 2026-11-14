@@ -265,7 +265,9 @@ describe("architecture guard: page editing (draft only, owner-scoped, template-a
   });
 
   it("no raw HTML injection and no external fonts/stylesheets anywhere in the app or templates", () => {
-    expect(inFiles(/dangerouslySetInnerHTML/)).toEqual([]);
+    // The single exception (phase 11): JSON-LD blocks need raw script content (React would entity-escape the JSON quotes). The
+    // allow-list is exactly one file, and it must serialise through the escaping `serializeJsonLd` (see the SEO guards below).
+    expect(inFiles(/dangerouslySetInnerHTML/)).toEqual(["src/app/store-host/[label]/JsonLd.tsx"]);
     expect(inFiles(/@import\s+url\(|fonts\.googleapis|fonts\.gstatic|<link[^>]+stylesheet/)).toEqual([]);
     expect(read("src/templates/general/general.module.css")).not.toMatch(/@import|url\(\s*["']?https?:/);
   });
@@ -448,7 +450,8 @@ describe("architecture guard: product specifications and the appliances theme (p
   });
 
   it("no template or dashboard source injects raw HTML", () => {
-    expect(inFiles(/dangerouslySetInnerHTML/, [...files("src/templates"), ...files("src/components"), ...files("src/app")])).toEqual([]);
+    // Only the JSON-LD component (phase 11, escaped by serializeJsonLd) may use raw markup; never a template, component or dashboard file.
+    expect(inFiles(/dangerouslySetInnerHTML/, [...files("src/templates"), ...files("src/components"), ...files("src/app")])).toEqual(["src/app/store-host/[label]/JsonLd.tsx"]);
   });
 
   it("the appliances theme is registered in the catalog, the module registry and the seed definitions (and nowhere is a theme key hardcoded in the engine)", () => {
@@ -623,6 +626,59 @@ describe("architecture guard: media release after a committed change never fails
     // no other Store write exists outside withStoreMutation / the publishing lock / these timeout-wrapped writers
     const offenders = prodFiles().filter((f) => /store\.(update|updateMany|delete|deleteMany)\(/.test(read(f)));
     expect(rel(offenders)).toEqual(["src/modules/media/repository.ts", "src/modules/publishing/repository.ts", "src/modules/stores/mutation.ts", "src/modules/stores/repository.ts"]);
+  });
+});
+
+describe("architecture guard: SEO (phase 11) reads only published data and never trusts request headers for identity", () => {
+  const seoFiles = () => files("src/modules/seo");
+
+  it("the SEO builders are pure: no database, no request, no Next runtime and no draft module", () => {
+    expect(seoFiles().length).toBeGreaterThanOrEqual(4);
+    for (const f of seoFiles()) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/from\s+["']@\/lib\/db["']|@prisma\/client|next\/headers|next\/server|next\/navigation/);
+      expect(src, f).not.toMatch(/from\s+["']@\/modules\/(stores|products|categories|pages|media|storefront)\b/);
+      expect(src, f).not.toMatch(/process\.env|getAppEnv|\bheaders\(/);
+      // type-only imports from Next (the Metadata type) are the only allowed ones
+      for (const m of src.matchAll(/import\s+(type\s+)?[^;]*from\s+["']next["']/g)) expect(m[1], f).toBeTruthy();
+    }
+  });
+
+  it("the JSON-LD component serialises only through serializeJsonLd, and the serializer escapes the tag-closing characters", () => {
+    const comp = read("src/app/store-host/[label]/JsonLd.tsx");
+    expect(comp).toMatch(/__html: serializeJsonLd\(item\)/);
+    expect(comp.match(/dangerouslySetInnerHTML=/g)).toHaveLength(1); // one attribute, nothing else
+    const ser = read("src/modules/seo/jsonld.ts");
+    for (const ch of ["u003c", "u003e", "u0026", "u2028", "u2029"]) expect(ser).toContain(ch);
+  });
+
+  it("every public SEO route (page metadata, robots.txt, sitemap.xml) uses the shared host check and the published-store loader", () => {
+    for (const f of [
+      "src/app/store-host/[label]/[[...path]]/page.tsx",
+      "src/app/store-host/[label]/robots.txt/route.ts",
+      "src/app/store-host/[label]/sitemap.xml/route.ts",
+    ]) {
+      const src = read(f);
+      expect(src, f).toMatch(/hostNamesLabel\(/);
+      expect(src, f).toMatch(/loadPublicStore\(/);
+      expect(src, f).not.toMatch(/x-forwarded|forwarded-host|\.get\(["']host["']\)/i);
+    }
+    const shared = read("src/app/store-host/[label]/_public.ts");
+    expect(shared).toMatch(/publicStoreUrl\(label\)/); // the public base URL comes from configuration
+    expect(shared).toMatch(/resolveHost\(\(await headers\(\)\)\.get\("host"\)/); // the raw Host header only
+  });
+
+  it("the platform robots.txt blocks the application and nothing else is indexable by accident", () => {
+    const src = read("src/app/robots.ts");
+    for (const p of ["/dashboard", "/preview", "/login", "/register", "/api/"]) expect(src).toContain(`"${p}"`);
+    for (const f of ["src/app/(auth)/login/page.tsx", "src/app/(auth)/register/page.tsx", "src/app/dashboard/layout.tsx", "src/app/preview/[storeId]/[[...path]]/page.tsx"]) {
+      expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false/);
+    }
+  });
+
+  it("the new snapshot field stays optional without a default (no content-hash change for stores that never set it)", () => {
+    expect(read("src/templates/storefront-data.ts")).toMatch(/description: z\.string\(\)\.max\(160\)\.optional\(\)/);
+    expect(read("src/modules/storefront/build.ts")).toMatch(/\.\.\.\(resolved\.description \? \{ description: resolved\.description \} : \{\}\)/);
   });
 });
 

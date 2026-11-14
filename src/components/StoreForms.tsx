@@ -151,6 +151,7 @@ export interface StoreSettingsValues {
   primaryColor: string;
   contact: { phone: string; email: string; address: string };
   social: { instagram: string; telegram: string; whatsapp: string };
+  description: string;
 }
 
 export function StoreSettingsForm({ store }: { store: StoreSettingsValues }) {
@@ -163,6 +164,16 @@ export function StoreSettingsForm({ store }: { store: StoreSettingsValues }) {
         {state.error && <Alert severity="error">{state.error}</Alert>}
         {state.success && <Alert severity="success">{state.success}</Alert>}
         <TextField name="name" label="نام فروشگاه" defaultValue={store.name} required error={!!fe(state, "name")} helperText={fe(state, "name")} />
+        <TextField
+          name="description"
+          label="توضیح کوتاه فروشگاه (برای موتورهای جستجو و پیش‌نمایش لینک)"
+          defaultValue={store.description}
+          multiline
+          minRows={2}
+          error={!!fe(state, "description")}
+          helperText={fe(state, "description") ?? "حداکثر ۱۶۰ نویسه. اگر خالی بماند، از متن صفحهٔ اصلی ساخته می‌شود."}
+          slotProps={{ htmlInput: { maxLength: 160 } }}
+        />
         <ColorField name="primaryColor" label="رنگ اصلی" defaultValue={store.primaryColor} error={!!fe(state, "primaryColor")} />
         <Typography sx={{ fontWeight: 700, pt: 1 }}>اطلاعات تماس</Typography>
         <TextField name="phone" label="تلفن" defaultValue={store.contact.phone} slotProps={ltr} />

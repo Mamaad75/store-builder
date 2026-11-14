@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -12,6 +13,9 @@ import { requireUser } from "@/modules/auth/session";
 
 // Per-request: always evaluates the session on the server.
 export const dynamic = "force-dynamic";
+
+// The application is never indexed (it also sits behind a login).
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   await assertPlatformHost(); // never through a store host

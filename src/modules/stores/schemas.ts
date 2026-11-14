@@ -50,6 +50,12 @@ export const updateStoreSchema = z
       .strict()
       .optional(),
     typography: typographyPatchSchema.optional(),
+    // One short line for search results and link previews: whitespace is collapsed, control characters are refused.
+    description: z
+      .string()
+      .transform((s) => s.replace(/\s+/g, " ").trim())
+      .pipe(z.string().max(160, "توضیح کوتاه حداکثر ۱۶۰ نویسه است").regex(/^[^\u0000-\u001f\u007f]*$/, "نویسهٔ نامعتبر"))
+      .optional(),
   })
   .strict();
 

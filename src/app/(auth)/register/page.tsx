@@ -4,7 +4,7 @@ import Typography from "@mui/material/Typography";
 import { registerAction } from "@/app/actions-auth";
 import AuthForm from "@/components/AuthForm";
 
-export const metadata: Metadata = { title: "ثبت‌نام" };
+export const metadata: Metadata = { title: "ثبت‌نام", robots: { index: false, follow: false } };
 
 export default function RegisterPage() {
   return (

@@ -5,7 +5,7 @@ import Typography from "@mui/material/Typography";
 import { loginAction } from "@/app/actions-auth";
 import AuthForm from "@/components/AuthForm";
 
-export const metadata: Metadata = { title: "ورود" };
+export const metadata: Metadata = { title: "ورود", robots: { index: false, follow: false } };
 
 export default async function LoginPage({
   searchParams,

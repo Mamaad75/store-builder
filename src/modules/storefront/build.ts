@@ -51,6 +51,7 @@ const FALLBACK_SETTINGS: TemplateSettings = {
   direction: "rtl",
   contact: { phone: "", email: "", address: "" },
   social: { instagram: "", telegram: "", whatsapp: "" },
+  description: "",
 };
 
 /**
@@ -100,7 +101,7 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
   const candidate = {
     schemaVersion: STOREFRONT_SCHEMA_VERSION,
     template: { key: src.template.key, version: src.template.version },
-    store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social, logo: toMediaRef(src.store.logo), typography: resolved.typography },
+    store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social, logo: toMediaRef(src.store.logo), typography: resolved.typography, ...(resolved.description ? { description: resolved.description } : {}) },
     pages,
     categories: src.categories,
     products: src.products.map(({ image, specs, ...p }) => {

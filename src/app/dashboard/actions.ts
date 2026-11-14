@@ -56,6 +56,7 @@ export async function updateStoreAction(_prev: StoreFormState, fd: FormData): Pr
       primaryColor: str(fd, "primaryColor"),
       contact: { phone: str(fd, "phone"), email: str(fd, "email"), address: str(fd, "address") },
       social: { instagram: str(fd, "instagram"), telegram: str(fd, "telegram"), whatsapp: str(fd, "whatsapp") },
+      description: str(fd, "description"),
     });
   } catch (e) {
     return toState(e, storeId);

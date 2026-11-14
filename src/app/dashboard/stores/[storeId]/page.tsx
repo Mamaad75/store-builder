@@ -37,7 +37,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeId:
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 } }}>
       <Stack spacing={4}>
-        <StoreSettingsForm store={{ id: store.id, name: store.name, primaryColor: settings.primaryColor, contact: settings.contact, social: settings.social }} />
+        <StoreSettingsForm store={{ id: store.id, name: store.name, primaryColor: settings.primaryColor, contact: settings.contact, social: settings.social, description: settings.description }} />
         <Divider />
         <BusinessCategoryForm storeId={store.id} current={store.businessCategory} categories={BUSINESS_CATEGORIES.map((c) => ({ key: c.key, name: c.name }))} />
         <Divider />
