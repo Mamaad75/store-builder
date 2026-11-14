@@ -9,6 +9,7 @@ export const NOTICES = {
   "status-invalid": { severity: "error", text: "این تغییر وضعیت مجاز نیست یا محصول از قبل در این وضعیت است." },
   "delete-unconfirmed": { severity: "error", text: "برای حذف، تأیید لازم است." },
   "conflict": { severity: "error", text: "محصول هم‌زمان تغییر کرده است. دوباره تلاش کنید." },
+  "busy": { severity: "error", text: "فروشگاه در حال انجام عملیات دیگری است (مثلاً انتشار). تغییر شما ذخیره نشد؛ چند لحظه بعد دوباره تلاش کنید." },
   "category-created": { severity: "success", text: "دسته‌بندی ساخته شد." },
   "category-updated": { severity: "success", text: "نام دسته‌بندی تغییر کرد." },
   "category-deleted": { severity: "success", text: "دسته‌بندی حذف شد." },

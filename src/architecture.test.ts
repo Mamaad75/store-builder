@@ -556,3 +556,36 @@ describe("architecture guard: host validation is enforced by the application (un
   });
 });
 
+describe("architecture guard: draft writers are bounded by the draft lock timeout", () => {
+  const mutation = () => read("src/modules/stores/mutation.ts");
+
+  it("withStoreMutation arms lock_timeout BEFORE it touches the store row, and maps 55P03 to the typed error", () => {
+    const src = mutation();
+    const fn = src.slice(src.indexOf("export async function withStoreMutation"), src.indexOf("declare const lockBrand"));
+    expect(fn.indexOf("armDraftLockTimeout(tx)")).toBeGreaterThan(-1);
+    expect(fn.indexOf("armDraftLockTimeout(tx)")).toBeLessThan(fn.indexOf("tx.store.updateMany"));
+    expect(fn).toMatch(/throw mapDraftLockTimeout\(e\)/);
+    expect(src).toMatch(/pgErrorCode\(e\) === "55P03" \? new DraftBusyError\(\)/);
+    expect(src).toMatch(/DRAFT_LOCK_TIMEOUT_MS = 5_000/);
+  });
+
+  it("publishing keeps its own lock behavior: withStoreLock still uses its own lockTimeoutMs and StoreLockBusyError, not the draft timeout", () => {
+    const src = mutation();
+    const lock = src.slice(src.indexOf("export async function withStoreLock"));
+    expect(lock).toMatch(/opts\.lockTimeoutMs \?\? 5_000/);
+    expect(lock).toMatch(/StoreLockBusyError/);
+    expect(lock).not.toMatch(/armDraftLockTimeout|DraftBusyError|draftLockTimeoutMs/);
+  });
+
+  it("every dashboard action module that runs draft mutations maps DraftBusyError to the owner-facing message or notice", () => {
+    for (const f of ["src/app/dashboard/actions.ts", "src/app/dashboard/catalog-actions.ts", "src/app/dashboard/pages-actions.ts", "src/app/dashboard/media-actions.ts"]) {
+      expect(read(f), f).toMatch(/instanceof DraftBusyError/);
+    }
+  });
+
+  it("the test seam for the draft timeout is never used by production code", () => {
+    const users = prodFiles().filter((f) => /setDraftLockTimeoutForTests/.test(read(f)));
+    expect(rel(users)).toEqual(["src/modules/stores/mutation.ts"]);
+  });
+});
+

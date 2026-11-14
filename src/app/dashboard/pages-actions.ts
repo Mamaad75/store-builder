@@ -6,7 +6,7 @@ import { requireUser } from "@/modules/auth/session";
 import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } from "@/modules/pages/errors";
 import { appearanceUrl, pagesUrl } from "@/modules/pages/urls";
 import { addSection, getPageEditor, moveSection, recoverPage, removeDormantSection, removeSection, setPageVisibility, updateSection } from "@/modules/pages/service";
-import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
+import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { updateStore } from "@/modules/stores/service";
 import { propsFromFields } from "@/templates/section-fields";
 import { getSectionDefinition } from "@/templates/section-registry";
@@ -35,6 +35,7 @@ function toState(e: unknown, notFoundUrl: string, sectionId?: string): EditorSta
     return { error: first ?? "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: e.fieldErrors, sectionId };
   }
   if (e instanceof ConflictError) return { error: "این صفحه هم‌زمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید." };
+  if (e instanceof DraftBusyError) return { error: DRAFT_BUSY_MESSAGE };
   if (e instanceof PageNeedsRecoveryError) {
     return { error: `این صفحه ${e.invalidCount.toLocaleString("fa-IR")} بخش نامعتبر دارد. ابتدا «انتقال به بایگانی» را اجرا کنید؛ هیچ داده‌ای حذف نمی‌شود.` };
   }

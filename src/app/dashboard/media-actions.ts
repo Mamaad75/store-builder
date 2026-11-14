@@ -18,7 +18,7 @@ import { pageUrl } from "@/modules/pages/urls";
 import { setSectionImage } from "@/modules/pages/service";
 import { productUrl, productsUrl, storeUrl } from "@/modules/products/list-url";
 import { PageNeedsRecoveryError } from "@/modules/pages/errors";
-import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
+import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 
 export interface MediaFormState {
   error?: string;
@@ -37,6 +37,7 @@ const str = (fd: FormData, key: string) => {
  */
 function toState(e: unknown, notFoundUrl: string): MediaFormState {
   if (e instanceof NotFoundError) redirect(notFoundUrl);
+  if (e instanceof DraftBusyError) return { error: DRAFT_BUSY_MESSAGE };
   if (e instanceof MediaValidationError) return { error: e.message };
   if (e instanceof MediaQuotaError) {
     return {

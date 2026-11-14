@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/modules/auth/session";
-import { ConflictError, NotFoundError, StoreLimitError, ValidationError } from "@/modules/stores/errors";
+import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, StoreLimitError, ValidationError } from "@/modules/stores/errors";
 import { createStore, deleteStore, updateBusinessCategory, updateStore } from "@/modules/stores/service";
 import { switchTheme, ThemeSwitchBlockedError } from "@/modules/stores/theme-switch";
 import { appearanceUrl } from "@/modules/pages/urls";
@@ -31,6 +31,7 @@ function toState(e: unknown, storeId = ""): StoreFormState {
   if (e instanceof ValidationError) return { error: "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: e.fieldErrors };
   if (e instanceof StoreLimitError) return { error: `حداکثر ${e.limit.toLocaleString("fa-IR")} فروشگاه می‌توانید بسازید.` };
   if (e instanceof ConflictError) return { error: "فروشگاه هم‌زمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید." };
+  if (e instanceof DraftBusyError) return { error: DRAFT_BUSY_MESSAGE };
   throw e;
 }
 

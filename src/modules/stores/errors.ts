@@ -46,3 +46,19 @@ export class CategoryNotEmptyError extends Error {
     this.name = "CategoryNotEmptyError";
   }
 }
+
+/**
+ * A draft change could not get the store's lock within the lock timeout (PostgreSQL 55P03), typically because a publish (or
+ * another change) is running. RETRYABLE: the transaction was rolled back, nothing was written, and the same request can be
+ * repeated. Draft writers never retry on their own.
+ */
+export class DraftBusyError extends Error {
+  readonly retryable = true as const;
+  constructor() {
+    super("The store is busy; the change was not saved and can be retried");
+    this.name = "DraftBusyError";
+  }
+}
+
+/** The owner-facing message for DraftBusyError (shared by every dashboard action). */
+export const DRAFT_BUSY_MESSAGE = "فروشگاه در حال انجام عملیات دیگری است (مثلاً انتشار). تغییر شما ذخیره نشد؛ چند لحظه بعد دوباره تلاش کنید.";

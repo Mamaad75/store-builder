@@ -13,6 +13,8 @@ import {
   CatalogLimitError,
   CategoryNotEmptyError,
   ConflictError,
+  DRAFT_BUSY_MESSAGE,
+  DraftBusyError,
   NotFoundError,
   ValidationError,
 } from "@/modules/stores/errors";
@@ -44,6 +46,7 @@ function toState(e: unknown, notFoundUrl: string): CatalogFormState {
     return { error: `حداکثر ${e.limit.toLocaleString("fa-IR")} ${what} در هر فروشگاه مجاز است.` };
   }
   if (e instanceof ConflictError) return { error: "هم‌زمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید." };
+  if (e instanceof DraftBusyError) return { error: DRAFT_BUSY_MESSAGE };
   if (e instanceof CategoryNotEmptyError) {
     return { error: "این دسته محصول دارد. برای حذف، انتقال محصولات به «بدون دسته» را تأیید کنید." };
   }
@@ -118,6 +121,7 @@ export async function changeProductStatusAction(fd: FormData): Promise<void> {
     if (e instanceof NotFoundError) redirect(productUrl(storeId, productId));
     if (e instanceof ValidationError) redirect(back("status-invalid"));
     if (e instanceof ConflictError) redirect(back("conflict"));
+    if (e instanceof DraftBusyError) redirect(back("busy"));
     throw e;
   }
   redirect(back(STATUS_NOTICE[target] ?? "status-draft"));
@@ -135,6 +139,7 @@ export async function deleteProductAction(fd: FormData): Promise<void> {
     await deleteProduct(user.id, storeId, productId);
   } catch (e) {
     if (e instanceof NotFoundError) redirect(productUrl(storeId, productId));
+    if (e instanceof DraftBusyError) redirect(buildProductsUrl(storeId, listParams, { notice: "busy" }));
     throw e;
   }
   redirect(buildProductsUrl(storeId, listParams, { notice: "product-deleted" }));
@@ -180,6 +185,7 @@ export async function deleteCategoryAction(fd: FormData): Promise<void> {
     if (e instanceof NotFoundError) redirect(`${base}/${encodeURIComponent(categoryId)}`);
     if (e instanceof CategoryNotEmptyError) redirect(`${base}?notice=category-not-empty`);
     if (e instanceof ValidationError) redirect(`${base}?notice=category-error`);
+    if (e instanceof DraftBusyError) redirect(`${base}?notice=busy`);
     throw e;
   }
   redirect(`${base}?notice=${moved > 0 ? "category-deleted-moved" : "category-deleted"}`);

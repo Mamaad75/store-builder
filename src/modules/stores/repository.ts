@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import type { MutationContext } from "./mutation";
+import { withDraftLockTimeout, type MutationContext } from "./mutation";
 
 type Client = Prisma.TransactionClient | typeof db;
 
@@ -70,10 +70,13 @@ export class StoreRepository {
 
   /** Optimistic update: succeeds only if the row is still owned by the user and at the expected revision. */
   async updateDraft(storeId: string, expectedRevision: number, data: { name?: string; settings: Prisma.InputJsonValue }) {
-    const res = await this.client.store.updateMany({
-      where: { id: storeId, ownerId: this.ownerId, draftRevision: expectedRevision },
-      data: { ...data, draftRevision: { increment: 1 } },
-    });
+    // A draft write: waits for the store lock at most the draft lock timeout (DraftBusyError, retryable, nothing written).
+    const res = await withDraftLockTimeout(this.client, (c) =>
+      c.store.updateMany({
+        where: { id: storeId, ownerId: this.ownerId, draftRevision: expectedRevision },
+        data: { ...data, draftRevision: { increment: 1 } },
+      }),
+    );
     return res.count === 1;
   }
 

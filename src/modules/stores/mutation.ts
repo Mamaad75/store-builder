@@ -1,8 +1,46 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { NotFoundError } from "./errors";
+import { DraftBusyError, NotFoundError } from "./errors";
 
 declare const mutationBrand: unique symbol;
+
+/** How long a DRAFT change waits for the store lock before giving up with a retryable DraftBusyError. */
+export const DRAFT_LOCK_TIMEOUT_MS = 5_000;
+let draftLockTimeoutMs = DRAFT_LOCK_TIMEOUT_MS;
+/** Tests only: shortens the draft lock timeout; call with no argument to restore the default. */
+export function setDraftLockTimeoutForTests(ms?: number): void {
+  draftLockTimeoutMs = ms ?? DRAFT_LOCK_TIMEOUT_MS;
+}
+
+/** Transaction-local `lock_timeout`: bounds EVERY lock wait of the transaction, starting with the store row lock. */
+const armDraftLockTimeout = (tx: Prisma.TransactionClient) => tx.$queryRaw`SELECT set_config('lock_timeout', ${`${draftLockTimeoutMs}ms`}, true)`;
+
+/** 55P03 (lock_not_available) becomes the typed retryable error; everything else passes through unchanged. */
+function mapDraftLockTimeout(e: unknown): unknown {
+  return pgErrorCode(e) === "55P03" ? new DraftBusyError() : e;
+}
+
+/**
+ * Runs one draft write with the draft lock timeout (for single-statement writers that are not part of a store mutation, e.g.
+ * the settings save). Inside an existing transaction the timeout applies to the rest of that transaction.
+ */
+export async function withDraftLockTimeout<T>(client: Prisma.TransactionClient | typeof db, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  try {
+    if ("$transaction" in client) {
+      return await client.$transaction(
+        async (tx) => {
+          await armDraftLockTimeout(tx);
+          return fn(tx);
+        },
+        { timeout: 15_000, maxWait: 10_000 },
+      );
+    }
+    await armDraftLockTimeout(client);
+    return await fn(client);
+  } catch (e) {
+    throw mapDraftLockTimeout(e);
+  }
+}
 
 /**
  * Proof that the caller owns the store and that the store row is locked and its draftRevision
@@ -24,23 +62,33 @@ export interface MutationContext {
  *   (limits, slug generation and status changes are therefore race-free)
  * - if `fn` throws, the whole transaction rolls back, so a failed mutation never bumps the revision
  * Lock order everywhere: Store row -> category -> product.
+ *
+ * `lock_timeout` (5 s, transaction-local) is the FIRST statement, before the store row is touched: a change that cannot get
+ * the lock in time (a publish is running, or another change) fails with the typed, retryable DraftBusyError. The transaction is
+ * rolled back, so nothing is written and the revision is not bumped; it is never retried here. The same timeout also bounds
+ * any later lock wait inside `fn` (e.g. a product or category row).
  */
 export async function withStoreMutation<T>(
   ownerId: string,
   storeId: string,
   fn: (ctx: MutationContext) => Promise<T>,
 ): Promise<T> {
-  return db.$transaction(
-    async (tx) => {
-      const bumped = await tx.store.updateMany({
-        where: { id: storeId, ownerId },
-        data: { draftRevision: { increment: 1 } },
-      });
-      if (bumped.count !== 1) throw new NotFoundError();
-      return fn({ tx, storeId, ownerId } as unknown as MutationContext);
-    },
-    { timeout: 15_000, maxWait: 10_000 },
-  );
+  try {
+    return await db.$transaction(
+      async (tx) => {
+        await armDraftLockTimeout(tx);
+        const bumped = await tx.store.updateMany({
+          where: { id: storeId, ownerId },
+          data: { draftRevision: { increment: 1 } },
+        });
+        if (bumped.count !== 1) throw new NotFoundError();
+        return fn({ tx, storeId, ownerId } as unknown as MutationContext);
+      },
+      { timeout: 15_000, maxWait: 10_000 },
+    );
+  } catch (e) {
+    throw mapDraftLockTimeout(e);
+  }
 }
 
 declare const lockBrand: unique symbol;
