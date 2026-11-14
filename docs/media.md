@@ -63,6 +63,16 @@ Deletion (`releaseMedia`), only for **unreferenced** media:
 
 If step 2 or 3 fails the row stays `DELETING`; the user-visible operation (detaching) has already succeeded and cleanup finishes the job.
 
+### After a committed change: the release never fails it (D10-12)
+
+Replacing or removing a product image, replacing or removing the logo, deleting a product and editing a page section each (1) commit the change in one transaction and only then (2) release the image that is no longer referenced. The change is the truth; the release is an after-effect. Every one of these call sites uses `releaseMediaBestEffort`, which **never throws**: a failure (store busy, database error) is reported to the owner as nothing, and written as **one structured log line** (`{"event":"media.release_failed","storeId","mediaId","reason":"store_busy"|"error","recovery":"pnpm media:cleanup"}`), and the image is left for the cleanup job. Nothing is retried in the request and nothing is queued: the database rows are the queue.
+
+| Failure of the follow-up release | State left behind | Recovery |
+|---|---|---|
+| "mark DELETING" fails (store busy, database error) or the process dies after the commit | image `READY`, unreferenced, counts against the quota, object still served | cleanup step 4 (below) |
+| object delete fails | row `DELETING` (not attachable) | cleanup step 2 |
+| row delete fails after the object is gone | row `DELETING` | cleanup step 2 |
+
 **References that block deletion** (`isMediaReferenced`): a product image, the store logo (also protected by composite foreign keys and `NO ACTION`), any page section JSON that mentions the media id, and any `StoreVersion` snapshot that mentions the object key (the published site and its rollbacks). Removing an image from a product that is already published therefore keeps the object alive until no version references it. New reference kinds must be added to `isMediaReferenced`. The database additionally refuses to delete a referenced `Media` row.
 
 ## Cleanup (`runMediaCleanup`, `pnpm media:cleanup`)
@@ -75,7 +85,13 @@ Idempotent and safe at any time, also while uploads run. Not scheduled by this r
 
 How active uploads are protected: an upload's object is always preceded by its committed row (so it is never "row-less"); READY rows and objects are never touched; every step ignores anything younger than the grace period (1 hour, far longer than an upload); a failure on one item is counted and does not stop the run. Running it twice changes nothing the second time.
 
+4. **Unreferenced READY media** (older than the grace period): the old image of a change whose release did not run or failed. A cheap SQL pre-filter selects candidates (no product image, not the logo); `reclaimMedia` then makes the authoritative, reference-aware decision **under the store lock**, with the same rules as `releaseMedia` (page sections, archived sections and published snapshots all keep their media). It marks the row `DELETING` first (an attach re-checks `READY` under the same lock, so a reclaimed image can never be attached), then deletes the object and the row. It uses a lock-only transaction, so a background reclaim **never bumps a store's draft revision**. The scan is bounded per run (`maxScan`, default 5,000 candidates; `scanTruncated` in the report says when the limit was hit; later runs continue).
+
+The report (`pnpm media:cleanup` prints it as JSON) includes `unreferencedReadyScanned`, `unreferencedReadyReclaimed`, `scanTruncated` and `failures`. **The script exits with code 2 when any item failed**, so a scheduler or monitor notices; failed items are retried by the next run.
+
 Store deletion removes rows by cascade; the objects are removed by step 3 after the grace period.
+
+**Known limits.** Nothing in this repository schedules the cleanup (no infrastructure in this phase): until `pnpm media:cleanup` runs, a replaced image whose release failed keeps its public URL and its quota slot. The reclaim step is a periodic scan (cost proportional to unreferenced READY rows, snapshot checks are text scans of the store's versions); at the quota of 100 images per store this is small, and the per-run bound protects the job.
 
 ## Security limitations (known and accepted)
 

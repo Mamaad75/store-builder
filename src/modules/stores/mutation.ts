@@ -114,6 +114,9 @@ export interface LockContext {
   readonly store: LockedStore;
 }
 
+/** Either proof that the store row lock is held in the current transaction (with or without a draftRevision bump). */
+export type StoreLockedContext = MutationContext | LockContext;
+
 /** The store lock could not be acquired in time (PostgreSQL lock_timeout, SQLSTATE 55P03). Nothing was written. */
 export class StoreLockBusyError extends Error {
   constructor() {

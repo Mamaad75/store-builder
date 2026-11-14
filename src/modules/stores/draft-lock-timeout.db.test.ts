@@ -8,7 +8,8 @@ import { prisma, resetDb } from "@/test/db-helpers";
 import { draftRevisionOf, publishableStore } from "@/test/publish-helpers";
 import { DRAFT_BUSY_MESSAGE, DraftBusyError } from "./errors";
 import { DRAFT_LOCK_TIMEOUT_MS, setDraftLockTimeoutForTests, withStoreMutation } from "./mutation";
-import { updateStore } from "./service";
+import { deleteStore, updateBusinessCategory, updateStore } from "./service";
+import { ConflictError } from "./errors";
 
 beforeEach(resetDb);
 afterEach(() => {
@@ -192,4 +193,107 @@ describe("publishing's own lock behavior is unchanged", () => {
     holder.release();
     await holder.done;
   });
+});
+
+describe("business-category changes and store deletion use the same draft lock timeout", () => {
+  const category = async (storeId: string) => (await prisma.store.findUniqueOrThrow({ where: { id: storeId } })).businessCategory;
+
+  it("business category: ordinary semantics are unchanged when nothing competes (change, no-op, stale expected value)", async () => {
+    const s = await publishableStore({ products: 1 });
+    const c0 = await category(s.storeId);
+    const target = c0 === "fashion" ? "general" : "fashion";
+    expect(await updateBusinessCategory(s.owner.id, s.storeId, { businessCategory: target, expected: c0 })).toEqual({ businessCategory: target, changed: true });
+    expect(await updateBusinessCategory(s.owner.id, s.storeId, { businessCategory: target, expected: target })).toEqual({ businessCategory: target, changed: false });
+    expect(await raw(updateBusinessCategory(s.owner.id, s.storeId, { businessCategory: c0, expected: c0 }))).toBeInstanceOf(ConflictError); // stale
+    expect(await category(s.storeId)).toBe(target);
+    const [row] = await prisma.$queryRaw<{ lock_timeout: string }[]>`SHOW lock_timeout`;
+    expect(row!.lock_timeout).toBe("0"); // transaction-local
+  });
+
+  it("business category: behind a running publish it times out with DraftBusyError, changes nothing, and succeeds on retry", async () => {
+    const s = await publishableStore({ products: 1 });
+    const c0 = await category(s.storeId);
+    const target = c0 === "fashion" ? "general" : "fashion";
+    setDraftLockTimeoutForTests(400);
+    setPublishHooksForTests({ beforeStep: async (name) => { if (name === "build") await sleep(2_000); } });
+    const publishing = publish(s.owner.id, s.storeId);
+    await sleep(300);
+    const t0 = performance.now();
+    const e = await raw(updateBusinessCategory(s.owner.id, s.storeId, { businessCategory: target, expected: c0 }));
+    expect(e).toBeInstanceOf(DraftBusyError);
+    expect((e as DraftBusyError).retryable).toBe(true);
+    expect(performance.now() - t0).toBeLessThan(1_500);
+    expect((await publishing).number).toBe(1); // publishing unaffected
+    expect(await category(s.storeId)).toBe(c0);
+    setPublishHooksForTests({});
+    expect(await updateBusinessCategory(s.owner.id, s.storeId, { businessCategory: target, expected: c0 })).toEqual({ businessCategory: target, changed: true });
+    expect(await category(s.storeId)).toBe(target);
+  }, 30_000);
+
+  it("store deletion: behind a lock it times out with DraftBusyError and deletes NOTHING (store, children, subdomain, no tombstone); after release it deletes with the cascade and the 30-day tombstone", async () => {
+    const s = await publishableStore({ products: 2 });
+    await publish(s.owner.id, s.storeId); // a live store with a version, a subdomain, products, pages
+    setDraftLockTimeoutForTests(400);
+    const holder = holdStoreLock(s.storeId);
+    await sleep(150);
+    const e = await raw(deleteStore(s.owner.id, s.storeId, "فروشگاه"));
+    expect(e).toBeInstanceOf(DraftBusyError);
+    const intact = async () => ({
+      store: await prisma.store.count({ where: { id: s.storeId } }),
+      products: await prisma.product.count({ where: { storeId: s.storeId } }),
+      pages: await prisma.page.count({ where: { storeId: s.storeId } }),
+      versions: await prisma.storeVersion.count({ where: { storeId: s.storeId } }),
+      domains: await prisma.domain.count({ where: { storeId: s.storeId } }),
+      slugs: await prisma.publishedSlug.count({ where: { storeId: s.storeId } }),
+      reservations: await prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM "SubdomainReservation" WHERE "host" = ${s.label}`.then((r) => Number(r[0]!.n)),
+    });
+    const afterTimeout = await intact();
+    expect(afterTimeout).toMatchObject({ store: 1, products: 2, versions: 1, domains: 1, reservations: 0 });
+    expect(afterTimeout.pages).toBeGreaterThan(0);
+    expect(afterTimeout.slugs).toBe(2);
+    holder.release();
+    await holder.done;
+    expect(await intact()).toEqual(afterTimeout); // still intact after the competing lock is gone
+    // retry: the existing semantics (cascade + tombstone) are preserved
+    await deleteStore(s.owner.id, s.storeId, "فروشگاه");
+    expect(await intact()).toEqual({ store: 0, products: 0, pages: 0, versions: 0, domains: 0, slugs: 0, reservations: 1 });
+    const [r] = await prisma.$queryRaw<{ cause: string; days: number }[]>`SELECT "cause", extract(day from ("reservedUntil" - "releasedAt"))::int AS days FROM "SubdomainReservation" WHERE "host" = ${s.label}`;
+    expect(r).toEqual({ cause: "STORE_DELETED", days: 30 });
+  });
+
+  it("store deletion: a lock wait INSIDE the cascade (a child row is locked) times out and the whole statement rolls back, including the parent row", async () => {
+    const s = await publishableStore({ products: 1 });
+    setDraftLockTimeoutForTests(400);
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const child = db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Product" WHERE id = ${s.productIds[0]!} FOR UPDATE`; // the STORE row is free; only a child is locked
+      await held;
+    }, { timeout: 30_000 });
+    await sleep(150);
+    const e = await raw(deleteStore(s.owner.id, s.storeId, "فروشگاه"));
+    expect(e).toBeInstanceOf(DraftBusyError);
+    release();
+    await child;
+    expect(await prisma.store.count({ where: { id: s.storeId } })).toBe(1); // the parent row was not removed
+    expect(await prisma.product.count({ where: { storeId: s.storeId } })).toBe(1);
+    expect(await prisma.page.count({ where: { storeId: s.storeId } })).toBeGreaterThan(0);
+    expect(await prisma.domain.count({ where: { storeId: s.storeId } })).toBe(1);
+    await deleteStore(s.owner.id, s.storeId, "فروشگاه"); // retry works
+    expect(await prisma.store.count({ where: { id: s.storeId } })).toBe(0);
+  });
+
+  it("store deletion: behind a REAL publish it gives up with DraftBusyError, the publish completes, and the delete then works", async () => {
+    const s = await publishableStore({ products: 1 });
+    setDraftLockTimeoutForTests(400);
+    setPublishHooksForTests({ beforeStep: async (name) => { if (name === "build") await sleep(2_000); } });
+    const publishing = publish(s.owner.id, s.storeId);
+    await sleep(300);
+    expect(await raw(deleteStore(s.owner.id, s.storeId, "فروشگاه"))).toBeInstanceOf(DraftBusyError);
+    expect((await publishing).number).toBe(1);
+    expect(await prisma.store.count({ where: { id: s.storeId } })).toBe(1);
+    setPublishHooksForTests({});
+    await deleteStore(s.owner.id, s.storeId, "فروشگاه");
+    expect(await prisma.store.count({ where: { id: s.storeId } })).toBe(0);
+  }, 30_000);
 });

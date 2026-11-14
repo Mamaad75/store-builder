@@ -55,17 +55,20 @@ export class StoreRepository {
    * Returns "changed", "unchanged" (already the target value), "conflict" (changed by someone else) or "notfound".
    */
   async setBusinessCategory(storeId: string, expected: string, next: string): Promise<"changed" | "unchanged" | "conflict" | "notfound"> {
-    // Writing the value that is already there is not a change: no UPDATE, no updatedAt bump.
-    if (expected !== next) {
-      const res = await this.client.store.updateMany({
-        where: { id: storeId, ownerId: this.ownerId, businessCategory: expected },
-        data: { businessCategory: next },
-      });
-      if (res.count === 1) return "changed";
-    }
-    const cur = await this.client.store.findFirst({ where: { id: storeId, ownerId: this.ownerId }, select: { businessCategory: true } });
-    if (!cur) return "notfound";
-    return cur.businessCategory === next ? "unchanged" : "conflict";
+    // Waits for the store lock at most the draft lock timeout (DraftBusyError, retryable, nothing written).
+    return withDraftLockTimeout(this.client, async (c) => {
+      // Writing the value that is already there is not a change: no UPDATE, no updatedAt bump.
+      if (expected !== next) {
+        const res = await c.store.updateMany({
+          where: { id: storeId, ownerId: this.ownerId, businessCategory: expected },
+          data: { businessCategory: next },
+        });
+        if (res.count === 1) return "changed" as const;
+      }
+      const cur = await c.store.findFirst({ where: { id: storeId, ownerId: this.ownerId }, select: { businessCategory: true } });
+      if (!cur) return "notfound" as const;
+      return cur.businessCategory === next ? ("unchanged" as const) : ("conflict" as const);
+    });
   }
 
   /** Optimistic update: succeeds only if the row is still owned by the user and at the expected revision. */
@@ -82,9 +85,13 @@ export class StoreRepository {
 
   /** Ownership and the confirmed name are part of the DELETE condition itself (no check-then-act gap). */
   async deleteConfirmed(storeId: string, confirmedName: string) {
-    const res = await this.client.store.deleteMany({
-      where: { id: storeId, ownerId: this.ownerId, name: confirmedName },
-    });
+    // One statement (the cascade and the subdomain tombstone trigger run inside it); it waits for the store lock at most the
+    // draft lock timeout, so a store cannot be deleted from under a running publish, and a timeout deletes nothing.
+    const res = await withDraftLockTimeout(this.client, (c) =>
+      c.store.deleteMany({
+        where: { id: storeId, ownerId: this.ownerId, name: confirmedName },
+      }),
+    );
     return res.count === 1;
   }
 

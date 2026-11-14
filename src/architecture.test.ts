@@ -589,3 +589,40 @@ describe("architecture guard: draft writers are bounded by the draft lock timeou
   });
 });
 
+describe("architecture guard: media release after a committed change never fails it and is never silent", () => {
+  it("releaseMedia is called only inside the media service; every other caller uses the never-throwing, logging variant", () => {
+    const callers = prodFiles().filter((f) => /\breleaseMedia\(/.test(read(f)));
+    expect(rel(callers)).toEqual(["src/modules/media/service.ts"]);
+    for (const f of ["src/modules/products/service.ts", "src/modules/pages/service.ts", "src/app/dashboard/media-actions.ts"]) {
+      expect(read(f), f).toMatch(/releaseMediaBestEffort\(/);
+    }
+  });
+
+  it("nothing swallows a release silently (no `.catch(() => undefined)` on a release)", () => {
+    for (const f of prodFiles()) expect(read(f), f).not.toMatch(/release\w*\([^)]*\)\s*\.catch\(\s*\(\)\s*=>\s*undefined\s*\)/);
+  });
+
+  it("the best-effort release logs one structured event and the cleanup reclaims through the lock-only (no draftRevision bump) path", () => {
+    const svc = read("src/modules/media/service.ts");
+    expect(svc).toMatch(/event: "media\.release_failed"/);
+    expect(svc).toMatch(/const inLock: RunLocked = async \(ownerId, storeId, fn\) => \(await withStoreLock\(/);
+    expect(read("src/modules/media/cleanup.ts")).toMatch(/reclaimMedia\(/);
+    expect(read("src/modules/media/cleanup.ts")).not.toMatch(/\breleaseMedia\(/);
+  });
+
+  it("the cleanup script reports failures through its exit code", () => {
+    expect(read("scripts/cleanup-media.ts")).toMatch(/failures > 0\) process\.exitCode = 2/);
+  });
+
+  it("business-category changes and store deletion go through the draft lock timeout", () => {
+    const repo = read("src/modules/stores/repository.ts");
+    const cat = repo.slice(repo.indexOf("async setBusinessCategory"), repo.indexOf("async updateDraft") > 0 ? repo.indexOf("/** Optimistic update") : undefined);
+    expect(cat).toMatch(/withDraftLockTimeout\(this\.client/);
+    const del = repo.slice(repo.indexOf("async deleteConfirmed"));
+    expect(del).toMatch(/withDraftLockTimeout\(this\.client/);
+    // no other Store write exists outside withStoreMutation / the publishing lock / these timeout-wrapped writers
+    const offenders = prodFiles().filter((f) => /store\.(update|updateMany|delete|deleteMany)\(/.test(read(f)));
+    expect(rel(offenders)).toEqual(["src/modules/media/repository.ts", "src/modules/publishing/repository.ts", "src/modules/stores/mutation.ts", "src/modules/stores/repository.ts"]);
+  });
+});
+

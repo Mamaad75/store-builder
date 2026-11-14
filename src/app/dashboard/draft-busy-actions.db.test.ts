@@ -20,7 +20,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { switchThemeAction, updateStoreAction } from "./actions";
+import { deleteStoreAction, switchThemeAction, updateBusinessCategoryAction, updateStoreAction } from "./actions";
 import { changeProductStatusAction, createCategoryAction, deleteCategoryAction, deleteProductAction, updateCategoryAction, updateProductAction } from "./catalog-actions";
 import { removeStoreLogoAction } from "./media-actions";
 import { pageEditAction, updateAppearanceAction } from "./pages-actions";
@@ -121,3 +121,22 @@ describe("dashboard actions while the store is busy (a publish holds the lock pa
     expect(await prisma.productCategory.count({ where: { storeId: w.a1 } })).toBe(2);
   });
 });
+
+describe("business-category and store-deletion actions while the store is busy", () => {
+  it("both return the Persian retry message, change nothing, and work once the lock is free", async () => {
+    const w = await world();
+    const before = await snapshotRows(w.a1);
+    const current = (await prisma.store.findUniqueOrThrow({ where: { id: w.a1 } })).businessCategory;
+    const target = current === "fashion" ? "general" : "fashion";
+    await whileStoreLocked(w.a1, async () => {
+      expect(await updateBusinessCategoryAction({}, fd({ storeId: w.a1, businessCategory: target, expected: current }))).toEqual({ error: DRAFT_BUSY_MESSAGE });
+      expect(await deleteStoreAction({}, fd({ storeId: w.a1, confirmName: "A one" }))).toEqual({ error: DRAFT_BUSY_MESSAGE });
+    });
+    expect(await snapshotRows(w.a1)).toBe(before); // nothing changed, the store still exists
+    // retry succeeds
+    expect(await updateBusinessCategoryAction({}, fd({ storeId: w.a1, businessCategory: target, expected: current }))).toEqual({ success: "دسته‌بندی ذخیره شد." });
+    await redirectOf(deleteStoreAction({}, fd({ storeId: w.a1, confirmName: "A one" }))); // success redirects to the dashboard
+    expect(await prisma.store.count({ where: { id: w.a1 } })).toBe(0);
+  }, 30_000);
+});
+

@@ -292,7 +292,7 @@ describe("references, detaching and reference-aware deletion", () => {
     expect(await runMediaCleanup({ storage: deps.storage, now: later, log: quiet })).toMatchObject({ deletingFinished: 1, failures: 0 });
     expect(await prisma.media.count()).toBe(0);
     expect(deps.storage.objects.size).toBe(0);
-    expect(await runMediaCleanup({ storage: deps.storage, now: later, log: quiet })).toEqual({ expiredPendingRemoved: 0, deletingFinished: 0, orphanObjectsRemoved: 0, objectsScanned: 0, failures: 0 });
+    expect(await runMediaCleanup({ storage: deps.storage, now: later, log: quiet })).toEqual({ expiredPendingRemoved: 0, deletingFinished: 0, orphanObjectsRemoved: 0, objectsScanned: 0, unreferencedReadyScanned: 0, unreferencedReadyReclaimed: 0, scanTruncated: false, failures: 0 });
   });
 
   it("deleting a product releases its image", async () => {
@@ -394,6 +394,7 @@ describe("cleanup", () => {
     const { a, a1 } = await twoTenants();
     const deps = setup();
     const keep = await uploaded(a.id, a1, deps);
+    await attachProductImage(a.id, a1, await mkProduct(a.id, a1), keep.id, deps); // in use: must survive any cleanup
     const pendingRow = await makeMedia(a1, a.id, { status: "PENDING" });
     deps.storage.objects.set(pendingRow.key, { body: Buffer.from("x"), contentType: "image/webp", lastModified: new Date() });
     deps.storage.objects.set("stores/someone/not-a-valid-key.txt", { body: Buffer.from("x"), contentType: "text/plain", lastModified: new Date(0) });
@@ -410,7 +411,7 @@ describe("cleanup", () => {
     expect(r.orphanObjectsRemoved).toBe(1); // the row-less object
     expect(deps.storage.objects.has(pendingRow.key)).toBe(false);
     expect(deps.storage.objects.has("stores/someone/not-a-valid-key.txt")).toBe(true); // not ours, not touched
-    // the READY image is untouched even though it is "old" now
+    // the READY image that is IN USE is untouched even though it is "old" now (unreferenced READY media is covered by the reclaim tests)
     expect(await prisma.media.findUnique({ where: { id: keep.id } })).not.toBeNull();
     expect(deps.storage.objects.has(keep.key)).toBe(true);
   });
@@ -420,7 +421,8 @@ describe("cleanup", () => {
     const deps = setup();
     const row = await makeMedia(a1, a.id, { status: "PENDING" });
     deps.storage.objects.set(row.key, { body: Buffer.from("x"), contentType: "image/webp", lastModified: new Date(0) });
-    await prisma.media.update({ where: { id: row.id }, data: { status: "READY" } }); // the upload finished
+    await prisma.media.update({ where: { id: row.id }, data: { status: "READY" } }); // the upload finished...
+    await prisma.product.update({ where: { id: await mkProduct(a.id, a1) }, data: { imageId: row.id } }); // ...and the image is in use
     const r = await runMediaCleanup({ storage: deps.storage, now: () => new Date(Date.now() + 3 * 3600_000), log: quiet });
     expect(r.expiredPendingRemoved).toBe(0);
     expect(deps.storage.objects.has(row.key)).toBe(true);
@@ -436,6 +438,6 @@ describe("cleanup", () => {
     const first = await runMediaCleanup({ storage: deps.storage, now, log: quiet });
     expect(first.orphanObjectsRemoved + first.expiredPendingRemoved).toBeGreaterThan(0);
     const second = await runMediaCleanup({ storage: deps.storage, now, log: quiet });
-    expect(second).toEqual({ expiredPendingRemoved: 0, deletingFinished: 0, orphanObjectsRemoved: 0, objectsScanned: 0, failures: 0 });
+    expect(second).toEqual({ expiredPendingRemoved: 0, deletingFinished: 0, orphanObjectsRemoved: 0, objectsScanned: 0, unreferencedReadyScanned: 0, unreferencedReadyReclaimed: 0, scanTruncated: false, failures: 0 });
   });
 });

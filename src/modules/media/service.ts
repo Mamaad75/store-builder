@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 import { getMediaStorage, newMediaKey, type MediaStorage } from "@/lib/storage";
 import { getRateLimiter, rateLimitKey, type RateLimiter } from "@/modules/auth/rate-limit";
-import { withStoreMutation } from "@/modules/stores/mutation";
-import { NotFoundError } from "@/modules/stores/errors";
+import { withStoreLock, withStoreMutation, type StoreLockedContext } from "@/modules/stores/mutation";
+import { DraftBusyError, NotFoundError } from "@/modules/stores/errors";
 import { StoreRepository } from "@/modules/stores/repository";
 import { parseStoreId } from "@/modules/stores/service";
 import { setProductImageRow, findProductImageInTx } from "@/modules/products/repository";
@@ -29,6 +29,8 @@ export interface MediaDeps {
 
 export type MediaView = Pick<MediaRow, "id" | "key" | "width" | "height" | "sizeBytes" | "mimeType">;
 export type ReleaseOutcome = "deleted" | "kept" | "pending_delete" | "gone";
+/** What the never-throwing wrappers report: the release outcome, or "deferred" when it could not even start (the cleanup job will). */
+export type BestEffortOutcome = ReleaseOutcome | "deferred";
 
 const defaultLog = (msg: string, err?: unknown) => console.error(`[media] ${msg}`, err instanceof Error ? err.message : "");
 const toView = (m: MediaRow): MediaView => ({ id: m.id, key: m.key, width: m.width, height: m.height, sizeBytes: m.sizeBytes, mimeType: m.mimeType });
@@ -117,7 +119,7 @@ export async function attachProductImage(ownerId: string, storeId: unknown, prod
     await setProductImageRow(ctx, productId, mediaId);
     return cur.imageId;
   });
-  if (previous) await releaseMedia(ownerId, sid, previous, deps);
+  if (previous) await releaseMediaBestEffort(ownerId, sid, previous, deps);
 }
 
 /** Detaches first (a transaction), then tries to delete the now-unreferenced image. */
@@ -129,7 +131,7 @@ export async function detachProductImage(ownerId: string, storeId: unknown, prod
     if (cur.imageId) await setProductImageRow(ctx, productId, null);
     return cur.imageId;
   });
-  if (previous) await releaseMedia(ownerId, sid, previous, deps);
+  if (previous) await releaseMediaBestEffort(ownerId, sid, previous, deps);
 }
 
 export async function setStoreLogo(ownerId: string, storeId: unknown, mediaId: string, deps: MediaDeps = {}): Promise<void> {
@@ -140,7 +142,7 @@ export async function setStoreLogo(ownerId: string, storeId: unknown, mediaId: s
     if (!r) throw new NotFoundError();
     return r.previous;
   });
-  if (previous && previous !== mediaId) await releaseMedia(ownerId, sid, previous, deps);
+  if (previous && previous !== mediaId) await releaseMediaBestEffort(ownerId, sid, previous, deps);
 }
 
 export async function removeStoreLogo(ownerId: string, storeId: unknown, deps: MediaDeps = {}): Promise<void> {
@@ -150,7 +152,7 @@ export async function removeStoreLogo(ownerId: string, storeId: unknown, deps: M
     if (!r) throw new NotFoundError();
     return r.previous;
   });
-  if (previous) await releaseMedia(ownerId, sid, previous, deps);
+  if (previous) await releaseMediaBestEffort(ownerId, sid, previous, deps);
 }
 
 /**
@@ -162,12 +164,27 @@ export async function removeStoreLogo(ownerId: string, storeId: unknown, deps: M
  * If step 2 fails the row stays DELETING and cleanup retries; if the process dies between 2 and 3 the same
  * happens. Referenced media is never deleted: "kept". Never throws for storage problems.
  */
-export async function releaseMedia(ownerId: string, storeId: unknown, mediaId: string, deps: MediaDeps = {}): Promise<ReleaseOutcome> {
-  const sid = parseStoreId(storeId);
+export function releaseMedia(ownerId: string, storeId: unknown, mediaId: string, deps: MediaDeps = {}): Promise<ReleaseOutcome> {
+  return releaseWith(inMutation, ownerId, parseStoreId(storeId), mediaId, deps);
+}
+
+/**
+ * The same release for the CLEANUP job: identical rules and idempotence, but under a lock-only transaction, so a background
+ * reclaim never bumps a store's draftRevision (which would make an owner's open form stale for no visible change).
+ */
+export function reclaimMedia(ownerId: string, storeId: unknown, mediaId: string, deps: MediaDeps = {}): Promise<ReleaseOutcome> {
+  return releaseWith(inLock, ownerId, parseStoreId(storeId), mediaId, deps);
+}
+
+type RunLocked = <T>(ownerId: string, storeId: string, fn: (ctx: StoreLockedContext) => Promise<T>) => Promise<T>;
+const inMutation: RunLocked = (ownerId, storeId, fn) => withStoreMutation(ownerId, storeId, fn);
+const inLock: RunLocked = async (ownerId, storeId, fn) => (await withStoreLock(ownerId, storeId, fn)).value;
+
+async function releaseWith(run: RunLocked, ownerId: string, sid: string, mediaId: string, deps: MediaDeps): Promise<ReleaseOutcome> {
   const storage = deps.storage ?? getMediaStorage();
   const log = deps.log ?? defaultLog;
 
-  const marked = await withStoreMutation(ownerId, sid, async (ctx) => {
+  const marked = await run(ownerId, sid, async (ctx) => {
     const media = await findMediaInTx(ctx, mediaId);
     if (!media) return "gone" as const;
     if (media.status === "DELETING") return media; // a previous attempt did not finish: finish it
@@ -185,12 +202,31 @@ export async function releaseMedia(ownerId: string, storeId: unknown, mediaId: s
     return "pending_delete";
   }
   try {
-    await withStoreMutation(ownerId, sid, (ctx) => deleteMediaRow(ctx, marked.id, "DELETING"));
+    await run(ownerId, sid, (ctx) => deleteMediaRow(ctx, marked.id, "DELETING"));
   } catch (e) {
     log("row delete failed after the object was removed; cleanup will finish it", e);
     return "pending_delete";
   }
   return "deleted";
+}
+
+/**
+ * For code that runs AFTER a media/product/page mutation has already committed (the old image is now unreferenced), and for
+ * compensation paths. The committed change is the truth, so this NEVER throws: a failure (store busy, database error) is logged
+ * as one structured, greppable line and reported as "deferred". Nothing is lost: the image stays READY/DELETING and the
+ * cleanup job (`pnpm media:cleanup`: reclaim of unreferenced READY media, finishing of DELETING rows) removes it.
+ */
+export async function releaseMediaBestEffort(ownerId: string, storeId: unknown, mediaId: string, deps: MediaDeps = {}): Promise<BestEffortOutcome> {
+  try {
+    return await releaseMedia(ownerId, storeId, mediaId, deps);
+  } catch (e) {
+    const log = deps.log ?? defaultLog;
+    log(
+      JSON.stringify({ event: "media.release_failed", storeId: String(storeId), mediaId, reason: e instanceof DraftBusyError ? "store_busy" : "error", recovery: "pnpm media:cleanup" }),
+      e,
+    );
+    return "deferred";
+  }
 }
 
 /** Strict variant: referenced media is an error instead of "kept". */

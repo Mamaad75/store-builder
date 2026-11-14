@@ -55,7 +55,8 @@ A draft writer waiting for the store lock used to be bounded only by how long th
 * **publishing is unchanged**: `withStoreLock` keeps its own 5 s lock timeout and `PublishBusyError`; draft writers giving up never affects a running publish;
 * the timeout is transaction-local (`set_config(..., true)`): pooled connections keep PostgreSQL's default (tested).
 
-Not covered by this timeout (single-statement writers on the store row that are not draft content): the business-category change and store deletion. They can still wait for the lock for as long as it is held (at most the publish budget plus commit). Known edge: after a media attach/detach has committed, the follow-up release of the replaced image is a second mutation; if that one times out, the action reports "busy" although the attach succeeded and the replaced image stays unreferenced.
+* **Also covered (same helper, same 5 s timeout, same typed error and Persian messages):** the business-category change (`setBusinessCategory`) and store deletion (`deleteConfirmed`). A timeout deletes nothing (including when the wait happens inside the cascade, on a child row: the whole statement rolls back, parent row included) and changes no category; the existing semantics are unchanged (cascade, the 30-day subdomain tombstone, compare-and-set conflicts). An architecture test fails if a new `Store` write appears outside these guarded writers and the publishing lock.
+* **Media after a committed change:** replacing/removing an image releases the old one in a separate step; that step can never fail the committed change and is never silent (see `docs/media.md`, D10-12).
 
 Worst case (20 MiB limit: 500 products, rich sections) measured by `worst-case.db.test.ts`; it prints one line `PUBLISH_WORST_CASE {...}` with bytes, lock-held-including-commit and the writer wait times, and fails when the hold exceeds 10 s. CI run 17: 15.64 MiB snapshot, lock held 3.06 s including commit.
 

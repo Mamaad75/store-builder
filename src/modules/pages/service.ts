@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { releaseMedia } from "@/modules/media/service";
+import { releaseMediaBestEffort } from "@/modules/media/service";
 import { findMediaInTx } from "@/modules/media/repository";
 import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { withStoreMutation, type MutationContext } from "@/modules/stores/mutation";
@@ -222,8 +222,9 @@ async function mutatePage(ownerId: string, storeId: unknown, pageType: unknown, 
     }
     throw e;
   }
-  // Images that no longer have a reference are released (reference-aware; never throws for storage problems).
-  for (const id of release) await releaseMedia(ownerId, sid, id).catch(() => undefined);
+  // Images that no longer have a reference are released (reference-aware). The edit has committed: a failure here is logged and
+  // never reported as a failed edit; the media cleanup removes the image later.
+  for (const id of release) await releaseMediaBestEffort(ownerId, sid, id);
   return result;
 }
 

@@ -9,7 +9,7 @@ import { MAX_MEDIA_BYTES_PER_STORE, MAX_MEDIA_PER_STORE, MAX_UPLOAD_BYTES } from
 import {
   attachProductImage,
   detachProductImage,
-  releaseMedia,
+  releaseMediaBestEffort,
   removeStoreLogo,
   setStoreLogo,
   uploadMedia,
@@ -77,7 +77,7 @@ export async function uploadProductImageAction(_prev: MediaFormState, fd: FormDa
     await attachProductImage(user.id, storeId, productId, media.id);
   } catch (e) {
     // The upload succeeded but the product could not be updated (e.g. it was deleted meanwhile): do not keep the image.
-    if (mediaId) await releaseMedia(user.id, storeId, mediaId).catch(() => undefined);
+    if (mediaId) await releaseMediaBestEffort(user.id, storeId, mediaId);
     return toState(e, productUrl(storeId, productId));
   }
   revalidatePath(productUrl(storeId, productId));
@@ -109,7 +109,7 @@ export async function uploadStoreLogoAction(_prev: MediaFormState, fd: FormData)
     mediaId = media.id;
     await setStoreLogo(user.id, storeId, media.id);
   } catch (e) {
-    if (mediaId) await releaseMedia(user.id, storeId, mediaId).catch(() => undefined);
+    if (mediaId) await releaseMediaBestEffort(user.id, storeId, mediaId);
     return toState(e, storeUrl(storeId));
   }
   revalidatePath(storeUrl(storeId));
@@ -142,7 +142,7 @@ export async function uploadSectionImageAction(_prev: MediaFormState, fd: FormDa
     mediaId = media.id;
     await setSectionImage(user.id, storeId, pageType, sectionId, media.id, str(fd, "expectedRevision"));
   } catch (e) {
-    if (mediaId) await releaseMedia(user.id, storeId, mediaId).catch(() => undefined);
+    if (mediaId) await releaseMediaBestEffort(user.id, storeId, mediaId);
     if (e instanceof ConflictError) return { error: "این صفحه هم‌زمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید." };
     if (e instanceof PageNeedsRecoveryError) return { error: "این صفحه بخش نامعتبر دارد؛ ابتدا آن را بازیابی کنید." };
     if (e instanceof ValidationError) return { error: "این بخش تصویر ندارد." };

@@ -1,14 +1,14 @@
-import type { MediaStatus, Prisma } from "@prisma/client";
+import { Prisma, type MediaStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import type { MutationContext } from "@/modules/stores/mutation";
+import type { MutationContext, StoreLockedContext } from "@/modules/stores/mutation";
 
 export const mediaSelect = { id: true, key: true, width: true, height: true, sizeBytes: true, mimeType: true, status: true, createdAt: true } satisfies Prisma.MediaSelect;
 export type MediaRow = Prisma.MediaGetPayload<{ select: typeof mediaSelect }>;
 
 /** Every query carries the store AND, through the store relation, the owner: ownership is decided in SQL. */
-const scope = (ctx: MutationContext, id?: string) => ({ ...(id ? { id } : {}), storeId: ctx.storeId, store: { ownerId: ctx.ownerId } });
+const scope = (ctx: StoreLockedContext, id?: string) => ({ ...(id ? { id } : {}), storeId: ctx.storeId, store: { ownerId: ctx.ownerId } });
 
-export const findMediaInTx = (ctx: MutationContext, id: string): Promise<MediaRow | null> =>
+export const findMediaInTx = (ctx: StoreLockedContext, id: string): Promise<MediaRow | null> =>
   ctx.tx.media.findFirst({ where: scope(ctx, id), select: mediaSelect });
 
 /** Count and bytes of every row that occupies quota (PENDING reservations and DELETING tombstones included). */
@@ -29,14 +29,14 @@ export function insertPendingMedia(ctx: MutationContext, row: NewMediaRow): Prom
   return ctx.tx.media.create({ data: { ...row, storeId: ctx.storeId, uploadedById: ctx.ownerId, status: "PENDING" }, select: mediaSelect });
 }
 
-const transition = async (ctx: MutationContext, id: string, from: MediaStatus, to: MediaStatus) =>
+const transition = async (ctx: StoreLockedContext, id: string, from: MediaStatus, to: MediaStatus) =>
   (await ctx.tx.media.updateMany({ where: { ...scope(ctx, id), status: from }, data: { status: to } })).count === 1;
 
 export const markMediaReady = (ctx: MutationContext, id: string) => transition(ctx, id, "PENDING", "READY");
-export const markMediaDeleting = (ctx: MutationContext, id: string) => transition(ctx, id, "READY", "DELETING");
+export const markMediaDeleting = (ctx: StoreLockedContext, id: string) => transition(ctx, id, "READY", "DELETING");
 
 /** Only ever deletes a row in the expected status; the FKs additionally refuse rows that are referenced. */
-export async function deleteMediaRow(ctx: MutationContext, id: string, status: MediaStatus): Promise<boolean> {
+export async function deleteMediaRow(ctx: StoreLockedContext, id: string, status: MediaStatus): Promise<boolean> {
   return (await ctx.tx.media.deleteMany({ where: { ...scope(ctx, id), status } })).count === 1;
 }
 
@@ -50,7 +50,7 @@ export async function deleteMediaRow(ctx: MutationContext, id: string, status: M
  *  - any StoreVersion snapshot (the published site and its rollbacks) that mentions the object key
  * New kinds of reference must be added here.
  */
-export async function isMediaReferenced(ctx: MutationContext, media: { id: string; key: string }): Promise<boolean> {
+export async function isMediaReferenced(ctx: StoreLockedContext, media: { id: string; key: string }): Promise<boolean> {
   const [products, logos] = await Promise.all([
     ctx.tx.product.count({ where: { storeId: ctx.storeId, imageId: media.id } }),
     ctx.tx.store.count({ where: { id: ctx.storeId, logoId: media.id } }),
@@ -97,4 +97,28 @@ export async function existingMediaKeys(keys: string[]): Promise<Set<string>> {
  */
 export async function claimExpiredPending(id: string, cutoff: Date): Promise<boolean> {
   return (await db.media.updateMany({ where: { id, status: "PENDING", createdAt: { lt: cutoff } }, data: { status: "DELETING" } })).count === 1;
+}
+
+export interface ReadyCandidate {
+  id: string;
+  storeId: string;
+  ownerId: string;
+  createdAt: Date;
+}
+
+/**
+ * READY media older than `cutoff` that the CHEAP indexed checks say nothing uses (no product image, not the store logo).
+ * This is only a pre-filter for the cleanup's reclaim step: the authoritative, reference-aware decision (page sections,
+ * archived sections, published snapshots) is made later under the store lock. Keyset pagination, oldest first.
+ */
+export async function listReadyCandidates(cutoff: Date, after: { createdAt: Date; id: string } | null, take: number): Promise<ReadyCandidate[]> {
+  const keyset = after ? Prisma.sql`AND (m."createdAt", m."id") > (${after.createdAt}, ${after.id})` : Prisma.empty;
+  return db.$queryRaw<ReadyCandidate[]>`
+    SELECT m."id", m."storeId", s."ownerId", m."createdAt"
+    FROM "Media" m JOIN "Store" s ON s."id" = m."storeId"
+    WHERE m."status" = 'READY' AND m."createdAt" < ${cutoff} ${keyset}
+      AND NOT EXISTS (SELECT 1 FROM "Product" p WHERE p."imageId" = m."id")
+      AND s."logoId" IS DISTINCT FROM m."id"
+    ORDER BY m."createdAt", m."id"
+    LIMIT ${take}`;
 }

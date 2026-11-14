@@ -5,6 +5,8 @@ import { runMediaCleanup } from "../src/modules/media/cleanup";
 runMediaCleanup()
   .then((r) => {
     console.log(JSON.stringify(r));
+    // A scheduler / monitor sees failures: items that could not be cleaned are retried by the next run, but never ignored.
+    if (r.failures > 0) process.exitCode = 2;
     return db.$disconnect();
   })
   .catch(async (e) => {
