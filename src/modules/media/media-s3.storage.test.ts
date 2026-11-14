@@ -61,6 +61,7 @@ describe("media pipeline against a real S3-compatible server", () => {
     const { a, a1 } = await twoTenants();
     const d = deps();
     const kept = await uploadMedia(a.id, a1, await photo(), d);
+    await attachProductImage(a.id, a1, (await createProduct(a.id, a1, validProduct())).id, kept.id, d); // in use: must survive any cleanup
     const orphan = newMediaKey(a1);
     await d.storage.put(orphan, await photo(), { contentType: "image/webp" }); // an object with no row
 
@@ -72,7 +73,7 @@ describe("media pipeline against a real S3-compatible server", () => {
     const first = await runMediaCleanup({ storage: d.storage, now: later, log: quiet });
     expect(first.orphanObjectsRemoved).toBe(1);
     expect(await d.storage.exists(orphan)).toBe(false);
-    expect(await d.storage.exists(kept.key)).toBe(true); // has a row: untouched
+    expect(await d.storage.exists(kept.key)).toBe(true); // has a row and is in use: untouched
     const second = await runMediaCleanup({ storage: d.storage, now: later, log: quiet });
     expect(second).toMatchObject({ orphanObjectsRemoved: 0, expiredPendingRemoved: 0, deletingFinished: 0, failures: 0 });
     await d.storage.delete(kept.key);
