@@ -41,6 +41,22 @@ export class StoreRepository {
     });
   }
 
+  /** Owner-scoped counts that drive the onboarding checklist (one query, no tenant data beyond counts). */
+  async onboardingFacts(): Promise<{ id: string; name: string; status: "DRAFT" | "PUBLISHED" | "UNPUBLISHED"; categories: number; products: number; hasSubdomain: boolean }[]> {
+    const rows = await this.client.store.findMany({
+      where: { ownerId: this.ownerId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        _count: { select: { categories: true, products: true } },
+        domains: { where: { kind: "SUBDOMAIN" }, select: { id: true }, take: 1 },
+      },
+    });
+    return rows.map((r) => ({ id: r.id, name: r.name, status: r.status, categories: r._count.categories, products: r._count.products, hasSubdomain: r.domains.length > 0 }));
+  }
+
   count(): Promise<number> {
     return this.client.store.count({ where: { ownerId: this.ownerId } });
   }

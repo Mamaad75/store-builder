@@ -1,9 +1,14 @@
+import os from "node:os";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { getTestStorageEnv } from "./src/test/storage-env";
 
 const PORT = 3100;
 export const E2E_DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? "postgresql://storebuilder:storebuilder@localhost:5432/storebuilder_e2e";
+
+/** Outbox of the file mail transport (decision D12-2): the E2E suite reads password-reset links from here. Test-only; never a provider. */
+export const E2E_MAIL_DIR = path.join(os.tmpdir(), "store-builder-e2e-mail");
 
 export default defineConfig({
   testDir: "./e2e",
@@ -35,6 +40,8 @@ export default defineConfig({
       // Isolated "-e2e" bucket on a local S3-compatible server (MinIO in CI); never production storage (see src/test/storage-env.ts).
       ...getTestStorageEnv("e2e"),
       // The tests act as the trusted proxy: they set X-Forwarded-For per test to get isolated buckets.
+      MAIL_TRANSPORT: "file",
+      MAIL_OUTBOX_DIR: E2E_MAIL_DIR,
       TRUST_PROXY_HEADERS: "true",
       TRUSTED_PROXY_HOPS: "1",
     },

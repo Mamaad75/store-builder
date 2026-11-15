@@ -42,6 +42,8 @@ only when the app is behind a proxy that sets the correct `Host`.
 
 ## Rate-limit table cleanup
 
+(`pnpm db:cleanup` also deletes expired or used password-reset tokens.)
+
 `RateLimitBucket` rows are fixed windows: an expired row is already harmless for correctness
 (the next hit resets it), so cleanup only bounds table size. Strategy:
 

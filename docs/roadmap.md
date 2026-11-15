@@ -19,7 +19,7 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 | 9 | Remaining templates | "Coffee and food" and "Fashion" templates | 9A and 9B accepted; 9C home-appliances theme and product specifications implemented and tested (awaiting review) | high |
 | 10 | Publishing and subdomains | Immutable `StoreVersion` snapshots, publish/unpublish/rollback, subdomain claim, Host routing, slug history and redirect design, real `getPublishedSlug`, slug-change confirmation UX | **Accepted** on commit `eee9fec` (see `docs/publishing.md`), subject to the phase 14 media-cleanup scheduling requirement (D10-13) | high |
 | 11 | SEO and metadata | Titles, descriptions, Open Graph, sitemap, robots, canonical, basic JSON-LD | Implemented and tested; awaiting review (see `docs/seo.md`) | medium |
-| 12 | Platform polish and accounts | Landing page, onboarding, change password and sign out everywhere, error pages, accessibility pass, legal pages, password reset (email) | Planned | medium |
+| 12 | Platform polish and accounts | Landing page, onboarding, change password and sign out everywhere, error pages, accessibility pass, legal pages, password reset (email) | Implemented and tested; awaiting review (see `docs/accounts.md`). Email delivery and final legal text are phase 14 gates | medium |
 | 13 | Production readiness (code) | Dockerfile, standalone output, production compose, custom Caddy image, full CI/CD, env validation, readiness endpoint, CSP/HSTS, structured logs, backup and restore scripts, runbooks | Planned | high |
 | 14 | Staging deployment | **Starts with the purchasing and configuration checklist and waits for explicit approval.** Domain, VPS, DNS, wildcard certificate, first deployment, restore drill. **Release gate: scheduled media cleanup tested in staging (D10-13).** | Planned (external) | medium |
 | 15 | Production launch | Production server, backups and monitoring live, rollback rehearsed, limited beta | Planned (external) | medium |
@@ -69,6 +69,12 @@ Deployment restrictions in `docs/decisions.md` stay in force: nothing is purchas
 5. **Tested in staging before production.** The scheduled job (not only a manual run) is exercised in staging, including items 2 to 4, and its result is recorded in the phase 14 release checklist. **Production deployment does not proceed until this is done.**
 
 Nothing in this repository schedules the job today and none is to be added before phase 13/14: no scheduler, no deployment infrastructure.
+
+## Also mandatory for phase 14 (from Phase 12, D12-2 and D12-5)
+
+1. **A real mail transport** replaces the fail-closed `none` mailer (`src/modules/auth/mailer.ts`): provider chosen with the purchasing checklist, credentials entered through the environment only (never in the repository), sender domain verified (SPF/DKIM/DMARC), and the password-reset email tested end to end in staging. The `log` and `file` transports must not be configured in production.
+2. **Final legal text** for `/terms` and `/privacy`, approved by a person with legal responsibility, replaces the draft templates (and the draft banner is removed).
+3. `pnpm db:cleanup` (rate-limit buckets and expired or used reset tokens) is scheduled together with the media cleanup.
 
 ## Future work (recorded, not scheduled)
 

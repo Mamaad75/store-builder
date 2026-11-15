@@ -57,6 +57,10 @@ export async function listStores(ownerId: string): Promise<StoreView[]> {
   return new StoreRepository(ownerId).list();
 }
 
+export async function getOnboardingFacts(ownerId: string) {
+  return new StoreRepository(ownerId).onboardingFacts();
+}
+
 export async function getStore(ownerId: string, storeId: unknown): Promise<StoreView> {
   const store = await new StoreRepository(ownerId).find(parseStoreId(storeId));
   if (!store) throw new NotFoundError();

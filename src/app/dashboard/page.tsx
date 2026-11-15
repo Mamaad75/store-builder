@@ -10,7 +10,9 @@ import Typography from "@mui/material/Typography";
 import { LinkButton, LinkCardActionArea } from "@/components/NextLinks";
 import { requireUser } from "@/modules/auth/session";
 import { MAX_STORES_PER_USER } from "@/modules/stores/schemas";
-import { listStores } from "@/modules/stores/service";
+import Onboarding from "@/components/Onboarding";
+import { buildOnboarding } from "@/modules/stores/onboarding";
+import { getOnboardingFacts, listStores } from "@/modules/stores/service";
 
 export const metadata: Metadata = { title: "فروشگاه‌های من" };
 
@@ -18,7 +20,8 @@ const STATUS_LABEL = { DRAFT: "پیش‌نویس", PUBLISHED: "منتشرشده"
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const stores = await listStores(user.id);
+  const [stores, facts] = await Promise.all([listStores(user.id), getOnboardingFacts(user.id)]);
+  const onboarding = buildOnboarding(facts);
   return (
     <Stack spacing={3}>
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
@@ -31,6 +34,7 @@ export default async function DashboardPage() {
           </LinkButton>
         )}
       </Stack>
+      {onboarding && <Onboarding data={onboarding} />}
       {stores.length === 0 ? (
         <Typography color="text.secondary">هنوز فروشگاهی نساخته‌اید. اولین فروشگاه خود را بسازید.</Typography>
       ) : (

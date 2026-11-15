@@ -685,5 +685,35 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     expect(read("src/templates/storefront-data.ts")).toMatch(/description: z\.string\(\)\.max\(160\)\.optional\(\)/);
     expect(read("src/modules/storefront/build.ts")).toMatch(/\.\.\.\(resolved\.description \? \{ description: resolved\.description \} : \{\}\)/);
   });
+
+  it("phase 12: the account area is guarded, tokens are never logged or stored raw, and no mail provider SDK exists", () => {
+    // every account action authenticates first (the generic dashboard-actions guard also covers it)
+    const acct = read("src/app/dashboard/account/actions.ts");
+    expect(acct.startsWith('"use server"')).toBe(true);
+    for (const m of acct.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{\n([^\n]*)/g)) expect(m[2], m[1]).toMatch(/requireUser\(\)/);
+    // the reset token is persisted only as a hash and never reaches a log line
+    const account = read("src/modules/auth/account.ts");
+    expect(account).toMatch(/tokenHash: sha256\(token\)/);
+    expect(account).not.toMatch(/console\.\w+\([^)]*(token|link|email|to\b)/i);
+    // public auth pages carrying or requesting credentials are never indexed
+    for (const f of ["src/app/(auth)/forgot-password/page.tsx", "src/app/(auth)/reset-password/page.tsx"]) expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
+    expect(read("src/app/(auth)/reset-password/page.tsx")).toMatch(/referrer:\s*"no-referrer"/);
+    // no mail provider is connected before phase 14: nodemailer/SES/etc. must not appear in the dependencies
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    expect(Object.keys(pkg.dependencies).filter((d) => /nodemailer|sendgrid|mailgun|postmark|resend|@aws-sdk\/client-ses|smtp/i.test(d))).toEqual([]);
+  });
+
+  it("phase 12: error boundaries never render the error message or stack, and legal pages are platform-only", () => {
+    for (const f of ["src/app/error.tsx", "src/app/global-error.tsx"]) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/error\.(message|stack)/);
+      expect(src, f).not.toMatch(/dangerouslySetInnerHTML/);
+    }
+    expect(read("src/app/(legal)/layout.tsx")).toMatch(/await assertPlatformHost\(\)/);
+    // the dashboard layout keeps a skip link and a main landmark
+    const layout = read("src/app/dashboard/layout.tsx");
+    expect(layout).toContain('href="#main"');
+    expect(layout).toMatch(/component="main"\s+id="main"/);
+  });
 });
 

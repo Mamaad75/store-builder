@@ -7,6 +7,8 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import AppBar from "@mui/material/AppBar";
 import { logoutAction } from "@/app/actions-auth";
+import { TextLink } from "@/components/NextLinks";
+import SiteFooter from "@/components/SiteFooter";
 import ThemeRegistry from "@/theme/ThemeRegistry";
 import { assertPlatformHost } from "@/lib/host-guard";
 import { requireUser } from "@/modules/auth/session";
@@ -23,12 +25,20 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <ThemeRegistry>
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+        <Box
+          component="a"
+          href="#main"
+          sx={{ position: "absolute", insetInlineStart: 8, top: -48, zIndex: 2000, bgcolor: "background.paper", p: 1, borderRadius: 1, "&:focus": { top: 8 } }}
+        >
+          پرش به محتوای اصلی
+        </Box>
         <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Toolbar>
             <Typography sx={{ flexGrow: 1, fontWeight: 700 }}>سایت‌ساز فروشگاهی</Typography>
-            <Typography variant="body2" sx={{ mx: 2 }}>
-              {user.name}
-            </Typography>
+            <Box component="nav" aria-label="منوی حساب" sx={{ display: "flex", alignItems: "center", gap: 2, mx: 2 }}>
+              <TextLink href="/dashboard">فروشگاه‌ها</TextLink>
+              <TextLink href="/dashboard/account">{user.name}</TextLink>
+            </Box>
             <form action={logoutAction}>
               <Button type="submit" size="small">
                 خروج
@@ -36,7 +46,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             </form>
           </Toolbar>
         </AppBar>
-        <Container sx={{ py: 4 }}>{children}</Container>
+        <Container component="main" id="main" sx={{ py: 4 }}>
+          {children}
+        </Container>
+        <SiteFooter />
       </Box>
     </ThemeRegistry>
   );

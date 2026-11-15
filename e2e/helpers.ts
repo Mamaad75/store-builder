@@ -122,3 +122,29 @@ export async function createProductViaUi(
 
 export const productRow = (page: Page, name: string) => page.getByTestId("product-row").filter({ hasText: name });
 export const notice = (page: Page) => page.getByRole("status");
+
+/** The newest message the file mail transport wrote for `to` (polls: the server writes it after answering). */
+export async function readMailTo(to: string, timeoutMs = 10_000): Promise<{ to: string; subject: string; text: string }> {
+  const { readdir, readFile } = await import("node:fs/promises");
+  const { E2E_MAIL_DIR } = await import("../playwright.config");
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const names = (await readdir(E2E_MAIL_DIR).catch(() => [] as string[])).sort().reverse();
+    for (const n of names) {
+      const m = JSON.parse(await readFile(`${E2E_MAIL_DIR}/${n}`, "utf8")) as { to: string; subject: string; text: string };
+      if (m.to === to) return m;
+    }
+    if (Date.now() > deadline) throw new Error(`no mail for ${to}`);
+    await new Promise((r) => setTimeout(r, 200));
+  }
+}
+
+export async function countMailsTo(to: string): Promise<number> {
+  const { readdir, readFile } = await import("node:fs/promises");
+  const { E2E_MAIL_DIR } = await import("../playwright.config");
+  let n = 0;
+  for (const f of await readdir(E2E_MAIL_DIR).catch(() => [] as string[])) if ((JSON.parse(await readFile(`${E2E_MAIL_DIR}/${f}`, "utf8")) as { to: string }).to === to) n++;
+  return n;
+}
+
+export const resetLinkFrom = (text: string) => /https?:\/\/[^\s]+\/reset-password\?token=[A-Za-z0-9_-]{43}/.exec(text)![0].replace(/^https?:\/\/[^/]+/, "");

@@ -1,0 +1,26 @@
+# Accounts and platform polish (phase 12)
+
+## Sessions, password change, sign out everywhere
+* Sessions are JWTs carrying `User.authVersion`; every read re-checks it (`src/modules/auth/callbacks.ts`).
+* **Change password** (`/dashboard/account`): current password required (wrong value: field error, nothing changes), new password 8-128 characters and different from the current one, rate limited (10 per 15 min per user). Success hashes with Argon2id, bumps `authVersion`, deletes pending reset tokens and signs out: **every session, this one included, ends** and the user signs in again with the new password.
+* **Sign out everywhere**: bumps `authVersion` only (the password is untouched) and signs out.
+
+## Password reset
+1. `/forgot-password`: always the same confirmation, whether the address is registered, unknown or malformed. Rate limited per IP (10/h) and per address (3/h).
+2. If the address is registered: any previous token of the user is deleted, a 32-byte random token is created, **only its SHA-256 is stored** (1 h expiry), and the link `APP_PROTOCOL://APP_ROOT_DOMAIN/reset-password?token=...` is handed to the mailer. Mail failure is logged by class only and is invisible to the requester.
+3. `/reset-password?token=...`: unusable links (malformed, unknown, expired, used) show one neutral message. The page is `noindex` with `referrer: no-referrer`.
+4. Submitting claims the token with one conditional UPDATE (`usedAt IS NULL AND expiresAt > now`), sets the new password hash, bumps `authVersion` and deletes the user's other tokens, in one transaction. Two simultaneous submissions: exactly one succeeds. Rate limited per IP (20/h).
+
+**Known limits.** A request for a registered address does slightly more work (token write, mail hand-off) than one for an unknown address, so response *timing* can in principle differ; the visible answer never does. Mitigations are rate limits and, in phase 13/14, sending from a background job. Email is not verified at registration (post-MVP), so a reset email only proves control of the address given at sign-up.
+
+## Mail (decision D12-2)
+No provider is connected. `MAIL_TRANSPORT`: unset/`none` (fails closed; the default outside development), `log` (development default; prints the message), `file` (needs `MAIL_OUTBOX_DIR`; used by the E2E suite). Tests inject a memory outbox. **Phase 14 gate:** a real transport, see `docs/roadmap.md`.
+
+## Landing, legal, errors, onboarding, accessibility
+* `/` is a static, indexable landing page (header with sign-in/sign-up, features, footer); `/terms` and `/privacy` are **draft** texts with a visible banner (platform host only; final text is a phase 14 gate).
+* `error.tsx` / `global-error.tsx` show a fixed Persian message with retry, never the error text or stack; `not-found` links home.
+* The dashboard shows a derived getting-started checklist (store, category, first product, subdomain, publish) for the newest unpublished store; it vanishes when all stores are published.
+* Accessibility: skip link and `main` landmark in the dashboard, `main` on every platform page, labelled navigation, one `h1` per page, labelled controls, `role="alert"` for form errors, `lang="fa" dir="rtl"`. This is a structural pass covered by tests; it is **not** a full WCAG audit with assistive technology (colour contrast of the MUI theme and screen-reader behaviour were not measured).
+
+## Tests
+Unit (`mailer.test.ts`, `onboarding.test.ts`, architecture guards), DB (`account.db.test.ts`: hashing, single use, expiry, concurrency, replacement, rate limits, cleanup, session invalidation), E2E (`e2e/account.spec.ts`: full reset by emailed link, change password, sign out everywhere across two browsers, landing, legal, 404, skip link, labels, onboarding).

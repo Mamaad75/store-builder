@@ -1,5 +1,7 @@
 import { execSync } from "node:child_process";
+import { rm } from "node:fs/promises";
 import { PrismaClient } from "@prisma/client";
+import { E2E_MAIL_DIR } from "../playwright.config";
 import { ensureTestBucket, getTestStorageEnv } from "../src/test/storage-env";
 
 export default async function globalSetup() {
@@ -15,6 +17,7 @@ export default async function globalSetup() {
   } finally {
     await admin.$disconnect();
   }
+  await rm(E2E_MAIL_DIR, { recursive: true, force: true });
   const env = { ...process.env, DATABASE_URL: url };
   execSync("pnpm exec prisma migrate deploy", { env, stdio: "pipe" });
   execSync("pnpm exec prisma db seed", { env, stdio: "pipe" }); // the three templates

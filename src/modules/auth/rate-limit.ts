@@ -26,6 +26,10 @@ export const AUTH_RULES = {
   loginPerIp: { limit: 30, windowSeconds: 15 * 60 },
   loginPerEmail: { limit: 10, windowSeconds: 15 * 60 },
   registerPerIp: { limit: 5, windowSeconds: 60 * 60 },
+  forgotPerIp: { limit: 10, windowSeconds: 60 * 60 },
+  forgotPerEmail: { limit: 3, windowSeconds: 60 * 60 },
+  resetPerIp: { limit: 20, windowSeconds: 60 * 60 },
+  changePasswordPerUser: { limit: 10, windowSeconds: 15 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 /** Keys never contain raw emails/IPs, so the table holds no personal data. */
