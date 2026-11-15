@@ -6,8 +6,7 @@
 # address, so nothing a client sends can choose its rate-limit bucket; the other forwarding headers are removed because the
 # application never trusts them (only the raw Host is used).
 {
-	# Certificates are obtained and renewed by Caddy itself. The ACME account email (optional) comes from ACME_EMAIL.
-	email {$ACME_EMAIL:}
+	# Certificates are obtained and renewed by Caddy itself (an ACME account email is optional and can be added here in phase 14).
 	servers {
 		timeouts {
 			read_header 10s
