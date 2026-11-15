@@ -20,7 +20,7 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 | 10 | Publishing and subdomains | Immutable `StoreVersion` snapshots, publish/unpublish/rollback, subdomain claim, Host routing, slug history and redirect design, real `getPublishedSlug`, slug-change confirmation UX | **Accepted** on commit `eee9fec` (see `docs/publishing.md`), subject to the phase 14 media-cleanup scheduling requirement (D10-13) | high |
 | 11 | SEO and metadata | Titles, descriptions, Open Graph, sitemap, robots, canonical, basic JSON-LD | Implemented and tested; awaiting review (see `docs/seo.md`) | medium |
 | 12 | Platform polish and accounts | Landing page, onboarding, change password and sign out everywhere, error pages, accessibility pass, legal pages, password reset (email) | Implemented and tested; awaiting review (see `docs/accounts.md`). Email delivery and final legal text are phase 14 gates | medium |
-| 13 | Production readiness (code) | Dockerfile, standalone output, production compose, custom Caddy image, full CI/CD, env validation, readiness endpoint, CSP/HSTS, structured logs, backup and restore scripts, runbooks | Planned | high |
+| 13 | Production readiness (code) | Dockerfile, standalone output, production compose, custom Caddy image, full CI/CD, env validation, readiness endpoint, CSP/HSTS, structured logs, backup and restore scripts, runbooks | Implemented; awaiting review (see `docs/runbook.md`, `docs/security.md`). Images are built and the stack is booted only in CI (no Docker daemon in the development sandbox) | high |
 | 14 | Staging deployment | **Starts with the purchasing and configuration checklist and waits for explicit approval.** Domain, VPS, DNS, wildcard certificate, first deployment, restore drill. **Release gate: scheduled media cleanup tested in staging (D10-13).** | Planned (external) | medium |
 | 15 | Production launch | Production server, backups and monitoring live, rollback rehearsed, limited beta | Planned (external) | medium |
 
@@ -75,6 +75,14 @@ Nothing in this repository schedules the job today and none is to be added befor
 1. **A real mail transport** replaces the fail-closed `none` mailer (`src/modules/auth/mailer.ts`): provider chosen with the purchasing checklist, credentials entered through the environment only (never in the repository), sender domain verified (SPF/DKIM/DMARC), and the password-reset email tested end to end in staging. The `log` and `file` transports must not be configured in production.
 2. **Final legal text** for `/terms` and `/privacy`, approved by a person with legal responsibility, replaces the draft templates (and the draft banner is removed).
 3. `pnpm db:cleanup` (rate-limit buckets and expired or used reset tokens) is scheduled together with the media cleanup.
+
+## Also for phase 14 (from Phase 13)
+
+1. **Alerting and the staging proof for the scheduler** (D10-13 items 3 to 5): ship `job.failed`, `scheduler.unhealthy`, `startup.refused`, `readiness.failed` and the `media.*_failed` lines to a log pipeline with alert routing; inject a failure in staging and show recovery.
+2. **Caddy**: choose the DNS provider, build the image with its module, mount the production `tls.d` snippet, obtain the wildcard certificate.
+3. **Off-server backups** (`BACKUP_AFTER_HOOK`, destination, schedule, alert on failure) and the first **restore drill on the real server** with a recorded recovery time; bucket-level backup of the images.
+4. **Registry and release flow**: decide whether images are pushed to a registry or built on the server (the CI job deliberately pushes nothing).
+5. Decide HSTS `preload` once the domain is final; revisit the CSP `'unsafe-inline'` script weakness (D13-5).
 
 ## Future work (recorded, not scheduled)
 

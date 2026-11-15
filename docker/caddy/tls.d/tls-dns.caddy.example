@@ -1,0 +1,9 @@
+# PRODUCTION TEMPLATE (phase 14 fills in the provider chosen with the purchasing checklist).
+# 1. Build the image with the provider's module:  docker build --build-arg DNS_MODULE=github.com/caddy-dns/<provider> docker/caddy
+# 2. Save this file (without .example) as the ONLY file in the directory mounted at /etc/caddy/tls.d, with the provider's
+#    directive. The API token comes from the container environment (never from this file, never from git).
+(tls_config) {
+	tls {
+		dns <provider> {env.DNS_API_TOKEN}
+	}
+}

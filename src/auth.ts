@@ -1,5 +1,6 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { log } from "@/lib/log";
 import { jwtCallback } from "@/modules/auth/callbacks";
 import { getClientIp } from "@/modules/auth/rate-limit";
 import { authenticate } from "@/modules/auth/service";
@@ -36,7 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // Log only the error class, never stacks/payloads that could carry credentials.
   logger: {
     error(error) {
-      console.error("[auth]", (error as { type?: string }).type ?? "UnknownError");
+      log.error("auth.error", { errorClass: (error as { type?: string }).type ?? "UnknownError" });
     },
     warn() {},
   },

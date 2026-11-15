@@ -5,7 +5,7 @@ PostgreSQL/Prisma + S3-compatible storage + Auth.js. Modular monolith; stores ar
 renderer, not one project per customer.
 
 ## Status
-Phase 5 of 15 implemented (products and categories). The full roadmap is in `docs/roadmap.md` and every approved decision is recorded in `docs/decisions.md`.
+Phases 1-12 are implemented and accepted; phase 13 (production readiness: containers, Caddy, backups, runbook) is implemented and awaiting review. Nothing is deployed. The full roadmap is in `docs/roadmap.md` and every approved decision is recorded in `docs/decisions.md`.
 
 ## Development
 ```bash
@@ -31,3 +31,8 @@ Dev credentials in `docker-compose.yml` are for local use only.
 - Rate limiting uses a `RateLimiter` interface; the default backend is shared PostgreSQL (`RATE_LIMIT_BACKEND=postgres`). A Redis backend can implement the same interface.
 - Rate limiting keys on the client IP. Forwarding headers are ignored unless `TRUST_PROXY_HEADERS=true`; see `docs/deployment.md` for proxy requirements and the expired-bucket cleanup job (`pnpm db:cleanup`).
 - Generate `AUTH_SECRET` with `openssl rand -base64 32`; never commit it.
+
+## Production readiness (phase 13)
+`Dockerfile` (runtime + jobs targets), `docker-compose.prod.yml`, `docker/caddy/` (custom Caddy), `scripts/backup.sh` / `restore.sh` / `scheduler.ts`.
+Operations: `docs/runbook.md`. Security controls: `docs/security.md`. CI builds the images and smoke-tests the whole stack; no Docker daemon is needed for the unit and DB tests.
+

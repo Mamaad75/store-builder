@@ -8,3 +8,18 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: ci
+  # Base images of the production containers (Dockerfile, docker/caddy/Dockerfile) and pinned compose images.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: build
+  - package-ecosystem: docker
+    directory: /docker/caddy
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: build

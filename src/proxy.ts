@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { getAppEnv } from "@/lib/env";
+import { securityHeaders } from "@/lib/security-headers";
 import { getHostPolicy } from "@/lib/host-policy";
 import { normalizeHostHeader } from "@/lib/hostname";
 import { STORE_ROUTE_PREFIX, decideRoute } from "@/lib/store-routing";
@@ -24,7 +25,7 @@ const NO_STORE = { "Cache-Control": "no-store" } as const;
 /** One neutral 404 for everything unavailable: the application's own not-found page, never cacheable. */
 const neutralNotFound = (req: NextRequest) => NextResponse.rewrite(new URL("/--not-found", req.url), { status: 404, headers: NO_STORE });
 
-export async function proxy(req: NextRequest, ev: never) {
+async function route(req: NextRequest, ev: never): Promise<Response> {
   const env = getAppEnv();
   const policy = getHostPolicy();
   // Only the raw Host header is trusted; X-Forwarded-Host / Forwarded / X-Original-Host are never read. Any host that is not
@@ -50,6 +51,13 @@ export async function proxy(req: NextRequest, ev: never) {
   const p = req.nextUrl.pathname;
   if (p.startsWith("/dashboard") || p.startsWith("/preview")) return (requireSession as unknown as (r: NextRequest, e: never) => Promise<Response>)(req, ev);
   return NextResponse.next();
+}
+
+/** Every response, whichever branch produced it (rewrite, redirect, 404, next), carries the platform's security headers. */
+export async function proxy(req: NextRequest, ev: never) {
+  const res = await route(req, ev);
+  for (const [k, v] of Object.entries(securityHeaders(process.env))) res.headers.set(k, v);
+  return res;
 }
 
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

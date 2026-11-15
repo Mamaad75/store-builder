@@ -25,7 +25,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     // Production build against an isolated database; never touches the dev database.
-    command: `pnpm build && pnpm start -p ${PORT}`,
+    // The standalone bundle is what the container runs (scripts/run-standalone.sh copies it out of the repository first).
+    command: `pnpm build && bash scripts/run-standalone.sh ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
     timeout: 240_000,
     reuseExistingServer: false,

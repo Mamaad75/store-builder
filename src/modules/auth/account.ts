@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { getAppEnv } from "@/lib/env";
+import { log } from "@/lib/log";
 import { hashPassword, verifyDummyPassword, verifyPassword } from "./password";
 import { getMailer } from "./mailer";
 import { AUTH_RULES, getRateLimiter, rateLimitKey, type RateLimiter } from "./rate-limit";
@@ -88,7 +89,7 @@ export async function requestPasswordReset(input: unknown, ctx: { ip: string; li
     });
   } catch (e) {
     // class only: never the address, the link or a stack
-    console.error("[mail] reset_mail_failed", e instanceof Error ? e.name : "UnknownError");
+    log.error("mail.reset_failed", { errorClass: e instanceof Error ? e.name : "UnknownError" });
   }
   return { ok: true };
 }

@@ -1,0 +1,5 @@
+# LOCAL AND CI TESTS ONLY: certificates from Caddy's internal CA (browsers must be told to trust or ignore it).
+# Replace this file (compose mounts the real one) before any real deployment: see tls-dns.caddy.example.
+(tls_config) {
+	tls internal
+}

@@ -67,3 +67,11 @@ If you switch to a Redis backend, key expiry (`EXPIRE`) replaces this job.
 | `S3_PUBLIC_BASE_URL` | Public base URL for reading objects (`<base>/<key>`). The only place a host/bucket appears; stored data holds relative keys. |
 
 The bucket policy must allow **anonymous `s3:GetObject` on objects only**: no `ListBucket`, no anonymous write or delete. Anyone who has an image URL can read that image, so the bucket must never hold private files. Run `pnpm media:cleanup` periodically (see `docs/media.md`); **scheduling it is a mandatory phase 14 release requirement** (non-zero exit detection, alerts, verified recovery, staging test before production: `docs/roadmap.md` "Mandatory for phase 14", D10-13). Nothing in this repository provisions storage or touches an external account.
+
+## Production stack (phase 13)
+
+`docker-compose.prod.yml` (Caddy → app → PostgreSQL, one-shot `migrate`, `scheduler`) is documented in `docs/runbook.md`; the controls are in `docs/security.md`.
+The client-IP contract above is implemented by `docker/caddy/Caddyfile`: Caddy **replaces** `X-Forwarded-For` with the connecting address and strips the other
+forwarding headers, and the application runs with `TRUST_PROXY_HEADERS=true`, `TRUSTED_PROXY_HOPS=1`. The server refuses to start in production when this
+is not configured (`src/lib/server-env.ts`). `pnpm db:cleanup` (rate-limit buckets and expired reset tokens) and `pnpm media:cleanup` are run by the scheduler service.
+

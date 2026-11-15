@@ -1,0 +1,20 @@
+# CI ONLY (phase 13): turns the production stack into a self-contained smoke-test stack on a GitHub runner.
+#   docker compose -p smoke -f docker-compose.prod.yml -f docker-compose.smoke.yml --env-file <generated> up -d
+# Adds a throw-away S3 server with test-only credentials (the production stack uses EXTERNAL storage) and moves Caddy to
+# loopback port 8443 with its internal CA. Nothing here is a deployment or ever contains a real secret.
+services:
+  minio:
+    # Same pinned, throw-away image and direct-binary entrypoint as scripts/ci-start-minio.sh (see the root-cause note there).
+    image: bitnamilegacy/minio:2025.7.23@sha256:8935e75fa5d11295c17171e4aa49efe390a1193cd7f12e4d21b92af9ffef09d7
+    entrypoint: ["/opt/bitnami/minio/bin/minio"]
+    command: ["server", "/bitnami/minio/data", "--address", ":9000", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+    ports:
+      - "127.0.0.1:9000:9000"
+    networks: [edge]
+
+  caddy:
+    ports: !override
+      - "127.0.0.1:8443:8443"

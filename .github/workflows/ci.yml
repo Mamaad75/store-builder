@@ -191,3 +191,45 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+  audit:
+    name: Dependency audit (production dependencies)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Fails on any HIGH or CRITICAL advisory in production dependencies. The single accepted advisory is listed, with its reason,
+      # under pnpm.auditConfig in package.json and in docs/security.md; a new one fails the build.
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=high
+
+  container:
+    name: Container images and production-stack smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      # Builds the app, jobs and custom Caddy images, boots docker-compose.prod.yml with throw-away generated credentials and a
+      # throw-away S3 server, runs a browser flow through Caddy, the jobs, the scheduler health check and a backup + restore drill.
+      # Nothing is pushed to a registry; the whole stack is deleted at the end of the script.
+      - name: Build images and smoke-test the production stack
+        run: ./scripts/ci-container-smoke.sh

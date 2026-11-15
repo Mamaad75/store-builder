@@ -25,7 +25,11 @@
     "db:cleanup": "tsx scripts/cleanup-rate-limits.ts",
     "media:cleanup": "tsx scripts/cleanup-media.ts",
     "publish:stats": "tsx scripts/publish-stats.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "scheduler": "tsx scripts/scheduler.ts",
+    "scheduler:health": "tsx scripts/scheduler-health.ts",
+    "db:backup": "bash scripts/backup.sh",
+    "db:restore": "bash scripts/restore.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",
@@ -68,7 +72,12 @@
       "esbuild",
       "sharp",
       "unrs-resolver"
-    ]
+    ],
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-ggr8-5vv4-36mx"
+      ]
+    }
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

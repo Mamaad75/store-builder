@@ -1,0 +1,18 @@
+# Keep the build context small and free of local state and secrets.
+.git
+.github
+.next
+node_modules
+playwright-report
+test-results
+tsconfig.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example
+!.env.production.example
+backups
+docs
+e2e
+e2e-smoke
+playwright.smoke.config.ts

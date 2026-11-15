@@ -1,0 +1,52 @@
+# Edge proxy of the platform (phase 13). It terminates TLS and forwards EVERYTHING to the application, which decides by Host header
+# (platform host, store subdomain, or the neutral 404). Required environment: APP_ROOT_DOMAIN (bare host name).
+#
+# Client-IP contract with the application (docs/deployment.md): the application runs with TRUST_PROXY_HEADERS=true and
+# TRUSTED_PROXY_HOPS=1 and reads the LAST X-Forwarded-For entry. This proxy therefore REPLACES the header with the connecting
+# address, so nothing a client sends can choose its rate-limit bucket; the other forwarding headers are removed because the
+# application never trusts them (only the raw Host is used).
+{
+	# Certificates are obtained and renewed by Caddy itself. The ACME account email (optional) comes from ACME_EMAIL.
+	email {$ACME_EMAIL:}
+	servers {
+		timeouts {
+			read_header 10s
+			idle 2m
+		}
+	}
+}
+
+# How certificates are obtained is a swappable snippet: tls.d/*.caddy defines (tls_config).
+#   - local and CI tests: tls.d/tls-internal.caddy (Caddy's own CA)
+#   - production wildcard: tls.d/tls-dns.caddy.example (ACME DNS-01 with the provider module built into the image)
+import tls.d/*.caddy
+
+{$APP_ROOT_DOMAIN}, www.{$APP_ROOT_DOMAIN}, *.{$APP_ROOT_DOMAIN} {
+	import tls_config
+
+	encode zstd gzip
+
+	header -Server
+
+	# Matches the application's 6 MB Server Action limit plus multipart overhead.
+	request_body {
+		max_size 8MB
+	}
+
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-For {remote_host}
+		header_up -X-Forwarded-Host
+		header_up -Forwarded
+		header_up -X-Original-Host
+		header_up -X-Real-Ip
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 60s
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
