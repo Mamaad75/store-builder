@@ -45,7 +45,7 @@ The same flow runs automatically in CI against the smoke stack (counts compared 
 
 ## Scheduler and the media-cleanup gate
 `$DC logs scheduler` shows one JSON line per run: `job.start`, then `job.finish` (info) or `job.failed` (**error**, with `exitCode`, `class`: `failed_items` = exit 2, `crashed`, `timeout`, and `consecutiveFailures`). A failed run is simply retried at the next interval; a failed item stays in the database and is retried too.
-Health: `$DC exec scheduler pnpm scheduler:health` (exit 1 when a job has not **succeeded** for 3 intervals; compose uses it as the container health check). Manual run: `$DC run --rm --no-deps migrate pnpm media:cleanup`.
+Health: `$DC exec scheduler pnpm scheduler:health` (exit 1 when a job has not **succeeded** for 3 intervals; compose uses it as the container health check). Manual run: `$DC run --rm --no-deps scheduler pnpm media:cleanup`.
 This covers items 1 and 2 of the phase 14 gate (D10-13) mechanically. **Still phase 14:** shipping the `job.failed` / `scheduler.unhealthy` / `media.*_failed` lines to a log pipeline with an alert, proving recovery of an injected failure in staging, and testing the scheduled job in staging before production.
 
 ## Secrets

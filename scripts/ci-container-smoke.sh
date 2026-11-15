@@ -80,8 +80,8 @@ SMOKE_PORT="${PORT}" pnpm exec playwright test -c playwright.smoke.config.ts
 endstep
 
 step "jobs and scheduler"
-"${DC[@]}" run --rm --no-deps migrate pnpm media:cleanup
-"${DC[@]}" run --rm --no-deps migrate pnpm db:cleanup
+"${DC[@]}" run --rm --no-deps scheduler pnpm media:cleanup
+"${DC[@]}" run --rm --no-deps scheduler pnpm db:cleanup
 for i in $(seq 1 30); do "${DC[@]}" exec -T scheduler pnpm scheduler:health >/dev/null 2>&1 && break; [ "${i}" -eq 30 ] && { echo "scheduler is not healthy" >&2; exit 1; }; sleep 2; done
 "${DC[@]}" logs scheduler --no-color | grep -E '"event":"job.(finish|failed)"' | head -4
 if "${DC[@]}" logs scheduler --no-color | grep -q '"event":"job.failed"'; then echo "a scheduled job failed" >&2; exit 1; fi
