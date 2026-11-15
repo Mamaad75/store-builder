@@ -715,5 +715,31 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     expect(layout).toContain('href="#main"');
     expect(layout).toMatch(/component="main"\s+id="main"/);
   });
+
+  it("phase 12 mail guard: log/file transports are refused in production at start-up and again in createMailer, and the override is E2E-only", () => {
+    const mailer = read("src/modules/auth/mailer.ts");
+    expect(mailer).toMatch(/export function assertMailTransportAllowed/);
+    expect(mailer).toMatch(/export function createMailer[^{]*\{\s*assertMailTransportAllowed\(env\)/);
+    // the production mailer ("none") has no console output at all; only the dev log transport prints messages
+    expect([...mailer.matchAll(/console\.\w+/g)].map((m) => m[0]).sort()).toEqual(["console.error", "console.info", "console.warn"]);
+    expect(mailer).toMatch(/console\.warn\("\[mail\] WARNING: [^"$`]*"\)/); // a fixed string: nothing interpolated
+    // start-up refusal
+    const inst = read("src/instrumentation.ts");
+    expect(inst).toMatch(/NEXT_RUNTIME !== "nodejs"/);
+    expect(inst).toMatch(/enforceMailTransportAtStartup\(process\.env\)/);
+    // the override name appears only in the guard and the E2E config (tests and docs aside): never in app code, scripts, CI or env examples
+    const holders = [...prodFiles(), ...files("e2e"), ...files("scripts"), "playwright.config.ts", ".github/workflows/ci.yml", ".env.example"]
+      .filter((f) => { try { return /MAIL_E2E_FILE_OUTBOX_OVERRIDE/.test(read(f)); } catch { return false; } });
+    expect(rel(holders).sort()).toEqual(["playwright.config.ts", "src/modules/auth/mailer.ts"]);
+    // CI and examples never turn on log/file for a production start
+    for (const f of [".github/workflows/ci.yml", ".env.example"]) expect(read(f), f).not.toMatch(/^[^#\n]*MAIL_TRANSPORT\s*[:=]\s*["']?(log|file)/im); // commented examples are fine
+  });
+
+  it("phase 12: one reset token per user is a database constraint, and requests write it with a single ON CONFLICT statement", () => {
+    expect(read("prisma/schema.prisma")).toMatch(/model PasswordResetToken[\s\S]*?userId\s+String\s+@unique/);
+    const account = read("src/modules/auth/account.ts");
+    expect(account).toMatch(/ON CONFLICT \("userId"\) DO UPDATE/);
+    expect(account).not.toMatch(/passwordResetToken\.create\(/); // a plain create could race and leave two live links
+  });
 });
 

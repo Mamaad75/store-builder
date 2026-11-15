@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { getAppEnv } from "@/lib/env";
 import { hashPassword, verifyDummyPassword, verifyPassword } from "./password";
@@ -52,7 +52,7 @@ function resetLink(token: string): string {
 /**
  * Starts a password reset. The outcome is IDENTICAL for unknown, known and malformed addresses (no enumeration); only an
  * exceeded rate limit is reported as such (it is keyed by IP and by the submitted address, not by account existence).
- * At most one live token per user: asking again replaces the previous link. Mail delivery is best effort and its result is
+ * At most one live token per user, enforced by the unique `userId` index: asking again replaces the previous link, even when requests race. Mail delivery is best effort and its result is
  * never shown to the requester.
  */
 export type ForgotOutcome = { ok: true } | { ok: false; error: "rate_limited" };
@@ -70,10 +70,16 @@ export async function requestPasswordReset(input: unknown, ctx: { ip: string; li
 
   const token = randomBytes(32).toString("base64url");
   const now = (ctx.now ?? (() => new Date()))();
-  await db.$transaction([
-    db.passwordResetToken.deleteMany({ where: { userId: user.id } }),
-    db.passwordResetToken.create({ data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(now.getTime() + RESET_TOKEN_TTL_MS) } }),
-  ]);
+  // ONE atomic statement (explicit ON CONFLICT, not Prisma's upsert, so it never degrades to select-then-insert): `userId` is
+  // unique, so concurrent requests for the same user serialise on that row. The last writer's token is the only live one (an
+  // earlier emailed link simply stops working) and no interleaving can leave two rows. A racing reset that already claimed the
+  // row finishes first (row lock); its DELETE then lets this statement insert a fresh row.
+  const expiresAt = new Date(now.getTime() + RESET_TOKEN_TTL_MS);
+  await db.$executeRaw`
+    INSERT INTO "PasswordResetToken" ("id", "userId", "tokenHash", "expiresAt", "usedAt", "createdAt")
+    VALUES (${randomUUID()}, ${user.id}, ${sha256(token)}, ${expiresAt}, NULL, ${now})
+    ON CONFLICT ("userId") DO UPDATE SET
+      "tokenHash" = EXCLUDED."tokenHash", "expiresAt" = EXCLUDED."expiresAt", "usedAt" = NULL, "createdAt" = EXCLUDED."createdAt"`;
   try {
     await getMailer().send({
       to: user.email,
@@ -113,7 +119,7 @@ export async function resetPassword(input: unknown, ctx: { ip: string; limiter?:
     if (claimed.count !== 1) return { ok: false as const, error: "invalid_token" as const };
     const row = await tx.passwordResetToken.findUniqueOrThrow({ where: { tokenHash }, select: { userId: true } });
     await tx.user.update({ where: { id: row.userId }, data: { passwordHash, authVersion: { increment: 1 } } });
-    await tx.passwordResetToken.deleteMany({ where: { userId: row.userId } });
+    await tx.passwordResetToken.deleteMany({ where: { userId: row.userId } }); // the (single) row is consumed and removed
     return { ok: true as const };
   });
 }

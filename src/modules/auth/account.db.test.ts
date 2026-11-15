@@ -174,15 +174,72 @@ describe("password reset: completing", () => {
     for (let i = 0; i < 20; i++) await resetPassword({ token: "A".repeat(43), password: NEW }, c);
     expect(await resetPassword({ token: "A".repeat(43), password: NEW }, c)).toEqual({ ok: false, error: "rate_limited" });
   });
-  it("deleting the user deletes their tokens, and cleanup removes only expired or used ones", async () => {
-    const u = await makeUser();
-    const live = { userId: u.id, tokenHash: sha("live"), expiresAt: new Date(Date.now() + 60_000) };
+  it("deleting the user deletes their token, and cleanup removes only expired or used ones", async () => {
+    const mk = async (email: string) => prisma.user.create({ data: { email, name: "U", passwordHash: "x" } });
+    const [live, old, used] = [await mk("a@example.com"), await mk("b@example.com"), await mk("c@example.com")];
+    const future = new Date(Date.now() + 60_000);
     await prisma.passwordResetToken.createMany({
-      data: [live, { userId: u.id, tokenHash: sha("old"), expiresAt: new Date(Date.now() - 60_000) }, { userId: u.id, tokenHash: sha("used"), expiresAt: live.expiresAt, usedAt: new Date() }],
+      data: [
+        { userId: live.id, tokenHash: sha("live"), expiresAt: future },
+        { userId: old.id, tokenHash: sha("old"), expiresAt: new Date(Date.now() - 60_000) },
+        { userId: used.id, tokenHash: sha("used"), expiresAt: future, usedAt: new Date() },
+      ],
     });
     expect(await cleanupResetTokens()).toBe(2);
     expect((await prisma.passwordResetToken.findMany()).map((t) => t.tokenHash)).toEqual([sha("live")]);
-    await prisma.user.delete({ where: { id: u.id } });
+    await prisma.user.delete({ where: { id: live.id } });
     expect(await prisma.passwordResetToken.count()).toBe(0);
+  });
+});
+
+describe("at most one reset token per user (database invariant)", () => {
+  it("the database itself refuses a second row for the same user", async () => {
+    const u = await makeUser();
+    const base = { userId: u.id, expiresAt: new Date(Date.now() + 60_000) };
+    await prisma.passwordResetToken.create({ data: { ...base, tokenHash: sha("one") } });
+    await expect(prisma.passwordResetToken.create({ data: { ...base, tokenHash: sha("two") } })).rejects.toMatchObject({ code: "P2002" });
+    expect(await prisma.passwordResetToken.count()).toBe(1);
+  });
+
+  it("many simultaneous reset requests for the same user: no error, exactly one row, and only the stored token works", async () => {
+    await makeUser();
+    const N = 12;
+    const results = await Promise.all(Array.from({ length: N }, () => requestPasswordReset({ email: EMAIL }, ctx())));
+    expect(results).toEqual(Array.from({ length: N }, () => ({ ok: true })));
+    expect(await prisma.passwordResetToken.count()).toBe(1);
+    expect(mailer.outbox).toHaveLength(N);
+    const row = await prisma.passwordResetToken.findFirstOrThrow();
+    const tokens = mailer.outbox.map((_, i) => tokenFromMail(i));
+    const live = tokens.filter((t) => sha(t) === row.tokenHash);
+    expect(live).toHaveLength(1); // every other emailed link is dead
+    for (const t of tokens.filter((t) => t !== live[0])) expect(await isResetTokenUsable(t)).toBe(false);
+    expect(await isResetTokenUsable(live[0]!)).toBe(true);
+    // and the surviving link still completes exactly once
+    const r = await Promise.all([resetPassword({ token: live[0], password: NEW }, ctx()), resetPassword({ token: live[0], password: "second-pass-4" }, ctx())]);
+    expect(r.filter((x) => x.ok)).toHaveLength(1);
+    expect(await prisma.passwordResetToken.count()).toBe(0);
+  });
+
+  it("requests racing a reset of the previous link never error and never leave more than one row", async () => {
+    for (let round = 0; round < 5; round++) {
+      await resetDb();
+      mailer.outbox.length = 0;
+      await makeUser();
+      await requestPasswordReset({ email: EMAIL }, ctx());
+      const first = tokenFromMail();
+      const settled = await Promise.allSettled([
+        resetPassword({ token: first, password: `${NEW}-${round}` }, ctx()),
+        requestPasswordReset({ email: EMAIL }, ctx()),
+        requestPasswordReset({ email: EMAIL }, ctx()),
+        resetPassword({ token: first, password: `other-pass-${round}` }, ctx()),
+      ]);
+      expect(settled.filter((r) => r.status === "rejected")).toEqual([]);
+      const rows = await prisma.passwordResetToken.findMany();
+      expect(rows.length).toBeLessThanOrEqual(1);
+      // A new request replaces the link, so a reset of the OLD link may legitimately lose the race (0 successes) but can never win twice.
+      const resets = [settled[0], settled[3]].filter((r) => r!.status === "fulfilled" && (r as PromiseFulfilledResult<{ ok: boolean }>).value.ok);
+      expect(resets.length).toBeLessThanOrEqual(1);
+      if (resets.length === 0) expect(rows).toHaveLength(1); // nothing consumed: the newest request's token is the one live row
+    }
   });
 });

@@ -48,20 +48,20 @@ model User {
   updatedAt    DateTime @updatedAt
   stores       Store[]
   media        Media[]
-  resetTokens  PasswordResetToken[]
+  resetToken   PasswordResetToken?
 }
 
-/// Single-use password-reset tokens. Only the SHA-256 of the token is stored (the raw value exists only in the emailed link).
+/// Password-reset token: AT MOST ONE row per user (unique userId), so concurrent reset requests cannot leave two live links.
+/// Only the SHA-256 of the token is stored (the raw value exists only in the emailed link).
 model PasswordResetToken {
   id        String    @id @default(cuid())
-  userId    String
+  userId    String    @unique
   tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@index([expiresAt])
 }
 

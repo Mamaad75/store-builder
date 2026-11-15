@@ -42,6 +42,8 @@ export default defineConfig({
       // The tests act as the trusted proxy: they set X-Forwarded-For per test to get isolated buckets.
       MAIL_TRANSPORT: "file",
       MAIL_OUTBOX_DIR: E2E_MAIL_DIR,
+      // The E2E server is a production build: the file outbox needs the explicit test-only override (loopback host only).
+      MAIL_E2E_FILE_OUTBOX_OVERRIDE: "1",
       TRUST_PROXY_HEADERS: "true",
       TRUSTED_PROXY_HOPS: "1",
     },

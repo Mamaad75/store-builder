@@ -7,14 +7,16 @@
 
 ## Password reset
 1. `/forgot-password`: always the same confirmation, whether the address is registered, unknown or malformed. Rate limited per IP (10/h) and per address (3/h).
-2. If the address is registered: any previous token of the user is deleted, a 32-byte random token is created, **only its SHA-256 is stored** (1 h expiry), and the link `APP_PROTOCOL://APP_ROOT_DOMAIN/reset-password?token=...` is handed to the mailer. Mail failure is logged by class only and is invisible to the requester.
+2. If the address is registered: the user's single token row is created or replaced in one `INSERT ... ON CONFLICT (userId)` (the unique `userId` index makes "at most one live token per user" a database guarantee, even for simultaneous requests; an earlier emailed link then stops working). The token is 32 random bytes and **only its SHA-256 is stored** (1 h expiry), and the link `APP_PROTOCOL://APP_ROOT_DOMAIN/reset-password?token=...` is handed to the mailer. Mail failure is logged by class only and is invisible to the requester.
 3. `/reset-password?token=...`: unusable links (malformed, unknown, expired, used) show one neutral message. The page is `noindex` with `referrer: no-referrer`.
 4. Submitting claims the token with one conditional UPDATE (`usedAt IS NULL AND expiresAt > now`), sets the new password hash, bumps `authVersion` and deletes the user's other tokens, in one transaction. Two simultaneous submissions: exactly one succeeds. Rate limited per IP (20/h).
 
 **Known limits.** A request for a registered address does slightly more work (token write, mail hand-off) than one for an unknown address, so response *timing* can in principle differ; the visible answer never does. Mitigations are rate limits and, in phase 13/14, sending from a background job. Email is not verified at registration (post-MVP), so a reset email only proves control of the address given at sign-up.
 
-## Mail (decision D12-2)
-No provider is connected. `MAIL_TRANSPORT`: unset/`none` (fails closed; the default outside development), `log` (development default; prints the message), `file` (needs `MAIL_OUTBOX_DIR`; used by the E2E suite). Tests inject a memory outbox. **Phase 14 gate:** a real transport, see `docs/roadmap.md`.
+## Mail (decisions D12-2 and D12-8)
+No provider is connected. `MAIL_TRANSPORT`: unset/`none` (fails closed; the default outside development; logs nothing), `log` (development default; prints whole messages including the reset link), `file` (needs `MAIL_OUTBOX_DIR`).
+
+**Production guard.** `log` and `file` are refused unless `NODE_ENV` is exactly `development` or `test`: the server exits with code 1 at start-up (`src/instrumentation.ts`), and `createMailer` refuses again. Case and spaces in the value do not bypass it. The only exception is the E2E suite (a production build): `MAIL_TRANSPORT=file` with `MAIL_E2E_FILE_OUTBOX_OVERRIDE=1` and a loopback `http` root domain (`localhost`/`127.0.0.1`), which prints a warning; `log` has no override. Never set the override anywhere else. Tests inject a memory outbox. **Phase 14 gate:** a real transport, see `docs/roadmap.md`.
 
 ## Landing, legal, errors, onboarding, accessibility
 * `/` is a static, indexable landing page (header with sign-in/sign-up, features, footer); `/terms` and `/privacy` are **draft** texts with a visible banner (platform host only; final text is a phase 14 gate).
