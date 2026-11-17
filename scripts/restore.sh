@@ -16,6 +16,12 @@ REPLACE="${RESTORE_REPLACE:-no}"
 
 log() { printf '{"ts":"%s","event":"%s"%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "${2:-}"; }
 
+# The target name is interpolated into SQL and into `sh -c` inside the container, so only a plain identifier is accepted
+# (letters, digits, underscore; PostgreSQL's 63-byte limit). Checked before any database or container is touched.
+require_safe_db_name() {
+  [[ "$1" =~ ^[A-Za-z_][A-Za-z0-9_]{0,62}$ ]] || { log "restore.failed" ',"reason":"invalid_database_name"'; exit 1; }
+}
+
 if [ -f "${DUMP}.sha256" ]; then
   ( cd "$(dirname "${DUMP}")" && sha256sum --check --status "$(basename "${DUMP}").sha256" ) || { log "restore.failed" ',"reason":"checksum_mismatch"'; exit 1; }
   log "restore.checksum_ok"
@@ -28,9 +34,9 @@ case "${MODE}" in
     : "${RESTORE_TARGET_URL:?RESTORE_TARGET_URL is required (the database to restore INTO)}"
     # shellcheck source=scripts/lib-pg.sh
     source "$(dirname "${BASH_SOURCE[0]}")/lib-pg.sh"
-    ( pg_env_from_url "${RESTORE_TARGET_URL}" && printf '%s' "${PGDATABASE}" > /tmp/.restore-db-name.$$ ) || exit 1
-    DB_NAME="$(cat /tmp/.restore-db-name.$$)"; rm -f /tmp/.restore-db-name.$$
+    DB_NAME="$( pg_env_from_url "${RESTORE_TARGET_URL}" && printf '%s' "${PGDATABASE}" )" || exit 1
     [ -n "${DB_NAME}" ] || { echo "cannot read the database name from RESTORE_TARGET_URL" >&2; exit 1; }
+    require_safe_db_name "${DB_NAME}"
     (
       pg_env_from_url "${RESTORE_TARGET_URL}"
       export PGDATABASE=postgres
@@ -50,6 +56,7 @@ case "${MODE}" in
     # shellcheck disable=SC2206
     DC=(docker compose ${COMPOSE_ARGS:--f docker-compose.prod.yml --env-file .env.production})
     DB_NAME="${RESTORE_DB:?RESTORE_DB (target database name inside the postgres container) is required}"
+    require_safe_db_name "${DB_NAME}"
     PSQL=("${DC[@]}" exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d postgres -Atq')
     exists="$(echo "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | "${PSQL[@]}")"
     if [ "${exists}" = "1" ]; then

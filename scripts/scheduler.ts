@@ -1,37 +1,19 @@
-import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { renameSync, writeFileSync } from "node:fs";
 import { formatLog } from "../src/lib/log";
 import { JOBS, emptyStatus, runLoop, type LoopDeps, type SchedulerStatus } from "./scheduler-core";
+import { runJobProcess, signalJobTree } from "./scheduler-process";
 
 /** Long-running scheduler process (compose service `scheduler`). Health: `pnpm scheduler:health`. */
 const STATUS_FILE = process.env.SCHEDULER_STATUS_FILE ?? "/tmp/scheduler-status.json";
 
 let status: SchedulerStatus = emptyStatus(new Date());
 let stopping = false;
-const children = new Set<ReturnType<typeof spawn>>();
+const children = new Set<ChildProcess>();
 
 const deps: LoopDeps = {
-  run: (command, timeoutMs) =>
-    new Promise((resolve) => {
-      const [cmd, ...args] = command;
-      const child = spawn(cmd!, args, { stdio: "inherit", env: process.env });
-      children.add(child);
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill("SIGKILL");
-      }, timeoutMs);
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        children.delete(child);
-        resolve({ exitCode: code, timedOut });
-      });
-      child.on("error", () => {
-        clearTimeout(timer);
-        children.delete(child);
-        resolve({ exitCode: null, timedOut });
-      });
-    }),
+  // Each job runs in its own process group; a timeout kills the whole tree (scripts/scheduler-process.ts).
+  run: (command, timeoutMs) => runJobProcess(command, timeoutMs, children),
   now: () => new Date(),
   sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   write: (line, level) => (level === "error" ? console.error(line) : console.info(line)),
@@ -50,7 +32,7 @@ function shutdown(signal: string) {
   if (stopping) return;
   stopping = true;
   console.info(formatLog("info", "scheduler.stop", { signal }));
-  for (const c of children) c.kill("SIGTERM");
+  for (const c of children) signalJobTree(c, "SIGTERM");
   setTimeout(() => process.exit(0), 5_000).unref();
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));

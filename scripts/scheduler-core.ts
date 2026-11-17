@@ -15,10 +15,17 @@ export interface JobSpec {
 
 export const MINUTE = 60_000;
 
+/**
+ * Jobs run their script through tsx DIRECTLY (the same scripts as `pnpm media:cleanup` / `pnpm db:cleanup`, pinned by a test), not
+ * through pnpm: one wrapper process fewer in the tree, and the script's own exit code (0 / 2 / 1) reaches the classifier unchanged.
+ * Paths are relative to the working directory of the jobs image (/app).
+ */
+export const TSX_BIN = "node_modules/.bin/tsx";
+
 export const JOBS: JobSpec[] = [
   // Grace period of unreferenced media is 1 h; every 30 minutes keeps a failed item at most one extra cycle old.
-  { name: "media-cleanup", command: ["pnpm", "media:cleanup"], intervalMs: 30 * MINUTE, timeoutMs: 10 * MINUTE },
-  { name: "db-cleanup", command: ["pnpm", "db:cleanup"], intervalMs: 15 * MINUTE, timeoutMs: 5 * MINUTE },
+  { name: "media-cleanup", command: [TSX_BIN, "scripts/cleanup-media.ts"], intervalMs: 30 * MINUTE, timeoutMs: 10 * MINUTE },
+  { name: "db-cleanup", command: [TSX_BIN, "scripts/cleanup-rate-limits.ts"], intervalMs: 15 * MINUTE, timeoutMs: 5 * MINUTE },
 ];
 
 /** A job counts as healthy while its last SUCCESS is younger than this many intervals. */

@@ -55,8 +55,10 @@ services:
     shm_size: 256mb
 
   migrate:
+    <<: *hardening
     build: { context: ., target: jobs }
     image: storebuilder-jobs:local
+    # One-shot job: the shared hardening applies, but it must never be restarted.
     restart: "no"
     command: ["sh", "-c", "pnpm db:deploy && pnpm db:seed"]
     environment: *app-env
@@ -85,7 +87,10 @@ services:
     <<: *hardening
     build: { context: ., target: jobs }
     image: storebuilder-jobs:local
-    command: ["pnpm", "scheduler"]
+    # init: a real PID 1 that forwards SIGTERM and reaps exited job processes. The scheduler runs through tsx directly (no pnpm
+    # wrapper), and each job runs in its own process group that a timeout kills as a whole (scripts/scheduler-process.ts).
+    init: true
+    command: ["node_modules/.bin/tsx", "scripts/scheduler.ts"]
     environment: *app-env
     depends_on:
       migrate: { condition: service_completed_successfully }

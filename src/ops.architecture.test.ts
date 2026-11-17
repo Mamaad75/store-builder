@@ -65,6 +65,22 @@ describe("docker-compose.prod.yml", () => {
     expect(hard).toContain("no-new-privileges:true");
     expect(hard).toContain("cap_drop: [ALL]");
   });
+  it("EVERY service, the one-shot migrate job included, inherits the shared hardening; migrate is never restarted", () => {
+    const servicesPart = c.slice(c.indexOf("services:"), c.indexOf("\nnetworks:"));
+    const names = [...servicesPart.matchAll(/^ {2}([a-z][a-z0-9_-]*):\s*$/gm)].map((m) => m[1]!);
+    expect(names).toEqual(expect.arrayContaining(["postgres", "migrate", "app", "scheduler", "caddy"]));
+    for (const [i, name] of names.entries()) {
+      const start = servicesPart.indexOf(`\n  ${name}:`);
+      const end = i + 1 < names.length ? servicesPart.indexOf(`\n  ${names[i + 1]}:`) : servicesPart.length;
+      expect(servicesPart.slice(start, end), name).toContain("<<: *hardening");
+    }
+    expect(c.slice(c.indexOf("  migrate:"), c.indexOf("  app:"))).toContain('restart: "no"');
+  });
+  it("the scheduler has a real init (signals, reaping) and runs through tsx directly, not through a pnpm wrapper", () => {
+    const sched = c.slice(c.indexOf("  scheduler:"), c.indexOf("  caddy:"));
+    expect(sched).toContain("init: true");
+    expect(sched).toContain('command: ["node_modules/.bin/tsx", "scripts/scheduler.ts"]');
+  });
   it("the smoke override is test-only: throw-away storage, loopback-only ports", () => {
     const s = read("docker-compose.smoke.yml");
     expect(s).toMatch(/CI ONLY/);
@@ -106,6 +122,14 @@ describe("start-up checks, headers and CI", () => {
     const p = read("src/proxy.ts");
     expect(p).toMatch(/export async function proxy[\s\S]*await route\(req, ev\)[\s\S]*securityHeaders\(process\.env\)/);
     expect(p).not.toMatch(/export async function route/); // only the wrapper is exported
+  });
+  it("the public readiness endpoint is throttled: checkReadiness is the cached single-flight probe, and the route uses nothing else", () => {
+    const r = read("src/lib/readiness.ts");
+    expect(r).toMatch(/export const checkReadiness: \(\) => Promise<Readiness> = createCachedProbe\(probeReadiness, \{ ttlMs: READINESS_CACHE_MS \}\);/);
+    expect(r).not.toMatch(/export async function probeReadiness/); // the uncached probe stays private
+    const route = read("src/app/api/ready/route.ts");
+    expect(route).toContain("checkReadiness()");
+    expect(route).not.toMatch(/\$queryRaw|getMediaStorage/);
   });
   it("CI runs the dependency audit and the container smoke test, with no registry login, push or secret", () => {
     const ci = read(".github/workflows/ci.yml");

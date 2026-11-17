@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { JOBS, MINUTE, classifyExit, emptyStatus, evaluateHealth, recordResult, recordStart, runLoop, runOnce, type JobSpec, type LoopDeps, type SchedulerStatus } from "../../scripts/scheduler-core";
+import { JOBS, MINUTE, TSX_BIN, classifyExit, emptyStatus, evaluateHealth, recordResult, recordStart, runLoop, runOnce, type JobSpec, type LoopDeps, type SchedulerStatus } from "../../scripts/scheduler-core";
 
 const T0 = new Date("2026-01-01T00:00:00Z");
 const at = (min: number) => new Date(T0.getTime() + min * MINUTE);
@@ -41,9 +43,16 @@ describe("status and health", () => {
   });
   it("the real job table runs media cleanup at least hourly (the cleanup grace period is 1 h) and the db cleanup", () => {
     const media = JOBS.find((j) => j.name === "media-cleanup")!;
-    expect(media.command).toEqual(["pnpm", "media:cleanup"]);
     expect(media.intervalMs).toBeLessThanOrEqual(60 * MINUTE);
-    expect(JOBS.find((j) => j.name === "db-cleanup")!.command).toEqual(["pnpm", "db:cleanup"]);
+    expect(JOBS.find((j) => j.name === "db-cleanup")).toBeDefined();
+  });
+  it("each job runs the SAME script as its package.json command, through tsx directly (no pnpm wrapper in the process tree)", () => {
+    const scripts = (JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
+    for (const [job, pnpmScript] of [["media-cleanup", "media:cleanup"], ["db-cleanup", "db:cleanup"]] as const) {
+      const [bin, ...args] = JOBS.find((j) => j.name === job)!.command;
+      expect(bin, job).toBe(TSX_BIN);
+      expect(`tsx ${args.join(" ")}`, job).toBe(scripts[pnpmScript]);
+    }
   });
 });
 

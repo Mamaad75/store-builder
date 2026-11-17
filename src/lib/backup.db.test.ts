@@ -67,6 +67,22 @@ describe("backup.sh and restore.sh", () => {
     expect(r.stderr).toContain("RESTORE_TARGET_URL is required");
   });
 
+  it("refuses a target database name that is not a plain identifier, in both modes, before touching any database or container", async () => {
+    const dump = path.join(dir, dumpOf());
+    for (const name of [`bad'name`, `bad"name`, "x;y", "with space", "1starts_with_digit", "a".repeat(64)]) {
+      // lib-pg.sh takes the database name from the URL path verbatim (no decoding), so the raw name is what restore.sh sees.
+      const direct = run("restore.sh", [dump], { RESTORE_TARGET_URL: scratchUrl(name) });
+      expect(direct.status, `direct ${name}`).toBe(1);
+      expect(lines(direct.stdout).at(-1), `direct ${name}`).toMatchObject({ event: "restore.failed", reason: "invalid_database_name" });
+      // Compose mode fails on the name before running docker (none is needed for this test).
+      const compose = run("restore.sh", [dump], { BACKUP_MODE: "compose", RESTORE_DB: name });
+      expect(compose.status, `compose ${name}`).toBe(1);
+      expect(lines(compose.stdout).at(-1), `compose ${name}`).toMatchObject({ event: "restore.failed", reason: "invalid_database_name" });
+    }
+    const created = await prisma.$queryRawUnsafe<{ n: bigint }[]>(`SELECT count(*) AS n FROM pg_database WHERE datname LIKE 'bad%' OR datname LIKE 'x;%' OR datname LIKE 'with %'`);
+    expect(Number(created[0]!.n)).toBe(0);
+  });
+
   it("detects a corrupted dump through the checksum before touching any database", () => {
     const good = path.join(dir, dumpOf());
     const bad = path.join(dir, "storebuilder-tampered.dump");

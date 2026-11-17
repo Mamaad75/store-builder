@@ -11,7 +11,10 @@ DC="docker compose -f docker-compose.prod.yml --env-file .env.production"
 ## Stack
 `caddy` (TLS edge, only published ports 80/443) → `app` (Next.js standalone, port 3000 on the edge network) → `postgres` (internal network only).
 `migrate` is a one-shot job (`prisma migrate deploy` + idempotent theme seed) that must finish before `app` and `scheduler` start. `scheduler` runs
-`pnpm media:cleanup` every 30 min and `pnpm db:cleanup` every 15 min. Object storage is external (`S3_*`).
+the media cleanup every 30 min and the db cleanup every 15 min (the same scripts as `pnpm media:cleanup` / `pnpm db:cleanup`, started through `tsx`
+directly). Object storage is external (`S3_*`).
+`/api/ready` results are shared for 5 s per app process (concurrent requests share one probe), so a dependency coming back or going away shows
+up within 5 s; it is public, and this keeps request volume from driving database queries and billed object-store LIST calls.
 
 ## Deploy / update
 1. `git fetch && git checkout <release commit>` (a commit whose CI run is green, including the container job).
@@ -39,12 +42,13 @@ Restore into a **new** database first and inspect it; never into the live one.
 ```bash
 BACKUP_MODE=compose COMPOSE_ARGS="-f docker-compose.prod.yml --env-file .env.production" RESTORE_DB=restore_drill bash scripts/restore.sh /var/backups/storebuilder/storebuilder-<stamp>.dump
 ```
-It verifies the checksum, refuses an existing database unless `RESTORE_REPLACE=yes`, restores with `--exit-on-error` and prints `restore.done` with the user/store/version counts, which you compare with production. Then `DROP DATABASE restore_drill`.
+The target name must be a plain identifier (letters, digits, underscore). It verifies the checksum, refuses an existing database unless `RESTORE_REPLACE=yes`, restores with `--exit-on-error` and prints `restore.done` with the user/store/version counts, which you compare with production. Then `DROP DATABASE restore_drill`.
 **Disaster recovery** (live database lost): bring up `postgres` alone, restore into the real database name (`RESTORE_DB=<POSTGRES_DB>`, `RESTORE_REPLACE=yes` if it exists), then `$DC up -d` (migrate verifies the schema). Record the time it took: that is the real recovery time.
 The same flow runs automatically in CI against the smoke stack (counts compared with the live smoke database).
 
 ## Scheduler and the media-cleanup gate
 `$DC logs scheduler` shows one JSON line per run: `job.start`, then `job.finish` (info) or `job.failed` (**error**, with `exitCode`, `class`: `failed_items` = exit 2, `crashed`, `timeout`, and `consecutiveFailures`). A failed run is simply retried at the next interval; a failed item stays in the database and is retried too.
+Each job runs in its own process group: a `timeout` kills the whole job tree (no orphaned job can keep running into the next run), and stopping the container sends SIGTERM to every running job (`init: true` forwards signals and reaps processes).
 Health: `$DC exec scheduler pnpm scheduler:health` (exit 1 when a job has not **succeeded** for 3 intervals; compose uses it as the container health check). Manual run: `$DC run --rm --no-deps scheduler pnpm media:cleanup`.
 This covers items 1 and 2 of the phase 14 gate (D10-13) mechanically. **Still phase 14:** shipping the `job.failed` / `scheduler.unhealthy` / `media.*_failed` lines to a log pipeline with an alert, proving recovery of an injected failure in staging, and testing the scheduled job in staging before production.
 
