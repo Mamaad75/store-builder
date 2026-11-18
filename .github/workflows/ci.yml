@@ -138,9 +138,8 @@ jobs:
     timeout-minutes: 15
     env:
       # Throw-away Mailpit servers on loopback only, a certificate generated in the job, any credentials accepted (test-only).
-      MAILPIT_TLS_DIR: ${{ runner.temp }}/mailpit-tls
+      # (The `runner` context is not available in job-level env, so the certificate directory is set per step below.)
       TEST_SMTP_HOST: 127.0.0.1
-      TEST_SMTP_CA_FILE: ${{ runner.temp }}/mailpit-tls/cert.pem
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,8 +151,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Start Mailpit (throw-away, test-only)
+        env:
+          MAILPIT_TLS_DIR: ${{ runner.temp }}/mailpit-tls
         run: ./scripts/ci-start-mailpit.sh
       - name: Mail integration tests (real SMTP over STARTTLS)
+        env:
+          TEST_SMTP_CA_FILE: ${{ runner.temp }}/mailpit-tls/cert.pem
         run: pnpm test:mail
       - name: Mailpit diagnostics (only when the mail tests failed)
         if: failure()

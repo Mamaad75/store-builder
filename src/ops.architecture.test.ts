@@ -131,6 +131,12 @@ describe("start-up checks, headers and CI", () => {
     expect(route).toContain("checkReadiness()");
     expect(route).not.toMatch(/\$queryRaw|getMediaStorage/);
   });
+  it("CI job-level env blocks never use the `runner` context (GitHub rejects the whole workflow file: run 44268755919)", () => {
+    const ci = read(".github/workflows/ci.yml");
+    const jobEnvBlocks = [...ci.matchAll(/\n {4}env:\n((?: {6}.*\n)+)/g)].map((m) => m[1]!);
+    expect(jobEnvBlocks.length).toBeGreaterThan(0);
+    for (const block of jobEnvBlocks) expect(block).not.toMatch(/\$\{\{\s*runner\./);
+  });
   it("CI runs the dependency audit and the container smoke test, with no registry login, push or secret", () => {
     const ci = read(".github/workflows/ci.yml");
     expect(ci).toContain("pnpm audit --prod --audit-level=high");
