@@ -90,7 +90,7 @@
 | K1 | ✅ **انجام شد (2026-11-18، DM2-1):** transport واقعی SMTP پشت interface `Mailer` (`src/modules/auth/smtp.ts`) | فقط اتصال سرویس‌دهنده‌ی انتخابی با متغیرهای `SMTP_*` و `MAIL_FROM` و آزمون سرتاسری در staging مانده است |
 | K2 | **snippet تولیدی TLS** از روی `docker/caddy/tls.d/tls-dns.caddy.example` با directive سرویس‌دهنده‌ی انتخابی | توکن فقط از `DNS_API_TOKEN` |
 | K3 | **hook بیرون‌بردن backup** (`BACKUP_AFTER_HOOK`) و زمان‌بندی backup | شکست hook باید backup را شکست‌خورده کند (همین الان چنین است) |
-| K4 | **ارسال لاگ/هشدار** طبق T8 | بدون نشت مقدار رمزها در لاگ (`src/lib/log.ts`) |
+| K4 | ✅ **بخش اصلی انجام شد (2026-11-18):** هشدار بله برای شکست و بازگشت کارهای زمان‌بندی‌شده و شکست backup؛ `pnpm alert:test` | مانده: پایش بیرونی uptime روی `/api/ready`، و هشدار برای `scanTruncated` پیاپی (`docs/runbook.md` بخش Alerts) |
 | K5 | تصمیم دوباره درباره‌ی ضعف `'unsafe-inline'` در CSP (D13-5) | فقط تصمیم؛ تغییر اختیاری |
 | K6 | به‌روزرسانی `docs/runbook.md` با مقادیر واقعی (بدون رمز) | — |
 

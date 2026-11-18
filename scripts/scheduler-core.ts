@@ -100,11 +100,17 @@ export interface LoopDeps {
   getStatus: () => SchedulerStatus;
   setStatus: (s: SchedulerStatus) => void;
   stopped: () => boolean;
+  /** Operational alert (Bale, D14-3). Must never throw (src/lib/alert.ts createNotifier). Optional: no alerts in tests that omit it. */
+  alert?: (event: string, fields: Record<string, unknown>) => Promise<void>;
 }
 
-/** One execution: logs start and result as JSON lines (errors at level "error", which is what alerting matches on). */
+/**
+ * One execution: logs start and result as JSON lines (errors at level "error") and alerts on every failed run and on the first
+ * success after failures ("recovered"), so a failing job is reported at once and its recovery is visible (D10-13 items 2 and 3).
+ */
 export async function runOnce(job: JobSpec, d: LoopDeps): Promise<ExitClass> {
   const started = d.now();
+  const failuresBefore = d.getStatus().jobs[job.name]?.consecutiveFailures ?? 0;
   d.setStatus(recordStart(d.getStatus(), job.name, started));
   d.save(d.getStatus());
   d.write(formatLog("info", "job.start", { job: job.name }, d.now), "info");
@@ -114,8 +120,13 @@ export async function runOnce(job: JobSpec, d: LoopDeps): Promise<ExitClass> {
   d.setStatus(recordResult(d.getStatus(), job.name, { exitCode, cls }, finished));
   d.save(d.getStatus());
   const common = { job: job.name, exitCode, class: cls, durationMs: finished.getTime() - started.getTime(), consecutiveFailures: d.getStatus().jobs[job.name]!.consecutiveFailures };
-  if (cls === "ok") d.write(formatLog("info", "job.finish", common, d.now), "info");
-  else d.write(formatLog("error", "job.failed", { ...common, recovery: "the next run retries; see docs/runbook.md" }, d.now), "error");
+  if (cls === "ok") {
+    d.write(formatLog("info", "job.finish", common, d.now), "info");
+    if (failuresBefore > 0) await d.alert?.("job.recovered", { job: job.name, previousFailures: failuresBefore });
+  } else {
+    d.write(formatLog("error", "job.failed", { ...common, recovery: "the next run retries; see docs/runbook.md" }, d.now), "error");
+    await d.alert?.("job.failed", common);
+  }
   return cls;
 }
 

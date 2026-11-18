@@ -98,7 +98,11 @@ services:
     # wrapper), and each job runs in its own process group that a timeout kills as a whole (scripts/scheduler-process.ts).
     init: true
     command: ["node_modules/.bin/tsx", "scripts/scheduler.ts"]
-    environment: *app-env
+    environment:
+      <<: *app-env
+      # Alerts (Bale, D14-3): only the scheduler sends them. Both empty = alerts off (logged); half or invalid = refuses to start.
+      BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}
+      BALE_CHAT_ID: ${BALE_CHAT_ID:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
     networks: [backend, edge]

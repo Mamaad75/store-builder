@@ -105,6 +105,25 @@ describe("backup.sh and restore.sh", () => {
     expect(r.stdout + r.stderr).not.toContain("definitely-wrong-password");
   });
 
+  it("any failure calls BACKUP_FAILURE_HOOK with the reason (the alert); a failing hook never changes the exit code", () => {
+    const hookDir = mkdtempSync(path.join(os.tmpdir(), "backup-hook-"));
+    try {
+      const hook = path.join(hookDir, "hook.sh");
+      writeFileSync(hook, `#!/usr/bin/env bash\necho "$1" >> "${hookDir}/called"\nexit 7\n`, { mode: 0o755 });
+      const u = new URL(URL_);
+      u.password = "definitely-wrong-password";
+      const r = run("backup.sh", [], { DATABASE_URL: u.toString(), BACKUP_DIR: dir, BACKUP_FAILURE_HOOK: hook });
+      expect(r.status).toBe(1);
+      expect(readFileSync(path.join(hookDir, "called"), "utf8").trim()).toBe("backup.failed: pg_dump_failed");
+      // a successful backup does not call it
+      const ok = run("backup.sh", [], { DATABASE_URL: URL_, BACKUP_DIR: dir, BACKUP_FAILURE_HOOK: hook, RETENTION_DAYS: "0" });
+      expect(ok.status, ok.stderr).toBe(0);
+      expect(readFileSync(path.join(hookDir, "called"), "utf8").trim().split("\n")).toHaveLength(1);
+    } finally {
+      rmSync(hookDir, { recursive: true, force: true });
+    }
+  });
+
   it("prunes backups older than RETENTION_DAYS and keeps the new one; the after-hook gets the file path", () => {
     const old = path.join(dir, "storebuilder-20200101T000000Z.dump");
     writeFileSync(old, "old");

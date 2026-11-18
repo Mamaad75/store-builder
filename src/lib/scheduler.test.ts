@@ -64,7 +64,9 @@ function harness(results: ({ exitCode: number | null; timedOut: boolean } | "sto
   let running = 0;
   let maxRunning = 0;
   const saved: SchedulerStatus[] = [];
+  const alerts: { event: string; fields: Record<string, unknown> }[] = [];
   const deps: LoopDeps = {
+    alert: async (event, fields) => void alerts.push({ event, fields }),
     run: async () => {
       running++;
       maxRunning = Math.max(maxRunning, running);
@@ -88,8 +90,24 @@ function harness(results: ({ exitCode: number | null; timedOut: boolean } | "sto
     },
     stopped: () => stopped,
   };
-  return { deps, lines, saved, getStatus: () => status, maxRunning: () => maxRunning };
+  return { deps, lines, saved, alerts, getStatus: () => status, maxRunning: () => maxRunning };
 }
+
+describe("alerts (Bale, D14-3)", () => {
+  it("every failed run alerts with the job and exit class; the first success after failures alerts 'recovered'; steady success is silent", async () => {
+    const h = harness([{ exitCode: 0, timedOut: false }, { exitCode: 2, timedOut: false }, { exitCode: null, timedOut: true }, { exitCode: 0, timedOut: false }, { exitCode: 0, timedOut: false }, "stop"]);
+    await runLoop(JOB, h.deps);
+    expect(h.alerts.map((a) => a.event)).toEqual(["job.failed", "job.failed", "job.recovered"]);
+    expect(h.alerts[0]!.fields).toMatchObject({ job: "j", exitCode: 2, class: "failed_items", consecutiveFailures: 1 });
+    expect(h.alerts[1]!.fields).toMatchObject({ class: "timeout", consecutiveFailures: 2 });
+    expect(h.alerts[2]!.fields).toEqual({ job: "j", previousFailures: 2 });
+  });
+  it("without an alert dependency the loop behaves exactly as before (alerts are optional)", async () => {
+    const h = harness([{ exitCode: 1, timedOut: false }, "stop"]);
+    delete h.deps.alert;
+    await expect(runLoop(JOB, h.deps)).resolves.toBeUndefined();
+  });
+});
 
 describe("the run loop", () => {
   it("logs a failure as a structured ERROR line with the exit code and class, success as info", async () => {

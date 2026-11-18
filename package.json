@@ -29,6 +29,7 @@
     "test:e2e": "playwright test",
     "scheduler": "tsx scripts/scheduler.ts",
     "scheduler:health": "tsx scripts/scheduler-health.ts",
+    "alert:test": "tsx scripts/alert-test.ts",
     "db:backup": "bash scripts/backup.sh",
     "db:restore": "bash scripts/restore.sh"
   },

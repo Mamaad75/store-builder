@@ -81,6 +81,14 @@ describe("docker-compose.prod.yml", () => {
     expect(sched).toContain("init: true");
     expect(sched).toContain('command: ["node_modules/.bin/tsx", "scripts/scheduler.ts"]');
   });
+  it("Bale alert credentials reach ONLY the scheduler, from the environment, never as literals (D14-3)", () => {
+    const sched = c.slice(c.indexOf("  scheduler:"), c.indexOf("  caddy:"));
+    expect(sched).toContain("BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}");
+    expect(sched).toContain("BALE_CHAT_ID: ${BALE_CHAT_ID:-}");
+    expect(sched).toMatch(/environment:\n\s+<<: \*app-env/); // the scheduler keeps every shared app variable
+    expect(c.replace(sched, "")).not.toMatch(/BALE_/); // the web app and the other services never see the bot token
+    expect(read("scripts/notify-bale.sh")).toMatch(/curl[^\n]*-K -/); // the URL (with the token) goes to curl on stdin, not argv
+  });
   it("the smoke override is test-only: throw-away storage, loopback-only ports", () => {
     const s = read("docker-compose.smoke.yml");
     expect(s).toMatch(/CI ONLY/);

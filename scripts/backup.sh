@@ -6,7 +6,9 @@
 #   compose           runs pg_dump INSIDE the production postgres container (always the matching server version)
 #                     COMPOSE_ARGS selects the stack (default: -f docker-compose.prod.yml --env-file .env.production)
 # Settings: BACKUP_DIR (default ./backups), RETENTION_DAYS (default 14, 0 = keep everything),
-#           BACKUP_AFTER_HOOK (optional executable called as: hook <dump file>; use it to copy the file OFF the server).
+#           BACKUP_AFTER_HOOK (optional executable called as: hook <dump file>; use it to copy the file OFF the server),
+#           BACKUP_FAILURE_HOOK (optional executable called as: hook "backup.failed: <reason>" on ANY failure, e.g.
+#                                scripts/notify-bale.sh for a Bale alert; its own failure never changes the exit code, which stays 1).
 # The database URL/password is never printed. A backup that cannot be read back by pg_restore --list is deleted and fails the run.
 set -euo pipefail
 umask 077
@@ -19,7 +21,12 @@ OUT="${BACKUP_DIR}/storebuilder-${STAMP}.dump"
 mkdir -p "${BACKUP_DIR}"
 
 log() { printf '{"ts":"%s","event":"%s"%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "${2:-}"; }
-fail() { log "backup.failed" ",\"reason\":\"$1\""; rm -f "${OUT}.partial"; exit 1; }
+fail() {
+  log "backup.failed" ",\"reason\":\"$1\""
+  rm -f "${OUT}.partial"
+  if [ -n "${BACKUP_FAILURE_HOOK:-}" ]; then "${BACKUP_FAILURE_HOOK}" "backup.failed: $1" >&2 || true; fi
+  exit 1
+}
 
 case "${MODE}" in
   direct)

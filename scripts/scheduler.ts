@@ -1,11 +1,22 @@
 import type { ChildProcess } from "node:child_process";
 import { renameSync, writeFileSync } from "node:fs";
+import { AlertConfigError, createNotifier, readAlertConfig, type AlertConfig } from "../src/lib/alert";
 import { formatLog } from "../src/lib/log";
 import { JOBS, emptyStatus, runLoop, type LoopDeps, type SchedulerStatus } from "./scheduler-core";
 import { runJobProcess, signalJobTree } from "./scheduler-process";
 
 /** Long-running scheduler process (compose service `scheduler`). Health: `pnpm scheduler:health`. */
 const STATUS_FILE = process.env.SCHEDULER_STATUS_FILE ?? "/tmp/scheduler-status.json";
+
+// Alerts (Bale, D14-3): an invalid or half configuration stops the scheduler at start (names only); none at all is allowed but logged.
+let alertConfig: AlertConfig | null;
+try {
+  alertConfig = readAlertConfig(process.env);
+} catch (e) {
+  console.error(formatLog("error", "startup.refused", { reason: e instanceof AlertConfigError ? e.message : "invalid alert configuration" }));
+  process.exit(1);
+}
+if (!alertConfig) console.warn(formatLog("warn", "alert.disabled", { reason: "BALE_BOT_TOKEN and BALE_CHAT_ID are not set" }));
 
 let status: SchedulerStatus = emptyStatus(new Date());
 let stopping = false;
@@ -26,6 +37,7 @@ const deps: LoopDeps = {
     status = s;
   },
   stopped: () => stopping,
+  alert: createNotifier(alertConfig),
 };
 
 function shutdown(signal: string) {
