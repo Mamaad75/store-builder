@@ -1,0 +1,14 @@
+# Every text file is stored AND checked out with LF, whatever the contributor's core.autocrlf.
+# Shell scripts, Dockerfiles and the architecture tests (which match file contents with regexes) break with CRLF on Windows.
+* text=auto eol=lf
+
+# Binary formats are never converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.dump binary

@@ -22,7 +22,14 @@ export default defineConfig({
     : [["list"]],
   globalSetup: "./e2e/global-setup.ts",
   use: { baseURL: `http://localhost:${PORT}`, locale: "fa-IR", trace: "retain-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // E2E_BROWSER_CHANNEL (local only, e.g. "chrome" or "msedge") runs the suite on an installed Chromium-based browser instead of
+  // Playwright's own build, whose download CDN refuses Iranian networks. CI leaves it unset and uses Playwright's Chromium.
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}) },
+    },
+  ],
   webServer: {
     // Production build against an isolated database; never touches the dev database.
     // The standalone bundle is what the container runs (scripts/run-standalone.sh copies it out of the repository first).

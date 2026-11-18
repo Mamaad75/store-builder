@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: storebuilder
       POSTGRES_DB: storebuilder
     ports:
-      - "5432:5432"
+      # Host port is configurable for machines that already run PostgreSQL on 5432 (then point DATABASE_URL at the new port).
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
