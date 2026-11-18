@@ -42,7 +42,7 @@ describe("general template: layout", () => {
     const h = render(d);
     expect(h).toContain('dir="ltr"');
     expect(h).toContain("--primary:#facc15");
-    expect(h).toContain("--on-primary:#111827");
+    expect(h).toContain("--on-primary:#000000");
   });
 });
 

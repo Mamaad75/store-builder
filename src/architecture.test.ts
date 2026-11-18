@@ -713,9 +713,10 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
       expect(src, f).not.toMatch(/dangerouslySetInnerHTML/);
     }
     expect(read("src/app/(legal)/layout.tsx")).toMatch(/await assertPlatformHost\(\)/);
-    // the dashboard layout keeps a skip link and a main landmark
+    // the dashboard layout keeps a skip link (the shared SkipLink component since the M3 audit) and a main landmark
     const layout = read("src/app/dashboard/layout.tsx");
-    expect(layout).toContain('href="#main"');
+    expect(layout).toContain("<SkipLink />");
+    expect(read("src/components/SkipLink.tsx")).toContain('href="#main"');
     expect(layout).toMatch(/component="main"\s+id="main"/);
   });
 

@@ -30,12 +30,12 @@
 .nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; flex-wrap: wrap; }
 .navLink { display: inline-block; padding: 6px 14px; border-radius: 8px; text-decoration: none; color: var(--muted); font-size: 0.95em; }
 .navLink:hover { background: var(--surface); color: var(--text); }
-.navLink[aria-current="page"] { background: var(--surface); color: var(--primary); font-weight: 700; }
+.navLink[aria-current="page"] { background: var(--surface); color: var(--accent); font-weight: 700; }
 .main { flex: 1; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 8px 26px; border-radius: 8px; background: var(--primary); color: var(--on-primary) !important; text-decoration: none; font-weight: 700; border: 1px solid var(--primary); }
 .btn:hover { filter: brightness(0.92); }
-.btnGhost { background: transparent; color: var(--primary) !important; }
+.btnGhost { background: transparent; color: var(--accent) !important; }
 .btnGhost:hover { background: var(--surface); filter: none; }
 .img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
@@ -69,7 +69,7 @@
 .cardName { font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
 .cardName::after { content: ""; position: absolute; inset: 0; }
 .cardCategory { font-size: 0.78em; color: var(--muted); }
-.price { font-weight: var(--w-heading); margin-top: auto; padding-top: 6px; color: var(--primary); }
+.price { font-weight: var(--w-heading); margin-top: auto; padding-top: 6px; color: var(--accent); }
 .stock { font-size: 0.8em; color: var(--muted); }
 .stockOut { color: #b42318; }
 .stockLow { color: #b25e09; }
@@ -88,7 +88,7 @@
 @media (min-width: 800px) { .detail { grid-template-columns: 1fr 1fr; gap: 48px; } .detailArtWrap { position: sticky; top: 92px; align-self: start; } }
 .detailArt { aspect-ratio: 1 / 1; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: grid; place-items: center; font-size: 5em; font-weight: 800; color: var(--primary); }
 .detailTitle { font-size: clamp(1.4em, 3.8vw, 2em); font-weight: var(--w-heading); overflow-wrap: anywhere; line-height: 1.5; }
-.detailPrice { font-size: 1.5em; font-weight: var(--w-heading); margin-block: 10px; color: var(--primary); }
+.detailPrice { font-size: 1.5em; font-weight: var(--w-heading); margin-block: 10px; color: var(--accent); }
 .note { margin-top: 20px; padding: 12px 14px; border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 0.9em; }
 
 .contactList { list-style: none; margin: 18px 0 0; padding: 0; max-width: 560px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
@@ -124,3 +124,11 @@
 .specsRow:nth-child(odd) { background: var(--surface); }
 .specsTerm { color: var(--muted); font-weight: 600; overflow-wrap: anywhere; }
 .specsDef { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+/* WCAG 2.4.11 focus not obscured (M3 audit): an element focused from the keyboard is scrolled into view below the sticky header,
+   never underneath it. 7.5rem covers the header including its wrapped navigation on narrow screens. */
+:global(html):has(.root) { scroll-padding-top: 7.5rem; }
+/* Users who ask for less motion get none (M3 audit). */
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

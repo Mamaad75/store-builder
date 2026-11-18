@@ -5,7 +5,7 @@ PostgreSQL/Prisma + S3-compatible storage + Auth.js. Modular monolith; stores ar
 renderer, not one project per customer.
 
 ## Status
-Phases 1-12 are implemented and accepted; phase 13 (production readiness: containers, Caddy, backups, runbook) is implemented and awaiting review. Nothing is deployed. The full roadmap is in `docs/roadmap.md` and every approved decision is recorded in `docs/decisions.md`.
+Phases 1-12 are implemented and accepted; phase 13 (production readiness: containers, Caddy, backups, runbook) is implemented and reviewed (review fixes D13-12). The MVP code is complete: real SMTP mail (DM2-1) and the WCAG 2.2 AA audit with all findings fixed (`docs/audit-m3-accessibility.md`). Next is phase 14 (staging), which starts with `docs/phase14-checklist.md` and explicit approval. Nothing is deployed. Changes are listed in `CHANGELOG.md` (Persian). The full roadmap is in `docs/roadmap.md` and every approved decision is recorded in `docs/decisions.md`.
 
 ## Development
 ```bash

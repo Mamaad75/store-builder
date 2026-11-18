@@ -9,6 +9,7 @@ import AppBar from "@mui/material/AppBar";
 import { logoutAction } from "@/app/actions-auth";
 import { TextLink } from "@/components/NextLinks";
 import SiteFooter from "@/components/SiteFooter";
+import SkipLink from "@/components/SkipLink";
 import ThemeRegistry from "@/theme/ThemeRegistry";
 import { assertPlatformHost } from "@/lib/host-guard";
 import { requireUser } from "@/modules/auth/session";
@@ -25,13 +26,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <ThemeRegistry>
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-        <Box
-          component="a"
-          href="#main"
-          sx={{ position: "absolute", insetInlineStart: 8, top: -48, zIndex: 2000, bgcolor: "background.paper", p: 1, borderRadius: 1, "&:focus": { top: 8 } }}
-        >
-          پرش به محتوای اصلی
-        </Box>
+        <SkipLink />
         <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Toolbar>
             <Typography sx={{ flexGrow: 1, fontWeight: 700 }}>سایت‌ساز فروشگاهی</Typography>

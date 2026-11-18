@@ -17,5 +17,18 @@ export const theme = createTheme({
   },
   components: {
     MuiButton: { defaultProps: { disableElevation: true } },
+    // Keyboard focus must be clearly visible (WCAG 2.4.7; M3 audit): MUI's default is only a faint ripple, so every button, icon
+    // button, link-button, tab and accordion header gets a solid outline when focused from the keyboard. The page and header
+    // backgrounds are light, where this indigo reaches about 6:1.
+    MuiButtonBase: {
+      styleOverrides: {
+        root: { "&.Mui-focusVisible": { outline: "3px solid #4f46e5", outlineOffset: "2px" } },
+      },
+    },
+    MuiLink: {
+      styleOverrides: {
+        root: { "&:focus-visible": { outline: "3px solid #4f46e5", outlineOffset: "2px", borderRadius: "2px" } },
+      },
+    },
   },
 });

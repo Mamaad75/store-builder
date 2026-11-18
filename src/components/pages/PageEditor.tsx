@@ -166,7 +166,8 @@ export default function PageEditor(p: PageEditorProps) {
           const fieldErrors = state.sectionId === s.id ? state.fieldErrors : undefined;
           return (
             <Accordion key={s.id} variant="outlined" disableGutters data-testid="section-card" data-section-type={s.type} defaultExpanded={state.sectionId === s.id && !!state.error}>
-              <AccordionSummary aria-label={`${label} (${(i + 1).toLocaleString("fa-IR")})`}>
+              {/* No aria-label: the visible text ("۱. بنر اصلی …") is the accessible name (WCAG 2.5.3 label in name; M3 audit). */}
+              <AccordionSummary>
                 <Typography sx={{ fontWeight: 700 }}>
                   {(i + 1).toLocaleString("fa-IR")}. {label}
                 </Typography>

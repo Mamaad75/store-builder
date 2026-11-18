@@ -7,6 +7,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { LinkButton } from "@/components/NextLinks";
 import SiteFooter from "@/components/SiteFooter";
+import SkipLink from "@/components/SkipLink";
 import ThemeRegistry from "@/theme/ThemeRegistry";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function HomePage() {
   return (
     <ThemeRegistry>
       <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <SkipLink />
         <Container component="header" sx={{ py: 2 }}>
           <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
             <Typography sx={{ fontWeight: 800 }}>سایت‌ساز فروشگاهی</Typography>

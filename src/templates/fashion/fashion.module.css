@@ -122,3 +122,11 @@
 .specsRow { display: grid; grid-template-columns: minmax(7em, 1fr) 2fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .specsTerm { color: var(--muted); overflow-wrap: anywhere; }
 .specsDef { margin: 0; overflow-wrap: anywhere; }
+
+/* WCAG 2.4.11 focus not obscured (M3 audit): an element focused from the keyboard is scrolled into view below the sticky header,
+   never underneath it. 7.5rem covers the header including its wrapped navigation on narrow screens. */
+:global(html):has(.root) { scroll-padding-top: 7.5rem; }
+/* Users who ask for less motion get none (M3 audit). */
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

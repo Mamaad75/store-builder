@@ -133,3 +133,11 @@
 .specsRow:nth-child(odd) { background: var(--surface); }
 .specsTerm { color: var(--muted); font-weight: 600; overflow-wrap: anywhere; }
 .specsDef { margin: 0; overflow-wrap: anywhere; }
+
+/* WCAG 2.4.11 focus not obscured (M3 audit): an element focused from the keyboard is scrolled into view below the sticky header,
+   never underneath it. 7.5rem covers the header including its wrapped navigation on narrow screens. */
+:global(html):has(.root) { scroll-padding-top: 7.5rem; }
+/* Users who ask for less motion get none (M3 audit). */
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

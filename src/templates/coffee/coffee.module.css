@@ -2,7 +2,7 @@
   --bg: #faf6f0;
   --surface: #f3ebdf;
   --text: #2b1d14;
-  --muted: #7a6a5d;
+  --muted: #736356; /* ≥ 4.5:1 on both --bg (5.35) and --surface (4.87); M3 audit */
   --border: #e4d8c6;
   --dark: #2b1d14;
   min-height: 100vh;
@@ -131,3 +131,8 @@
 .specsRow::before { content: ""; order: 1; flex: 1; border-bottom: 2px dotted var(--border); transform: translateY(-4px); min-width: 12px; }
 .specsTerm { order: 0; }
 .specsDef { order: 2; color: var(--muted); text-align: end; }
+
+/* Users who ask for less motion get none (M3 audit). */
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
