@@ -87,7 +87,7 @@
 
 | # | کار | نکته |
 |---|---|---|
-| K1 | **transport واقعی ایمیل** پشت همان interface `Mailer` (`src/modules/auth/mailer.ts`) | اگر وابستگی جدید لازم شود (مثلاً یک کلاینت SMTP)، جدا تأیید می‌شود؛ اعتبارنامه فقط از env؛ همان قاعده‌ی «شکست ایمیل پاسخ را تغییر نمی‌دهد» |
+| K1 | ✅ **انجام شد (2026-11-18، DM2-1):** transport واقعی SMTP پشت interface `Mailer` (`src/modules/auth/smtp.ts`) | فقط اتصال سرویس‌دهنده‌ی انتخابی با متغیرهای `SMTP_*` و `MAIL_FROM` و آزمون سرتاسری در staging مانده است |
 | K2 | **snippet تولیدی TLS** از روی `docker/caddy/tls.d/tls-dns.caddy.example` با directive سرویس‌دهنده‌ی انتخابی | توکن فقط از `DNS_API_TOKEN` |
 | K3 | **hook بیرون‌بردن backup** (`BACKUP_AFTER_HOOK`) و زمان‌بندی backup | شکست hook باید backup را شکست‌خورده کند (همین الان چنین است) |
 | K4 | **ارسال لاگ/هشدار** طبق T8 | بدون نشت مقدار رمزها در لاگ (`src/lib/log.ts`) |

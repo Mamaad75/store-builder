@@ -698,9 +698,12 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     // public auth pages carrying or requesting credentials are never indexed
     for (const f of ["src/app/(auth)/forgot-password/page.tsx", "src/app/(auth)/reset-password/page.tsx"]) expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
     expect(read("src/app/(auth)/reset-password/page.tsx")).toMatch(/referrer:\s*"no-referrer"/);
-    // no mail provider is connected before phase 14: nodemailer/SES/etc. must not appear in the dependencies
+    // Mail goes out only through the provider-neutral SMTP transport (DM2-1, superseding the "no transport" part of D12-2):
+    // exactly one mail library, pinned to an exact version, and no provider SDK (SES/SendGrid/... would tie the code to a vendor).
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
-    expect(Object.keys(pkg.dependencies).filter((d) => /nodemailer|sendgrid|mailgun|postmark|resend|@aws-sdk\/client-ses|smtp/i.test(d))).toEqual([]);
+    const mailDeps = Object.keys(pkg.dependencies).filter((d) => /nodemailer|sendgrid|mailgun|postmark|resend|@aws-sdk\/client-ses|smtp/i.test(d));
+    expect(mailDeps).toEqual(["nodemailer"]);
+    expect(pkg.dependencies.nodemailer).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it("phase 12: error boundaries never render the error message or stack, and legal pages are platform-only", () => {
@@ -743,3 +746,23 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
   });
 });
 
+
+describe("architecture guard: outgoing mail (MVP step M2, decision DM2-1)", () => {
+  it("nodemailer is imported only by the SMTP transport module", () => {
+    const importers = prodFiles().filter((f) => /from\s+["']nodemailer["']/.test(read(f)));
+    expect(rel(importers)).toEqual(["src/modules/auth/smtp.ts"]);
+  });
+  it("the SMTP transport can never disable certificate verification or fall back to plain text", () => {
+    const smtp = read(path.join("src", "modules", "auth", "smtp.ts"));
+    expect(smtp).toContain("rejectUnauthorized: true");
+    expect(smtp).toContain("requireTLS: !cfg.secure");
+    expect(smtp).toContain("ignoreTLS: false");
+    expect(smtp).not.toMatch(/rejectUnauthorized:\s*(false|!|cfg\.|env\.)/);
+  });
+  it("the forgot-password action hands mail delivery to after(), so the answer never waits for SMTP", () => {
+    const actions = read(path.join("src", "app", "actions-auth.ts"));
+    expect(actions).toMatch(/import \{ after \} from "next\/server"/);
+    const forgot = actions.slice(actions.indexOf("export async function forgotPasswordAction"));
+    expect(forgot.slice(0, forgot.indexOf("\n}\n"))).toMatch(/requestPasswordReset\(.*defer: \(task\) => after\(task\)/);
+  });
+});

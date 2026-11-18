@@ -72,7 +72,7 @@ Nothing in this repository schedules the job today and none is to be added befor
 
 ## Also mandatory for phase 14 (from Phase 12, D12-2 and D12-5)
 
-1. **A real mail transport** replaces the fail-closed `none` mailer (`src/modules/auth/mailer.ts`): provider chosen with the purchasing checklist, credentials entered through the environment only (never in the repository), sender domain verified (SPF/DKIM/DMARC), and the password-reset email tested end to end in staging. The `log` and `file` transports must not be configured in production.
+1. **A real mail transport** replaces the fail-closed `none` mailer (`src/modules/auth/mailer.ts`). *Code done ahead of phase 14 (DM2-1: `MAIL_TRANSPORT=smtp`); what remains is below.* Provider chosen with the purchasing checklist, credentials entered through the environment only (never in the repository), sender domain verified (SPF/DKIM/DMARC), and the password-reset email tested end to end in staging. The `log` and `file` transports must not be configured in production.
 2. **Final legal text** for `/terms` and `/privacy`, approved by a person with legal responsibility, replaces the draft templates (and the draft banner is removed).
 3. `pnpm db:cleanup` (rate-limit buckets and expired or used reset tokens) is scheduled together with the media cleanup.
 

@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { AuthError, CredentialsSignin } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { getClientIp } from "@/modules/auth/rate-limit";
@@ -58,9 +59,12 @@ export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
 }
 
-/** Same answer for every address (registered or not): the page never reveals whether an account exists. */
+/**
+ * Same answer for every address (registered or not): the page never reveals whether an account exists. The mail is sent with
+ * `after()`, i.e. once the response is on its way, so delivery time cannot reveal it either.
+ */
 export async function forgotPasswordAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const result = await requestPasswordReset({ email: formData.get("email") }, { ip: getClientIp(await headers()) });
+  const result = await requestPasswordReset({ email: formData.get("email") }, { ip: getClientIp(await headers()), defer: (task) => after(task) });
   if (!result.ok) return { error: RATE_LIMIT_ERROR };
   redirect("/forgot-password?sent=1");
 }

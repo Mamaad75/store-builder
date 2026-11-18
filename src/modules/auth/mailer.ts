@@ -1,10 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
+import { SmtpConfigError, createSmtpMailer, parseSmtpConfig } from "./smtp";
 
 /**
- * Outgoing email, behind an interface so that a real provider can be added in phase 14 without touching callers.
- * NO provider is connected today (decision D12-2): the only transports are
+ * Outgoing email, behind an interface so that callers never depend on a provider. Transports:
+ *   - "smtp"  (MAIL_TRANSPORT=smtp + SMTP_* / MAIL_FROM, see ./smtp.ts): real delivery over mandatory TLS, any provider;
+ *             an incomplete configuration refuses start-up in EVERY environment (decision DM2-1),
  *   - "none"  (the default outside development): nothing is sent; the failure is logged by class only,
  *   - "log"   (the default in development ONLY): the message is printed to the server console,
  *   - "file"  (MAIL_TRANSPORT=file + MAIL_OUTBOX_DIR): one JSON file per message, development and the E2E suite ONLY,
@@ -109,9 +111,24 @@ export function assertMailTransportAllowed(env: Record<string, string | undefine
 export function enforceMailTransportAtStartup(env: Record<string, string | undefined> = process.env, exit: (code: number) => never = process.exit): void {
   try {
     assertMailTransportAllowed(env);
+    assertSmtpConfigured(env);
   } catch (e) {
     console.error(`[mail] startup refused: ${e instanceof MailConfigError ? e.message : "invalid mail configuration"}`);
     exit(1);
+  }
+}
+
+/**
+ * `MAIL_TRANSPORT=smtp` with an incomplete or invalid configuration is refused in every environment (a half-configured mailer
+ * would silently drop every reset mail). The message names variables only.
+ */
+export function assertSmtpConfigured(env: Record<string, string | undefined> = process.env): void {
+  if (normalizeTransport(env) !== "smtp") return;
+  try {
+    parseSmtpConfig(env);
+  } catch (e) {
+    if (e instanceof SmtpConfigError) throw new MailConfigError(e.message);
+    throw e;
   }
 }
 
@@ -119,6 +136,9 @@ export function createMailer(env: Record<string, string | undefined> = process.e
   assertMailTransportAllowed(env);
   const kind = normalizeTransport(env) || (env.NODE_ENV === "development" ? "log" : "none");
   switch (kind) {
+    case "smtp":
+      assertSmtpConfigured(env);
+      return createSmtpMailer(parseSmtpConfig(env));
     case "log":
       return logMailer;
     case "file": {

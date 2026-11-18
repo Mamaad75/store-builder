@@ -13,8 +13,17 @@
 
 **Known limits.** A request for a registered address does slightly more work (token write, mail hand-off) than one for an unknown address, so response *timing* can in principle differ; the visible answer never does. Mitigations are rate limits and, in phase 13/14, sending from a background job. Email is not verified at registration (post-MVP), so a reset email only proves control of the address given at sign-up.
 
-## Mail (decisions D12-2 and D12-8)
-No provider is connected. `MAIL_TRANSPORT`: unset/`none` (fails closed; the default outside development; logs nothing), `log` (development default; prints whole messages including the reset link), `file` (needs `MAIL_OUTBOX_DIR`).
+## Mail (decisions D12-2, D12-8 and DM2-1)
+`MAIL_TRANSPORT`: `smtp` (real delivery, below), unset/`none` (fails closed; the default outside development; logs nothing), `log` (development default; prints whole messages including the reset link), `file` (needs `MAIL_OUTBOX_DIR`).
+
+**SMTP (`src/modules/auth/smtp.ts`, DM2-1).** Provider-neutral: `SMTP_HOST`, `SMTP_PORT` (default 587), optional `SMTP_SECURE`
+(default: `true` only for port 465), `SMTP_USER` + `SMTP_PASSWORD` (both or neither), `MAIL_FROM` (`addr@domain` or `Name <addr@domain>`),
+optional `SMTP_TLS_CA_FILE` (adds a trust anchor). Encryption is mandatory: implicit TLS, or STARTTLS that must succeed (no plain-text
+fallback); the certificate is always verified (TLS 1.2+); timeouts are bounded; messages cannot read files or URLs. An incomplete `smtp`
+configuration stops the server at start-up in every environment, naming variables only. The forgot-password action hands delivery to
+Next's `after()`, so the answer never waits for the SMTP round trip (no timing difference between registered and unknown addresses from
+mail delivery). Tested with unit tests, DB tests and real SMTP against throw-away Mailpit servers (`pnpm test:mail`, CI job "mail").
+Still for phase 14: choosing the provider, SPF/DKIM/DMARC on the sender domain and an end-to-end test in staging.
 
 **Production guard.** `log` and `file` are refused unless `NODE_ENV` is exactly `development` or `test`: the server exits with code 1 at start-up (`src/instrumentation.ts`), and `createMailer` refuses again. Case and spaces in the value do not bypass it. The only exception is the E2E suite (a production build): `MAIL_TRANSPORT=file` with `MAIL_E2E_FILE_OUTBOX_OVERRIDE=1` and a loopback `http` root domain (`localhost`/`127.0.0.1`), which prints a warning; `log` has no override. Never set the override anywhere else. Tests inject a memory outbox. **Phase 14 gate:** a real transport, see `docs/roadmap.md`.
 

@@ -84,6 +84,34 @@ describe("password reset: requesting", () => {
     expect(mailer.outbox[0]!.to).toBe(EMAIL);
     expect(await prisma.passwordResetToken.count()).toBe(1);
   });
+  it("with `defer` (the action passes after()), the answer never waits for mail delivery: a hanging SMTP server cannot slow it down", async () => {
+    await makeUser();
+    const hanging: Mailer = { send: () => new Promise<void>(() => {}) }; // never resolves, like an unresponsive SMTP server
+    setMailerForTests(hanging);
+    const deferred: (() => Promise<void>)[] = [];
+    const outcome = await requestPasswordReset({ email: EMAIL }, { ...ctx(), defer: (task) => void deferred.push(task) });
+    expect(outcome).toEqual({ ok: true }); // returned although the mail can never be delivered
+    expect(deferred).toHaveLength(1);
+    expect(await prisma.passwordResetToken.count()).toBe(1); // the token is written before answering
+
+    // The deferred task delivers the mail later, and never throws even when the transport fails.
+    setMailerForTests(mailer);
+    await deferred[0]!();
+    expect(mailer.outbox).toHaveLength(1);
+    setMailerForTests({ send: () => Promise.reject(new Error("ECONNREFUSED")) });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(deferred[0]!()).resolves.toBeUndefined();
+    expect(errors.mock.calls.flat().join(" ")).toContain("mail.reset_failed");
+    expect(errors.mock.calls.flat().join(" ")).not.toContain(EMAIL);
+    errors.mockRestore();
+    setMailerForTests(mailer);
+  });
+  it("unknown and malformed addresses schedule no mail", async () => {
+    const deferred: unknown[] = [];
+    await requestPasswordReset({ email: "nobody@example.com" }, { ...ctx(), defer: (task) => void deferred.push(task) });
+    await requestPasswordReset({ email: "not-an-email" }, { ...ctx(), defer: (task) => void deferred.push(task) });
+    expect(deferred).toHaveLength(0);
+  });
   it("stores only the SHA-256 of the token, with a one-hour expiry, and the link points at the configured platform host", async () => {
     const u = await makeUser();
     const now = new Date("2026-01-01T10:00:00Z");

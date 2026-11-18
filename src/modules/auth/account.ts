@@ -55,10 +55,19 @@ function resetLink(token: string): string {
  * exceeded rate limit is reported as such (it is keyed by IP and by the submitted address, not by account existence).
  * At most one live token per user, enforced by the unique `userId` index: asking again replaces the previous link, even when requests race. Mail delivery is best effort and its result is
  * never shown to the requester.
+ *
+ * `defer` (the Server Action passes Next's `after()`): the mail is handed over AFTER the response is sent. A real SMTP round trip takes
+ * hundreds of milliseconds, and awaiting it here would make registered addresses answer measurably slower than unknown ones
+ * (enumeration by timing). Without `defer` (tests, scripts) the mail is sent inline. The deferred task never throws.
  */
 export type ForgotOutcome = { ok: true } | { ok: false; error: "rate_limited" };
 
-export async function requestPasswordReset(input: unknown, ctx: { ip: string; limiter?: RateLimiter; now?: () => Date }): Promise<ForgotOutcome> {
+export type DeferTask = (task: () => Promise<void>) => void;
+
+export async function requestPasswordReset(
+  input: unknown,
+  ctx: { ip: string; limiter?: RateLimiter; now?: () => Date; defer?: DeferTask },
+): Promise<ForgotOutcome> {
   const limiter = ctx.limiter ?? getRateLimiter();
   const parsed = forgotPasswordSchema.safeParse(input);
   const checks = [limiter.consume(rateLimitKey("forgot:ip", ctx.ip), AUTH_RULES.forgotPerIp)];
@@ -81,16 +90,21 @@ export async function requestPasswordReset(input: unknown, ctx: { ip: string; li
     VALUES (${randomUUID()}, ${user.id}, ${sha256(token)}, ${expiresAt}, NULL, ${now})
     ON CONFLICT ("userId") DO UPDATE SET
       "tokenHash" = EXCLUDED."tokenHash", "expiresAt" = EXCLUDED."expiresAt", "usedAt" = NULL, "createdAt" = EXCLUDED."createdAt"`;
-  try {
-    await getMailer().send({
-      to: user.email,
-      subject: "بازیابی رمز عبور",
-      text: `برای تعیین رمز عبور جدید روی پیوند زیر بزنید (تا یک ساعت معتبر است و فقط یک بار کار می‌کند):\n${resetLink(token)}\n\nاگر این درخواست از طرف شما نبوده است، این پیام را نادیده بگیرید؛ رمز عبور شما تغییری نمی‌کند.`,
-    });
-  } catch (e) {
-    // class only: never the address, the link or a stack
-    log.error("mail.reset_failed", { errorClass: e instanceof Error ? e.name : "UnknownError" });
-  }
+  const message = {
+    to: user.email,
+    subject: "بازیابی رمز عبور",
+    text: `برای تعیین رمز عبور جدید روی پیوند زیر بزنید (تا یک ساعت معتبر است و فقط یک بار کار می‌کند):\n${resetLink(token)}\n\nاگر این درخواست از طرف شما نبوده است، این پیام را نادیده بگیرید؛ رمز عبور شما تغییری نمی‌کند.`,
+  };
+  const deliver = async () => {
+    try {
+      await getMailer().send(message);
+    } catch (e) {
+      // class only: never the address, the link or a stack
+      log.error("mail.reset_failed", { errorClass: e instanceof Error ? e.name : "UnknownError" });
+    }
+  };
+  if (ctx.defer) ctx.defer(deliver);
+  else await deliver();
   return { ok: true };
 }
 

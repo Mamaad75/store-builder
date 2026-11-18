@@ -16,7 +16,9 @@ describe("mail transports (no provider is connected: decision D12-2)", () => {
   });
   it("'file' without a directory is not a transport; an unknown value is 'none'", async () => {
     await expect(createMailer({ NODE_ENV: "test", MAIL_TRANSPORT: "file" }).send(msg)).rejects.toBeInstanceOf(MailerNotConfiguredError);
-    await expect(createMailer({ NODE_ENV: "production", MAIL_TRANSPORT: "smtp" }).send(msg)).rejects.toBeInstanceOf(MailerNotConfiguredError);
+    await expect(createMailer({ NODE_ENV: "production", MAIL_TRANSPORT: "carrier-pigeon" }).send(msg)).rejects.toBeInstanceOf(MailerNotConfiguredError);
+    // "smtp" is a real transport since DM2-1: without its configuration it is refused outright (smtp.test.ts), never silently "none".
+    expect(() => createMailer({ NODE_ENV: "production", MAIL_TRANSPORT: "smtp" })).toThrow(MailConfigError);
   });
   it("development defaults to the console transport", async () => {
     const spy = vi.spyOn(console, "info").mockImplementation(() => {});
