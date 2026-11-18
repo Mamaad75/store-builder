@@ -21,7 +21,7 @@ Complexity is relative (low / medium / high), not a calendar estimate.
 | 11 | SEO and metadata | Titles, descriptions, Open Graph, sitemap, robots, canonical, basic JSON-LD | Implemented and tested; awaiting review (see `docs/seo.md`) | medium |
 | 12 | Platform polish and accounts | Landing page, onboarding, change password and sign out everywhere, error pages, accessibility pass, legal pages, password reset (email) | Implemented and tested; awaiting review (see `docs/accounts.md`). Email delivery and final legal text are phase 14 gates | medium |
 | 13 | Production readiness (code) | Dockerfile, standalone output, production compose, custom Caddy image, full CI/CD, env validation, readiness endpoint, CSP/HSTS, structured logs, backup and restore scripts, runbooks | Implemented; awaiting review (see `docs/runbook.md`, `docs/security.md`). Images are built and the stack is booted only in CI (no Docker daemon in the development sandbox) | high |
-| 14 | Staging deployment | **Starts with the purchasing and configuration checklist and waits for explicit approval.** Domain, VPS, DNS, wildcard certificate, first deployment, restore drill. **Release gate: scheduled media cleanup tested in staging (D10-13).** | Planned (external) | medium |
+| 14 | Staging deployment | **Starts with the purchasing and configuration checklist (`docs/phase14-checklist.md`, draft) and waits for explicit approval.** Domain, VPS, DNS, wildcard certificate, first deployment, restore drill. **Release gate: scheduled media cleanup tested in staging (D10-13).** | Planned (external) | medium |
 | 15 | Production launch | Production server, backups and monitoring live, rollback rehearsed, limited beta | Planned (external) | medium |
 
 ## Milestones
