@@ -4,6 +4,7 @@
 #   runtime  (default)  the Next.js standalone server: no pnpm, no dev dependencies, non-root, health check.
 #   jobs                the same code with the full toolchain, for one-off and scheduled commands:
 #                       migrations + seed (`pnpm db:deploy && pnpm db:seed`), media/db cleanup, the scheduler.
+#   api                 the NestJS API (ADR 0001, N2): compiled JS + production dependencies only, non-root, health check.
 #   (build, deps)       intermediate stages.
 # pnpm workspace (ADR 0001, N1): the build context is the repository root; the web app lives in apps/web.
 # The base image is pinned by tag AND digest (refresh both together; Dependabot's docker ecosystem proposes updates).
@@ -24,6 +25,7 @@ FROM base AS deps
 # Only the manifests first, so dependency installation is cached until a manifest or the lockfile changes.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
+COPY apps/api/package.json ./apps/api/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 FROM deps AS build
@@ -55,3 +57,28 @@ HEALTHCHECK --interval=15s --timeout=4s --start-period=25s --retries=3 \
 # Docker sets HOSTNAME to the container id at run time, which would make Next bind to that one interface only (and fail the health check on
 # 127.0.0.1); the shell form pins the bind address to all interfaces, `exec` keeps node as PID 1 so it receives SIGTERM.
 CMD ["sh", "-c", "HOSTNAME=0.0.0.0 exec node server.js"]
+
+# ---- NestJS API (ADR 0001, N2) ----
+FROM deps AS api-build
+COPY apps/web/prisma ./apps/web/prisma
+COPY apps/api ./apps/api
+# The Prisma client is generated from the web app's schema (one schema, ADR 0001), then the API is compiled.
+RUN pnpm --filter @store-builder/web db:generate && pnpm --filter @store-builder/api build
+# A self-contained production tree (no dev dependencies, no sources), plus the generated client and its query engine.
+RUN pnpm --filter @store-builder/api deploy --legacy --prod /out \
+ && SRC="$(readlink -f apps/api/node_modules/@prisma/client)/../../.prisma/client" \
+ && DST="$(readlink -f /out/node_modules/@prisma/client)/../../.prisma/client" \
+ && mkdir -p "${DST}" && cp -a "${SRC}/." "${DST}/" \
+ && mkdir -p /out/dist && cp -a apps/api/dist/. /out/dist/
+
+FROM os AS api
+ENV NODE_ENV=production API_PORT=4000
+# Only the compiled output and production dependencies (the deploy tree also holds sources and tool configs).
+COPY --from=api-build --chown=node:node /out/package.json ./
+COPY --from=api-build --chown=node:node /out/node_modules ./node_modules
+COPY --from=api-build --chown=node:node /out/dist ./dist
+USER node
+EXPOSE 4000
+HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=3 \
+  CMD node -e "require('http').get({host:'127.0.0.1',port:process.env.API_PORT,path:'/api/health'},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+CMD ["node", "dist/main.js"]

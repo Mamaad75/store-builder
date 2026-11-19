@@ -46,6 +46,41 @@ jobs:
       - name: Production build
         run: pnpm build
 
+  api:
+    name: API (NestJS) lint, typecheck, tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: storebuilder
+          POSTGRES_PASSWORD: storebuilder # throw-away value for this job's own container only
+          POSTGRES_DB: storebuilder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U storebuilder"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://storebuilder:storebuilder@localhost:5432/storebuilder
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm api:lint
+      - run: pnpm api:typecheck
+      - run: pnpm api:build
+      - run: pnpm api:test
   database:
     name: Database tests (PostgreSQL 16)
     runs-on: ubuntu-24.04
@@ -263,3 +298,5 @@ jobs:
       # Nothing is pushed to a registry; the whole stack is deleted at the end of the script.
       - name: Build images and smoke-test the production stack
         run: ./scripts/ci-container-smoke.sh
+      - name: Build and check the API image (ADR 0001, N2)
+        run: ./scripts/ci-api-image-check.sh

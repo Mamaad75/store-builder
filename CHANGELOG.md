@@ -6,6 +6,14 @@
 
 ## [منتشرنشده]
 
+### 2026-11-19 — N2: اسکلت NestJS (`apps/api`، ADR 0001)
+* **چه:** بسته‌ی `@store-builder/api` (NestJS 12، ESM بومی): اعتبارسنجی env با رد شروع در production، لاگ JSON با پنهان‌سازی، Prisma کند (از همان schema برنامه‌ی web)،
+  `/api/health` و `/api/ready` (مشترک و cache دو ثانیه‌ای)، helmet با CSP «همه ممنوع»، گارد CSRF بر اساس Origin، فیلتر خطای یکدست، Docker target به نام `api`،
+  job جدید `api` در CI و بررسی ایمیج با PostgreSQL موقت. بدون هیچ endpoint کسب‌وکاری. مستند: `docs/api.md`.
+* **آزموده (محلی):** typecheck، lint، ۲۶ آزمون api (شامل آزمون واقعی با PostgreSQL و دو آزمون ساختاری)، build و اجرای `dist` و deploy مصرف‌شده؛ برنامه‌ی web بدون تغییر
+  (typecheck، lint و ۷۶۷ آزمون واحد قبول).
+* **آزموده نشد:** ساخت ایمیج Docker (daemon در این محیط نیست)؛ اولین اجرا در CI.
+
 ### 2026-11-19 — N1: تبدیل به مخزن چندبسته‌ای pnpm (ADR 0001) — نیمه‌تمام از نظر آزمون
 * **چه:** برنامه‌ی Next.js با تاریخچه‌ی git به `apps/web` منتقل شد؛ ریشه = workspace (`pnpm-workspace.yaml`، `package.json` با دستورهای قبلی که به
   `@store-builder/web` واگذار می‌شوند). زیرساخت (Dockerfile، compose، Caddy، CI، مستندات، اسکریپت‌های bash عملیات) در ریشه ماند. Dockerfile، `.dockerignore`،
