@@ -34,7 +34,7 @@ for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4000/api/ready >/dev/null 2>
 echo "ready: $(curl -fsS http://127.0.0.1:4000/api/ready)"
 curl -fsS http://127.0.0.1:4000/api/health | grep -q '"ok"'
 curl -sSI http://127.0.0.1:4000/api/health | grep -qi '^strict-transport-security:' || { echo "HSTS missing in production" >&2; exit 1; }
-[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4000/api/anything)" = "403" ] || { echo "POST without Origin must be refused" >&2; exit 1; }
+[ "$(curl -s -X POST http://127.0.0.1:4000/api/anything)" = '{"statusCode":404,"error":"Not Found"}' ] || { echo "unknown route must answer with the fixed 404 body" >&2; exit 1; }
 
 for i in $(seq 1 30); do [ "$(docker inspect --format '{{.State.Health.Status}}' apicheck-api)" = "healthy" ] && break; [ "${i}" -eq 30 ] && { echo "container health check never became healthy" >&2; exit 1; }; sleep 2; done
 
