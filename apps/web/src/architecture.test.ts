@@ -164,7 +164,7 @@ describe("architecture guard: storefront rendering is independent of the dashboa
   it("the proxy and next.config protect and de-index /preview", () => {
     const proxy = read("src/proxy.ts");
     // Phase 10: the proxy matcher is catch-all (host routing needs every request); /preview is still gated by the session check on the platform host.
-    expect(proxy).toMatch(/startsWith\("\/preview"\)\)\s*return\s*\(requireSession/);
+    expect(proxy).toMatch(/startsWith\("\/preview"\)\)\s*return\s*requireSession/);
     expect(proxy).toMatch(/matcher:\s*\["\/\(\(\?!_next\/static/);
     const cfg = read("next.config.ts");
     expect(cfg).toMatch(/\/preview\/:path\*/);
@@ -552,7 +552,6 @@ describe("architecture guard: host validation is enforced by the application (un
       "src/app/preview/[storeId]/layout.tsx",
       "src/app/(auth)/layout.tsx",
       "src/app/api/health/route.ts",
-      "src/app/api/auth/[...nextauth]/route.ts",
     ]) {
       expect(read(f), f).toMatch(/assertPlatformHost\(\)|platformOnly\(/);
     }
@@ -692,8 +691,7 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     expect(acct.startsWith('"use server"')).toBe(true);
     for (const m of acct.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{\n([^\n]*)/g)) expect(m[2], m[1]).toMatch(/requireUser\(\)/);
     // account code never logs credentials or identities
-    const account = read("src/modules/auth/account.ts");
-    expect(account).not.toMatch(/console\.\w+\(/);
+    expect(acct).not.toMatch(/console\.\w+\(/);
     // public auth pages carrying credentials are never indexed
     for (const f of ["src/app/(auth)/login/page.tsx", "src/app/(auth)/register/page.tsx"]) expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
     // Mail goes out only through the provider-neutral SMTP transport (DM2-1, superseding the "no transport" part of D12-2):
@@ -746,13 +744,43 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     const actions = read("src/app/actions-auth.ts");
     expect(actions).not.toMatch(/forgotPassword|resetPassword|requestPasswordReset/);
     // the credentials are username + password, end to end
-    expect(read("src/auth.ts")).toMatch(/credentials: \{ username: \{\}, password: \{\} \}/);
+    expect(actions).toMatch(/"\/api\/auth\/login"[\s\S]*username: formData\.get\("username"\)/);
     expect(actions).toMatch(/username: formData\.get\("username"\)/);
     expect(read("src/components/AuthForm.tsx")).toMatch(/name="username"/);
     expect(read("src/components/AuthForm.tsx")).not.toMatch(/name="email"/);
     // the user record carries a unique username; e-mail is optional and never selected for callers
     expect(read("prisma/schema.prisma")).toMatch(/username\s+String\s+@unique/);
     expect(read("src/modules/auth/service.ts")).not.toMatch(/email/);
+  });
+});
+
+describe("architecture guard: authentication lives in the NestJS API (ADR 0001, N3)", () => {
+  it("the web app has no credential, token or session-signing code of its own", () => {
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    for (const dep of ["next-auth", "@auth/core", "@node-rs/argon2", "argon2", "bcrypt", "bcryptjs", "jose", "jsonwebtoken"]) expect(pkg.dependencies[dep], dep).toBeUndefined();
+    const offenders = prodFiles().filter((f) => /from\s+["'](next-auth|@auth\/|jose|jsonwebtoken|@node-rs\/argon2)/.test(read(f)) || /AUTH_SECRET/.test(read(f)));
+    expect(rel(offenders)).toEqual([]);
+    for (const p of ["src/app/api/auth", "src/modules/auth/password.ts", "src/modules/auth/callbacks.ts", "src/modules/auth/account.ts"]) expect(existsSyncSafe(p), p).toBe(false);
+  });
+  it("the session is read only through auth() (a request to the API) and set only from the API's own Set-Cookie", () => {
+    const a = read("src/auth.ts");
+    expect(a).toMatch(/callApi<[^>]*>\("GET", "\/api\/auth\/me"/);
+    expect(read("src/lib/session-bff.ts")).toMatch(/SESSION_COOKIE_NAMES as readonly string\[\]\)\.includes\(c\.name\)/); // nothing but the session cookie is ever applied
+    const setters = prodFiles().filter((f) => /cookies\(\)[\s\S]*\.set\(|jar\.set\(/.test(read(f)));
+    expect(rel(setters)).toEqual(["src/lib/session-bff.ts"]);
+  });
+  it("server-action files export only actions (helpers such as cookie application would otherwise become client-callable endpoints)", () => {
+    for (const f of ["src/app/actions-auth.ts", "src/app/dashboard/account/actions.ts"]) {
+      const exported = [...read(f).matchAll(/^export (?!async function)(?!interface)(?!type)(\w+)/gm)];
+      expect(exported.map((m) => m[0]), f).toEqual([]);
+      const names = [...read(f).matchAll(/^export async function (\w+)/gm)].map((m) => m[1]);
+      expect(names.every((n) => /Action$/.test(n!)), `${f}: ${names.join(",")}`).toBe(true);
+    }
+  });
+  it("every call to the API goes through api-client (fixed base URL and the platform Origin)", () => {
+    const direct = prodFiles().filter((f) => /INTERNAL_API_URL/.test(read(f)) && !["src/lib/api-client.ts", "src/lib/server-env.ts"].includes(rel([f])[0]!));
+    expect(rel(direct)).toEqual([]);
+    expect(read("src/lib/api-client.ts")).toMatch(/origin: platformOrigin\(\)/);
   });
 });
 

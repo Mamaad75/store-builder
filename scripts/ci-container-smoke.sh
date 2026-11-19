@@ -37,7 +37,7 @@ trap cleanup EXIT
 step() { echo "::group::$*"; }
 endstep() { echo "::endgroup::"; }
 
-step "build images (app, jobs, caddy)"
+step "build images (api, app, jobs, caddy)"
 "${DC[@]}" build
 endstep
 
@@ -69,11 +69,11 @@ for i in $(seq 1 90); do
   [ "${i}" -eq 90 ] && { echo "stack did not become ready" >&2; exit 1; }
   sleep 3
 done
-for svc in postgres app; do
+for svc in postgres api app; do
   st="$("${DC[@]}" ps -q "${svc}" | xargs docker inspect --format '{{.State.Health.Status}}')"
   [ "${st}" = "healthy" ] || { echo "${svc} is ${st}, expected healthy" >&2; exit 1; }
 done
-echo "postgres and app report healthy; migrate exit code: $("${DC[@]}" ps -a -q migrate | xargs docker inspect --format '{{.State.ExitCode}}')"
+echo "postgres, api and app report healthy; migrate exit code: $("${DC[@]}" ps -a -q migrate | xargs docker inspect --format '{{.State.ExitCode}}')"
 endstep
 
 step "browser smoke test through Caddy"

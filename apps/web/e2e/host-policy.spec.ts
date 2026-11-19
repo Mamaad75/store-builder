@@ -15,7 +15,7 @@ async function asHost(page: Page, host: string | null, path: string, headers: Re
 }
 const visibleText = async (r: APIResponse) => (await r.text()).replace(/<script[\s\S]*?<\/script>/g, "").replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-const PATHS = ["/", "/login", "/register", "/dashboard", "/api/health", "/api/auth/session", "/preview/abc", "/products/x", "/nonexistent"];
+const PATHS = ["/", "/login", "/register", "/dashboard", "/api/health", "/api/auth/me", "/preview/abc", "/products/x", "/nonexistent"];
 
 test.describe("production host policy: only the configured root domain and valid store subdomains are accepted", () => {
   test("the configured platform hosts (root domain and www) work", async ({ page }) => {

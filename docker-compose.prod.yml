@@ -3,6 +3,7 @@
 #
 #   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 #
+# Services: caddy (TLS edge) -> app (Next.js) -> api (NestJS) -> postgres; plus the one-shot migrate job and the scheduler.
 # Required variables are listed in .env.production.example; `${VAR:?...}` makes compose refuse to start without them.
 # Networks: `backend` has NO route to the outside (internal: true) and holds PostgreSQL; `edge` is the only network Caddy is on.
 name: storebuilder
@@ -12,8 +13,8 @@ x-app-env: &app-env
   APP_ROOT_DOMAIN: ${APP_ROOT_DOMAIN:?set APP_ROOT_DOMAIN}
   APP_PROTOCOL: ${APP_PROTOCOL:-https}
   DATABASE_URL: postgresql://${POSTGRES_USER:-storebuilder}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-storebuilder}
-  AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
-  AUTH_TRUST_HOST: "true"
+  # Authentication lives in the API (ADR 0001, N3); the web app only needs to reach it over the internal network.
+  INTERNAL_API_URL: http://api:4000
   RATE_LIMIT_BACKEND: postgres
   TRUST_PROXY_HEADERS: "true"
   TRUSTED_PROXY_HOPS: "1"
@@ -32,6 +33,16 @@ x-app-env: &app-env
   S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
   S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
   S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?set S3_PUBLIC_BASE_URL}
+
+# The NestJS API (ADR 0001, N3). AUTH_SECRET signs the session tokens and exists ONLY here. TRUST_PROXY_HOPS=1: the web app (or Caddy)
+# is the one hop that reports the client address.
+x-api-env: &api-env
+  NODE_ENV: production
+  APP_ROOT_DOMAIN: ${APP_ROOT_DOMAIN:?set APP_ROOT_DOMAIN}
+  APP_PROTOCOL: ${APP_PROTOCOL:-https}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-storebuilder}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-storebuilder}
+  AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+  TRUST_PROXY_HOPS: "1"
 
 x-hardening: &hardening
   restart: unless-stopped
@@ -73,6 +84,23 @@ services:
       postgres: { condition: service_healthy }
     networks: [backend]
 
+  api:
+    <<: *hardening
+    build: { context: ., target: api }
+    image: storebuilder-api:local
+    environment: *api-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    read_only: true
+    tmpfs:
+      - /tmp
+    # backend only: nothing outside the stack (Caddy included) can reach the API directly until its routes are published (N4+).
+    networks: [backend]
+    expose: ["4000"]
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
   app:
     <<: *hardening
     build: { context: ., target: runtime }
@@ -80,6 +108,7 @@ services:
     environment: *app-env
     depends_on:
       migrate: { condition: service_completed_successfully }
+      api: { condition: service_healthy }
     read_only: true
     tmpfs:
       - /tmp

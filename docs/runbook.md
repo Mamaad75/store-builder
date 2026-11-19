@@ -9,7 +9,7 @@ DC="docker compose -f docker-compose.prod.yml --env-file .env.production"
 ```
 
 ## Stack
-`caddy` (TLS edge, only published ports 80/443) → `app` (Next.js standalone, port 3000 on the edge network) → `postgres` (internal network only).
+`caddy` (TLS edge, only published ports 80/443) → `app` (Next.js standalone, port 3000 on the edge network) → `api` (NestJS, port 4000, internal network only: sign-in, sessions) → `postgres` (internal network only). `app` starts only when `api` is healthy.
 `migrate` is a one-shot job (`prisma migrate deploy` + idempotent theme seed) that must finish before `app` and `scheduler` start. `scheduler` runs
 the media cleanup every 30 min and the db cleanup every 15 min (the same scripts as `pnpm media:cleanup` / `pnpm db:cleanup`, started through `tsx`
 directly). Object storage is external (`S3_*`).
@@ -20,7 +20,7 @@ up within 5 s; it is public, and this keeps request volume from driving database
 1. `git fetch && git checkout <release commit>` (a commit whose CI run is green, including the container job).
 2. Take a backup first (below). `$DC build`.
 3. `$DC up -d`. Compose reruns `migrate` (a no-op when nothing is pending), then recreates `app`/`scheduler` whose image changed.
-4. Verify: `curl -fsS https://<root>/api/ready` → `{"status":"ready",…}`; `$DC ps` shows `app`, `postgres` healthy; `$DC logs --since 5m app scheduler | grep '"level":"error"'` is empty.
+4. Verify: `curl -fsS https://<root>/api/ready` → `{"status":"ready",…}`; `$DC ps` shows `api`, `app`, `postgres` healthy; `$DC logs --since 5m app scheduler | grep '"level":"error"'` is empty.
 
 Migrations are forward-only. A migration that cannot be undone by the application version before it must say so in its pull request; take the backup immediately before.
 
@@ -60,7 +60,7 @@ This covers items 1 and 2 of the phase 14 gate (D10-13) mechanically. **Still ph
 
 ## Secrets
 Live only in `.env.production` on the server (mode 600) and in the provider consoles. Never in git, CI, chat or the image (the build context excludes `.env*`; a CI step greps all container logs for the generated secrets).
-* **AUTH_SECRET** rotation signs everyone out (all JWTs become invalid): `openssl rand -base64 32`, edit `.env.production`, `$DC up -d app scheduler`.
+* **AUTH_SECRET** (read by the `api` service only) rotation signs everyone out (all session tokens become invalid): `openssl rand -base64 32`, edit `.env.production`, `$DC up -d api`.
 * **POSTGRES_PASSWORD**: `ALTER USER … PASSWORD …` in the container, then update `.env.production` and `$DC up -d`.
 * **S3 keys**: create the new key pair at the provider, update `.env.production`, `$DC up -d app scheduler`, check `/api/ready` (it lists the bucket with the new key), revoke the old key.
 * A suspected leak: rotate first, investigate second.

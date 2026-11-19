@@ -58,7 +58,17 @@ describe("docker-compose.prod.yml", () => {
     expect(c).not.toMatch(/(PASSWORD|SECRET|TOKEN)\s*:\s*["']?[A-Za-z0-9]{8,}["']?\s*$/m);
   });
   it("production runtime flags: production env, proxy trust for exactly one hop, shared rate limiter, fail-closed mail", () => {
-    for (const kv of ["NODE_ENV: production", 'TRUST_PROXY_HEADERS: "true"', 'TRUSTED_PROXY_HOPS: "1"', "RATE_LIMIT_BACKEND: postgres", 'AUTH_TRUST_HOST: "true"', "MAIL_TRANSPORT: ${MAIL_TRANSPORT:-none}"]) expect(c).toContain(kv);
+    for (const kv of ["NODE_ENV: production", 'TRUST_PROXY_HEADERS: "true"', 'TRUSTED_PROXY_HOPS: "1"', "RATE_LIMIT_BACKEND: postgres", "MAIL_TRANSPORT: ${MAIL_TRANSPORT:-none}"]) expect(c).toContain(kv);
+  });
+  it("N3: the API holds the session-signing secret alone, is reachable only on the backend network and is up before the app", () => {
+    const api = c.slice(c.indexOf("  api:"), c.indexOf("  app:"));
+    expect(api).toContain("environment: *api-env");
+    expect(api).toContain("networks: [backend]");
+    expect(api).toContain("read_only: true");
+    expect(api).not.toMatch(/^\s+ports:/m);
+    expect(c.slice(c.indexOf("x-api-env"), c.indexOf("x-hardening"))).toContain("AUTH_SECRET:");
+    expect(c.slice(c.indexOf("x-app-env"), c.indexOf("# The NestJS API"))).not.toContain("AUTH_SECRET");
+    expect(c.slice(c.indexOf("  app:"), c.indexOf("  scheduler:"))).toMatch(/api: \{ condition: service_healthy \}/);
   });
   it("the app container is hardened: read-only root, no capabilities, no privilege escalation, migrations finish first", () => {
     const app = c.slice(c.indexOf("  app:"), c.indexOf("  scheduler:"));
@@ -71,7 +81,7 @@ describe("docker-compose.prod.yml", () => {
   it("EVERY service, the one-shot migrate job included, inherits the shared hardening; migrate is never restarted", () => {
     const servicesPart = c.slice(c.indexOf("services:"), c.indexOf("\nnetworks:"));
     const names = [...servicesPart.matchAll(/^ {2}([a-z][a-z0-9_-]*):\s*$/gm)].map((m) => m[1]!);
-    expect(names).toEqual(expect.arrayContaining(["postgres", "migrate", "app", "scheduler", "caddy"]));
+    expect(names).toEqual(expect.arrayContaining(["postgres", "migrate", "api", "app", "scheduler", "caddy"]));
     for (const [i, name] of names.entries()) {
       const start = servicesPart.indexOf(`\n  ${name}:`);
       const end = i + 1 < names.length ? servicesPart.indexOf(`\n  ${names[i + 1]}:`) : servicesPart.length;
@@ -131,7 +141,7 @@ describe("start-up checks, headers and CI", () => {
   });
   it("the proxy wraps EVERY route outcome with the security headers", () => {
     const p = read("src/proxy.ts");
-    expect(p).toMatch(/export async function proxy[\s\S]*await route\(req, ev\)[\s\S]*securityHeaders\(process\.env\)/);
+    expect(p).toMatch(/export async function proxy[\s\S]*await route\(req\)[\s\S]*securityHeaders\(process\.env\)/);
     expect(p).not.toMatch(/export async function route/); // only the wrapper is exported
   });
   it("the public readiness endpoint is throttled: checkReadiness is the cached single-flight probe, and the route uses nothing else", () => {

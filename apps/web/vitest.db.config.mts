@@ -16,8 +16,6 @@ export default defineConfig({
       AUTH_SECRET: "test-only-secret-test-only-secret-0123456789",
       AUTH_TRUST_HOST: "true",
     },
-    // next-auth imports "next/server" without an extension; let Vite resolve it.
-    server: { deps: { inline: ["next-auth"] } },
     fileParallelism: false,
     testTimeout: 20000,
   },

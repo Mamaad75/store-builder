@@ -18,6 +18,7 @@
     "api:lint": "pnpm --filter @store-builder/api lint",
     "api:typecheck": "pnpm --filter @store-builder/api typecheck",
     "api:test": "pnpm --filter @store-builder/api test",
+    "api:test:db": "pnpm --filter @store-builder/api test:db",
     "db:generate": "pnpm --filter @store-builder/web db:generate",
     "db:migrate": "pnpm --filter @store-builder/web db:migrate",
     "db:deploy": "pnpm --filter @store-builder/web db:deploy",

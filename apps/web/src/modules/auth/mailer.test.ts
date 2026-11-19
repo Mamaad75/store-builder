@@ -4,7 +4,6 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { E2E_FILE_OUTBOX_OVERRIDE, MailConfigError, MailerNotConfiguredError, MemoryMailer, assertMailTransportAllowed, createMailer, enforceMailTransportAtStartup } from "./mailer";
-import { changePasswordSchema } from "./schemas";
 
 const msg = { to: "a@example.com", subject: "s", text: "t" };
 
@@ -134,12 +133,5 @@ describe("production mail guard (decision D12-8)", () => {
       expect(text).not.toContain("reset-password");
     }
     for (const s of spies) s.mockRestore();
-  });
-});
-
-describe("account input schemas", () => {
-  it("change: new password differs from the current one", () => {
-    expect(changePasswordSchema.safeParse({ currentPassword: "abcdefgh", newPassword: "abcdefgh" }).success).toBe(false);
-    expect(changePasswordSchema.safeParse({ currentPassword: "abcdefgh", newPassword: "abcdefgi" }).success).toBe(true);
   });
 });

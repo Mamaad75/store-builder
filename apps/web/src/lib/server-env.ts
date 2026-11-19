@@ -12,7 +12,6 @@ type Env = Record<string, string | undefined>;
 
 const isNonProduction = (env: Env) => env.NODE_ENV === "development" || env.NODE_ENV === "test";
 const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\d{1,5})?$/i;
-const PLACEHOLDER_SECRET = /change[-_ ]?me|example|placeholder|your[-_ ]?secret|secret123|password/i;
 
 export function isLoopbackHttpRoot(env: Env): boolean {
   const host = (env.APP_ROOT_DOMAIN ?? "").trim().toLowerCase().replace(/:\d+$/, "");
@@ -26,10 +25,10 @@ export function validateServerEnv(env: Env = process.env): { ok: boolean; proble
 
   if (!/^postgres(ql)?:\/\/.+/.test(env.DATABASE_URL ?? "")) need("DATABASE_URL", "required, a postgresql:// URL");
 
-  const secret = env.AUTH_SECRET ?? "";
-  if (secret.length < 32) need("AUTH_SECRET", "required, at least 32 characters (openssl rand -base64 32)");
-  else if (PLACEHOLDER_SECRET.test(secret)) need("AUTH_SECRET", "looks like a placeholder; generate a real secret");
-  if (env.AUTH_TRUST_HOST !== "true") need("AUTH_TRUST_HOST", 'must be "true" behind the reverse proxy');
+  // Authentication lives in the NestJS API (ADR 0001, N3): the session-signing secret belongs to the API process, this one only needs to reach it.
+  const api = (env.INTERNAL_API_URL ?? "").trim();
+  if (!api) need("INTERNAL_API_URL", "required in production (internal URL of the API, e.g. http://api:4000)");
+  else if (!/^https?:\/\/[^\s/]+(:\d+)?\/?$/.test(api)) need("INTERNAL_API_URL", "must be an http(s) origin without a path");
 
   const root = (env.APP_ROOT_DOMAIN ?? "").trim();
   if (!root) need("APP_ROOT_DOMAIN", "required in production (no default)");

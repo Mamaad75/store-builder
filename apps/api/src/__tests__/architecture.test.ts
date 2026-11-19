@@ -19,8 +19,8 @@ describe("architecture guards", () => {
   it("console is used only by the logger", () => {
     expect(src.filter((f) => /\bconsole\./.test(f.text) && f.p !== "logging/json-logger.ts").map((f) => f.p)).toEqual([]);
   });
-  it("only database/database.ts touches the Prisma client", () => {
-    expect(src.filter((f) => /@prisma\/client/.test(f.text) && f.p !== "database/database.ts").map((f) => f.p)).toEqual([]);
+  it("only files under database/ touch the Prisma client", () => {
+    expect(src.filter((f) => /@prisma\/client/.test(f.text) && !f.p.startsWith("database/")).map((f) => f.p)).toEqual([]);
   });
   it("relative imports carry the .js suffix (native ESM)", () => {
     const bad = src.flatMap((f) => [...f.text.matchAll(/from "(\.[^"]+)"/g)].filter((m) => !m[1]!.endsWith(".js")).map((m) => `${f.p}: ${m[1]}`));

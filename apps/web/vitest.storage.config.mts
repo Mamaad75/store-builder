@@ -19,7 +19,6 @@ export default defineConfig({
       AUTH_TRUST_HOST: "true",
       ...getTestStorageEnv("test"),
     },
-    server: { deps: { inline: ["next-auth"] } },
     fileParallelism: false,
     testTimeout: 30000,
   },

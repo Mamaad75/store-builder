@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
 import { testConfig } from "./helpers.js";
 
-// Needs a reachable PostgreSQL (DATABASE_URL). CI always provides one; locally the suite is skipped when it is not set.
-const url = process.env.DATABASE_URL;
-describe.skipIf(!url && !process.env.CI)("readiness against a real PostgreSQL", () => {
+// Runs against the isolated test database (vitest.db.config.ts); needs a reachable PostgreSQL.
+const url = process.env.DATABASE_URL!;
+describe("readiness against a real PostgreSQL", () => {
   it("is ready with a good URL and 503 with an unreachable database, without leaking the URL", async () => {
     const good = await createApp({ ...testConfig, databaseUrl: url! });
     await good.listen(0, "127.0.0.1");

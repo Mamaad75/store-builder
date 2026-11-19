@@ -2,6 +2,7 @@ import {
   GENERIC_LOGIN_ERROR, PASSWORD, RATE_LIMIT_TEXT, createUser, db, expect, formAlert, login,
   loginAndWaitForDashboard, register, test, uniqueUsername,
 } from "./helpers";
+import { E2E_API_URL } from "../playwright.config";
 
 test.afterAll(() => db.$disconnect());
 
@@ -15,7 +16,7 @@ test.describe("unauthorized dashboard access", () => {
   });
 
   test("a forged or garbage session cookie does not grant access", async ({ page, context, baseURL }) => {
-    await context.addCookies([{ name: "authjs.session-token", value: "forged.jwt.value", url: baseURL! }]);
+    await context.addCookies([{ name: "sb_session", value: "forged.jwt.value", url: baseURL! }]);
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
   });
@@ -85,11 +86,12 @@ test.describe("login and logout", () => {
     await loginAndWaitForDashboard(page, username);
     await expect(page.getByText("علی", { exact: true })).toBeVisible(); // user name in the app bar
 
-    const cookie = (await context.cookies()).find((c) => c.name === "authjs.session-token");
+    const cookie = (await context.cookies()).find((c) => c.name === "sb_session");
     expect(cookie).toBeTruthy();
     expect(cookie).toMatchObject({ httpOnly: true, sameSite: "Lax" });
 
-    const body = await (await page.request.get("/api/auth/session")).text();
+    // the API's own session endpoint (the browser app never exposes one): safe fields only
+    const body = await (await page.request.get(`${E2E_API_URL}/api/auth/me`, { headers: { cookie: `sb_session=${cookie!.value}` } })).text();
     expect(body).not.toMatch(/argon2|passwordHash|authVersion/);
     expect(JSON.parse(body).user.name).toBe("علی");
   });
@@ -135,7 +137,7 @@ test.describe("login and logout", () => {
 });
 
 test.describe("session invalidation (authVersion)", () => {
-  test("bumping authVersion revokes the existing session and clears the cookie; re-login works", async ({ page, context }) => {
+  test("bumping authVersion revokes the existing session; re-login works", async ({ page, context }) => {
     const username = await createUser(page);
     await loginAndWaitForDashboard(page, username);
 
@@ -143,7 +145,9 @@ test.describe("session invalidation (authVersion)", () => {
 
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
-    expect((await context.cookies()).find((c) => c.name === "authjs.session-token")).toBeUndefined();
+    // the stale cookie stays in the browser (a page render cannot clear it) but the API rejects it every time
+    const stale = (await context.cookies()).find((c) => c.name === "sb_session");
+    expect((await page.request.get(`${E2E_API_URL}/api/auth/me`, { headers: { cookie: `sb_session=${stale!.value}` } })).status()).toBe(401);
 
     await loginAndWaitForDashboard(page, username);
     await expect(page.getByText("علی", { exact: true })).toBeVisible(); // user name in the app bar
@@ -157,10 +161,13 @@ test.describe("session invalidation (authVersion)", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("a revoked session is also rejected by the session endpoint", async ({ page }) => {
+  test("a revoked session is also rejected by the API's session endpoint", async ({ page, context }) => {
     const username = await createUser(page);
     await loginAndWaitForDashboard(page, username);
+    const cookie = (await context.cookies()).find((c) => c.name === "sb_session")!;
+    const me = () => page.request.get(`${E2E_API_URL}/api/auth/me`, { headers: { cookie: `sb_session=${cookie.value}` }, failOnStatusCode: false });
+    expect((await me()).status()).toBe(200);
     await db.user.update({ where: { username }, data: { authVersion: { increment: 1 } } });
-    expect(await (await page.request.get("/api/auth/session")).json()).toBeNull();
+    expect((await me()).status()).toBe(401);
   });
 });

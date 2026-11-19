@@ -81,6 +81,8 @@ jobs:
       - run: pnpm api:typecheck
       - run: pnpm api:build
       - run: pnpm api:test
+      - name: API database tests (isolated storebuilder_api_test, real PostgreSQL)
+        run: pnpm api:test:db
   database:
     name: Database tests (PostgreSQL 16)
     runs-on: ubuntu-24.04

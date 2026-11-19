@@ -1,14 +1,12 @@
-import type { Type } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
-import { AppModule } from "./app.module.js";
+import { AppModule, type AppOverrides } from "./app.module.js";
 import type { ApiConfig } from "./config/env.js";
-import type { Database } from "./database/database.js";
 import { AllExceptionsFilter } from "./http/all-exceptions.filter.js";
 import { JsonLogger } from "./logging/json-logger.js";
 
-export async function createApp(config: ApiConfig, overrides: { database?: Database; logger?: JsonLogger; extraControllers?: Type<unknown>[] } = {}): Promise<NestExpressApplication> {
+export async function createApp(config: ApiConfig, overrides: AppOverrides = {}): Promise<NestExpressApplication> {
   const logger = overrides.logger ?? new JsonLogger();
   const app = await NestFactory.create<NestExpressApplication>(AppModule.register(config, { ...overrides, logger }), { logger, bodyParser: false });
   app.setGlobalPrefix("api");
@@ -25,6 +23,11 @@ export async function createApp(config: ApiConfig, overrides: { database?: Datab
       referrerPolicy: { policy: "no-referrer" },
     }),
   );
+  // Session material must never be cached by anything between the API and the browser.
+  app.use("/api/auth", (_req: unknown, res: { setHeader(n: string, v: string): void }, next: () => void) => {
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  });
   app.useGlobalFilters(app.get(AllExceptionsFilter));
   app.enableShutdownHooks();
   return app;

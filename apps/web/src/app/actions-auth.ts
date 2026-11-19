@@ -1,12 +1,11 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AuthError, CredentialsSignin } from "next-auth";
-import { signIn, signOut } from "@/auth";
+import { ApiUnavailableError, callApi } from "@/lib/api-client";
+import { applyApiCookies, sessionCookieHeader, UNAVAILABLE_ERROR } from "@/lib/session-bff";
+import { SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
 import { getClientIp } from "@/modules/auth/rate-limit";
-import { registerUser } from "@/modules/auth/service";
-import { loginSchema } from "@/modules/auth/schemas";
 
 export interface FormState {
   error?: string;
@@ -16,18 +15,25 @@ export interface FormState {
 const GENERIC_LOGIN_ERROR = "نام کاربری یا رمز عبور نادرست است.";
 const RATE_LIMIT_ERROR = "تعداد تلاش‌ها بیش از حد مجاز است. لطفاً چند دقیقه بعد دوباره تلاش کنید.";
 
+type Problem = { code?: string; fieldErrors?: Record<string, string[]> };
+
 export async function registerAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const ip = getClientIp(await headers());
-  const result = await registerUser(
-    { name: formData.get("name"), username: formData.get("username"), password: formData.get("password") },
-    { ip },
-  );
-  if (!result.ok) {
-    if (result.error === "rate_limited") return { error: RATE_LIMIT_ERROR };
-    if (result.error === "username_taken") return { error: "این نام کاربری قبلاً گرفته شده است. نام دیگری انتخاب کنید.", fieldErrors: result.fieldErrors };
-    return { error: "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: result.fieldErrors };
+  let r;
+  try {
+    r = await callApi<Problem>("POST", "/api/auth/register", {
+      ip,
+      body: { name: formData.get("name"), username: formData.get("username"), password: formData.get("password") },
+    });
+  } catch (e) {
+    if (e instanceof ApiUnavailableError) return { error: UNAVAILABLE_ERROR };
+    throw e;
   }
-  redirect("/login?registered=1");
+  if (r.status === 201) redirect("/login?registered=1");
+  if (r.status === 429) return { error: RATE_LIMIT_ERROR };
+  if (r.status === 409) return { error: "این نام کاربری قبلاً گرفته شده است. نام دیگری انتخاب کنید.", fieldErrors: r.body?.fieldErrors };
+  if (r.status === 400) return { error: "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: r.body?.fieldErrors };
+  return { error: UNAVAILABLE_ERROR };
 }
 
 /** Only same-site relative paths are allowed as post-login destinations. */
@@ -36,24 +42,31 @@ function safeCallbackUrl(value: FormDataEntryValue | null): string {
 }
 
 export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const parsed = loginSchema.safeParse({ username: formData.get("username"), password: formData.get("password") });
-  if (!parsed.success) return { error: GENERIC_LOGIN_ERROR };
+  const ip = getClientIp(await headers());
+  let r;
   try {
-    await signIn("credentials", {
-      username: parsed.data.username,
-      password: parsed.data.password,
-      redirectTo: safeCallbackUrl(formData.get("callbackUrl")),
-    });
+    r = await callApi<Problem>("POST", "/api/auth/login", { ip, body: { username: formData.get("username"), password: formData.get("password") } });
   } catch (e) {
-    if (e instanceof AuthError) {
-      const limited = e instanceof CredentialsSignin && e.code === "rate_limited";
-      return { error: limited ? RATE_LIMIT_ERROR : GENERIC_LOGIN_ERROR };
-    }
-    throw e; // redirects and unexpected errors
+    if (e instanceof ApiUnavailableError) return { error: UNAVAILABLE_ERROR };
+    throw e;
   }
-  return {};
+  if (r.status === 429) return { error: RATE_LIMIT_ERROR };
+  if (r.status === 401 || r.status === 400) return { error: GENERIC_LOGIN_ERROR };
+  if (r.status !== 200) return { error: UNAVAILABLE_ERROR };
+  await applyApiCookies(r.setCookies);
+  redirect(safeCallbackUrl(formData.get("callbackUrl")));
 }
 
 export async function logoutAction() {
-  await signOut({ redirectTo: "/login" });
+  const cookie = await sessionCookieHeader();
+  try {
+    const r = await callApi("POST", "/api/auth/logout", { cookie });
+    await applyApiCookies(r.setCookies);
+  } catch (e) {
+    if (!(e instanceof ApiUnavailableError)) throw e;
+  }
+  // whatever the API said, this browser forgets the session
+  const jar = await cookies();
+  for (const name of SESSION_COOKIE_NAMES) jar.delete({ name, path: "/" });
+  redirect("/login");
 }

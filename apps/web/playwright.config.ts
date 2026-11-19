@@ -4,6 +4,9 @@ import { defineConfig, devices } from "@playwright/test";
 import { getTestStorageEnv } from "./src/test/storage-env";
 
 const PORT = 3100;
+export const API_PORT = 4100;
+/** The NestJS API of the E2E stack (ADR 0001, N3). Production build, own process, same isolated database. */
+export const E2E_API_URL = `http://127.0.0.1:${API_PORT}`;
 export const E2E_DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? "postgresql://storebuilder:storebuilder@localhost:5432/storebuilder_e2e";
 
@@ -30,7 +33,26 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}) },
     },
   ],
-  webServer: {
+  webServer: [
+    {
+      // The API first: the web app asks it who is signed in. Production build against the isolated database.
+      command: "pnpm --filter @store-builder/api build && pnpm --filter @store-builder/api start",
+      url: `${E2E_API_URL}/api/health`,
+      timeout: 120_000,
+      reuseExistingServer: false,
+      env: {
+        NODE_ENV: "production",
+        DATABASE_URL: E2E_DATABASE_URL,
+        AUTH_SECRET: "e2e-only-secret-e2e-only-secret-0123456789",
+        APP_ROOT_DOMAIN: `localhost:${PORT}`,
+        APP_PROTOCOL: "http",
+        // The tests act as the trusted proxy: they set X-Forwarded-For per test to get isolated buckets (one hop).
+        TRUST_PROXY_HOPS: "1",
+        API_HOST: "127.0.0.1",
+        API_PORT: String(API_PORT),
+      },
+    },
+    {
     // Production build against an isolated database; never touches the dev database.
     // The standalone bundle is what the container runs (scripts/run-standalone.sh copies it out of the repository first).
     command: `pnpm build && bash scripts/run-standalone.sh ${PORT}`,
@@ -39,8 +61,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       DATABASE_URL: E2E_DATABASE_URL,
-      AUTH_SECRET: "e2e-only-secret-e2e-only-secret-0123456789",
-      AUTH_TRUST_HOST: "true",
+      INTERNAL_API_URL: E2E_API_URL,
       RATE_LIMIT_BACKEND: "postgres",
       // Store hosts are <label>.localhost:3100 (Chromium resolves *.localhost to loopback; other clients set the Host header).
       APP_ROOT_DOMAIN: `localhost:${PORT}`,
@@ -56,4 +77,5 @@ export default defineConfig({
       TRUSTED_PROXY_HOPS: "1",
     },
   },
+  ],
 });

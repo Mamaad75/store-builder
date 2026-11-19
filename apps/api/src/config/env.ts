@@ -22,6 +22,12 @@ export interface ApiConfig {
   allowedOrigins: readonly string[];
   /** Maximum JSON body size in bytes. */
   bodyLimitBytes: number;
+  /** HMAC secret that signs the session JWT (AUTH_SECRET). Never logged. */
+  authSecret: string;
+  /** Session cookie lifetime in seconds. */
+  sessionMaxAgeSeconds: number;
+  /** True when the platform is served over https: the cookie is then `Secure` and uses the `__Host-` prefix. */
+  secureCookies: boolean;
 }
 
 export class EnvError extends Error {
@@ -35,7 +41,12 @@ export class EnvError extends Error {
 
 const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\d{1,5})?$/i;
 
+const PLACEHOLDER_SECRET = /change[-_ ]?me|example|placeholder|your[-_ ]?secret|secret123|password/i;
+const DEV_SECRET = "development-only-secret-not-for-production-0000";
+export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+
 const schema = z.object({
+  AUTH_SECRET: z.string().min(32, "at least 32 characters (openssl rand -base64 32)"),
   API_HOST: z.string().min(1).default("0.0.0.0"),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\/.+/, "a postgresql:// URL"),
@@ -53,6 +64,7 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
   const nodeEnv = env.NODE_ENV ?? "";
   const dev = isNonProduction(nodeEnv);
   const parsed = schema.safeParse({
+    AUTH_SECRET: blank(env.AUTH_SECRET) ?? (dev ? DEV_SECRET : undefined),
     API_HOST: blank(env.API_HOST),
     API_PORT: blank(env.API_PORT),
     DATABASE_URL: blank(env.DATABASE_URL),
@@ -71,6 +83,7 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     if (d.APP_PROTOCOL !== "https" && !(d.APP_PROTOCOL === "http" && isLoopbackRoot(d.APP_ROOT_DOMAIN))) {
       problems.push('APP_PROTOCOL: must be "https" in production');
     }
+    if (PLACEHOLDER_SECRET.test(d.AUTH_SECRET)) problems.push("AUTH_SECRET: looks like a placeholder; generate a real secret");
     if (d.TRUST_PROXY_HOPS < 1) problems.push("TRUST_PROXY_HOPS: must be at least 1 behind the reverse proxy");
   }
   if (problems.length > 0 || !d) throw new EnvError(problems);
@@ -90,5 +103,8 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     trustProxyHops: d.TRUST_PROXY_HOPS,
     allowedOrigins: [...origins],
     bodyLimitBytes: d.API_BODY_LIMIT_BYTES,
+    authSecret: d.AUTH_SECRET,
+    sessionMaxAgeSeconds: SESSION_MAX_AGE_SECONDS,
+    secureCookies: d.APP_PROTOCOL === "https",
   };
 }

@@ -155,7 +155,7 @@ test.describe("publishing and host routing", () => {
 
     await publish(page, storeId);
     const host = `${l}.localhost:${PORT}`;
-    for (const p of ["/dashboard", "/dashboard/stores/" + storeId, "/login", "/register", "/api/health", "/api/auth/session", `/preview/${storeId}`, "/store-host/other/x", "/nonexistent"]) {
+    for (const p of ["/dashboard", "/dashboard/stores/" + storeId, "/login", "/register", "/api/health", "/api/auth/me", `/preview/${storeId}`, "/store-host/other/x", "/nonexistent"]) {
       const r = await asHost(page, host, p);
       expect(r.status(), p).toBe(404);
       expect(r.headers()["location"], p).toBeUndefined();
@@ -200,7 +200,7 @@ test.describe("publishing and host routing", () => {
     // the signed-in browser visits the store host: it is just a public visitor there (host-only cookie)
     await page.goto(storeUrl(l, "/dashboard"));
     expect((await page.goto(storeUrl(l, "/dashboard")))!.status()).toBe(404);
-    expect((await page.goto(storeUrl(l, "/api/auth/session")))!.status()).toBe(404);
+    expect((await page.goto(storeUrl(l, "/api/auth/me")))!.status()).toBe(404);
     await page.goto(`/dashboard`);
     await expect(page).toHaveURL(/\/dashboard/);
     expect(username).toMatch(/^user_/);

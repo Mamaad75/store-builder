@@ -13,6 +13,9 @@ export const testConfig: ApiConfig = {
   trustProxyHops: 0,
   allowedOrigins: ["http://localhost:3000"],
   bodyLimitBytes: 1024 * 64,
+  authSecret: "test-secret-test-secret-test-secret-1234",
+  sessionMaxAgeSeconds: 7 * 24 * 60 * 60,
+  secureCookies: false,
 };
 
 export function fakeDb(ok = true): Database & { pings: number } {
