@@ -46,10 +46,11 @@ APP_IMG="$("${DC[@]}" images -q app | head -1)"
 [ "$(docker inspect --format '{{.Config.User}}' storebuilder-app:local)" = "node" ] || { echo "app image must run as the node user" >&2; exit 1; }
 docker run --rm --entrypoint sh storebuilder-app:local -c '
   set -e
-  test -f server.js                       # WORKDIR /app/apps/web (pnpm workspace, ADR 0001 N1)
+  test -f server.js                       # WORKDIR /app/apps/web (pnpm workspace, ADR 0001)
   ! test -e src && ! test -e scripts && ! test -e .env && ! test -e prisma/migrations
   ! test -e node_modules/typescript && ! test -e node_modules/.bin/tsx
   ! test -e /app/node_modules/typescript && ! test -e /app/node_modules/.bin/tsx && ! test -e /app/node_modules/.pnpm/typescript@*
+  test -z "$(find / -xdev \( -name 'libquery_engine*' -o -name '*.prisma' -o -name 'schema.prisma' \) 2>/dev/null | head -1)"   # no Prisma client or schema: the web app has no database
   test "$(id -u)" != 0
 ' || { echo "app image contains files it must not ship or runs as root" >&2; exit 1; }
 echo "app image: non-root, standalone only (${APP_IMG})"
@@ -59,7 +60,7 @@ step "start object storage and create the isolated bucket"
 "${DC[@]}" up -d minio
 for i in $(seq 1 45); do curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null 2>&1 && break; sleep 2; done
 TEST_S3_ENDPOINT=http://127.0.0.1:9000 TEST_S3_ACCESS_KEY_ID="${S3_KEY}" TEST_S3_SECRET_ACCESS_KEY="${S3_SECRET}" TEST_S3_BUCKET="${BUCKET}" \
-  pnpm --filter @store-builder/web exec tsx scripts/ci-ensure-bucket.ts
+  pnpm --filter @store-builder/api exec tsx scripts/ci-ensure-bucket.ts
 endstep
 
 step "start the production stack"
@@ -77,7 +78,7 @@ echo "postgres, api and app report healthy; migrate exit code: $("${DC[@]}" ps -
 endstep
 
 step "browser smoke test through Caddy"
-SMOKE_PORT="${PORT}" pnpm --filter @store-builder/web exec playwright test -c playwright.smoke.config.ts
+SMOKE_PORT="${PORT}" pnpm --filter @store-builder/e2e exec playwright test -c playwright.smoke.config.ts
 endstep
 
 step "jobs and scheduler"

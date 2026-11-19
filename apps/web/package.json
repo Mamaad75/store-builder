@@ -37,6 +37,7 @@
     "@types/stylis": "^4.2.7",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.5",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.1.0"
   }

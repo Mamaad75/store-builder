@@ -81,8 +81,6 @@ describe("architecture guard: catalog writes go through withStoreMutation", () =
 });
 
 describe("architecture guard: storefront rendering is independent of the dashboard and of data access", () => {
-  const FORBIDDEN_IN_TEMPLATES = /from\s+["'](@mui\/[^"']*|@emotion\/[^"']*|next\/[^"']*|next|@prisma\/client|@\/lib\/db|@\/auth|@\/theme\/[^"']*|@\/components\/[^"']*|@\/app\/[^"']*|@\/modules\/[^"']*)["']/;
-  const templateFiles = () => files("src/templates");
 
 
 
@@ -145,7 +143,7 @@ describe("architecture guard: media and object storage", () => {
 
 
   it("the storage URL is built in one place and no hardcoded host is persisted", () => {
-    expect(inFiles(/getPublicBaseUrl\(\)/)).toEqual(["src/lib/storage/index.ts"]);
+    expect(inFiles(/publicBaseUrl\}\/\$\{key\}/)).toEqual(["src/lib/storage/index.ts"]);
     expect(read("prisma/schema.prisma")).not.toMatch(/https?:\/\//);
     expect(read("src/modules/media/repository.ts")).not.toMatch(/https?:\/\//);
   });
@@ -374,11 +372,6 @@ describe("architecture guard: the public (store host) path never reads draft dat
   });
 });
 
-describe("architecture guard: host validation is enforced by the application (unknown hosts are never the platform)", () => {
-
-
-
-});
 
 describe("architecture guard: draft writers are bounded by the draft lock timeout", () => {
   const mutation = () => read("src/modules/stores/mutation.ts");
@@ -444,14 +437,6 @@ describe("architecture guard: media release after a committed change never fails
   });
 });
 
-describe("architecture guard: SEO (phase 11) reads only published data and never trusts request headers for identity", () => {
-  const seoFiles = () => files("src/modules/seo");
-
-
-
-
-
-});
 
 describe("architecture guard: authentication lives in the NestJS API (ADR 0001, N3)", () => {
   it("server-action files export only actions (helpers such as cookie application would otherwise become client-callable endpoints)", () => {
@@ -466,14 +451,6 @@ describe("architecture guard: authentication lives in the NestJS API (ADR 0001, 
 
 
 
-function existsSyncSafe(p: string): boolean {
-  try {
-    statSync(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 describe("architecture guard: published snapshot shape (SEO, phase 11)", () => {
   it("the new snapshot field stays optional without a default (no content-hash change for stores that never set it)", () => {

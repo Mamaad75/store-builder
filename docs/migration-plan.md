@@ -8,10 +8,18 @@
 * `apps/web` (Next.js): **UI only**: pages render data fetched from the API (`src/gateway/*`), Server Actions are thin relays (form → API call → redirect), no `@prisma/client`, no `src/modules`, no `DATABASE_URL`.
 
 ## Steps and status
-1. [x] `packages/shared` created; template definitions, helpers and SEO builders moved (imports rewritten).
-2. [ ] API infrastructure for the domain (db singleton, storage, logging, rate limiter, test helpers, shared errors).
-3. [ ] Domain modules moved into `apps/api/src/modules/*` with their DB tests.
-4. [ ] Controllers + error mapping per module (stores/categories/products, then pages/media, then publishing/storefront/public read).
-5. [ ] Web gateway; pages, layouts, actions, preview and store-host routes switched to it; modules and Prisma removed from web.
-6. [ ] Jobs moved to the API; compose, Dockerfile, Caddy, CI, runbook.
-7. [ ] Architecture guards rewritten for the new layout; full test suites and E2E green.
+1. [x] `packages/shared` created; template definitions, helpers, SEO builders and errors moved.
+2. [x] API infrastructure for the domain (db handle, storage, logging, rate limiter, test helpers, shared error registry and DTO types with a compile-time conformance check).
+3. [x] Domain modules moved into `apps/api/src/modules/*` with their DB tests (475 DB tests pass unchanged apart from import paths).
+4. [x] REST controllers per area, error transport, raw-bytes uploads, public read endpoints; HTTP tests on real PostgreSQL.
+5. [x] Web gateway (`apps/web/src/gateway`); pages, layouts, actions, preview and store-host routes switched; `src/modules/*`, Prisma, storage and the DB removed from web.
+6. [x] Jobs (scheduler, cleanups, alerts) and the Prisma schema/migrations/seed moved to the API; compose, Dockerfile, CI, smoke script; E2E moved to `apps/e2e`.
+7. [x] Architecture guards split between API, web and shared; docs.
+
+## Decisions taken while doing it (flag any you disagree with)
+* NestJS stays (it is Express underneath), as the owner answered.
+* Server Actions remain as **thin relays** (form -> API call -> redirect/revalidate). They hold no logic and no database access, but they still run on the Next.js server.
+  Moving the forms to call the API straight from the browser is a separate, later UI change (it needs the `/api/*` route in Caddy and client-side forms).
+* Web <-> API payloads are JSON: dates are ISO strings (DTOs in `packages/shared/src/dto`).
+* The `/api/*` Caddy route is still not published: only the web server reaches the API (internal network).
+* Dormant code left in web on purpose: the SMTP mailer (unused since U1, still tested by `pnpm test:mail`).

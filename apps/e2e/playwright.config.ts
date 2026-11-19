@@ -52,6 +52,9 @@ export default defineConfig({
         TRUST_PROXY_HOPS: "1",
         API_HOST: "127.0.0.1",
         API_PORT: String(API_PORT),
+        RATE_LIMIT_BACKEND: "postgres",
+        // Isolated "-e2e" bucket on a local S3-compatible server (MinIO in CI); never production storage (see src/storage-env.ts).
+        ...getTestStorageEnv("e2e"),
       },
     },
     {
@@ -63,14 +66,12 @@ export default defineConfig({
     timeout: 240_000,
     reuseExistingServer: false,
     env: {
-      DATABASE_URL: E2E_DATABASE_URL,
       INTERNAL_API_URL: E2E_API_URL,
-      RATE_LIMIT_BACKEND: "postgres",
       // Store hosts are <label>.localhost:3100 (Chromium resolves *.localhost to loopback; other clients set the Host header).
       APP_ROOT_DOMAIN: `localhost:${PORT}`,
       APP_PROTOCOL: "http",
-      // Isolated "-e2e" bucket on a local S3-compatible server (MinIO in CI); never production storage (see src/test/storage-env.ts).
-      ...getTestStorageEnv("e2e"),
+      // The web app only builds public image URLs: the credentials belong to the API (above).
+      S3_PUBLIC_BASE_URL: getTestStorageEnv("e2e").S3_PUBLIC_BASE_URL,
       // The tests act as the trusted proxy: they set X-Forwarded-For per test to get isolated buckets.
       MAIL_TRANSPORT: "file",
       MAIL_OUTBOX_DIR: E2E_MAIL_DIR,

@@ -16,7 +16,7 @@ afterAll(() => prisma.$disconnect());
 
 const photo = () => sharp({ create: { width: 300, height: 200, channels: 3, background: { r: 200, g: 100, b: 20 } } }).jpeg().toBuffer();
 const quiet = () => undefined;
-const deps = () => ({ storage: new S3MediaStorage(getStorageConfig()), limiter: new MemoryRateLimiter(), log: quiet });
+const deps = () => ({ storage: new S3MediaStorage(getStorageConfig(process.env)), limiter: new MemoryRateLimiter(), log: quiet });
 
 describe("media pipeline against a real S3-compatible server", () => {
   it("upload -> public URL serves the re-encoded WebP with the recorded metadata -> detach deletes it from the bucket", async () => {
@@ -44,7 +44,7 @@ describe("media pipeline against a real S3-compatible server", () => {
 
   it("a real transport failure during upload surfaces as MediaStorageError; the reservation is kept (the object's fate is unknown) and cleanup recovers it", async () => {
     const { a, a1 } = await twoTenants();
-    const broken = { ...deps(), storage: new S3MediaStorage({ ...getStorageConfig(), endpoint: "http://127.0.0.1:1" }) };
+    const broken = { ...deps(), storage: new S3MediaStorage({ ...getStorageConfig(process.env), endpoint: "http://127.0.0.1:1" }) };
     await expect(uploadMedia(a.id, a1, await photo(), broken)).rejects.toBeInstanceOf(MediaStorageError);
     // storage is unreachable, so neither the object nor its absence can be confirmed: the PENDING row is the recovery handle
     const rows = await prisma.media.findMany({ where: { storeId: a1 } });

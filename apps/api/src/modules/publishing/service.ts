@@ -1,3 +1,4 @@
+import { log } from "../../lib/log.js";
 import { z } from "zod";
 import { StorefrontBuildError, buildStorefrontData } from "../storefront/build.js";
 import { DraftStorefrontRepository } from "../storefront/repository.js";
@@ -139,7 +140,7 @@ export async function publishStore(ownerId: string, storeId: unknown, input: unk
     );
     const result: PublishResult = { ...value, lockHeldMs: heldMs, budgetExceeded: heldMs > limits.lockBudgetMs };
     // One structured line per publish (storage / WAL monitoring input; see docs/publishing.md).
-    console.info(JSON.stringify({ event: "publish", storeId: sid, version: result.number, snapshotBytes: result.snapshotBytes, buildMs: Math.round(result.buildMs), lockHeldMs: Math.round(result.lockHeldMs), budgetExceeded: result.budgetExceeded }));
+    log.info("publish", { storeId: sid, version: result.number, snapshotBytes: result.snapshotBytes, buildMs: Math.round(result.buildMs), lockHeldMs: Math.round(result.lockHeldMs), budgetExceeded: result.budgetExceeded  });
     return result;
   } catch (e) {
     throw mapFailure(e);

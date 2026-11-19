@@ -1,4 +1,7 @@
+import { bootstrapJob } from "./bootstrap.js";
 import { db } from "../src/lib/db.js";
+
+bootstrapJob({ storage: false });
 
 /**
  * Read-only publishing statistics for capacity and WAL planning (docs/publishing.md). Prints counts and sizes only: no

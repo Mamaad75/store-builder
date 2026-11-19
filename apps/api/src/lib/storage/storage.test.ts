@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { MemoryMediaStorage } from "../../test/memory-storage.js";
 import { getStorageConfig, getPublicBaseUrl, StorageConfigError } from "./config.js";
-import { mediaPublicUrl, setMediaStorageForTests, getMediaStorage } from "./index.js";
+import { configureStorage, mediaPublicUrl, setMediaStorageForTests, getMediaStorage } from "./index.js";
 import { isValidMediaKey, newMediaKey, storeIdOfKey } from "@store-builder/shared/lib/storage/keys";
 
 const env = {
@@ -64,21 +64,22 @@ describe("storage configuration", () => {
 });
 
 describe("public URL construction (single, configurable place)", () => {
-  const prev = process.env.S3_PUBLIC_BASE_URL;
-  afterEach(() => {
-    if (prev === undefined) delete process.env.S3_PUBLIC_BASE_URL;
-    else process.env.S3_PUBLIC_BASE_URL = prev;
-  });
+  afterEach(() => configureStorage(undefined));
   const key = `stores/s1/${"a".repeat(32)}.webp`;
   it("is <base>/<key> and follows the configuration, so stored keys never embed a host", () => {
-    process.env.S3_PUBLIC_BASE_URL = "http://localhost:9000/bucket-test";
+    configureStorage(getStorageConfig({ ...env, S3_PUBLIC_BASE_URL: "http://localhost:9000/bucket-test" }));
     expect(mediaPublicUrl(key)).toBe(`http://localhost:9000/bucket-test/${key}`);
-    process.env.S3_PUBLIC_BASE_URL = "https://cdn.example.test/";
+    configureStorage(getStorageConfig({ ...env, S3_PUBLIC_BASE_URL: "https://cdn.example.test/" }));
     expect(mediaPublicUrl(key)).toBe(`https://cdn.example.test/${key}`);
   });
   it("never builds a URL for a key that is not a valid media key", () => {
-    process.env.S3_PUBLIC_BASE_URL = "https://cdn.example.test";
+    configureStorage(getStorageConfig({ ...env, S3_PUBLIC_BASE_URL: "https://cdn.example.test" }));
     for (const bad of ["../x", "https://evil.test/a.webp", "stores/s1/x.webp", ""]) expect(mediaPublicUrl(bad)).toBeNull();
+  });
+  it("without configuration there is no storage and no URL (nothing falls back to the environment)", () => {
+    configureStorage(undefined);
+    expect(() => getMediaStorage()).toThrow(StorageConfigError);
+    expect(() => mediaPublicUrl(key)).toThrow(StorageConfigError);
   });
 });
 

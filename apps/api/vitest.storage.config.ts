@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.storage.test.ts"],
+    setupFiles: ["src/test/storage-setup.ts"],
     globalSetup: ["src/test/storage-global-setup.ts"],
     env: { DATABASE_URL: getDbUrls().test, ...getTestStorageEnv("test") },
     fileParallelism: false,

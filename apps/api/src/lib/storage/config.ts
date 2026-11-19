@@ -33,7 +33,7 @@ export class StorageConfigError extends Error {
 }
 
 /** Validated server-side configuration. Secrets are only ever read here, on the server. */
-export function getStorageConfig(source: Record<string, string | undefined> = process.env): StorageConfig {
+export function getStorageConfig(source: Record<string, string | undefined>): StorageConfig {
   const r = schema.safeParse({
     S3_ENDPOINT: source.S3_ENDPOINT,
     S3_REGION: source.S3_REGION || undefined,
@@ -61,7 +61,7 @@ export function getStorageConfig(source: Record<string, string | undefined> = pr
 }
 
 /** Only the public base URL (no secrets): safe to use from rendering code. */
-export function getPublicBaseUrl(source: Record<string, string | undefined> = process.env): string {
+export function getPublicBaseUrl(source: Record<string, string | undefined>): string {
   const r = z.url().safeParse(source.S3_PUBLIC_BASE_URL);
   if (!r.success) throw new StorageConfigError("Invalid or missing storage configuration: S3_PUBLIC_BASE_URL");
   return r.data.replace(/\/+$/, "");

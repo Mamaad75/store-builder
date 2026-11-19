@@ -14,7 +14,7 @@ const body = () => sharp({ create: { width: 16, height: 16, channels: 3, backgro
 const url = (key: string) => mediaPublicUrl(key)!;
 
 beforeAll(() => {
-  storage = new S3MediaStorage(getStorageConfig());
+  storage = new S3MediaStorage(getStorageConfig(process.env));
 });
 
 describe("S3 storage: put, public read, list, delete", () => {
@@ -72,7 +72,7 @@ describe("S3 storage: put, public read, list, delete", () => {
   });
 
   it("surfaces transport failures (unreachable endpoint) instead of pretending success", async () => {
-    const dead = new S3MediaStorage({ ...getStorageConfig(), endpoint: "http://127.0.0.1:1" });
+    const dead = new S3MediaStorage({ ...getStorageConfig(process.env), endpoint: "http://127.0.0.1:1" });
     await expect(dead.put(newMediaKey("storedead"), Buffer.from("x"), { contentType: "image/webp" })).rejects.toThrow();
     await expect(dead.delete(newMediaKey("storedead"))).rejects.toThrow();
   }, 30_000);
@@ -103,7 +103,7 @@ const anonymous = (input: string, init: RequestInit = {}) =>
 /** Anonymous access is read-only. The three protections are separate tests: one failing does not hide the others. */
 describe.skipIf(!enforces)("public access is read-only (server enforces the bucket policy)", () => {
   it("anonymous users cannot list the bucket", async () => {
-    const config = getStorageConfig();
+    const config = getStorageConfig(process.env);
     const listing = await step("anonymous LIST", () => anonymous(`${config.publicBaseUrl}/?list-type=2&prefix=stores/`));
     expect(listing.status).toBe(403);
   });

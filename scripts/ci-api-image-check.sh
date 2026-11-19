@@ -28,11 +28,16 @@ docker run -d --name apicheck-db --network "${NET}" -e POSTGRES_PASSWORD="${PW}"
 for i in $(seq 1 30); do docker exec apicheck-db pg_isready -U api -d api >/dev/null 2>&1 && break; [ "${i}" -eq 30 ] && { echo "database did not start" >&2; exit 1; }; sleep 1; done
 
 docker run -d --name apicheck-api --network "${NET}" -p 127.0.0.1:4000:4000 \
-  -e NODE_ENV=production -e APP_ROOT_DOMAIN=example.com -e APP_PROTOCOL=https -e TRUST_PROXY_HOPS=1 -e "AUTH_SECRET=${SECRET}" \
+  -e NODE_ENV=production -e APP_ROOT_DOMAIN=example.com -e APP_PROTOCOL=https -e TRUST_PROXY_HOPS=1 -e "AUTH_SECRET=${SECRET}" -e RATE_LIMIT_BACKEND=postgres \
+  -e S3_ENDPOINT=http://127.0.0.1:1 -e S3_BUCKET=unreachable-bucket -e S3_ACCESS_KEY_ID=check -e S3_SECRET_ACCESS_KEY="${SECRET}" -e S3_PUBLIC_BASE_URL=http://127.0.0.1:1/unreachable-bucket \
   -e "DATABASE_URL=postgresql://api:${PW}@apicheck-db:5432/api" "${IMG}" >/dev/null
 
-for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4000/api/ready >/dev/null 2>&1 && break; [ "${i}" -eq 30 ] && { echo "api did not become ready" >&2; exit 1; }; sleep 1; done
-echo "ready: $(curl -fsS http://127.0.0.1:4000/api/ready)"
+for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4000/api/health >/dev/null 2>&1 && break; [ "${i}" -eq 30 ] && { echo "api did not start" >&2; exit 1; }; sleep 1; done
+# no object store exists here: readiness must name it (503) while the database check is ok
+READY="$(curl -s http://127.0.0.1:4000/api/ready)"
+echo "ready: ${READY}"
+echo "${READY}" | grep -q '"database":"ok"' || { echo "database check should be ok" >&2; exit 1; }
+echo "${READY}" | grep -q '"storage":"fail"' || { echo "storage check should fail (no object store here)" >&2; exit 1; }
 curl -fsS http://127.0.0.1:4000/api/health | grep -q '"ok"'
 curl -sSI http://127.0.0.1:4000/api/health | grep -qi '^strict-transport-security:' || { echo "HSTS missing in production" >&2; exit 1; }
 [ "$(curl -s -X POST http://127.0.0.1:4000/api/anything)" = '{"statusCode":404,"error":"Not Found"}' ] || { echo "unknown route must answer with the fixed 404 body" >&2; exit 1; }
@@ -40,7 +45,7 @@ curl -sSI http://127.0.0.1:4000/api/health | grep -qi '^strict-transport-securit
 for i in $(seq 1 30); do [ "$(docker inspect --format '{{.State.Health.Status}}' apicheck-api)" = "healthy" ] && break; [ "${i}" -eq 30 ] && { echo "container health check never became healthy" >&2; exit 1; }; sleep 2; done
 
 docker stop apicheck-db >/dev/null
-for i in $(seq 1 15); do [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4000/api/ready)" = "503" ] && break; [ "${i}" -eq 15 ] && { echo "readiness did not report the database failure" >&2; exit 1; }; sleep 1; done
+for i in $(seq 1 15); do curl -s http://127.0.0.1:4000/api/ready | grep -q '"database":"fail"' && break; [ "${i}" -eq 15 ] && { echo "readiness did not report the database failure" >&2; exit 1; }; sleep 1; done
 echo "readiness reports 503 while the database is down"
 
 if docker logs apicheck-api 2>&1 | grep -F -q -e "${PW}" -e "${SECRET}"; then echo "a secret value appears in the API logs" >&2; exit 1; fi

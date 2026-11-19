@@ -1,3 +1,4 @@
+import { log as appLog } from "../../lib/log.js";
 import { MEDIA_KEY_PREFIX, getMediaStorage, isValidMediaKey, type MediaStorage } from "../../lib/storage/index.js";
 import { CLEANUP_GRACE_MS } from "./limits.js";
 import { claimExpiredPending, deleteMediaRowIfStatus, existingMediaKeys, listDeletingOlderThan, listPendingOlderThan, listReadyCandidates } from "./repository.js";
@@ -52,7 +53,7 @@ export async function runMediaCleanup(opts: CleanupOptions = {}): Promise<Cleanu
   const cutoff = new Date(now.getTime() - (opts.graceMs ?? CLEANUP_GRACE_MS));
   const maxRows = opts.maxRows ?? 500;
   const maxObjects = opts.maxObjects ?? 10_000;
-  const log = opts.log ?? ((m: string, e?: unknown) => console.error(`[media-cleanup] ${m}`, e instanceof Error ? e.message : ""));
+  const log = opts.log ?? ((m: string, e?: unknown) => appLog.error("media.cleanup", { step: m, errorClass: e instanceof Error ? e.name : undefined }));
   const report: CleanupReport = { expiredPendingRemoved: 0, deletingFinished: 0, orphanObjectsRemoved: 0, objectsScanned: 0, unreferencedReadyScanned: 0, unreferencedReadyReclaimed: 0, scanTruncated: false, failures: 0 };
   const maxScan = opts.maxScan ?? 5_000;
 

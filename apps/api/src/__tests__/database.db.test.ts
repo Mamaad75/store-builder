@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
+import { setMediaStorageForTests } from "../lib/storage/index.js";
+import { MemoryMediaStorage } from "../test/memory-storage.js";
 import { testConfig } from "./helpers.js";
 
 // Runs against the isolated test database (vitest.db.config.ts); needs a reachable PostgreSQL.
 const url = process.env.DATABASE_URL!;
 describe("readiness against a real PostgreSQL", () => {
   it("is ready with a good URL and 503 with an unreachable database, without leaking the URL", async () => {
+    setMediaStorageForTests(new MemoryMediaStorage());
     const good = await createApp({ ...testConfig, databaseUrl: url! });
     await good.listen(0, "127.0.0.1");
     const goodUrl = (await good.getUrl()).replace("[::1]", "127.0.0.1");

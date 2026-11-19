@@ -1,7 +1,10 @@
 import { Controller, Post } from "@nestjs/common";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { createApp } from "../app.js";
+import { setMediaStorageForTests } from "../lib/storage/index.js";
+import type { MediaStorage } from "../lib/storage/types.js";
+import { MemoryMediaStorage } from "../test/memory-storage.js";
 import { capture, fakeDb, testConfig } from "./helpers.js";
 
 @Controller("probe")
@@ -13,7 +16,9 @@ class ProbeController {
 }
 
 let app: NestExpressApplication | undefined;
+beforeEach(() => setMediaStorageForTests(new MemoryMediaStorage()));
 afterEach(async () => {
+  setMediaStorageForTests(undefined);
   await app?.close();
   app = undefined;
 });
@@ -38,7 +43,7 @@ describe("health and readiness", () => {
     const { url } = await boot(true);
     const r = await fetch(`${url}/api/ready`);
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ status: "ready", checks: { database: "ok" } });
+    expect(await r.json()).toEqual({ status: "ready", checks: { database: "ok", storage: "ok" } });
   });
   it("readiness is 503 and leaks nothing when the database fails", async () => {
     const { url } = await boot(false);
@@ -47,6 +52,16 @@ describe("health and readiness", () => {
     expect(r.status).toBe(503);
     expect(text).not.toContain("secret-host");
     expect(JSON.parse(text).checks.database).toBe("fail");
+  });
+  it("readiness is 503 and names the object store when it fails (and leaks nothing)", async () => {
+    const broken = { list: async () => { throw new Error("secret-bucket.internal refused"); } } as unknown as MediaStorage;
+    setMediaStorageForTests(broken);
+    const { url } = await boot(true);
+    const r = await fetch(`${url}/api/ready`);
+    const text = await r.text();
+    expect(r.status).toBe(503);
+    expect(text).not.toContain("secret-bucket");
+    expect(JSON.parse(text)).toEqual({ status: "unavailable", checks: { database: "ok", storage: "fail" } });
   });
   it("shares one probe between concurrent callers", async () => {
     const cap = capture();

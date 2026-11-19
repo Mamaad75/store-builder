@@ -1,5 +1,8 @@
+import { bootstrapJob } from "./bootstrap.js";
 import { db } from "../src/lib/db.js";
 import { runMediaCleanup } from "../src/modules/media/cleanup.js";
+
+bootstrapJob({ storage: true });
 
 /** Idempotent media cleanup (see docs/media.md). Safe to run at any time, e.g. from a scheduler later. */
 runMediaCleanup()

@@ -6,7 +6,7 @@
 #                       migrations + seed (`pnpm db:deploy && pnpm db:seed`), media/db cleanup, the scheduler.
 #   api                 the NestJS API (ADR 0001, N2): compiled JS + production dependencies only, non-root, health check.
 #   (build, deps)       intermediate stages.
-# pnpm workspace (ADR 0001, N1): the build context is the repository root; the web app lives in apps/web.
+# pnpm workspace (ADR 0001): the build context is the repository root; apps/web = UI, apps/api = backend, packages/shared = shared code.
 # The base image is pinned by tag AND digest (refresh both together; Dependabot's docker ecosystem proposes updates).
 ARG NODE_IMAGE=node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
 
@@ -26,19 +26,26 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/api/package.json ./apps/api/
+COPY apps/e2e/package.json ./apps/e2e/
+COPY packages/shared/package.json ./packages/shared/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @store-builder/web db:generate && pnpm --filter @store-builder/web build
+# The web app is UI only: no Prisma client, no database access. It imports the compiled shared package.
+RUN pnpm shared:build && pnpm --filter @store-builder/web build
 
 FROM deps AS jobs
+# The API image with the full toolchain, for one-off and scheduled commands (ADR 0001): migrations + seed (`pnpm db:deploy && pnpm db:seed`),
+# media/db cleanup and the scheduler. The schema, migrations, seed and job scripts belong to the API.
 ENV NODE_ENV=production
-COPY apps/web/prisma ./apps/web/prisma
-COPY apps/web/scripts ./apps/web/scripts
-COPY apps/web/src ./apps/web/src
-COPY apps/web/tsconfig.json ./apps/web/
-WORKDIR /app/apps/web
+COPY packages/shared ./packages/shared
+COPY apps/api/prisma ./apps/api/prisma
+COPY apps/api/scripts ./apps/api/scripts
+COPY apps/api/src ./apps/api/src
+COPY apps/api/tsconfig.json ./apps/api/
+RUN pnpm shared:build
+WORKDIR /app/apps/api
 RUN pnpm db:generate && chown -R node:node /app
 USER node
 CMD ["pnpm", "media:cleanup"]
@@ -58,12 +65,12 @@ HEALTHCHECK --interval=15s --timeout=4s --start-period=25s --retries=3 \
 # 127.0.0.1); the shell form pins the bind address to all interfaces, `exec` keeps node as PID 1 so it receives SIGTERM.
 CMD ["sh", "-c", "HOSTNAME=0.0.0.0 exec node server.js"]
 
-# ---- NestJS API (ADR 0001, N2) ----
+# ---- NestJS API (ADR 0001) ----
 FROM deps AS api-build
-COPY apps/web/prisma ./apps/web/prisma
+COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
-# The Prisma client is generated from the web app's schema (one schema, ADR 0001), then the API is compiled.
-RUN pnpm --filter @store-builder/web db:generate && pnpm --filter @store-builder/api build
+# The Prisma client is generated from the API's schema, the shared package and the API are compiled.
+RUN pnpm shared:build && pnpm --filter @store-builder/api db:generate && pnpm --filter @store-builder/api build
 # A self-contained production tree (no dev dependencies, no sources), plus the generated client and its query engine.
 RUN pnpm --filter @store-builder/api deploy --legacy --prod /out \
  && SRC="$(readlink -f apps/api/node_modules/@prisma/client)/../../.prisma/client" \

@@ -1,5 +1,5 @@
 import { ThemeSwitchBlockedError, type ThemeRef, type ThemeSwitchReport } from "@store-builder/shared/modules/stores/theme-switch-types";
-import { computeCompatibility, type CompatibilityResult } from "@store-builder/shared/modules/pages/compat";
+import { computeCompatibility } from "@store-builder/shared/modules/pages/compat";
 import { PAGE_TYPES } from "@store-builder/shared/templates/sections";
 import type { PageType } from "@store-builder/shared/templates/sections";
 import { allThemes, resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";

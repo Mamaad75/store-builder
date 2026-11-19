@@ -1,12 +1,16 @@
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
+import { configureRateLimiter } from "./lib/rate-limit.js";
+import { configureStorage } from "./lib/storage/index.js";
 import { AppModule, type AppOverrides } from "./app.module.js";
 import type { ApiConfig } from "./config/env.js";
 import { AllExceptionsFilter } from "./http/all-exceptions.filter.js";
 import { JsonLogger } from "./logging/json-logger.js";
 
 export async function createApp(config: ApiConfig, overrides: AppOverrides = {}): Promise<NestExpressApplication> {
+  if (config.storage) configureStorage(config.storage);
+  configureRateLimiter(config.rateLimitBackend);
   const logger = overrides.logger ?? new JsonLogger();
   const app = await NestFactory.create<NestExpressApplication>(AppModule.register(config, { ...overrides, logger }), { logger, bodyParser: false });
   app.setGlobalPrefix("api");

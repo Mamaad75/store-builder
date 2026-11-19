@@ -42,7 +42,7 @@ function isLoopbackHttp(base: URL): boolean {
 }
 
 /** Alert configuration, or null when alerts are not configured at all. Half or invalid configuration throws (names only). */
-export function readAlertConfig(env: Record<string, string | undefined> = process.env): AlertConfig | null {
+export function readAlertConfig(env: Record<string, string | undefined>): AlertConfig | null {
   const token = (env.BALE_BOT_TOKEN ?? "").trim();
   const chatId = (env.BALE_CHAT_ID ?? "").trim();
   if (!token && !chatId) return null;
@@ -105,7 +105,7 @@ export function createNotifier(
   cfg: AlertConfig | null,
   deps: { fetchImpl?: typeof fetch; write?: (line: string) => void } = {},
 ): Notifier {
-  const write = deps.write ?? ((line: string) => console.error(line));
+  const write = deps.write ?? ((line: string) => void process.stderr.write(`${line}\n`));
   return async (event, fields = {}) => {
     if (!cfg) {
       write(formatLog("warn", "alert.disabled", { event }));

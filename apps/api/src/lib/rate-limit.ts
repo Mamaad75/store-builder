@@ -75,9 +75,16 @@ export class MemoryRateLimiter implements RateLimiter {
 }
 
 let limiter: RateLimiter | undefined;
+let backend: "postgres" | "memory" = "postgres";
+
+/** Called once at start-up with the validated configuration ("memory" is for single-process development and tests only). */
+export function configureRateLimiter(kind: "postgres" | "memory"): void {
+  backend = kind;
+  limiter = undefined;
+}
 
 export function getRateLimiter(): RateLimiter {
-  limiter ??= process.env.RATE_LIMIT_BACKEND === "memory" ? new MemoryRateLimiter() : new PostgresRateLimiter();
+  limiter ??= backend === "memory" ? new MemoryRateLimiter() : new PostgresRateLimiter();
   return limiter;
 }
 
