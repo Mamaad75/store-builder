@@ -7,6 +7,7 @@ cd "$(dirname "$0")/.."
 
 NET="apicheck-$$"
 PW="$(openssl rand -hex 16)"
+SECRET="$(openssl rand -base64 33)"
 IMG="storebuilder-api:check"
 cleanup() { code=$?; [ "${code}" -ne 0 ] && { docker logs apicheck-api 2>&1 | tail -50 || true; }; docker rm -f apicheck-api apicheck-db >/dev/null 2>&1 || true; docker network rm "${NET}" >/dev/null 2>&1 || true; exit "${code}"; }
 trap cleanup EXIT
@@ -27,7 +28,7 @@ docker run -d --name apicheck-db --network "${NET}" -e POSTGRES_PASSWORD="${PW}"
 for i in $(seq 1 30); do docker exec apicheck-db pg_isready -U api -d api >/dev/null 2>&1 && break; [ "${i}" -eq 30 ] && { echo "database did not start" >&2; exit 1; }; sleep 1; done
 
 docker run -d --name apicheck-api --network "${NET}" -p 127.0.0.1:4000:4000 \
-  -e NODE_ENV=production -e APP_ROOT_DOMAIN=example.com -e APP_PROTOCOL=https -e TRUST_PROXY_HOPS=1 \
+  -e NODE_ENV=production -e APP_ROOT_DOMAIN=example.com -e APP_PROTOCOL=https -e TRUST_PROXY_HOPS=1 -e "AUTH_SECRET=${SECRET}" \
   -e "DATABASE_URL=postgresql://api:${PW}@apicheck-db:5432/api" "${IMG}" >/dev/null
 
 for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4000/api/ready >/dev/null 2>&1 && break; [ "${i}" -eq 30 ] && { echo "api did not become ready" >&2; exit 1; }; sleep 1; done
@@ -36,11 +37,23 @@ curl -fsS http://127.0.0.1:4000/api/health | grep -q '"ok"'
 curl -sSI http://127.0.0.1:4000/api/health | grep -qi '^strict-transport-security:' || { echo "HSTS missing in production" >&2; exit 1; }
 [ "$(curl -s -X POST http://127.0.0.1:4000/api/anything)" = '{"statusCode":404,"error":"Not Found"}' ] || { echo "unknown route must answer with the fixed 404 body" >&2; exit 1; }
 
+ORIGIN="https://example.com"
+U="user_$(openssl rand -hex 4)"
+curl -fsS -X POST http://127.0.0.1:4000/api/auth/register -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -d "{\"name\":\"T\",\"username\":\"${U}\",\"password\":\"password123\"}" >/dev/null
+JAR="$(mktemp)"
+curl -fsS -c "${JAR}" -X POST http://127.0.0.1:4000/api/auth/login -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -d "{\"username\":\"${U}\",\"password\":\"password123\"}" >/dev/null
+grep -q '__Host-sb_session' "${JAR}" || { echo "session cookie missing" >&2; exit 1; }
+# the __Host- cookie is Secure: send it by hand over the loopback http port
+TOKEN="$(awk '/__Host-sb_session/ {print $7}' "${JAR}")"
+curl -fsS http://127.0.0.1:4000/api/auth/me -H "Cookie: __Host-sb_session=${TOKEN}" | grep -q "\"${U}\"" || { echo "/me did not return the user" >&2; exit 1; }
+rm -f "${JAR}"
+echo "auth flow works from the image"
+
 for i in $(seq 1 30); do [ "$(docker inspect --format '{{.State.Health.Status}}' apicheck-api)" = "healthy" ] && break; [ "${i}" -eq 30 ] && { echo "container health check never became healthy" >&2; exit 1; }; sleep 2; done
 
 docker stop apicheck-db >/dev/null
 for i in $(seq 1 15); do [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4000/api/ready)" = "503" ] && break; [ "${i}" -eq 15 ] && { echo "readiness did not report the database failure" >&2; exit 1; }; sleep 1; done
 echo "readiness reports 503 while the database is down"
 
-if docker logs apicheck-api 2>&1 | grep -F -q "${PW}"; then echo "the database password appears in the API logs" >&2; exit 1; fi
+if docker logs apicheck-api 2>&1 | grep -F -q -e "${PW}" -e "${SECRET}"; then echo "a secret value appears in the API logs" >&2; exit 1; fi
 echo "api image check passed"
