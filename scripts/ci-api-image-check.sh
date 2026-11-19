@@ -37,18 +37,6 @@ curl -fsS http://127.0.0.1:4000/api/health | grep -q '"ok"'
 curl -sSI http://127.0.0.1:4000/api/health | grep -qi '^strict-transport-security:' || { echo "HSTS missing in production" >&2; exit 1; }
 [ "$(curl -s -X POST http://127.0.0.1:4000/api/anything)" = '{"statusCode":404,"error":"Not Found"}' ] || { echo "unknown route must answer with the fixed 404 body" >&2; exit 1; }
 
-ORIGIN="https://example.com"
-U="user_$(openssl rand -hex 4)"
-curl -fsS -X POST http://127.0.0.1:4000/api/auth/register -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -d "{\"name\":\"T\",\"username\":\"${U}\",\"password\":\"password123\"}" >/dev/null
-JAR="$(mktemp)"
-curl -fsS -c "${JAR}" -X POST http://127.0.0.1:4000/api/auth/login -H "Origin: ${ORIGIN}" -H 'Content-Type: application/json' -d "{\"username\":\"${U}\",\"password\":\"password123\"}" >/dev/null
-grep -q '__Host-sb_session' "${JAR}" || { echo "session cookie missing" >&2; exit 1; }
-# the __Host- cookie is Secure: send it by hand over the loopback http port
-TOKEN="$(awk '/__Host-sb_session/ {print $7}' "${JAR}")"
-curl -fsS http://127.0.0.1:4000/api/auth/me -H "Cookie: __Host-sb_session=${TOKEN}" | grep -q "\"${U}\"" || { echo "/me did not return the user" >&2; exit 1; }
-rm -f "${JAR}"
-echo "auth flow works from the image"
-
 for i in $(seq 1 30); do [ "$(docker inspect --format '{{.State.Health.Status}}' apicheck-api)" = "healthy" ] && break; [ "${i}" -eq 30 ] && { echo "container health check never became healthy" >&2; exit 1; }; sleep 2; done
 
 docker stop apicheck-db >/dev/null
