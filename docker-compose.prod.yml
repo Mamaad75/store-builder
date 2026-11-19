@@ -95,8 +95,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-    # backend (database) + edge (outbound to the external object store). Caddy does not route to it and it publishes no port: only the
-    # web app reaches it, over these internal networks.
+    # backend (database) + edge (outbound to the external object store, and Caddy's route for the browser's /api/auth, /api/stores and
+    # /api/public calls). It publishes no port.
     networks: [backend, edge]
     expose: ["4000"]
     deploy:
@@ -165,6 +165,7 @@ services:
       - ${CADDY_TLS_DIR:-./docker/caddy/tls.d}:/etc/caddy/tls.d:ro
     depends_on:
       app: { condition: service_healthy }
+      api: { condition: service_healthy }
     networks: [edge]
 
 networks:

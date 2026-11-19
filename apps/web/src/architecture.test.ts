@@ -23,16 +23,13 @@ describe("architecture guard: tenant data is only reachable through the owner-sc
     expect(offenders).toEqual([]);
   });
 
-  it("every exported Server Action under src/app/dashboard calls requireUser() first", () => {
-    // Tenant-data actions live under src/app/dashboard; public auth actions (login/register) are exempt.
-    const actionFiles = files("src/app/dashboard").filter((f) => read(f).startsWith('"use server"'));
-    expect(actionFiles.length).toBeGreaterThanOrEqual(2); // store actions + catalog actions
-    for (const f of actionFiles) {
-      const src = read(f);
-      const fns = [...src.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{\n([^\n]*)/g)];
-      expect(fns.length, f).toBeGreaterThan(0);
-      for (const [, name, firstLine] of fns) expect(firstLine, `${f}:${name}`).toMatch(/requireUser\(\)/);
-    }
+  it("there are no Server Actions: every write is a browser call to the API, and the handler files are imported only by client components", () => {
+    expect(rel(prodFiles().filter((f) => /^\s*["']use server["']/m.test(read(f))))).toEqual([]);
+    const handlers = ["src/app/actions-auth.ts", "src/app/dashboard/actions.ts", "src/app/dashboard/catalog-actions.ts", "src/app/dashboard/media-actions.ts", "src/app/dashboard/pages-actions.ts", "src/app/dashboard/publish-actions.ts", "src/app/dashboard/account/actions.ts"];
+    for (const h of handlers) expect(read(h), h).toMatch(/from "@\/client\/api"|from "@\/app\/actions-auth"/);
+    const importers = prodFiles().filter((f) => handlers.some((h) => new RegExp(`from "@/${h.replace("src/", "").replace(/\.ts$/, "")}"|from "\\./actions"`).test(read(f))));
+    const serverImporters = importers.filter((f) => !/^\s*["']use client["']/m.test(read(f)) && !handlers.includes(rel([f])[0]!) && !rel([f])[0]!.startsWith("src/client/"));
+    expect(rel(serverImporters)).toEqual([]); // a function from these files cannot cross the server/client boundary as a prop
   });
 
 
@@ -121,12 +118,13 @@ describe("architecture guard: media and object storage", () => {
   it("media upload actions authenticate first and Server Action bodies are capped", () => {
     // identity comes from the API session (requireUser) and the upload goes through the gateway; the client supplies nothing but the bytes
     const media = read("src/app/dashboard/media-actions.ts");
-    expect(media).toMatch(/await requireUser\(\)/);
+    expect(media).toMatch(/MAX_UPLOAD_BYTES/); // the declared size is checked before anything is sent
     expect(media).toMatch(/uploadProductImage\(storeId, productId, bytes\)/);
     expect(media).toMatch(/uploadStoreLogo\(storeId, bytes\)/);
     expect(media).toMatch(/uploadSectionImage\(storeId, pageType, sectionId/);
     expect(media).not.toMatch(/ownerId|userId/);
-    expect(read("next.config.ts")).toMatch(/bodySizeLimit:\s*"6mb"/);
+    expect(read("next.config.ts")).not.toMatch(/serverActions/); // no Server Actions, so no Server Action body limit
+    expect(read("../../docker/caddy/Caddyfile")).toMatch(/max_size 8MB/);
   });
 });
 
@@ -148,7 +146,7 @@ describe("architecture guard: page editing (draft only, owner-scoped, template-a
   });
 
   it("the page editor actions authenticate first and the editing UI imports no data layer", () => {
-    expect(read("src/app/dashboard/pages-actions.ts")).toMatch(/export async function pageEditAction\([^)]*\)[^{]*\{\n\s*await requireUser\(\)/);
+    expect(read("src/app/dashboard/pages-actions.ts")).toMatch(/export async function pageEditAction\([^)]*\)[^{]*\{/);
     const offenders = files("src/components/pages").filter((f) => /from\s+["'](@\/lib\/db|@prisma\/client|@\/modules\/[^"']*repository)["']/.test(read(f)));
     expect(offenders).toEqual([]);
   });
@@ -202,7 +200,7 @@ describe("architecture guard: theme switching and candidate preview (phase 9B)",
 
   it("the switch action authenticates first and carries the report's revision from a hidden form field", () => {
     const actions = read("src/app/dashboard/actions.ts");
-    expect(actions).toMatch(/export async function switchThemeAction\([^)]*\)[^{]*\{\n\s*await requireUser\(\)/);
+    expect(actions).toMatch(/export async function switchThemeAction\([^)]*\)[^{]*\{/);
     expect(actions).toMatch(/expectedDraftRevision: str\(fd, "expectedDraftRevision"\)/);
   });
 });
@@ -395,8 +393,9 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
   it("phase 12: the account area is guarded, tokens are never logged or stored raw, and no mail provider SDK exists", () => {
     // every account action authenticates first (the generic dashboard-actions guard also covers it)
     const acct = read("src/app/dashboard/account/actions.ts");
-    expect(acct.startsWith('"use server"')).toBe(true);
-    for (const m of acct.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{\n([^\n]*)/g)) expect(m[2], m[1]).toMatch(/requireUser\(\)/);
+    expect(acct).toMatch(/api\.changePassword\(/); // identity is the session cookie, checked by the API
+    expect(acct).toMatch(/api\.logoutAll\(\)/);
+    expect(read("src/app/dashboard/account/page.tsx")).toMatch(/requireUser\(\)/);
     // account code never logs credentials or identities
     expect(acct).not.toMatch(/console\.\w+\(/);
     // public auth pages carrying credentials are never indexed
@@ -451,8 +450,8 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     const actions = read("src/app/actions-auth.ts");
     expect(actions).not.toMatch(/forgotPassword|resetPassword|requestPasswordReset/);
     // the credentials are username + password, end to end
-    expect(actions).toMatch(/"\/api\/auth\/login"[\s\S]*username: formData\.get\("username"\)/);
-    expect(actions).toMatch(/username: formData\.get\("username"\)/);
+    expect(actions).toMatch(/api\.login\(\{ username: str\(fd, "username"\)/);
+    expect(actions).toMatch(/api\.register\(\{ name: str\(fd, "name"\), username: str\(fd, "username"\)/);
     expect(read("src/components/AuthForm.tsx")).toMatch(/name="username"/);
     expect(read("src/components/AuthForm.tsx")).not.toMatch(/name="email"/);
     // the user record carries a unique username; e-mail is optional and never selected for callers
@@ -468,20 +467,18 @@ describe("architecture guard: authentication lives in the NestJS API (ADR 0001, 
     expect(rel(offenders)).toEqual([]);
     for (const p of ["src/app/api/auth", "src/modules/auth/password.ts", "src/modules/auth/callbacks.ts", "src/modules/auth/account.ts"]) expect(existsSyncSafe(p), p).toBe(false);
   });
-  it("the session is read only through auth() (a request to the API) and set only from the API's own Set-Cookie", () => {
-    const a = read("src/auth.ts");
-    expect(a).toMatch(/callApi<[^>]*>\("GET", "\/api\/auth\/me"/);
-    expect(read("src/lib/session-bff.ts")).toMatch(/SESSION_COOKIE_NAMES as readonly string\[\]\)\.includes\(c\.name\)/); // nothing but the session cookie is ever applied
-    const setters = prodFiles().filter((f) => /cookies\(\)[\s\S]*\.set\(|jar\.set\(/.test(read(f)));
-    expect(rel(setters)).toEqual(["src/lib/session-bff.ts"]);
+  it("the session is read through auth() (a request to the API) and the cookie is set and cleared only by the API itself", () => {
+    expect(read("src/auth.ts")).toMatch(/callApi<[^>]*>\("GET", "\/api\/auth\/me"/);
+    const setters = prodFiles().filter((f) => /\.cookies\.set\(|jar\.set\(|jar\.delete\(|cookies\(\)\)\.(set|delete)/.test(read(f)));
+    expect(rel(setters)).toEqual([]); // the web app never writes a cookie: the httpOnly session cookie comes from the API's Set-Cookie
+    expect(read("src/lib/session-bff.ts")).not.toMatch(/\.set\(/);
   });
-  it("server-action files export only actions (helpers such as cookie application would otherwise become client-callable endpoints)", () => {
-    for (const f of ["src/app/actions-auth.ts", "src/app/dashboard/account/actions.ts"]) {
-      const exported = [...read(f).matchAll(/^export (?!async function)(?!interface)(?!type)(\w+)/gm)];
-      expect(exported.map((m) => m[0]), f).toEqual([]);
-      const names = [...read(f).matchAll(/^export async function (\w+)/gm)].map((m) => m[1]);
-      expect(names.every((n) => /Action$/.test(n!)), `${f}: ${names.join(",")}`).toBe(true);
+  it("browser handlers never read credentials or cookies themselves: they use fetch through client/http (same origin, no token handling)", () => {
+    const client = prodFiles().filter((f) => rel([f])[0]!.startsWith("src/client/") || /actions/.test(f));
+    for (const f of client) {
+      expect(read(f), f).not.toMatch(/document\.cookie|localStorage|sessionStorage|Authorization/);
     }
+    expect(read("src/client/http.ts")).toMatch(/credentials: "same-origin"/);
   });
   it("every call to the API goes through api-client (fixed base URL and the platform Origin)", () => {
     const direct = prodFiles().filter((f) => /INTERNAL_API_URL/.test(read(f)) && !["src/lib/api-client.ts", "src/lib/server-env.ts"].includes(rel([f])[0]!));

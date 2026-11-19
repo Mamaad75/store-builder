@@ -4,8 +4,7 @@ import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { removeProductImageAction, uploadProductImageAction } from "@/app/dashboard/media-actions";
-import ImageUploader from "@/components/ImageUploader";
+import { ProductImageUploader } from "@/components/BoundForms";
 import { getBusinessCategory } from "@store-builder/shared/lib/business-categories";
 import { SPEC_PROBLEM_FA, analyzeSpecs, previewStoredSpecs } from "@store-builder/shared/lib/product-specs";
 import { listSpecPresets } from "@store-builder/shared/lib/spec-presets";
@@ -87,15 +86,13 @@ export default async function EditProductPage({
             presets={listSpecPresets(getBusinessCategory(store.businessCategory)?.suggestedSpecPresets).map((pr) => ({ key: pr.key, name: pr.name, labels: [...pr.labels] }))}
           />
           <Divider />
-          <ImageUploader
+          <ProductImageUploader
             title="تصویر محصول"
             help="JPEG، PNG یا WebP؛ حداکثر ۵ مگابایت. تصویر بهینه و به WebP تبدیل می‌شود و اطلاعات مکانی/دوربین آن حذف می‌شود. هر کسی که نشانی تصویر را داشته باشد می‌تواند آن را ببیند."
             testId="product-image"
             hidden={{ storeId, productId: product.id }}
             imageUrl={product.image ? safeUrl(product.image.key) : null}
             image={product.image?.width && product.image.height ? { width: product.image.width, height: product.image.height } : null}
-            uploadAction={uploadProductImageAction}
-            removeAction={removeProductImageAction}
           />
           <Divider />
           <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>

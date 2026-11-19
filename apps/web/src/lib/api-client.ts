@@ -9,8 +9,6 @@
 export interface ApiResult<T = unknown> {
   status: number;
   body: T | null;
-  /** Raw Set-Cookie header values of the response. */
-  setCookies: string[];
 }
 
 export class ApiUnavailableError extends Error {
@@ -62,42 +60,5 @@ export async function callApi<T = unknown>(
       body = null;
     }
   }
-  return { status: res.status, body, setCookies: res.headers.getSetCookie() };
-}
-
-export interface ParsedSetCookie {
-  name: string;
-  value: string;
-  maxAge?: number;
-  httpOnly: boolean;
-  secure: boolean;
-  sameSite?: "lax" | "strict" | "none";
-  path: string;
-}
-
-/** Parses the attributes we set on the API side (name=value; Max-Age; Path; HttpOnly; Secure; SameSite). Expires is not needed. */
-export function parseSetCookie(raw: string): ParsedSetCookie | null {
-  const [pair, ...attrs] = raw.split(";").map((p) => p.trim());
-  const eq = pair?.indexOf("=") ?? -1;
-  if (!pair || eq <= 0) return null;
-  const out: ParsedSetCookie = { name: pair.slice(0, eq), value: pair.slice(eq + 1), httpOnly: false, secure: false, path: "/" };
-  for (const a of attrs) {
-    const [k, v = ""] = a.split("=");
-    switch (k!.toLowerCase()) {
-      case "max-age": {
-        const n = Number.parseInt(v, 10);
-        if (Number.isFinite(n)) out.maxAge = n;
-        break;
-      }
-      case "httponly": out.httpOnly = true; break;
-      case "secure": out.secure = true; break;
-      case "path": out.path = v || "/"; break;
-      case "samesite": {
-        const s = v.toLowerCase();
-        if (s === "lax" || s === "strict" || s === "none") out.sameSite = s;
-        break;
-      }
-    }
-  }
-  return out;
+  return { status: res.status, body };
 }

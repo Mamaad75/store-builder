@@ -48,8 +48,9 @@ export default defineConfig({
         AUTH_SECRET: "e2e-only-secret-e2e-only-secret-0123456789",
         APP_ROOT_DOMAIN: `localhost:${PORT}`,
         APP_PROTOCOL: "http",
-        // The tests act as the trusted proxy: they set X-Forwarded-For per test to get isolated buckets (one hop).
-        TRUST_PROXY_HOPS: "1",
+        // The tests act as the client: they set X-Forwarded-For per test (isolated rate-limit buckets); the web server proxies /api/* to the API
+        // and appends its own entry, so the client address is the second from the right (2 hops).
+        TRUST_PROXY_HOPS: "2",
         API_HOST: "127.0.0.1",
         API_PORT: String(API_PORT),
         RATE_LIMIT_BACKEND: "postgres",
@@ -67,6 +68,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       INTERNAL_API_URL: E2E_API_URL,
+      API_DEV_PROXY_URL: E2E_API_URL, // Next proxies the browser's /api/* calls to the API (production: Caddy does)
       // Store hosts are <label>.localhost:3100 (Chromium resolves *.localhost to loopback; other clients set the Host header).
       APP_ROOT_DOMAIN: `localhost:${PORT}`,
       APP_PROTOCOL: "http",

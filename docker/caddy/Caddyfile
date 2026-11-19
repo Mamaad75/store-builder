@@ -27,20 +27,43 @@ import tls.d/*.caddy
 
 	header -Server
 
-	# Matches the application's 6 MB Server Action limit plus multipart overhead.
+	# Matches the API's 6 MB raw image upload limit plus slack.
 	request_body {
 		max_size 8MB
 	}
 
-	reverse_proxy app:3000 {
-		header_up X-Forwarded-For {remote_host}
-		header_up -X-Forwarded-Host
-		header_up -Forwarded
-		header_up -X-Original-Host
-		header_up -X-Real-Ip
-		transport http {
-			dial_timeout 5s
-			response_header_timeout 60s
+	# The browser calls the API on the platform's own origin (ADR 0001): authentication, the dashboard's data and the public read endpoints.
+	# Only the platform hosts: a store subdomain never reaches them. Everything else (pages, storefronts, /api/health, /api/ready of the web
+	# app) goes to the application, which decides by Host header.
+	@api {
+		host {$APP_ROOT_DOMAIN} www.{$APP_ROOT_DOMAIN}
+		path /api/auth/* /api/stores /api/stores/* /api/public/*
+	}
+	handle @api {
+		reverse_proxy api:4000 {
+			header_up X-Forwarded-For {remote_host}
+			header_up -X-Forwarded-Host
+			header_up -Forwarded
+			header_up -X-Original-Host
+			header_up -X-Real-Ip
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 60s
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy app:3000 {
+			header_up X-Forwarded-For {remote_host}
+			header_up -X-Forwarded-Host
+			header_up -Forwarded
+			header_up -X-Original-Host
+			header_up -X-Real-Ip
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 60s
+			}
 		}
 	}
 

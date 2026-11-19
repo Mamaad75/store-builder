@@ -1,8 +1,6 @@
-"use server";
-
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { requireUser } from "@/modules/auth/session";
+import * as api from "@/client/api";
+import { transportState } from "@/client/guard";
+import { go, refresh } from "@/client/nav";
 import {
   ConfirmationRequiredError,
   IncompatibleVersionError,
@@ -25,8 +23,6 @@ import {
   SubdomainTakenError,
   VersionAlreadyLiveError,
 } from "@store-builder/shared/modules/publishing/errors";
-import { publishStore, setLiveVersion, unpublishStore } from "@/gateway/publishing";
-import { claimSubdomain } from "@/gateway/publishing";
 import { ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 
 export interface PublishState {
@@ -44,7 +40,12 @@ const date = (d: Date) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium"
 
 /** Every typed outcome has an owner-facing Persian message; anything unexpected is rethrown (never leaked as text). */
 function toState(e: unknown, notFoundUrl: string): PublishState {
-  if (e instanceof NotFoundError) redirect(notFoundUrl);
+  const transport = transportState(e);
+  if (transport) return transport;
+  if (e instanceof NotFoundError) {
+    go(notFoundUrl);
+    return {};
+  }
   if (e instanceof ValidationError) {
     const first = Object.values(e.fieldErrors).flat()[0];
     return { error: first ?? "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: e.fieldErrors };
@@ -75,16 +76,14 @@ function toState(e: unknown, notFoundUrl: string): PublishState {
   throw e;
 }
 
-const url = (storeId: string) => `/dashboard/stores/${encodeURIComponent(storeId)}/publish`;
 const notFound = () => "/dashboard";
 
 /** Identity from the session only; input from an explicit whitelist; the owner-scoped service does the rest. */
 export async function publishAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    const r = await publishStore(storeId, { expectedDraftRevision: str(fd, "expectedDraftRevision") });
-    revalidatePath(url(storeId));
+    const r = await api.publishStore(storeId, { expectedDraftRevision: str(fd, "expectedDraftRevision") });
+    refresh();
     return { success: `نسخهٔ ${fa(r.number)} منتشر شد.` };
   } catch (e) {
     return toState(e, notFound());
@@ -92,11 +91,10 @@ export async function publishAction(_prev: PublishState, fd: FormData): Promise<
 }
 
 export async function unpublishAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    await unpublishStore(storeId);
-    revalidatePath(url(storeId));
+    await api.unpublishStore(storeId);
+    refresh();
     return { success: "فروشگاه از دسترس خارج شد. همهٔ نسخه‌ها نگه داشته شده‌اند." };
   } catch (e) {
     return toState(e, notFound());
@@ -104,12 +102,11 @@ export async function unpublishAction(_prev: PublishState, fd: FormData): Promis
 }
 
 export async function setLiveVersionAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  await requireUser();
   const storeId = str(fd, "storeId");
   const mode = str(fd, "mode") === "republish" ? "republish" : "rollback";
   try {
-    const r = await setLiveVersion(storeId, { versionNumber: str(fd, "versionNumber"), mode });
-    revalidatePath(url(storeId));
+    const r = await api.setLiveVersion(storeId, { versionNumber: str(fd, "versionNumber"), mode });
+    refresh();
     return { success: mode === "rollback" ? `نسخهٔ ${fa(r.number)} اکنون زنده است.` : `فروشگاه با نسخهٔ ${fa(r.number)} دوباره منتشر شد.` };
   } catch (e) {
     return toState(e, notFound());
@@ -117,11 +114,10 @@ export async function setLiveVersionAction(_prev: PublishState, fd: FormData): P
 }
 
 export async function claimSubdomainAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    const r = await claimSubdomain(storeId, { label: str(fd, "label"), confirmChange: str(fd, "confirmChange") });
-    revalidatePath(url(storeId));
+    const r = await api.claimSubdomain(storeId, { label: str(fd, "label"), confirmChange: str(fd, "confirmChange") });
+    refresh();
     return { success: r.changed ? `زیردامنهٔ «${r.label}» ثبت شد.` : "زیردامنه بدون تغییر ماند." };
   } catch (e) {
     return toState(e, notFound());

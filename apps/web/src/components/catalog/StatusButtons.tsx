@@ -1,3 +1,5 @@
+"use client";
+
 import Button from "@mui/material/Button";
 import { changeProductStatusAction } from "@/app/dashboard/catalog-actions";
 import { TRANSITION_LABEL_FA, allowedTransitions, type ProductStatus } from "@store-builder/shared/modules/products/status";
