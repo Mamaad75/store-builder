@@ -1,0 +1,4 @@
+# pnpm workspace (ADR 0001): apps/web = Next.js; apps/api (NestJS) and packages/* are added from step N2 on.
+packages:
+  - "apps/*"
+  - "packages/*"

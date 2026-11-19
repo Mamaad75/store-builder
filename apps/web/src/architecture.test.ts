@@ -1,0 +1,781 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((f) => {
+    const p = path.join(dir, f);
+    return statSync(p).isDirectory() ? walk(p) : [p];
+  });
+}
+const files = (root: string) => walk(root).filter((f) => /\.(ts|tsx)$/.test(f) && !/\.test\./.test(f));
+const read = (f: string) => readFileSync(f, "utf8");
+const rel = (fs: string[]) => fs.map((f) => f.split(path.sep).join("/")).sort();
+/** Production sources only: test helpers (src/test) intentionally create rows directly. */
+const prodFiles = () => files("src").filter((f) => !f.split(path.sep).includes("test"));
+const touchesDb = (f: string) => /from\s+["']@\/lib\/db["']/.test(read(f));
+
+describe("architecture guard: tenant data is only reachable through the owner-scoped layer", () => {
+  it("nothing under src/app or src/components imports the DB client or Prisma directly", () => {
+    const offenders = [...files("src/app"), ...files("src/components")].filter((f) =>
+      /from\s+["'](@\/lib\/db|@prisma\/client)["']/.test(read(f)),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("every exported Server Action under src/app/dashboard calls requireUser() first", () => {
+    // Tenant-data actions live under src/app/dashboard; public auth actions (login/register) are exempt.
+    const actionFiles = files("src/app/dashboard").filter((f) => read(f).startsWith('"use server"'));
+    expect(actionFiles.length).toBeGreaterThanOrEqual(2); // store actions + catalog actions
+    for (const f of actionFiles) {
+      const src = read(f);
+      const fns = [...src.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{\n([^\n]*)/g)];
+      expect(fns.length, f).toBeGreaterThan(0);
+      for (const [, name, firstLine] of fns) expect(firstLine, `${f}:${name}`).toMatch(/requireUser\(\)/);
+    }
+  });
+
+  it("only the expected files in each module touch the database", () => {
+    expect(rel(files("src/modules/stores").filter(touchesDb))).toEqual([
+      "src/modules/stores/mutation.ts",
+      "src/modules/stores/repository.ts",
+      "src/modules/stores/service.ts",
+    ]);
+    expect(rel(files("src/modules/products").filter(touchesDb))).toEqual(["src/modules/products/repository.ts"]);
+    expect(rel(files("src/modules/categories").filter(touchesDb))).toEqual(["src/modules/categories/repository.ts"]);
+  });
+
+  it("Server Components never pass `component={Link}` to MUI (must be done in a client module)", () => {
+    const offenders = files("src/app").filter((f) => !read(f).startsWith('"use client"') && /component=\{Link\}/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("architecture guard: catalog writes go through withStoreMutation", () => {
+  const catalogRepos = ["src/modules/products/repository.ts", "src/modules/categories/repository.ts"];
+
+  it("product and category rows are only written inside the two catalog repositories", () => {
+    const writes = /\.(product|productCategory)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/;
+    const offenders = prodFiles().filter((f) => writes.test(read(f)) && !catalogRepos.includes(f.split(path.sep).join("/")));
+    expect(rel(offenders)).toEqual([]);
+  });
+
+  it("every exported write function in the catalog repositories requires a MutationContext as first parameter", () => {
+    const WRITE_PREFIX = /^(insert|update|rename|delete|detach|set|lock)/;
+    let checked = 0;
+    for (const f of catalogRepos) {
+      for (const m of read(f).matchAll(/export (?:async )?function (\w+)\(([^)]*)/g)) {
+        const [, name, params] = m;
+        if (!WRITE_PREFIX.test(name!)) continue;
+        checked += 1;
+        expect(params!.trim(), `${f}:${name}`).toMatch(/^ctx: MutationContext/);
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(8);
+  });
+
+  it("only withStoreMutation and the store-settings repository bump draftRevision", () => {
+    const bumpers = prodFiles().filter((f) => /draftRevision:\s*\{\s*increment/.test(read(f)));
+    expect(rel(bumpers)).toEqual(["src/modules/stores/mutation.ts", "src/modules/stores/repository.ts"]);
+  });
+
+  it("withStoreMutation verifies ownership and bumps the revision as its first statement", () => {
+    const src = read("src/modules/stores/mutation.ts");
+    const firstStatement = src.slice(src.indexOf("db.$transaction("));
+    expect(firstStatement.indexOf("tx.store.updateMany")).toBeGreaterThan(-1);
+    expect(firstStatement.indexOf("tx.store.updateMany")).toBeLessThan(firstStatement.indexOf("fn({"));
+    expect(src).toMatch(/where:\s*\{\s*id:\s*storeId,\s*ownerId\s*\}/);
+    expect(src).toMatch(/draftRevision:\s*\{\s*increment:\s*1\s*\}/);
+  });
+
+  it("product status is changed only through setStatusRow (never via the generic patch type)", () => {
+    const repo = read("src/modules/products/repository.ts");
+    const patchType = repo.slice(repo.indexOf("export type ProductPatchRow"), repo.indexOf("export async function updateProductRow"));
+    expect(patchType).not.toMatch(/status/);
+    expect(repo).toMatch(/export async function setStatusRow/);
+  });
+
+  it("stores are created in exactly one place (the user-row-locking service)", () => {
+    const creators = prodFiles().filter((f) => /\.store\.(create|createMany|upsert)\b|INSERT INTO "Store"/.test(read(f)));
+    expect(rel(creators)).toEqual(["src/modules/stores/service.ts"]);
+  });
+});
+
+describe("architecture guard: storefront rendering is independent of the dashboard and of data access", () => {
+  const FORBIDDEN_IN_TEMPLATES = /from\s+["'](@mui\/[^"']*|@emotion\/[^"']*|next\/[^"']*|next|@prisma\/client|@\/lib\/db|@\/auth|@\/theme\/[^"']*|@\/components\/[^"']*|@\/app\/[^"']*|@\/modules\/[^"']*)["']/;
+  const templateFiles = () => files("src/templates");
+
+  it("nothing under src/templates imports MUI, Next, Prisma, the DB, auth, modules or dashboard components", () => {
+    const offenders = templateFiles()
+      .filter((f) => FORBIDDEN_IN_TEMPLATES.test(read(f)))
+      .map((f) => `${f}: ${read(f).match(FORBIDDEN_IN_TEMPLATES)?.[1]}`);
+    expect(offenders).toEqual([]);
+  });
+
+  it("the generic engine never imports a concrete template (adding a template does not touch the core)", () => {
+    const offenders = files("src/templates/engine").filter((f) => /from\s+["'][^"']*(general|coffee|fashion)[^"']*["']/.test(read(f)));
+    expect(offenders).toEqual([]);
+    // the registry is the single place that knows concrete templates
+    const importers = templateFiles().filter((f) => /from\s+["']\.\/general["']/.test(read(f)));
+    expect(rel(importers)).toEqual(["src/templates/registry.ts"]);
+  });
+
+  it("the root layout does not load the dashboard UI library; dashboard and auth layouts opt in", () => {
+    expect(read("src/app/layout.tsx")).not.toMatch(/from\s+["'](@\/theme\/[^"']*|@mui\/[^"']*)["']/);
+    for (const f of ["src/app/dashboard/layout.tsx", "src/app/(auth)/layout.tsx"]) expect(read(f), f).toMatch(/from\s+["']@\/theme\/ThemeRegistry["']/);
+  });
+
+  it("storefront routes and components render without MUI", () => {
+    const offenders = files("src/app/preview").filter((f) => /@mui\//.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it("only the storefront repository and the published reader touch the database", () => {
+    expect(rel(files("src/modules/storefront").filter(touchesDb))).toEqual(["src/modules/storefront/published.ts", "src/modules/storefront/repository.ts"]);
+  });
+
+  it("the draft repository filters by owner and by ACTIVE status in the query itself", () => {
+    const src = read("src/modules/storefront/repository.ts");
+    expect(src).toMatch(/where:\s*\{\s*id:\s*storeId,\s*ownerId:\s*this\.ownerId\s*\}/);
+    expect(src).toMatch(/where:\s*\{\s*status:\s*"ACTIVE"\s*\}/);
+    expect(src).not.toMatch(/\.(create|update|upsert|delete)\w*\(/); // read-only
+  });
+
+  it("the published reader reads the pinned snapshot only (no live catalog tables)", () => {
+    const src = read("src/modules/storefront/published.ts");
+    expect(src).toMatch(/publishedVersion/);
+    expect(src).not.toMatch(/\bproducts\b|\bcategories\b|\bpages\b|db\.(product|page|productCategory)/);
+  });
+
+  it("the preview loader authenticates on the server first, maps NotFoundError to notFound(), and the layout runs it before streaming", () => {
+    const load = read("src/app/preview/[storeId]/load.ts");
+    expect(load.indexOf("requireUser()")).toBeGreaterThan(-1);
+    expect(load.indexOf("requireUser()")).toBeLessThan(load.indexOf("getDraftPreview("));
+    expect(load).toMatch(/instanceof NotFoundError/);
+    expect(load).toMatch(/notFound\(\)/);
+    expect(read("src/app/preview/[storeId]/layout.tsx")).toMatch(/await loadPreview\(/);
+    const page = read("src/app/preview/[storeId]/[[...path]]/page.tsx");
+    expect(page).toMatch(/await loadPreview\(/);
+    expect(page).not.toMatch(/getDraftPreview|@\/lib\/db/); // the page cannot bypass the loader
+    expect(page).toMatch(/robots:\s*\{\s*index:\s*false/);
+    expect(page).toMatch(/dynamic\s*=\s*"force-dynamic"/);
+  });
+
+  it("the proxy and next.config protect and de-index /preview", () => {
+    const proxy = read("src/proxy.ts");
+    // Phase 10: the proxy matcher is catch-all (host routing needs every request); /preview is still gated by the session check on the platform host.
+    expect(proxy).toMatch(/startsWith\("\/preview"\)\)\s*return\s*\(requireSession/);
+    expect(proxy).toMatch(/matcher:\s*\["\/\(\(\?!_next\/static/);
+    const cfg = read("next.config.ts");
+    expect(cfg).toMatch(/\/preview\/:path\*/);
+    expect(cfg).toMatch(/X-Robots-Tag/);
+    expect(cfg).toMatch(/no-store/);
+  });
+});
+
+describe("architecture guard: media and object storage", () => {
+  const inFiles = (re: RegExp) => rel(prodFiles().filter((f) => re.test(read(f))));
+
+  it("the AWS SDK is imported only by the S3 storage implementation", () => {
+    expect(inFiles(/from\s+["']@aws-sdk\//)).toEqual(["src/lib/storage/s3.ts"]);
+  });
+
+  it("sharp is imported only by the image pipeline, and the pipeline is used only by uploadMedia", () => {
+    expect(inFiles(/from\s+["']sharp["']/)).toEqual(["src/modules/media/process.ts"]);
+    expect(inFiles(/from\s+["'][^"']*\/process["']|from\s+["']\.\/process["']/)).toEqual(["src/modules/media/service.ts"]);
+    expect(read("src/modules/media/service.ts").match(/processImage\(/g)).toHaveLength(1);
+  });
+
+  it("S3 configuration (secrets) is read only by the storage config module", () => {
+    expect(inFiles(/process\.env\.S3_|source\.S3_/)).toEqual(["src/lib/storage/config.ts"]);
+  });
+
+  it("application code depends on the MediaStorage interface: only the storage barrel instantiates the S3 implementation", () => {
+    expect(inFiles(/new S3MediaStorage\(/)).toEqual(["src/lib/storage/index.ts"]);
+    expect(inFiles(/from\s+["'](@\/lib\/storage\/s3|\.\/s3)["']/)).toEqual(["src/lib/storage/index.ts"]);
+  });
+
+  it("objects are written (put) in exactly one place: the upload pipeline", () => {
+    expect(inFiles(/\bstorage\.put\(/)).toEqual(["src/modules/media/service.ts"]);
+  });
+
+  it("media rows are written only by the media repository; references only by their own repositories", () => {
+    expect(inFiles(/\.media\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/)).toEqual(["src/modules/media/repository.ts"]);
+    expect(inFiles(/data:\s*\{\s*logoId\b/)).toEqual(["src/modules/media/repository.ts"]);
+    expect(inFiles(/data:\s*\{\s*imageId\b/)).toEqual(["src/modules/products/repository.ts"]);
+  });
+
+  it("every media write that has an owner goes through withStoreMutation (a MutationContext is required)", () => {
+    const repo = read("src/modules/media/repository.ts");
+    const ownerFns = repo.slice(0, repo.indexOf("// ---- system (cleanup) access"));
+    expect(ownerFns).toMatch(/MutationContext/);
+    expect(ownerFns).not.toMatch(/\bdb\./); // no direct, un-scoped client in the owner section
+  });
+
+  it("templates never import the storage client: only the pure key format", () => {
+    const offenders = files("src/templates").filter((f) => /from\s+["']@\/lib\/storage(?!\/keys)/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the storage URL is built in one place and no hardcoded host is persisted", () => {
+    expect(inFiles(/getPublicBaseUrl\(\)/)).toEqual(["src/lib/storage/index.ts"]);
+    expect(read("prisma/schema.prisma")).not.toMatch(/https?:\/\//);
+    expect(read("src/modules/media/repository.ts")).not.toMatch(/https?:\/\//);
+  });
+
+  it("media upload actions authenticate first and Server Action bodies are capped", () => {
+    expect(read("src/app/dashboard/media-actions.ts")).toMatch(/uploadMedia\(user\.id/);
+    expect(read("next.config.ts")).toMatch(/bodySizeLimit:\s*"6mb"/);
+  });
+});
+
+describe("architecture guard: page editing (draft only, owner-scoped, template-aware)", () => {
+  const inFiles = (re: RegExp) => rel(prodFiles().filter((f) => re.test(read(f))));
+
+  it("page rows are written only by the pages repository (and nested-created with a new store)", () => {
+    expect(inFiles(/\.page\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/)).toEqual(["src/modules/pages/repository.ts"]);
+    expect(inFiles(/pages:\s*\{\s*create:/)).toEqual(["src/modules/stores/service.ts"]);
+  });
+
+  it("every page mutation runs inside withStoreMutation via the single mutatePage (revision check + rollback of no-ops)", () => {
+    const src = read("src/modules/pages/service.ts");
+    expect(src.match(/withStoreMutation\(/g)).toHaveLength(1);
+    expect(src).toMatch(/page\.revision !== expected/);
+    expect(src).toMatch(/throw new NoChange\(\)/);
+    for (const fn of ["addSection", "updateSection", "removeSection", "moveSection", "setSectionImage", "setPageVisibility", "recoverPage"]) {
+      expect(src, fn).toMatch(new RegExp(`export async function ${fn}\\([\\s\\S]*?mutatePage\\(`));
+    }
+  });
+
+  it("the repository writes pages only with the revision the caller verified, and the owner in the SQL condition", () => {
+    const src = read("src/modules/pages/repository.ts");
+    expect(src).toMatch(/revision:\s*page\.revision/);
+    expect(src).toMatch(/store:\s*\{\s*ownerId:\s*ctx\.ownerId\s*\}/);
+    expect(src).toMatch(/store:\s*\{\s*ownerId:\s*this\.ownerId\s*\}/);
+  });
+
+  it("the editing service names no concrete template: approved sections come from the template's editor spec", () => {
+    const offenders = files("src/modules/pages").filter((f) => /["'](general|coffee|fashion)["']/.test(read(f)));
+    expect(offenders).toEqual([]);
+    expect(read("src/templates/types.ts")).toMatch(/readonly editor: EditorSpec/);
+  });
+
+  it("hiding is guarded by NON_HIDEABLE_PAGES in the service", () => {
+    expect(read("src/modules/pages/service.ts")).toMatch(/NON_HIDEABLE_PAGES\.includes\(type\)/);
+  });
+
+  it("no raw HTML injection and no external fonts/stylesheets anywhere in the app or templates", () => {
+    // The single exception (phase 11): JSON-LD blocks need raw script content (React would entity-escape the JSON quotes). The
+    // allow-list is exactly one file, and it must serialise through the escaping `serializeJsonLd` (see the SEO guards below).
+    expect(inFiles(/dangerouslySetInnerHTML/)).toEqual(["src/app/store-host/[label]/JsonLd.tsx"]);
+    expect(inFiles(/@import\s+url\(|fonts\.googleapis|fonts\.gstatic|<link[^>]+stylesheet/)).toEqual([]);
+    expect(read("src/templates/general/general.module.css")).not.toMatch(/@import|url\(\s*["']?https?:/);
+  });
+
+  it("the page editor actions authenticate first and the editing UI imports no data layer", () => {
+    expect(read("src/app/dashboard/pages-actions.ts")).toMatch(/export async function pageEditAction\([^)]*\)[^{]*\{\n\s*const user = await requireUser\(\)/);
+    const offenders = files("src/components/pages").filter((f) => /from\s+["'](@\/lib\/db|@prisma\/client|@\/modules\/[^"']*repository)["']/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("architecture guard: business category, themes and the section registry (phase 9A)", () => {
+  const inFiles = (re: RegExp, roots = prodFiles()) => rel(roots.filter((f) => re.test(read(f))));
+
+  it("the renderer side never reads the business category (themes, engine, preview routes, storefront data)", () => {
+    const roots = [...files("src/templates"), ...files("src/app/preview"), ...files("src/modules/storefront"), ...files("src/modules/pages"), ...files("src/modules/products"), ...files("src/modules/categories"), ...files("src/modules/media")];
+    expect(inFiles(/businessCategory|business-categories/, roots)).toEqual([]);
+  });
+
+  it("the category is written only by store creation and by the dedicated compare-and-set (no draftRevision involved)", () => {
+    expect(inFiles(/businessCategory:\s*(category\.key|next)\b/)).toEqual(["src/modules/stores/repository.ts", "src/modules/stores/service.ts"]);
+    const repo = read("src/modules/stores/repository.ts");
+    const fn = repo.slice(repo.indexOf("async setBusinessCategory"), repo.indexOf("/** Optimistic update"));
+    expect(fn).toMatch(/ownerId:\s*this\.ownerId/);
+    expect(fn).toMatch(/businessCategory:\s*expected/);
+    expect(fn).not.toMatch(/draftRevision/);
+  });
+
+  it("starter text is applied during creation only (the category update never touches pages)", () => {
+    expect(inFiles(/applyStarterCopy\(/)).toEqual(["src/modules/stores/service.ts", "src/modules/stores/starter-content.ts"]);
+    const svc = read("src/modules/stores/service.ts");
+    const update = svc.slice(svc.indexOf("export async function updateBusinessCategory"), svc.indexOf("export async function deleteStore"));
+    expect(update).not.toMatch(/page|applyStarterCopy|settings|product/i);
+  });
+
+  it("the database CHECK validates only the key format: no category name appears in it, and the migration adds no allowlist", () => {
+    const dir = readdirSync("prisma/migrations").find((d) => d.includes("phase9a_business_category"))!;
+    const sql = read(`prisma/migrations/${dir}/migration.sql`);
+    const check = sql.split("\n").find((l) => l.includes("ADD CONSTRAINT \"Store_businessCategory_format\""))!;
+    expect(check).toMatch(/\^\[a-z\]\[a-z0-9-\]\{0,39\}\$/);
+    expect(check).not.toMatch(/coffee|fashion|appliances|general|IN \(/);
+    expect(read("prisma/schema.prisma")).not.toMatch(/enum\s+\w*Category/i);
+  });
+
+  it("the core engine and the section registry name no concrete theme or business category", () => {
+    const core = [
+      ...files("src/templates/engine"),
+      "src/templates/section-registry.ts",
+      "src/templates/section-parse.ts",
+      "src/templates/sections.ts",
+      "src/templates/types.ts",
+      "src/templates/editor.ts",
+      "src/templates/theme.ts",
+      "src/templates/storefront-data.ts",
+    ];
+    for (const f of core) expect(read(f), f).not.toMatch(/["'](general|coffee|fashion|coffee-food|home-appliances)["']/);
+  });
+
+  it("only the catalogs know concrete themes: one pure catalog and one React registry", () => {
+    expect(inFiles(/from\s+["']\.\/(general|coffee|fashion)\/definition["']/, files("src/templates"))).toEqual(["src/templates/theme-catalog.ts"]);
+    expect(inFiles(/from\s+["']\.\/(general|coffee|fashion)["']/, files("src/templates"))).toEqual(["src/templates/registry.ts"]);
+  });
+
+  it("theme definitions are pure (no React, no CSS, no data layer) so server code and scripts can use them", () => {
+    for (const f of files("src/templates").filter((x) => /\/definition\.ts$|\/editor\.ts$/.test(x.split(path.sep).join("/")))) {
+      expect(read(f), f).not.toMatch(/from\s+["'](react|react-dom|[^"']*\.css|@\/modules|@\/lib\/db|@prisma\/client)/);
+    }
+    for (const f of ["src/templates/theme-catalog.ts", "src/templates/section-registry.ts", "src/templates/section-parse.ts"]) {
+      expect(read(f), f).not.toMatch(/from\s+["'](react|react-dom|[^"']*\.css)/);
+    }
+  });
+
+  it("editing and store creation use the PURE catalog (never the React registry), and extra section types are namespaced by theme", () => {
+    expect(inFiles(/from\s+["']@\/templates\/registry["']/, [...files("src/modules"), ...files("src/app/dashboard"), ...files("src/components")])).toEqual([]);
+    const reg = read("src/templates/section-registry.ts");
+    expect(reg).toMatch(/startsWith\(`\$\{theme\.key\}\.`\)/);
+  });
+
+  it("dormant handling keeps stored values: edits serialize the stored raw value of every entry", () => {
+    const svc = read("src/modules/pages/service.ts");
+    expect(svc).toMatch(/serializeEntries\(out\.entries\)/);
+    expect(read("src/modules/pages/analyze.ts")).toMatch(/raw: item/);
+    expect(svc).toMatch(/export async function removeDormantSection/);
+    expect(svc).toMatch(/e\.kind === "dormant" && e\.section\.id === sid\.data/);
+  });
+});
+
+describe("architecture guard: theme switching and candidate preview (phase 9B)", () => {
+  const WRITE_CALL = /\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(|\$executeRaw|\$queryRaw/;
+  const inFiles = (re: RegExp) => rel(prodFiles().filter((f) => re.test(read(f))));
+
+  it("the theme pointer is written in exactly one place (repository), only inside a store mutation, and by nothing else", () => {
+    expect(inFiles(/templateVersionId:\s*nextVersionId/)).toEqual(["src/modules/stores/repository.ts"]);
+    const sw = read("src/modules/stores/theme-switch.ts");
+    expect(sw).toMatch(/withStoreMutation\(ownerId, id,/);
+    expect(sw).toMatch(/setTemplateVersionInTx\(/);
+    // the switch service reaches no table other than through the store repository: no page, media, product or snapshot access
+    expect(sw).not.toMatch(WRITE_CALL);
+    expect(sw).not.toMatch(/from\s+["']@\/lib\/db["']|@\/modules\/(media|products|categories)|writePage|storeVersion/i);
+    const repo = read("src/modules/stores/repository.ts");
+    const write = repo.slice(repo.indexOf("export async function setTemplateVersionInTx"), repo.indexOf("/** Default settings of a theme version"));
+    expect(write).toMatch(/ownerId:\s*ctx\.ownerId/);
+    expect(write).toMatch(/templateVersionId:\s*expectedVersionId/);
+    expect(write.match(/updateMany\(/g)?.length).toBe(1);
+    expect(write).not.toMatch(/page|media|product|storeVersion|publishedVersion|status/i);
+  });
+
+  it("the report is computed by the pure compat module (no I/O) and the switch re-evaluates it under the store lock", () => {
+    const compat = read("src/modules/pages/compat.ts");
+    expect(compat).not.toMatch(/from\s+["'](@\/lib\/db|@prisma\/client)["']/);
+    expect(compat).not.toMatch(WRITE_CALL);
+    const sw = read("src/modules/stores/theme-switch.ts");
+    const body = sw.slice(sw.indexOf("export async function switchTheme"));
+    expect(body).toMatch(/computeCompatibility\(/);
+    expect(body).toMatch(/expectedDraftRevision \+ 1/);
+    expect(body).toMatch(/canSwitch\) throw new ThemeSwitchBlockedError/);
+  });
+
+  it("the candidate-theme preview and the preview routes perform no writes and never read published data", () => {
+    for (const f of ["src/modules/storefront/service.ts", "src/modules/storefront/repository.ts", "src/app/preview/[storeId]/[[...path]]/page.tsx", "src/app/preview/[storeId]/load.ts", "src/app/preview/CandidateBanner.tsx"]) {
+      const src = read(f);
+      expect(src, f).not.toMatch(WRITE_CALL);
+      expect(src, f).not.toMatch(/readPublishedStorefront|publishedVersion|storeVersion/i);
+    }
+    // the theme comes from a validated key resolved to the latest ACTIVE version that the code also knows
+    expect(read("src/modules/storefront/service.ts")).toMatch(/findLatestActiveThemeVersion\(opts\.candidateThemeKey\)/);
+  });
+
+  it("media protection scans every place a section can live: active/dormant/invalid sections, archived sections and snapshots", () => {
+    const repo = read("src/modules/media/repository.ts");
+    const fn = repo.slice(repo.indexOf("export async function isMediaReferenced"), repo.indexOf("export async function setStoreLogoRow"));
+    expect(fn).toMatch(/"sections"::text/);
+    expect(fn).toMatch(/"legacySections"::text/);
+    expect(fn).toMatch(/"snapshot"::text/);
+  });
+
+  it("the switch action authenticates first and carries the report's revision from a hidden form field", () => {
+    const actions = read("src/app/dashboard/actions.ts");
+    expect(actions).toMatch(/export async function switchThemeAction\([^)]*\)[^{]*\{\n\s*const user = await requireUser\(\)/);
+    expect(actions).toMatch(/expectedDraftRevision: str\(fd, "expectedDraftRevision"\)/);
+  });
+});
+
+describe("architecture guard: product specifications and the appliances theme (phase 9C)", () => {
+  const inFiles = (re: RegExp, among = prodFiles()) => rel(among.filter((f) => re.test(read(f))));
+
+  it("the specs library is pure and shared (no React, no database, no Prisma)", () => {
+    for (const f of ["src/lib/product-specs.ts", "src/lib/spec-presets.ts"]) {
+      expect(read(f), f).not.toMatch(/from\s+["'](react|react-dom|@prisma\/client|@\/lib\/db|@\/modules\/[^"']*)["']/);
+    }
+  });
+
+  it("specs are written to the product row only from the products service (explicit patch) and its create path", () => {
+    expect(inFiles(/c\.specs\s*=|specs:\s*data\.specs/)).toEqual(["src/modules/products/service.ts"]);
+    const svc = read("src/modules/products/service.ts");
+    // the update path writes specs ONLY when the patch carries them and they differ: unrelated edits never touch stored specs
+    expect(svc).toMatch(/if \(patch\.specs !== undefined && !specsUnchanged\(cur\.specs, patch\.specs\)\) c\.specs = patch\.specs;/);
+    // every other product write (status, image, delete) names its columns explicitly
+    const repo = read("src/modules/products/repository.ts");
+    expect(repo.slice(repo.indexOf("export async function setStatusRow"))).not.toMatch(/specs/);
+  });
+
+  it("the product form sends specs only for the explicit 'replace' and 'clear' intents", () => {
+    const f = read("src/modules/products/specs-form.ts");
+    expect(f).toMatch(/intent === "clear"\) return \[\]/);
+    expect(f).toMatch(/intent !== "replace"\) return undefined/);
+    expect(read("src/app/dashboard/catalog-actions.ts")).toMatch(/specs: specsFromForm\(fd\)/);
+  });
+
+  it("every theme renders specs through the shared escaping components: ProductSpecs on the detail page and CardSpecs on cards", () => {
+    for (const theme of ["general", "coffee", "fashion", "appliances"]) {
+      const src = files(`src/templates/${theme}`).map((f) => read(f)).join("\n");
+      expect(src, theme).toMatch(/<ProductSpecs\b/);
+      expect(src, theme).toMatch(/<CardSpecs\b/);
+      expect(src, theme).not.toMatch(/dangerouslySetInnerHTML/);
+    }
+    const engine = read("src/templates/engine/Specs.tsx");
+    expect(engine).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
+    expect(engine).toMatch(/cardSpecs\(specs\)/); // the two-row rule lives in one place
+  });
+
+  it("no template or dashboard source injects raw HTML", () => {
+    // Only the JSON-LD component (phase 11, escaped by serializeJsonLd) may use raw markup; never a template, component or dashboard file.
+    expect(inFiles(/dangerouslySetInnerHTML/, [...files("src/templates"), ...files("src/components"), ...files("src/app")])).toEqual(["src/app/store-host/[label]/JsonLd.tsx"]);
+  });
+
+  it("the appliances theme is registered in the catalog, the module registry and the seed definitions (and nowhere is a theme key hardcoded in the engine)", () => {
+    expect(read("src/templates/theme-catalog.ts")).toMatch(/appliancesTheme/);
+    expect(read("src/templates/registry.ts")).toMatch(/appliancesTemplate/);
+    expect(read("src/templates/definitions.ts")).toMatch(/key: "appliances"/);
+    expect(inFiles(/appliances/, files("src/templates/engine"))).toEqual([]);
+  });
+
+  it("the snapshot budget constants are derived from real validators in a test (docs and code cannot drift)", () => {
+    expect(read("src/lib/product-specs.size.test.ts")).toMatch(/SPECS_WORST_CASE_JSON_BYTES_PER_PRODUCT/);
+  });
+});
+
+describe("architecture guard: the public (store host) path never reads draft data", () => {
+  const publicSrc = () => read("src/modules/publishing/public-read.ts");
+  // Every table name that appears in a FROM/JOIN of the public read module.
+  const tables = (src: string) => [...src.matchAll(/(?:FROM|JOIN)\s+"(\w+)"/gi)].map((m) => m[1]!);
+
+  it("public-read.ts reads only Domain, Store, StoreVersion, StoreVersionProduct and PublishedSlug", () => {
+    const used = new Set(tables(publicSrc()));
+    expect(used.size).toBeGreaterThan(0);
+    const allowed = new Set(["Domain", "Store", "StoreVersion", "StoreVersionProduct", "PublishedSlug"]);
+    for (const t of used) expect(allowed.has(t), `public path reads table ${t}`).toBe(true);
+    // none of the draft tables, by name
+    for (const draft of ["Product", "Category", "Page", "PageSection", "Media", "ProductMedia", "StoreSettings", "Theme"]) {
+      expect(used.has(draft), draft).toBe(false);
+    }
+  });
+
+  it("the Store table is read for status and the live pointer only (no draft columns)", () => {
+    const m = [...publicSrc().matchAll(/s\."(\w+)"/g)].map((x) => x[1]!);
+    const draftColumns = ["name", "description", "draftRevision", "settings", "themeKey", "themeVersion"];
+    for (const c of draftColumns) expect(m.includes(c), `Store.${c}`).toBe(false);
+  });
+
+  it("the store-host page and public-read import no dashboard, draft repository or owner-scoped module", () => {
+    const pageSrc = read("src/app/store-host/[label]/[[...path]]/page.tsx");
+    for (const src of [pageSrc, publicSrc()]) {
+      expect(src).not.toMatch(/from\s+["']@\/modules\/(stores|products|categories|pages|media|storefront)\b/);
+      expect(src).not.toMatch(/from\s+["']@\/app\/dashboard/);
+      expect(src).not.toMatch(/requireUser|getStorefront|DraftStorefrontRepository/);
+    }
+  });
+
+  it("only the raw Host header is read for routing; forwarded host headers are never read anywhere in src", () => {
+    const offenders = prodFiles().filter((f) => /x-forwarded-host|x-original-host|"forwarded"/i.test(read(f).replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, "")));
+    expect(rel(offenders)).toEqual([]);
+  });
+
+  it("the internal /store-host namespace is only produced by the proxy rewrite (never linked from application code)", () => {
+    const offenders = prodFiles().filter((f) => /store-host/.test(read(f)) && !/(proxy\.ts|store-routing\.ts|store-host\/\[label\])/.test(f));
+    expect(rel(offenders)).toEqual([]);
+  });
+
+  it("publishing writes immutable tables only by INSERT (no UPDATE/DELETE of versions or the per-version index in application code)", () => {
+    for (const f of prodFiles()) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/UPDATE\s+"(StoreVersion|StoreVersionProduct|PublishedSlug)"/i);
+      expect(src, f).not.toMatch(/DELETE\s+FROM\s+"(StoreVersion|StoreVersionProduct|PublishedSlug)"/i);
+      expect(src, f).not.toMatch(/\.(storeVersion|storeVersionProduct|publishedSlug)\.(update|updateMany|delete|deleteMany|upsert)\(/);
+    }
+  });
+});
+
+describe("architecture guard: host validation is enforced by the application (unknown hosts are never the platform)", () => {
+  it("the proxy builds its decision from getHostPolicy() and answers not_found with the neutral 404", () => {
+    const proxy = read("src/proxy.ts");
+    expect(proxy).toMatch(/getHostPolicy\(\)/);
+    expect(proxy).toMatch(/decideRoute\(.*policy\.rootDomain,\s*policy\.aliases\)/);
+    expect(proxy).toMatch(/decision\.kind === "not_found"\)\s*return neutralNotFound/);
+  });
+
+  it("decideRoute rejects unknown hosts before anything else", () => {
+    expect(read("src/lib/store-routing.ts")).toMatch(/host\.kind === "unknown"\)\s*return \{ kind: "not_found" \}/);
+  });
+
+  it("loopback aliases exist only for an explicit development or test environment (production, staging and unset are strict)", () => {
+    const src = read("src/lib/hostname.ts");
+    expect(src).toMatch(/nodeEnv !== "development" && nodeEnv !== "test"\)\s*return \[\]/);
+    expect(src).not.toMatch(/NODE_ENV/); // hostname.ts is pure: the environment is passed in
+  });
+
+  it("NODE_ENV is read for host policy in exactly one place, and nothing else passes aliases to the resolver", () => {
+    const readers = prodFiles().filter((f) => /NODE_ENV/.test(read(f)) && /platformAliases|host-policy|aliases/.test(read(f)));
+    expect(rel(readers)).toEqual(["src/lib/host-policy.ts"]);
+    const callers = prodFiles().filter((f) => /resolveHost\([^\n]*aliases/i.test(read(f)));
+    expect(rel(callers)).toEqual(["src/lib/host-guard.ts", "src/lib/hostname.ts", "src/lib/store-routing.ts"]); // hostname.ts is the definition itself
+  });
+
+  it("the platform-only guards require a recognised platform host (not merely 'not a store host')", () => {
+    const guard = read("src/lib/host-guard.ts");
+    expect(guard).toMatch(/kind === "platform"/);
+    expect(guard).toMatch(/if \(!isPlatformHostHeader\(/);
+    expect(guard).not.toMatch(/isStoreHostHeader/);
+    for (const f of [
+      "src/app/dashboard/layout.tsx",
+      "src/app/preview/[storeId]/layout.tsx",
+      "src/app/(auth)/layout.tsx",
+      "src/app/api/health/route.ts",
+      "src/app/api/auth/[...nextauth]/route.ts",
+    ]) {
+      expect(read(f), f).toMatch(/assertPlatformHost\(\)|platformOnly\(/);
+    }
+  });
+});
+
+describe("architecture guard: draft writers are bounded by the draft lock timeout", () => {
+  const mutation = () => read("src/modules/stores/mutation.ts");
+
+  it("withStoreMutation arms lock_timeout BEFORE it touches the store row, and maps 55P03 to the typed error", () => {
+    const src = mutation();
+    const fn = src.slice(src.indexOf("export async function withStoreMutation"), src.indexOf("declare const lockBrand"));
+    expect(fn.indexOf("armDraftLockTimeout(tx)")).toBeGreaterThan(-1);
+    expect(fn.indexOf("armDraftLockTimeout(tx)")).toBeLessThan(fn.indexOf("tx.store.updateMany"));
+    expect(fn).toMatch(/throw mapDraftLockTimeout\(e\)/);
+    expect(src).toMatch(/pgErrorCode\(e\) === "55P03" \? new DraftBusyError\(\)/);
+    expect(src).toMatch(/DRAFT_LOCK_TIMEOUT_MS = 5_000/);
+  });
+
+  it("publishing keeps its own lock behavior: withStoreLock still uses its own lockTimeoutMs and StoreLockBusyError, not the draft timeout", () => {
+    const src = mutation();
+    const lock = src.slice(src.indexOf("export async function withStoreLock"));
+    expect(lock).toMatch(/opts\.lockTimeoutMs \?\? 5_000/);
+    expect(lock).toMatch(/StoreLockBusyError/);
+    expect(lock).not.toMatch(/armDraftLockTimeout|DraftBusyError|draftLockTimeoutMs/);
+  });
+
+  it("every dashboard action module that runs draft mutations maps DraftBusyError to the owner-facing message or notice", () => {
+    for (const f of ["src/app/dashboard/actions.ts", "src/app/dashboard/catalog-actions.ts", "src/app/dashboard/pages-actions.ts", "src/app/dashboard/media-actions.ts"]) {
+      expect(read(f), f).toMatch(/instanceof DraftBusyError/);
+    }
+  });
+
+  it("the test seam for the draft timeout is never used by production code", () => {
+    const users = prodFiles().filter((f) => /setDraftLockTimeoutForTests/.test(read(f)));
+    expect(rel(users)).toEqual(["src/modules/stores/mutation.ts"]);
+  });
+});
+
+describe("architecture guard: media release after a committed change never fails it and is never silent", () => {
+  it("releaseMedia is called only inside the media service; every other caller uses the never-throwing, logging variant", () => {
+    const callers = prodFiles().filter((f) => /\breleaseMedia\(/.test(read(f)));
+    expect(rel(callers)).toEqual(["src/modules/media/service.ts"]);
+    for (const f of ["src/modules/products/service.ts", "src/modules/pages/service.ts", "src/app/dashboard/media-actions.ts"]) {
+      expect(read(f), f).toMatch(/releaseMediaBestEffort\(/);
+    }
+  });
+
+  it("nothing swallows a release silently (no `.catch(() => undefined)` on a release)", () => {
+    for (const f of prodFiles()) expect(read(f), f).not.toMatch(/release\w*\([^)]*\)\s*\.catch\(\s*\(\)\s*=>\s*undefined\s*\)/);
+  });
+
+  it("the best-effort release logs one structured event and the cleanup reclaims through the lock-only (no draftRevision bump) path", () => {
+    const svc = read("src/modules/media/service.ts");
+    expect(svc).toMatch(/event: "media\.release_failed"/);
+    expect(svc).toMatch(/const inLock: RunLocked = async \(ownerId, storeId, fn\) => \(await withStoreLock\(/);
+    expect(read("src/modules/media/cleanup.ts")).toMatch(/reclaimMedia\(/);
+    expect(read("src/modules/media/cleanup.ts")).not.toMatch(/\breleaseMedia\(/);
+  });
+
+  it("the cleanup script reports failures through its exit code", () => {
+    expect(read("scripts/cleanup-media.ts")).toMatch(/failures > 0\) process\.exitCode = 2/);
+  });
+
+  it("business-category changes and store deletion go through the draft lock timeout", () => {
+    const repo = read("src/modules/stores/repository.ts");
+    const cat = repo.slice(repo.indexOf("async setBusinessCategory"), repo.indexOf("async updateDraft") > 0 ? repo.indexOf("/** Optimistic update") : undefined);
+    expect(cat).toMatch(/withDraftLockTimeout\(this\.client/);
+    const del = repo.slice(repo.indexOf("async deleteConfirmed"));
+    expect(del).toMatch(/withDraftLockTimeout\(this\.client/);
+    // no other Store write exists outside withStoreMutation / the publishing lock / these timeout-wrapped writers
+    const offenders = prodFiles().filter((f) => /store\.(update|updateMany|delete|deleteMany)\(/.test(read(f)));
+    expect(rel(offenders)).toEqual(["src/modules/media/repository.ts", "src/modules/publishing/repository.ts", "src/modules/stores/mutation.ts", "src/modules/stores/repository.ts"]);
+  });
+});
+
+describe("architecture guard: SEO (phase 11) reads only published data and never trusts request headers for identity", () => {
+  const seoFiles = () => files("src/modules/seo");
+
+  it("the SEO builders are pure: no database, no request, no Next runtime and no draft module", () => {
+    expect(seoFiles().length).toBeGreaterThanOrEqual(4);
+    for (const f of seoFiles()) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/from\s+["']@\/lib\/db["']|@prisma\/client|next\/headers|next\/server|next\/navigation/);
+      expect(src, f).not.toMatch(/from\s+["']@\/modules\/(stores|products|categories|pages|media|storefront)\b/);
+      expect(src, f).not.toMatch(/process\.env|getAppEnv|\bheaders\(/);
+      // type-only imports from Next (the Metadata type) are the only allowed ones
+      for (const m of src.matchAll(/import\s+(type\s+)?[^;]*from\s+["']next["']/g)) expect(m[1], f).toBeTruthy();
+    }
+  });
+
+  it("the JSON-LD component serialises only through serializeJsonLd, and the serializer escapes the tag-closing characters", () => {
+    const comp = read("src/app/store-host/[label]/JsonLd.tsx");
+    expect(comp).toMatch(/__html: serializeJsonLd\(item\)/);
+    expect(comp.match(/dangerouslySetInnerHTML=/g)).toHaveLength(1); // one attribute, nothing else
+    const ser = read("src/modules/seo/jsonld.ts");
+    for (const ch of ["u003c", "u003e", "u0026", "u2028", "u2029"]) expect(ser).toContain(ch);
+  });
+
+  it("every public SEO route (page metadata, robots.txt, sitemap.xml) uses the shared host check and the published-store loader", () => {
+    for (const f of [
+      "src/app/store-host/[label]/[[...path]]/page.tsx",
+      "src/app/store-host/[label]/robots.txt/route.ts",
+      "src/app/store-host/[label]/sitemap.xml/route.ts",
+    ]) {
+      const src = read(f);
+      expect(src, f).toMatch(/hostNamesLabel\(/);
+      expect(src, f).toMatch(/loadPublicStore\(/);
+      expect(src, f).not.toMatch(/x-forwarded|forwarded-host|\.get\(["']host["']\)/i);
+    }
+    const shared = read("src/app/store-host/[label]/_public.ts");
+    expect(shared).toMatch(/publicStoreUrl\(label\)/); // the public base URL comes from configuration
+    expect(shared).toMatch(/resolveHost\(\(await headers\(\)\)\.get\("host"\)/); // the raw Host header only
+  });
+
+  it("the platform robots.txt blocks the application and nothing else is indexable by accident", () => {
+    const src = read("src/app/robots.ts");
+    for (const p of ["/dashboard", "/preview", "/api/"]) expect(src).toContain(`"${p}"`);
+    // login/register must stay crawlable so that their noindex directive can be read
+    for (const p of ["/login", "/register"]) expect(src).not.toContain(`"${p}"`);
+    for (const f of ["src/app/(auth)/login/page.tsx", "src/app/(auth)/register/page.tsx"]) {
+      expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
+    }
+    for (const f of ["src/app/dashboard/layout.tsx", "src/app/preview/[storeId]/[[...path]]/page.tsx"]) {
+      expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false/);
+    }
+  });
+
+  it("the new snapshot field stays optional without a default (no content-hash change for stores that never set it)", () => {
+    expect(read("src/templates/storefront-data.ts")).toMatch(/description: z\.string\(\)\.max\(160\)\.optional\(\)/);
+    expect(read("src/modules/storefront/build.ts")).toMatch(/\.\.\.\(resolved\.description \? \{ description: resolved\.description \} : \{\}\)/);
+  });
+
+  it("phase 12: the account area is guarded, tokens are never logged or stored raw, and no mail provider SDK exists", () => {
+    // every account action authenticates first (the generic dashboard-actions guard also covers it)
+    const acct = read("src/app/dashboard/account/actions.ts");
+    expect(acct.startsWith('"use server"')).toBe(true);
+    for (const m of acct.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{\n([^\n]*)/g)) expect(m[2], m[1]).toMatch(/requireUser\(\)/);
+    // account code never logs credentials or identities
+    const account = read("src/modules/auth/account.ts");
+    expect(account).not.toMatch(/console\.\w+\(/);
+    // public auth pages carrying credentials are never indexed
+    for (const f of ["src/app/(auth)/login/page.tsx", "src/app/(auth)/register/page.tsx"]) expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
+    // Mail goes out only through the provider-neutral SMTP transport (DM2-1, superseding the "no transport" part of D12-2):
+    // exactly one mail library, pinned to an exact version, and no provider SDK (SES/SendGrid/... would tie the code to a vendor).
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    const mailDeps = Object.keys(pkg.dependencies).filter((d) => /nodemailer|sendgrid|mailgun|postmark|resend|@aws-sdk\/client-ses|smtp/i.test(d));
+    expect(mailDeps).toEqual(["nodemailer"]);
+    expect(pkg.dependencies.nodemailer).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("phase 12: error boundaries never render the error message or stack, and legal pages are platform-only", () => {
+    for (const f of ["src/app/error.tsx", "src/app/global-error.tsx"]) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/error\.(message|stack)/);
+      expect(src, f).not.toMatch(/dangerouslySetInnerHTML/);
+    }
+    expect(read("src/app/(legal)/layout.tsx")).toMatch(/await assertPlatformHost\(\)/);
+    // the dashboard layout keeps a skip link (the shared SkipLink component since the M3 audit) and a main landmark
+    const layout = read("src/app/dashboard/layout.tsx");
+    expect(layout).toContain("<SkipLink />");
+    expect(read("src/components/SkipLink.tsx")).toContain('href="#main"');
+    expect(layout).toMatch(/component="main"\s+id="main"/);
+  });
+
+  it("phase 12 mail guard: log/file transports are refused in production at start-up and again in createMailer, and the override is E2E-only", () => {
+    const mailer = read("src/modules/auth/mailer.ts");
+    expect(mailer).toMatch(/export function assertMailTransportAllowed/);
+    expect(mailer).toMatch(/export function createMailer[^{]*\{\s*assertMailTransportAllowed\(env\)/);
+    // the production mailer ("none") has no console output at all; only the dev log transport prints messages
+    expect([...mailer.matchAll(/console\.\w+/g)].map((m) => m[0]).sort()).toEqual(["console.error", "console.info", "console.warn"]);
+    expect(mailer).toMatch(/console\.warn\("\[mail\] WARNING: [^"$`]*"\)/); // a fixed string: nothing interpolated
+    // start-up refusal
+    const inst = read("src/instrumentation.ts");
+    expect(inst).toMatch(/NEXT_RUNTIME !== "nodejs"/);
+    expect(inst).toMatch(/enforceMailTransportAtStartup\(process\.env\)/);
+    // the override name appears only in the guard and the E2E config (tests and docs aside): never in app code, scripts, CI or env examples
+    const holders = [...prodFiles(), ...files("e2e"), ...files("scripts"), "playwright.config.ts", "../../.github/workflows/ci.yml", ".env.example"]
+      .filter((f) => { try { return /MAIL_E2E_FILE_OUTBOX_OVERRIDE/.test(read(f)); } catch { return false; } });
+    expect(rel(holders).sort()).toEqual(["playwright.config.ts", "src/modules/auth/mailer.ts"]);
+    // CI and examples never turn on log/file for a production start
+    for (const f of ["../../.github/workflows/ci.yml", ".env.example"]) expect(read(f), f).not.toMatch(/^[^#\n]*MAIL_TRANSPORT\s*[:=]\s*["']?(log|file)/im); // commented examples are fine
+  });
+
+  it("U1 (ADR 0001): sign-in is by username; e-mail and password reset are gone from every production path", () => {
+    // nothing reads or writes the deprecated reset-token table (it is dropped by the approved contract migration later)
+    const holders = prodFiles().filter((f) => /\.passwordResetToken\b|(INTO|FROM|UPDATE|JOIN)\s+"PasswordResetToken"/.test(read(f)));
+    expect(rel(holders)).toEqual([]);
+    // no reset routes, no reset actions
+    for (const p of ["src/app/(auth)/forgot-password/page.tsx", "src/app/(auth)/reset-password/page.tsx"]) expect(existsSyncSafe(p), p).toBe(false);
+    const actions = read("src/app/actions-auth.ts");
+    expect(actions).not.toMatch(/forgotPassword|resetPassword|requestPasswordReset/);
+    // the credentials are username + password, end to end
+    expect(read("src/auth.ts")).toMatch(/credentials: \{ username: \{\}, password: \{\} \}/);
+    expect(actions).toMatch(/username: formData\.get\("username"\)/);
+    expect(read("src/components/AuthForm.tsx")).toMatch(/name="username"/);
+    expect(read("src/components/AuthForm.tsx")).not.toMatch(/name="email"/);
+    // the user record carries a unique username; e-mail is optional and never selected for callers
+    expect(read("prisma/schema.prisma")).toMatch(/username\s+String\s+@unique/);
+    expect(read("src/modules/auth/service.ts")).not.toMatch(/email/);
+  });
+});
+
+function existsSyncSafe(p: string): boolean {
+  try {
+    statSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+
+describe("architecture guard: outgoing mail (MVP step M2, decision DM2-1)", () => {
+  it("nodemailer is imported only by the SMTP transport module", () => {
+    const importers = prodFiles().filter((f) => /from\s+["']nodemailer["']/.test(read(f)));
+    expect(rel(importers)).toEqual(["src/modules/auth/smtp.ts"]);
+  });
+  it("the SMTP transport can never disable certificate verification or fall back to plain text", () => {
+    const smtp = read(path.join("src", "modules", "auth", "smtp.ts"));
+    expect(smtp).toContain("rejectUnauthorized: true");
+    expect(smtp).toContain("requireTLS: !cfg.secure");
+    expect(smtp).toContain("ignoreTLS: false");
+    expect(smtp).not.toMatch(/rejectUnauthorized:\s*(false|!|cfg\.|env\.)/);
+  });
+});
