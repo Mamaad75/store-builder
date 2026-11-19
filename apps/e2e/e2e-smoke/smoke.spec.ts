@@ -11,7 +11,7 @@ test.describe("production stack through Caddy", () => {
   test("readiness, security headers (incl. HSTS over https) and the neutral 404 for unknown hosts", async ({ request }) => {
     const ready = await request.get(`${root}/api/ready`);
     expect(ready.status()).toBe(200);
-    expect(await ready.json()).toEqual({ status: "ready", checks: { database: "ok", storage: "ok" } });
+    expect(await ready.json()).toEqual({ status: "ready", checks: { api: "ok", database: "ok", storage: "ok" } });
 
     const home = await request.get(`${root}/`);
     const h = home.headers();

@@ -78,6 +78,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+      - run: pnpm shared:build
       - name: Database tests (API domain modules, REST API and scripts on real PostgreSQL)
         run: pnpm test:db
 
@@ -121,6 +122,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+      - run: pnpm shared:build
       - name: Start MinIO (throw-away, test-only credentials)
         run: ./scripts/ci-start-minio.sh
       - name: Storage integration tests (real S3 API)
