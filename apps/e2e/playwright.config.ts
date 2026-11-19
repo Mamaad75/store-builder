@@ -48,9 +48,9 @@ export default defineConfig({
         AUTH_SECRET: "e2e-only-secret-e2e-only-secret-0123456789",
         APP_ROOT_DOMAIN: `localhost:${PORT}`,
         APP_PROTOCOL: "http",
-        // The tests act as the client: they set X-Forwarded-For per test (isolated rate-limit buckets); the web server proxies /api/* to the API
-        // and appends its own entry, so the client address is the second from the right (2 hops).
-        TRUST_PROXY_HOPS: "2",
+        // The tests act as the trusted proxy: they set X-Forwarded-For per test (isolated rate-limit buckets); Next forwards the header
+        // unchanged to the API, so the client address is the last entry (one hop, as behind Caddy).
+        TRUST_PROXY_HOPS: "1",
         API_HOST: "127.0.0.1",
         API_PORT: String(API_PORT),
         RATE_LIMIT_BACKEND: "postgres",

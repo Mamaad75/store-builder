@@ -84,7 +84,12 @@ function DeleteDialog({ storeId, category }: { storeId: string; category: Catego
         حذف
       </Button>
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
-        <form action={deleteCategoryAction}>
+        <form
+          action={async (fd: FormData) => {
+            await deleteCategoryAction(fd);
+            setOpen(false); // the handler navigated (notice in the URL); a modal left open would hide it from assistive technology
+          }}
+        >
           <input type="hidden" name="storeId" value={storeId} />
           <input type="hidden" name="categoryId" value={category.id} />
           <DialogTitle>حذف دسته‌بندی «{category.name}»</DialogTitle>
