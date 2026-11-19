@@ -1,5 +1,5 @@
 import { db } from "../../lib/db.js";
-import { log } from "../../lib/log.js";
+import { consoleSink } from "../../logging/json-logger.js";
 import { getMediaStorage, newMediaKey, type MediaStorage } from "../../lib/storage/index.js";
 import { getRateLimiter, rateLimitKey, type RateLimiter } from "../../lib/rate-limit.js";
 import { withStoreLock, withStoreMutation, type StoreLockedContext } from "../stores/mutation.js";
@@ -33,7 +33,8 @@ export type ReleaseOutcome = "deleted" | "kept" | "pending_delete" | "gone";
 /** What the never-throwing wrappers report: the release outcome, or "deferred" when it could not even start (the cleanup job will). */
 export type BestEffortOutcome = ReleaseOutcome | "deferred";
 
-const defaultLog = (msg: string, err?: unknown) => log.error("media.warning", { step: msg, errorClass: err instanceof Error ? err.name : undefined });
+// `msg` is already one structured JSON line (media.release_failed ...): it goes out verbatim, never wrapped or re-escaped.
+const defaultLog = (msg: string) => consoleSink("error", msg);
 const toView = (m: MediaRow): MediaView => ({ id: m.id, key: m.key, width: m.width, height: m.height, sizeBytes: m.sizeBytes, mimeType: m.mimeType });
 
 /**
