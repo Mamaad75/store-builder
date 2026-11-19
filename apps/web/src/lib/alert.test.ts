@@ -116,7 +116,7 @@ describe("sending (local fake Bale)", () => {
 });
 
 describe("scripts/notify-bale.sh (host-side alerts, e.g. the backup failure hook)", () => {
-  const script = path.resolve(import.meta.dirname, "../../scripts/notify-bale.sh");
+  const script = path.resolve(import.meta.dirname, "../../../../scripts/notify-bale.sh"); // repository-root operations script (apps/web/src/lib -> root)
   // Asynchronous spawn: the fake Bale server runs in THIS process, so a synchronous spawn would block it from answering.
   const run = (env: Record<string, string>, args = ["پشتیبان‌گیری شکست خورد"]) =>
     new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve) => {

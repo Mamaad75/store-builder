@@ -730,11 +730,11 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     expect(inst).toMatch(/NEXT_RUNTIME !== "nodejs"/);
     expect(inst).toMatch(/enforceMailTransportAtStartup\(process\.env\)/);
     // the override name appears only in the guard and the E2E config (tests and docs aside): never in app code, scripts, CI or env examples
-    const holders = [...prodFiles(), ...files("e2e"), ...files("scripts"), "playwright.config.ts", ".github/workflows/ci.yml", ".env.example"]
+    const holders = [...prodFiles(), ...files("e2e"), ...files("scripts"), "playwright.config.ts", "../../.github/workflows/ci.yml", ".env.example"]
       .filter((f) => { try { return /MAIL_E2E_FILE_OUTBOX_OVERRIDE/.test(read(f)); } catch { return false; } });
     expect(rel(holders).sort()).toEqual(["playwright.config.ts", "src/modules/auth/mailer.ts"]);
     // CI and examples never turn on log/file for a production start
-    for (const f of [".github/workflows/ci.yml", ".env.example"]) expect(read(f), f).not.toMatch(/^[^#\n]*MAIL_TRANSPORT\s*[:=]\s*["']?(log|file)/im); // commented examples are fine
+    for (const f of ["../../.github/workflows/ci.yml", ".env.example"]) expect(read(f), f).not.toMatch(/^[^#\n]*MAIL_TRANSPORT\s*[:=]\s*["']?(log|file)/im); // commented examples are fine
   });
 
   it("U1 (ADR 0001): sign-in is by username; e-mail and password reset are gone from every production path", () => {

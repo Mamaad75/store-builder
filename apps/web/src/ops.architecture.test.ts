@@ -3,8 +3,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /** Guards for the production-readiness files of phase 13: they cannot be exercised without Docker locally, so their invariants are pinned here. */
-const root = path.resolve(import.meta.dirname, "..");
-const read = (f: string) => readFileSync(path.join(root, f), "utf8");
+// pnpm workspace (ADR 0001, N1): application sources live in apps/web; containers, compose, Caddy, CI, docs and the operations
+// scripts stay at the repository root. Paths below are written as before; "src/..." resolves in apps/web, everything else at the root.
+const webRoot = path.resolve(import.meta.dirname, "..");
+const repoRoot = path.resolve(webRoot, "..", "..");
+const read = (f: string) => readFileSync(path.join(f.startsWith("src/") ? webRoot : repoRoot, f), "utf8");
 
 describe("Dockerfile", () => {
   const df = read("Dockerfile");
@@ -15,7 +18,7 @@ describe("Dockerfile", () => {
   it("the runtime image runs as the unprivileged node user, ships only the standalone output, and never copies secrets or sources", () => {
     const runtime = df.slice(df.indexOf("AS runtime"));
     expect(runtime).toMatch(/^USER node$/m);
-    expect(runtime).toContain("/app/.next/standalone");
+    expect(runtime).toContain("/app/apps/web/.next/standalone"); // pnpm workspace layout (ADR 0001, N1)
     expect(runtime).not.toMatch(/COPY\s+(\.|src|scripts|prisma)\b/);
     expect(runtime).not.toMatch(/COPY[^\n]*\.env/);
     expect(df).not.toMatch(/^(ENV|ARG)\s+\w*(SECRET|PASSWORD|TOKEN|KEY)\w*=/m);
@@ -116,7 +119,7 @@ describe("Caddy", () => {
   it("the production TLS template reads its token from the environment, never a literal", () => {
     const t = read("docker/caddy/tls.d/tls-dns.caddy.example");
     expect(t).toContain("{env.DNS_API_TOKEN}");
-    expect(existsSync(path.join(root, "docker/caddy/tls.d/tls-dns.caddy"))).toBe(false); // never committed
+    expect(existsSync(path.join(repoRoot, "docker/caddy/tls.d/tls-dns.caddy"))).toBe(false); // never committed
   });
 });
 

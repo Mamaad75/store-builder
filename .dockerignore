@@ -1,18 +1,27 @@
 # Keep the build context small and free of local state and secrets.
+# Plain names match only at the context root; "**/" variants cover the workspace packages (apps/web, ...).
 .git
 .github
 .next
+**/.next
 node_modules
+**/node_modules
 playwright-report
+**/playwright-report
 test-results
+**/test-results
 tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo
 *.log
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.example
 !.env.production.example
+!apps/web/.env.example
 backups
 docs
-e2e
-e2e-smoke
-playwright.smoke.config.ts
+apps/web/e2e
+apps/web/e2e-smoke
+apps/web/playwright.smoke.config.ts

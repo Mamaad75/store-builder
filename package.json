@@ -3,70 +3,35 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.28.0",
-  "description": "Multi-tenant SaaS storefront website builder (MVP)",
+  "description": "Multi-tenant SaaS storefront website builder (MVP): pnpm workspace (ADR 0001)",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:db",
+    "dev": "pnpm --filter @store-builder/web dev",
+    "build": "pnpm --filter @store-builder/web build",
+    "start": "pnpm --filter @store-builder/web start",
+    "lint": "pnpm --filter @store-builder/web lint",
+    "typecheck": "pnpm --filter @store-builder/web typecheck",
+    "test": "pnpm --filter @store-builder/web test",
+    "check": "pnpm --filter @store-builder/web check",
+    "db:generate": "pnpm --filter @store-builder/web db:generate",
+    "db:migrate": "pnpm --filter @store-builder/web db:migrate",
+    "db:deploy": "pnpm --filter @store-builder/web db:deploy",
+    "db:seed": "pnpm --filter @store-builder/web db:seed",
+    "db:reset": "pnpm --filter @store-builder/web db:reset",
+    "db:studio": "pnpm --filter @store-builder/web db:studio",
+    "test:db": "pnpm --filter @store-builder/web test:db",
+    "test:storage": "pnpm --filter @store-builder/web test:storage",
+    "test:mail": "pnpm --filter @store-builder/web test:mail",
+    "db:cleanup": "pnpm --filter @store-builder/web db:cleanup",
+    "media:cleanup": "pnpm --filter @store-builder/web media:cleanup",
+    "publish:stats": "pnpm --filter @store-builder/web publish:stats",
+    "test:e2e": "pnpm --filter @store-builder/web test:e2e",
+    "scheduler": "pnpm --filter @store-builder/web scheduler",
+    "scheduler:health": "pnpm --filter @store-builder/web scheduler:health",
+    "alert:test": "pnpm --filter @store-builder/web alert:test",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset",
-    "db:studio": "tsx scripts/db-studio.ts",
-    "test:db": "vitest run --config vitest.db.config.mts",
-    "test:storage": "vitest run --config vitest.storage.config.mts",
-    "test:mail": "vitest run --config vitest.mail.config.mts",
-    "db:cleanup": "tsx scripts/cleanup-rate-limits.ts",
-    "media:cleanup": "tsx scripts/cleanup-media.ts",
-    "publish:stats": "tsx scripts/publish-stats.ts",
-    "test:e2e": "playwright test",
-    "scheduler": "tsx scripts/scheduler.ts",
-    "scheduler:health": "tsx scripts/scheduler-health.ts",
-    "alert:test": "tsx scripts/alert-test.ts",
     "db:backup": "bash scripts/backup.sh",
     "db:restore": "bash scripts/restore.sh"
-  },
-  "dependencies": {
-    "@aws-sdk/client-s3": "^3.1164.0",
-    "@emotion/cache": "^11.14.0",
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@fontsource-variable/vazirmatn": "^5.3.0",
-    "@mui/icons-material": "^9.5.0",
-    "@mui/material": "^9.5.0",
-    "@mui/material-nextjs": "^9.5.0",
-    "@node-rs/argon2": "2.2.2",
-    "@prisma/client": "^6.19.3",
-    "next": "^16.4.5",
-    "next-auth": "5.0.0-beta.32",
-    "nodemailer": "10.3.1",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "sharp": "^0.35.5",
-    "stylis": "^4.4.0",
-    "stylis-plugin-rtl": "^2.1.1",
-    "zod": "^4.6.7"
-  },
-  "devDependencies": {
-    "@axe-core/playwright": "4.14.0",
-    "@playwright/test": "1.63.0",
-    "@types/node": "^26.6.6",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@types/stylis": "^4.2.7",
-    "eslint": "^9.39.5",
-    "eslint-config-next": "^16.4.5",
-    "prisma": "^6.19.3",
-    "tsx": "^4.23.15",
-    "typescript": "^5.9.3",
-    "vitest": "^5.1.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -81,9 +46,13 @@
       "ignoreGhsas": [
         "GHSA-ggr8-5vv4-36mx"
       ]
+    },
+    "packageExtensions": {
+      "eslint-config-next": {
+        "peerDependencies": {
+          "next": "*"
+        }
+      }
     }
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }

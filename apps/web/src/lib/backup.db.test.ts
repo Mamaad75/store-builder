@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeUser, prisma, resetDb } from "@/test/db-helpers";
 
 /** Real pg_dump / pg_restore against the isolated test database (the backup and restore drill of docs/runbook.md). */
-const SCRIPTS = path.resolve(import.meta.dirname, "../../scripts");
+const SCRIPTS = path.resolve(import.meta.dirname, "../../../../scripts"); // repository-root operations scripts (apps/web/src/lib -> root)
 const URL_ = process.env.DATABASE_URL!;
 const scratchUrl = (name: string) => URL_.replace(/\/[^/?]+(\?.*)?$/, `/${name}$1`);
 let dir: string;
