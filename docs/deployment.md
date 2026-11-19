@@ -1,5 +1,7 @@
 # Deployment notes
 
+> **Paths (migration of 2026-11-19, `docs/migration-plan.md`):** `src/modules/*`, `src/lib/storage`, `src/lib/db.ts`, `src/test/*`, `prisma/` and `scripts/` mentioned below now live in `apps/api/…`; pure template, SEO, text and helper code lives in `packages/shared/src/…`; Server Actions, pages and components stay in `apps/web/src/…`. Names and behaviour are unchanged.
+
 ## Reverse proxy and client IP (rate limiting)
 
 Login and registration rate limits use the client IP. A client can send any `X-Forwarded-For`

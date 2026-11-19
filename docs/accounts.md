@@ -1,5 +1,7 @@
 # Accounts and platform polish (phase 12)
 
+> **Paths (migration of 2026-11-19, `docs/migration-plan.md`):** `src/modules/*`, `src/lib/storage`, `src/lib/db.ts`, `src/test/*`, `prisma/` and `scripts/` mentioned below now live in `apps/api/…`; pure template, SEO, text and helper code lives in `packages/shared/src/…`; Server Actions, pages and components stay in `apps/web/src/…`. Names and behaviour are unchanged.
+
 ## Sessions, password change, sign out everywhere
 * Sessions are HS256 JWTs in an httpOnly `SameSite=Lax` cookie (`__Host-sb_session` over https) carrying `User.authVersion`; since N3 they are issued and verified by the NestJS API (`apps/api/src/auth`), which re-checks the version on every read. The web app asks the API who is signed in (`src/auth.ts`).
 * **Change password** (`/dashboard/account`): current password required (wrong value: field error, nothing changes), new password 8-128 characters and different from the current one, rate limited (10 per 15 min per user). Success hashes with Argon2id, bumps `authVersion` and signs out: **every session, this one included, ends** and the user signs in again with the new password.
