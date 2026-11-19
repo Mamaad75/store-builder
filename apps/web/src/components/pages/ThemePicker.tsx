@@ -3,7 +3,7 @@ import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import type { ThemeRef } from "@/modules/stores/theme-switch";
+import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 
 /** The themes the owner may use. Choosing one only opens the compatibility report (nothing is applied by a click here). */
 export default function ThemePicker({ storeId, current, themes, selected }: { storeId: string; current: ThemeRef | null; themes: ThemeRef[]; selected: string | null }) {

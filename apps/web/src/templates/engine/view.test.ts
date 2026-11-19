@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeStorefront, PRODUCT_A } from "@/test/storefront-fixtures";
+import { makeStorefront, PRODUCT_A } from "@store-builder/shared/testing/storefront-fixtures";
 import { listRegisteredTemplates, resolveTemplate } from "../registry";
 import { buildView } from "./view";
 import { resolveStorefrontRoute } from "@store-builder/shared/templates/engine/route";

@@ -1,7 +1,7 @@
 import Button from "@mui/material/Button";
 import { changeProductStatusAction } from "@/app/dashboard/catalog-actions";
-import { TRANSITION_LABEL_FA, allowedTransitions, type ProductStatus } from "@/modules/products/status";
-import type { ProductListParams } from "@/modules/products/schemas";
+import { TRANSITION_LABEL_FA, allowedTransitions, type ProductStatus } from "@store-builder/shared/modules/products/status";
+import type { ProductListParams } from "@store-builder/shared/modules/products/schemas";
 
 /** One tiny form per allowed transition. The server validates the transition again. */
 export default function StatusButtons({

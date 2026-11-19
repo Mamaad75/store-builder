@@ -5,7 +5,7 @@ import { securityHeaders } from "@/lib/security-headers";
 import { getHostPolicy } from "@/lib/host-policy";
 import { normalizeHostHeader } from "@store-builder/shared/lib/hostname";
 import { STORE_ROUTE_PREFIX, decideRoute } from "@store-builder/shared/lib/store-routing";
-import { resolveProductRedirect } from "@/modules/publishing/public-read";
+import { resolveProductRedirect } from "@/gateway/public";
 
 /**
  * Early redirect for dashboard and draft-preview requests without a session cookie. This is a convenience layer only (it does not

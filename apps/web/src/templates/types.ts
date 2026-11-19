@@ -3,7 +3,6 @@ import type { EditorSpec } from "@store-builder/shared/templates/editor";
 import type { ExtraSection } from "@store-builder/shared/templates/section-parse";
 import type { Section, SectionType } from "@store-builder/shared/templates/sections";
 import type { ThemeDefinition } from "@store-builder/shared/templates/theme";
-import type { StorefrontData, StorefrontPage, StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 
 import type { RenderContext } from "@store-builder/shared/templates/context-types";
 export type { RenderContext, StorefrontQuery } from "@store-builder/shared/templates/context-types";

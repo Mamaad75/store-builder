@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   if (!r.ready) log.warn("readiness.failed", r.checks);
   const label = (ok: boolean) => (ok ? "ok" : "fail");
   return Response.json(
-    { status: r.ready ? "ready" : "unavailable", checks: { database: label(r.checks.database), storage: label(r.checks.storage) } },
+    { status: r.ready ? "ready" : "unavailable", checks: { api: label(r.checks.api), database: label(r.checks.database), storage: label(r.checks.storage) } },
     { status: r.ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }

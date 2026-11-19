@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { makeStorefront, CATEGORY_TEA, PRODUCT_A, PRODUCT_B } from "@/test/storefront-fixtures";
+import { makeStorefront, CATEGORY_TEA, PRODUCT_A, PRODUCT_B } from "@store-builder/shared/testing/storefront-fixtures";
 import StorefrontRenderer from "../engine/StorefrontRenderer";
 import { buildView } from "../engine/view";
 import type { StorefrontData } from "@store-builder/shared/templates/storefront-data";

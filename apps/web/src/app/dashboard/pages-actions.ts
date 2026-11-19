@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/modules/auth/session";
-import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } from "@/modules/pages/errors";
-import { appearanceUrl, pagesUrl } from "@/modules/pages/urls";
-import { addSection, getPageEditor, moveSection, recoverPage, removeDormantSection, removeSection, setPageVisibility, updateSection } from "@/modules/pages/service";
-import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, ValidationError } from "@/modules/stores/errors";
-import { updateStore } from "@/modules/stores/service";
+import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } from "@store-builder/shared/modules/pages/errors";
+import { appearanceUrl, pagesUrl } from "@store-builder/shared/modules/pages/urls";
+import { addSection, getPageEditor, moveSection, recoverPage, removeDormantSection, removeSection, setPageVisibility, updateSection } from "@/gateway/pages";
+import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { updateStore } from "@/gateway/stores";
 import { propsFromFields } from "@store-builder/shared/templates/section-fields";
 import { getSectionDefinition } from "@store-builder/shared/templates/section-registry";
 
@@ -46,7 +46,7 @@ function toState(e: unknown, notFoundUrl: string, sectionId?: string): EditorSta
 
 /** One action for every editor button; `intent` selects a whitelisted operation. All of them are draft-only. */
 export async function pageEditAction(_prev: EditorState, fd: FormData): Promise<EditorState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   const pageType = str(fd, "pageType");
   const expected = str(fd, "expectedRevision");
@@ -58,41 +58,41 @@ export async function pageEditAction(_prev: EditorState, fd: FormData): Promise<
     let changed = true;
     switch (intent) {
       case "add": {
-        ({ changed } = await addSection(user.id, storeId, pageType, { type: str(fd, "sectionType") }, expected));
+        ({ changed } = await addSection(storeId, pageType, { type: str(fd, "sectionType") }, expected));
         message = "بخش اضافه شد.";
         break;
       }
       case "update": {
         // The section's type comes from the stored page, never from the form.
-        const view = await getPageEditor(user.id, storeId, pageType);
+        const view = await getPageEditor(storeId, pageType);
         const current = view.sections.find((s) => s.id === sectionId);
         if (!current) throw new NotFoundError();
         const def = getSectionDefinition(current.type);
         if (!def) throw new NotFoundError();
         const props = propsFromFields(def.fields, (name) => (fd.has(`f_${name}`) ? str(fd, `f_${name}`) : null));
-        ({ changed } = await updateSection(user.id, storeId, pageType, sectionId, props, expected));
+        ({ changed } = await updateSection(storeId, pageType, sectionId, props, expected));
         message = "بخش ذخیره شد.";
         break;
       }
       case "remove":
-        ({ changed } = await removeSection(user.id, storeId, pageType, sectionId, expected));
+        ({ changed } = await removeSection(storeId, pageType, sectionId, expected));
         message = "بخش حذف شد.";
         break;
       case "removeDormant":
-        ({ changed } = await removeDormantSection(user.id, storeId, pageType, sectionId, expected));
+        ({ changed } = await removeDormantSection(storeId, pageType, sectionId, expected));
         message = "بخش غیرفعال حذف شد.";
         break;
       case "up":
       case "down":
-        ({ changed } = await moveSection(user.id, storeId, pageType, sectionId, intent, expected));
+        ({ changed } = await moveSection(storeId, pageType, sectionId, intent, expected));
         message = "ترتیب بخش‌ها تغییر کرد.";
         break;
       case "visibility":
-        ({ changed } = await setPageVisibility(user.id, storeId, pageType, str(fd, "visible") === "true", expected));
+        ({ changed } = await setPageVisibility(storeId, pageType, str(fd, "visible") === "true", expected));
         message = "وضعیت نمایش صفحه تغییر کرد.";
         break;
       case "recover":
-        ({ changed } = await recoverPage(user.id, storeId, pageType, expected));
+        ({ changed } = await recoverPage(storeId, pageType, expected));
         message = "بخش‌های نامعتبر به بایگانی منتقل شدند. هیچ داده‌ای حذف نشد.";
         break;
       default:
@@ -107,10 +107,10 @@ export async function pageEditAction(_prev: EditorState, fd: FormData): Promise<
 
 /** Colour and typography (closed allow-lists, validated by the store schema). Goes through the store update with its conflict handling. */
 export async function updateAppearanceAction(_prev: EditorState, fd: FormData): Promise<EditorState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    await updateStore(user.id, storeId, {
+    await updateStore(storeId, {
       primaryColor: str(fd, "primaryColor"),
       typography: { sizeScale: str(fd, "sizeScale"), headingWeight: str(fd, "headingWeight"), bodyWeight: str(fd, "bodyWeight") },
     });

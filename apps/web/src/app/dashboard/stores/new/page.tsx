@@ -4,7 +4,7 @@ import Paper from "@mui/material/Paper";
 import { CreateStoreForm } from "@/components/StoreForms";
 import { BUSINESS_CATEGORIES } from "@store-builder/shared/lib/business-categories";
 import { requireUser } from "@/modules/auth/session";
-import { listActiveTemplates } from "@/modules/stores/service";
+import { listActiveTemplates } from "@/gateway/stores";
 
 export const metadata: Metadata = { title: "ساخت فروشگاه" };
 

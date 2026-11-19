@@ -9,8 +9,8 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { switchThemeAction } from "@/app/dashboard/actions";
 import type { StoreFormState } from "@/app/dashboard/actions";
-import type { EntryChange } from "@/modules/pages/compat";
-import type { ThemeSwitchReport } from "@/modules/stores/theme-switch";
+import type { EntryChange } from "@store-builder/shared/modules/pages/compat";
+import type { ThemeSwitchReport } from "@store-builder/shared/modules/stores/theme-switch-types";
 
 const CHANGE_LABEL: Record<EntryChange, string> = {
   stays_active: "فعال می‌ماند",

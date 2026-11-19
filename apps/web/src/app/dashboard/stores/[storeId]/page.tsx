@@ -5,12 +5,12 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import { removeStoreLogoAction, uploadStoreLogoAction } from "@/app/dashboard/media-actions";
 import ImageUploader from "@/components/ImageUploader";
-import { mediaPublicUrl } from "@/lib/storage";
+import { mediaPublicUrl } from "@/lib/media-url";
 import { BusinessCategoryForm, DeleteStoreForm, StoreSettingsForm } from "@/components/StoreForms";
 import { BUSINESS_CATEGORIES } from "@store-builder/shared/lib/business-categories";
 import { requireUser } from "@/modules/auth/session";
-import { NotFoundError } from "@/modules/stores/errors";
-import { getStore } from "@/modules/stores/service";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
+import { getStore } from "@/gateway/stores";
 import { templateSettingsSchema } from "@store-builder/shared/templates/sections";
 
 function safeUrl(key: string): string | null {
@@ -24,11 +24,11 @@ function safeUrl(key: string): string | null {
 export const metadata: Metadata = { title: "تنظیمات فروشگاه" };
 
 export default async function StorePage({ params }: { params: Promise<{ storeId: string }> }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId } = await params;
   let store;
   try {
-    store = await getStore(user.id, storeId); // ownership enforced here: missing and foreign are both 404
+    store = await getStore(storeId); // ownership enforced here: missing and foreign are both 404
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;

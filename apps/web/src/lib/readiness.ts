@@ -1,39 +1,28 @@
 import { createCachedProbe } from "./cached-probe";
-import { db } from "./db";
-import { getMediaStorage } from "./storage";
+import { callApi } from "./api-client";
 
-const CHECK_TIMEOUT_MS = 2_000;
+const CHECK_TIMEOUT_MS = 3_000;
 /**
- * `/api/ready` is reachable from the internet (the runbook checks it through Caddy), and every probe costs a database query and a
- * billed object-store LIST. Results are therefore shared for this long and concurrent requests share one probe: at most one probe per
- * 5 s per app process, whatever the request rate. A state change becomes visible within 5 s.
+ * `/api/ready` is reachable from the internet (the runbook checks it through Caddy). The web app holds no database or storage
+ * credentials any more (ADR 0001): it is ready when the API answers ready (the API checks the database and the object store itself).
+ * Results are shared for this long and concurrent requests share one probe, so request volume never drives upstream probes.
  */
 export const READINESS_CACHE_MS = 5_000;
 
-async function within<T>(work: () => Promise<T>): Promise<boolean> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([Promise.resolve().then(work), new Promise((_, reject) => (timer = setTimeout(() => reject(new Error("timeout")), CHECK_TIMEOUT_MS)))]);
-    return true;
-  } catch {
-    return false;
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
 export interface Readiness {
   ready: boolean;
-  checks: { database: boolean; storage: boolean };
+  checks: { api: boolean; database: boolean; storage: boolean };
 }
 
-/** Is the platform able to serve traffic? The database answers and the object store accepts the application's credentials, 2 s each. */
 async function probeReadiness(): Promise<Readiness> {
-  const [database, storage] = await Promise.all([
-    within(() => db.$queryRaw`SELECT 1`),
-    within(() => getMediaStorage().list("stores/", { limit: 1 })),
-  ]);
-  return { ready: database && storage, checks: { database, storage } };
+  try {
+    const r = await callApi<{ checks?: { database?: string; storage?: string } }>("GET", "/api/ready", { timeoutMs: CHECK_TIMEOUT_MS });
+    const database = r.body?.checks?.database === "ok";
+    const storage = r.body?.checks?.storage === "ok";
+    return { ready: r.status === 200 && database && storage, checks: { api: r.body !== null, database, storage } };
+  } catch {
+    return { ready: false, checks: { api: false, database: false, storage: false } };
+  }
 }
 
 /** Cached, single-flight readiness (see READINESS_CACHE_MS). */

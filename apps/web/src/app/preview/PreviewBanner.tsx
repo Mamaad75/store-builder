@@ -1,4 +1,4 @@
-import type { StorefrontNotes } from "@/modules/storefront/build";
+import type { StorefrontNotesDto as StorefrontNotes } from "@store-builder/shared/dto/index";
 import s from "./preview.module.css";
 
 /** Always shown above a draft preview so it can never be mistaken for the public storefront. */

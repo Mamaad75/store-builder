@@ -24,10 +24,10 @@ import {
   SubdomainReservedError,
   SubdomainTakenError,
   VersionAlreadyLiveError,
-} from "@/modules/publishing/errors";
-import { publishStore, setLiveVersion, unpublishStore } from "@/modules/publishing/service";
-import { claimSubdomain } from "@/modules/publishing/subdomain";
-import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
+} from "@store-builder/shared/modules/publishing/errors";
+import { publishStore, setLiveVersion, unpublishStore } from "@/gateway/publishing";
+import { claimSubdomain } from "@/gateway/publishing";
+import { ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 
 export interface PublishState {
   error?: string;
@@ -80,10 +80,10 @@ const notFound = () => "/dashboard";
 
 /** Identity from the session only; input from an explicit whitelist; the owner-scoped service does the rest. */
 export async function publishAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    const r = await publishStore(user.id, storeId, { expectedDraftRevision: str(fd, "expectedDraftRevision") });
+    const r = await publishStore(storeId, { expectedDraftRevision: str(fd, "expectedDraftRevision") });
     revalidatePath(url(storeId));
     return { success: `نسخهٔ ${fa(r.number)} منتشر شد.` };
   } catch (e) {
@@ -92,10 +92,10 @@ export async function publishAction(_prev: PublishState, fd: FormData): Promise<
 }
 
 export async function unpublishAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    await unpublishStore(user.id, storeId);
+    await unpublishStore(storeId);
     revalidatePath(url(storeId));
     return { success: "فروشگاه از دسترس خارج شد. همهٔ نسخه‌ها نگه داشته شده‌اند." };
   } catch (e) {
@@ -104,11 +104,11 @@ export async function unpublishAction(_prev: PublishState, fd: FormData): Promis
 }
 
 export async function setLiveVersionAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   const mode = str(fd, "mode") === "republish" ? "republish" : "rollback";
   try {
-    const r = await setLiveVersion(user.id, storeId, { versionNumber: str(fd, "versionNumber"), mode });
+    const r = await setLiveVersion(storeId, { versionNumber: str(fd, "versionNumber"), mode });
     revalidatePath(url(storeId));
     return { success: mode === "rollback" ? `نسخهٔ ${fa(r.number)} اکنون زنده است.` : `فروشگاه با نسخهٔ ${fa(r.number)} دوباره منتشر شد.` };
   } catch (e) {
@@ -117,10 +117,10 @@ export async function setLiveVersionAction(_prev: PublishState, fd: FormData): P
 }
 
 export async function claimSubdomainAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    const r = await claimSubdomain(user.id, storeId, { label: str(fd, "label"), confirmChange: str(fd, "confirmChange") });
+    const r = await claimSubdomain(storeId, { label: str(fd, "label"), confirmChange: str(fd, "confirmChange") });
     revalidatePath(url(storeId));
     return { success: r.changed ? `زیردامنهٔ «${r.label}» ثبت شد.` : "زیردامنه بدون تغییر ماند." };
   } catch (e) {

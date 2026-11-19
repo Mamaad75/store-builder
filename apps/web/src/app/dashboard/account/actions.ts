@@ -6,7 +6,7 @@ import type { FormState } from "@/app/actions-auth";
 import { applyApiCookies, sessionCookieHeader, UNAVAILABLE_ERROR } from "@/lib/session-bff";
 import { ApiUnavailableError, callApi } from "@/lib/api-client";
 import { SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
-import { getClientIp } from "@/modules/auth/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 import { requireUser } from "@/modules/auth/session";
 
 const RATE_LIMIT_ERROR = "تعداد تلاش‌ها بیش از حد مجاز است. لطفاً چند دقیقه بعد دوباره تلاش کنید.";

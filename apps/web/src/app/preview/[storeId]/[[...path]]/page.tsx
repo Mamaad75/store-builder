@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { mediaPublicUrl } from "@/lib/storage";
+import { mediaPublicUrl } from "@/lib/media-url";
 import StorefrontRenderer from "@/templates/engine/StorefrontRenderer";
 import { buildView } from "@/templates/engine/view";
 import s from "../../preview.module.css";

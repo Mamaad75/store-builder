@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/modules/auth/session";
-import { createCategory, deleteCategory, updateCategory } from "@/modules/categories/service";
-import { buildProductsUrl, categoriesUrl, productUrl, productsUrl, storeUrl } from "@/modules/products/list-url";
-import type { NoticeCode } from "@/modules/products/notices";
-import { parseProductListParams } from "@/modules/products/schemas";
-import { specsFromForm } from "@/modules/products/specs-form";
-import { changeProductStatus, createProduct, deleteProduct, updateProduct } from "@/modules/products/service";
+import { createCategory, deleteCategory, updateCategory } from "@/gateway/catalog";
+import { buildProductsUrl, categoriesUrl, productUrl, productsUrl, storeUrl } from "@store-builder/shared/modules/products/list-url";
+import type { NoticeCode } from "@store-builder/shared/modules/products/notices";
+import { parseProductListParams } from "@store-builder/shared/modules/products/schemas";
+import { specsFromForm } from "@store-builder/shared/modules/products/specs-form";
+import { changeProductStatus, createProduct, deleteProduct, updateProduct } from "@/gateway/catalog";
 import {
   CatalogLimitError,
   CategoryNotEmptyError,
@@ -17,7 +17,7 @@ import {
   DraftBusyError,
   NotFoundError,
   ValidationError,
-} from "@/modules/stores/errors";
+} from "@store-builder/shared/modules/stores/errors";
 
 export interface CatalogFormState {
   error?: string;
@@ -56,10 +56,10 @@ function toState(e: unknown, notFoundUrl: string): CatalogFormState {
 // ---------------------------------------------------------------- products
 
 export async function createProductAction(_prev: CatalogFormState, fd: FormData): Promise<CatalogFormState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    await createProduct(user.id, storeId, {
+    await createProduct(storeId, {
       name: str(fd, "name"),
       description: str(fd, "description"),
       price: str(fd, "price"),
@@ -75,11 +75,11 @@ export async function createProductAction(_prev: CatalogFormState, fd: FormData)
 }
 
 export async function updateProductAction(_prev: CatalogFormState, fd: FormData): Promise<CatalogFormState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   const productId = str(fd, "productId");
   try {
-    await updateProduct(user.id, storeId, productId, {
+    await updateProduct(storeId, productId, {
       name: str(fd, "name"),
       description: str(fd, "description"),
       price: str(fd, "price"),
@@ -104,7 +104,7 @@ const STATUS_NOTICE: Record<string, NoticeCode> = {
 
 /** Plain form action (list buttons). The list's search/filter/page context travels in hidden fields. */
 export async function changeProductStatusAction(fd: FormData): Promise<void> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   const productId = str(fd, "productId");
   const target = str(fd, "status");
@@ -116,7 +116,7 @@ export async function changeProductStatusAction(fd: FormData): Promise<void> {
       ? `${productUrl(storeId, productId)}?notice=${notice}`
       : buildProductsUrl(storeId, listParams, { notice });
   try {
-    await changeProductStatus(user.id, storeId, productId, target);
+    await changeProductStatus(storeId, productId, target);
   } catch (e) {
     if (e instanceof NotFoundError) redirect(productUrl(storeId, productId));
     if (e instanceof ValidationError) redirect(back("status-invalid"));
@@ -128,7 +128,7 @@ export async function changeProductStatusAction(fd: FormData): Promise<void> {
 }
 
 export async function deleteProductAction(fd: FormData): Promise<void> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   const productId = str(fd, "productId");
   const listParams = parseProductListParams({
@@ -136,7 +136,7 @@ export async function deleteProductAction(fd: FormData): Promise<void> {
   });
   if (!flag(fd, "confirmDelete")) redirect(buildProductsUrl(storeId, listParams, { notice: "delete-unconfirmed" }));
   try {
-    await deleteProduct(user.id, storeId, productId);
+    await deleteProduct(storeId, productId);
   } catch (e) {
     if (e instanceof NotFoundError) redirect(productUrl(storeId, productId));
     if (e instanceof DraftBusyError) redirect(buildProductsUrl(storeId, listParams, { notice: "busy" }));
@@ -148,10 +148,10 @@ export async function deleteProductAction(fd: FormData): Promise<void> {
 // -------------------------------------------------------------- categories
 
 export async function createCategoryAction(_prev: CatalogFormState, fd: FormData): Promise<CatalogFormState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    await createCategory(user.id, storeId, { name: str(fd, "name") });
+    await createCategory(storeId, { name: str(fd, "name") });
   } catch (e) {
     return toState(e, categoriesUrl(storeId));
   }
@@ -160,11 +160,11 @@ export async function createCategoryAction(_prev: CatalogFormState, fd: FormData
 }
 
 export async function updateCategoryAction(_prev: CatalogFormState, fd: FormData): Promise<CatalogFormState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   const categoryId = str(fd, "categoryId");
   try {
-    await updateCategory(user.id, storeId, categoryId, { name: str(fd, "name") });
+    await updateCategory(storeId, categoryId, { name: str(fd, "name") });
   } catch (e) {
     return toState(e, `${categoriesUrl(storeId)}/${encodeURIComponent(categoryId)}`);
   }
@@ -174,13 +174,13 @@ export async function updateCategoryAction(_prev: CatalogFormState, fd: FormData
 }
 
 export async function deleteCategoryAction(fd: FormData): Promise<void> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   const categoryId = str(fd, "categoryId");
   const base = categoriesUrl(storeId);
   let moved = 0;
   try {
-    ({ movedProducts: moved } = await deleteCategory(user.id, storeId, categoryId, { moveProducts: flag(fd, "moveProducts") }));
+    ({ movedProducts: moved } = await deleteCategory(storeId, categoryId, { moveProducts: flag(fd, "moveProducts") }));
   } catch (e) {
     if (e instanceof NotFoundError) redirect(`${base}/${encodeURIComponent(categoryId)}`);
     if (e instanceof CategoryNotEmptyError) redirect(`${base}?notice=category-not-empty`);

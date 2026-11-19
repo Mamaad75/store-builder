@@ -9,18 +9,18 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { LinkButton, LinkCardActionArea } from "@/components/NextLinks";
 import { requireUser } from "@/modules/auth/session";
-import { MAX_STORES_PER_USER } from "@/modules/stores/schemas";
+import { MAX_STORES_PER_USER } from "@store-builder/shared/modules/stores/schemas";
 import Onboarding from "@/components/Onboarding";
-import { buildOnboarding } from "@/modules/stores/onboarding";
-import { getOnboardingFacts, listStores } from "@/modules/stores/service";
+import { buildOnboarding } from "@store-builder/shared/modules/stores/onboarding";
+import { getOnboardingFacts, listStores } from "@/gateway/stores";
 
 export const metadata: Metadata = { title: "فروشگاه‌های من" };
 
 const STATUS_LABEL = { DRAFT: "پیش‌نویس", PUBLISHED: "منتشرشده", UNPUBLISHED: "لغو انتشار" } as const;
 
 export default async function DashboardPage() {
-  const user = await requireUser();
-  const [stores, facts] = await Promise.all([listStores(user.id), getOnboardingFacts(user.id)]);
+  await requireUser();
+  const [stores, facts] = await Promise.all([listStores(), getOnboardingFacts()]);
   const onboarding = buildOnboarding(facts);
   return (
     <Stack spacing={3}>

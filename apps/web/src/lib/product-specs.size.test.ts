@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PRODUCTS_PER_STORE } from "@/modules/products/schemas";
+import { MAX_PRODUCTS_PER_STORE } from "@store-builder/shared/modules/products/schemas";
 import { storefrontProductSchema } from "@store-builder/shared/templates/storefront-data";
 import {
   MAX_SPEC_ROWS,

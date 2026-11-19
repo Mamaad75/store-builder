@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeStorefront, PRODUCT_A, PRODUCT_B } from "@/test/storefront-fixtures";
+import { makeStorefront, PRODUCT_A, PRODUCT_B } from "@store-builder/shared/testing/storefront-fixtures";
 import { buildView } from "@/templates/engine/view";
 import { storefrontDataSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
 import { buildJsonLd, serializeJsonLd, socialProfileUrls } from "@store-builder/shared/seo/jsonld";

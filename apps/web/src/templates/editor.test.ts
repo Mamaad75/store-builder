@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzePage } from "@/modules/pages/analyze";
+import { analyzePage } from "@store-builder/shared/modules/pages/analyze";
 import { TEMPLATE_DEFINITIONS } from "@store-builder/shared/templates/definitions";
 import { MAX_SECTIONS_PER_PAGE, NON_HIDEABLE_PAGES } from "@store-builder/shared/templates/editor";
 import { generalTemplate } from "./general";

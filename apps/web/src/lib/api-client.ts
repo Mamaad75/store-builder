@@ -31,23 +31,25 @@ export function platformOrigin(env: Record<string, string | undefined> = process
 }
 
 export async function callApi<T = unknown>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PATCH",
   path: string,
-  opts: { body?: unknown; cookie?: string | null; ip?: string } = {},
+  opts: { body?: unknown; raw?: Uint8Array; query?: Record<string, string | undefined>; cookie?: string | null; ip?: string; timeoutMs?: number } = {},
 ): Promise<ApiResult<T>> {
   const headers: Record<string, string> = { origin: platformOrigin(), accept: "application/json" };
-  if (opts.body !== undefined) headers["content-type"] = "application/json";
+  if (opts.raw !== undefined) headers["content-type"] = "application/octet-stream";
+  else if (opts.body !== undefined) headers["content-type"] = "application/json";
   if (opts.cookie) headers.cookie = opts.cookie;
   if (opts.ip && opts.ip !== "unknown") headers["x-forwarded-for"] = opts.ip;
   let res: Response;
   try {
-    res = await fetch(`${apiBaseUrl()}${path}`, {
+    const qs = opts.query ? new URLSearchParams(Object.entries(opts.query).filter((e): e is [string, string] => e[1] !== undefined)).toString() : "";
+    res = await fetch(`${apiBaseUrl()}${path}${qs ? `?${qs}` : ""}`, {
       method,
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: opts.raw !== undefined ? Buffer.from(opts.raw) : opts.body === undefined ? undefined : JSON.stringify(opts.body),
       cache: "no-store",
       redirect: "manual",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS),
     });
   } catch {
     throw new ApiUnavailableError();

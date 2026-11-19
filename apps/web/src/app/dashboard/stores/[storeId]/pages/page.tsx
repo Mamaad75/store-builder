@@ -5,18 +5,18 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import PagesList from "@/components/pages/PagesList";
 import { requireUser } from "@/modules/auth/session";
-import { listPages } from "@/modules/pages/service";
-import { pageUrl } from "@/modules/pages/urls";
-import { NotFoundError } from "@/modules/stores/errors";
+import { listPages } from "@/gateway/pages";
+import { pageUrl } from "@store-builder/shared/modules/pages/urls";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 
 export const metadata: Metadata = { title: "صفحه‌ها" };
 
 export default async function PagesPage({ params }: { params: Promise<{ storeId: string }> }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId } = await params;
   let result;
   try {
-    result = await listPages(user.id, storeId); // ownership enforced in SQL: missing and foreign are both 404
+    result = await listPages(storeId); // ownership enforced in SQL: missing and foreign are both 404
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;

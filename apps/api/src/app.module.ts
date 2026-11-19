@@ -7,9 +7,16 @@ import { SessionGuard } from "./auth/session.guard.js";
 import type { ApiConfig } from "./config/env.js";
 import { CONFIG, DATABASE, LOGGER, PRISMA_CLIENT, RATE_LIMITER, USERS } from "./config/tokens.js";
 import { type Database, PrismaDatabase } from "./database/database.js";
+import { useDb } from "./lib/db.js";
 import { createPrismaClient } from "./database/prisma-client.js";
 import { PostgresRateLimiter } from "./database/rate-limiter.js";
 import { PrismaUserRepository } from "./database/user.repository.js";
+import { CatalogController } from "./modules/catalog/catalog.controller.js";
+import { MediaController } from "./modules/media/media.controller.js";
+import { PagesController } from "./modules/pages/pages.controller.js";
+import { PublishingController } from "./modules/publishing/publishing.controller.js";
+import { PublicStoresController } from "./modules/storefront/public.controller.js";
+import { StoresController } from "./modules/stores/stores.controller.js";
 import { HealthController } from "./health/health.controller.js";
 import { AllExceptionsFilter } from "./http/all-exceptions.filter.js";
 import { OriginGuard } from "./http/origin.guard.js";
@@ -40,11 +47,18 @@ export class AppModule {
     ];
     // The Prisma client exists only when something real needs it (a lazy client costs nothing, but tests then need no database URL).
     if (!overrides.database || !overrides.users || !overrides.rateLimiter) {
-      providers.push({ provide: PRISMA_CLIENT, useFactory: () => createPrismaClient(config.databaseUrl) });
+      providers.push({
+        provide: PRISMA_CLIENT,
+        useFactory: () => {
+          const client = createPrismaClient(config.databaseUrl);
+          useDb(client); // the domain modules read through the shared `db` handle
+          return client;
+        },
+      });
     }
     return {
       module: AppModule,
-      controllers: [HealthController, AuthController, ...(overrides.extraControllers ?? [])],
+      controllers: [HealthController, AuthController, StoresController, CatalogController, PagesController, MediaController, PublishingController, PublicStoresController, ...(overrides.extraControllers ?? [])],
       providers,
       exports: [CONFIG, LOGGER, DATABASE],
     };

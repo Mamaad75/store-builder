@@ -16,12 +16,12 @@ import { LinkButton, TextLink } from "@/components/NextLinks";
 import { formatNumberFa, formatToman } from "@store-builder/shared/lib/money";
 import { analyzeSpecs } from "@store-builder/shared/lib/product-specs";
 import { requireUser } from "@/modules/auth/session";
-import { listCategories } from "@/modules/categories/service";
-import { productUrl, productsUrl } from "@/modules/products/list-url";
-import { parseProductListParams } from "@/modules/products/schemas";
-import { listProducts } from "@/modules/products/service";
-import { PRODUCT_STATUSES, STATUS_LABEL_FA, type ProductStatus } from "@/modules/products/status";
-import { NotFoundError } from "@/modules/stores/errors";
+import { listCategories } from "@/gateway/catalog";
+import { productUrl, productsUrl } from "@store-builder/shared/modules/products/list-url";
+import { parseProductListParams } from "@store-builder/shared/modules/products/schemas";
+import { listProducts } from "@/gateway/catalog";
+import { PRODUCT_STATUSES, STATUS_LABEL_FA, type ProductStatus } from "@store-builder/shared/modules/products/status";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 
 export const metadata: Metadata = { title: "محصولات" };
 
@@ -43,14 +43,14 @@ export default async function ProductsPage({
   params: Promise<{ storeId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId } = await params;
   const raw = await searchParams;
   const listParams = parseProductListParams(raw);
 
   let data, categories;
   try {
-    [data, categories] = await Promise.all([listProducts(user.id, storeId, listParams), listCategories(user.id, storeId)]);
+    [data, categories] = await Promise.all([listProducts(storeId, listParams), listCategories(storeId)]);
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;

@@ -3,10 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/modules/auth/session";
-import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, StoreLimitError, ValidationError } from "@/modules/stores/errors";
-import { createStore, deleteStore, updateBusinessCategory, updateStore } from "@/modules/stores/service";
-import { switchTheme, ThemeSwitchBlockedError } from "@/modules/stores/theme-switch";
-import { appearanceUrl } from "@/modules/pages/urls";
+import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, StoreLimitError, ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { createStore, deleteStore, updateBusinessCategory, updateStore } from "@/gateway/stores";
+import { switchTheme } from "@/gateway/stores";
+import { ThemeSwitchBlockedError } from "@store-builder/shared/modules/stores/theme-switch-types";
+import { appearanceUrl } from "@store-builder/shared/modules/pages/urls";
 
 export interface StoreFormState {
   error?: string;
@@ -36,10 +37,10 @@ function toState(e: unknown, storeId = ""): StoreFormState {
 }
 
 export async function createStoreAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
-  const user = await requireUser();
+  await requireUser();
   let id: string;
   try {
-    ({ id } = await createStore(user.id, { name: str(fd, "name"), templateKey: str(fd, "templateKey"), businessCategory: str(fd, "businessCategory") || undefined }));
+    ({ id } = await createStore({ name: str(fd, "name"), templateKey: str(fd, "templateKey"), businessCategory: str(fd, "businessCategory") || undefined }));
   } catch (e) {
     return toState(e);
   }
@@ -48,10 +49,10 @@ export async function createStoreAction(_prev: StoreFormState, fd: FormData): Pr
 }
 
 export async function updateStoreAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    await updateStore(user.id, storeId, {
+    await updateStore(storeId, {
       name: str(fd, "name"),
       primaryColor: str(fd, "primaryColor"),
       contact: { phone: str(fd, "phone"), email: str(fd, "email"), address: str(fd, "address") },
@@ -67,10 +68,10 @@ export async function updateStoreAction(_prev: StoreFormState, fd: FormData): Pr
 
 /** Metadata only: no content change, no draft revision bump (see updateBusinessCategory). */
 export async function updateBusinessCategoryAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    const r = await updateBusinessCategory(user.id, storeId, { businessCategory: str(fd, "businessCategory"), expected: str(fd, "expected") });
+    const r = await updateBusinessCategory(storeId, { businessCategory: str(fd, "businessCategory"), expected: str(fd, "expected") });
     revalidatePath(`/dashboard/stores/${encodeURIComponent(storeId)}`);
     return { success: r.changed ? "دسته‌بندی ذخیره شد." : "تغییری وجود نداشت." };
   } catch (e) {
@@ -83,11 +84,11 @@ export async function updateBusinessCategoryAction(_prev: StoreFormState, fd: Fo
  * computed from; a stale revision, a blocked report or an unavailable theme is refused without writing anything.
  */
 export async function switchThemeAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   let key: string;
   try {
-    const r = await switchTheme(user.id, storeId, { targetKey: str(fd, "targetKey"), expectedDraftRevision: str(fd, "expectedDraftRevision") });
+    const r = await switchTheme(storeId, { targetKey: str(fd, "targetKey"), expectedDraftRevision: str(fd, "expectedDraftRevision") });
     key = r.theme.key;
   } catch (e) {
     if (e instanceof ThemeSwitchBlockedError) {
@@ -102,10 +103,10 @@ export async function switchThemeAction(_prev: StoreFormState, fd: FormData): Pr
 }
 
 export async function deleteStoreAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
-  const user = await requireUser();
+  await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    await deleteStore(user.id, storeId, str(fd, "confirmName"));
+    await deleteStore(storeId, str(fd, "confirmName"));
   } catch (e) {
     return toState(e, storeId);
   }

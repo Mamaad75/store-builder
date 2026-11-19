@@ -5,9 +5,9 @@ import Typography from "@mui/material/Typography";
 import CategoryManager from "@/components/catalog/CategoryManager";
 import Notice from "@/components/catalog/Notice";
 import { requireUser } from "@/modules/auth/session";
-import { listCategories } from "@/modules/categories/service";
-import { MAX_CATEGORIES_PER_STORE } from "@/modules/categories/schemas";
-import { NotFoundError } from "@/modules/stores/errors";
+import { listCategories } from "@/gateway/catalog";
+import { MAX_CATEGORIES_PER_STORE } from "@store-builder/shared/modules/categories/schemas";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 
 export const metadata: Metadata = { title: "دسته‌بندی‌ها" };
 
@@ -18,12 +18,12 @@ export default async function CategoriesPage({
   params: Promise<{ storeId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId } = await params;
   const raw = await searchParams;
   let categories;
   try {
-    categories = await listCategories(user.id, storeId);
+    categories = await listCategories(storeId);
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;

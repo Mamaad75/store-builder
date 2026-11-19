@@ -14,6 +14,8 @@ export async function createApp(config: ApiConfig, overrides: AppOverrides = {})
   app.set("trust proxy", config.trustProxyHops);
   // JSON only, bounded size
   app.useBodyParser("json", { limit: config.bodyLimitBytes });
+  // Image uploads travel as raw bytes (the pipeline enforces the real limits again): 5 MB image + slack.
+  app.useBodyParser("raw", { type: "application/octet-stream", limit: 6 * 1024 * 1024 });
   app.use(
     helmet({
       // The API returns JSON only: nothing may be framed, scripted or embedded from it.

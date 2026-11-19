@@ -4,7 +4,7 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { TextLink } from "@/components/NextLinks";
-import type { Onboarding as OnboardingData } from "@/modules/stores/onboarding";
+import type { Onboarding as OnboardingData } from "@store-builder/shared/modules/stores/onboarding";
 
 export default function Onboarding({ data }: { data: OnboardingData }) {
   return (

@@ -11,7 +11,7 @@ import { PAGE_TYPES, SECTION_TYPES } from "@store-builder/shared/templates/secti
 import { THEME_CATALOG, allThemes, resolveThemeDefinition, setExtraThemesForTests } from "@store-builder/shared/templates/theme-catalog";
 import { EXTRA_SECTION_TYPE_RE } from "@store-builder/shared/templates/theme";
 import { parseLabelLines, parseTable } from "@store-builder/shared/templates/engine/lines";
-import { makeStorefront } from "@/test/storefront-fixtures";
+import { makeStorefront } from "@store-builder/shared/testing/storefront-fixtures";
 import { buildView } from "./engine/view";
 
 const MODULES = [generalTemplate, coffeeTemplate, fashionTemplate];

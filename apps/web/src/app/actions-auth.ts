@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { ApiUnavailableError, callApi } from "@/lib/api-client";
 import { applyApiCookies, sessionCookieHeader, UNAVAILABLE_ERROR } from "@/lib/session-bff";
 import { SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
-import { getClientIp } from "@/modules/auth/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 export interface FormState {
   error?: string;

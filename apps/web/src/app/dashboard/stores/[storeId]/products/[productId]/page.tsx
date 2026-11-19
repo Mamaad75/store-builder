@@ -9,18 +9,18 @@ import ImageUploader from "@/components/ImageUploader";
 import { getBusinessCategory } from "@store-builder/shared/lib/business-categories";
 import { SPEC_PROBLEM_FA, analyzeSpecs, previewStoredSpecs } from "@store-builder/shared/lib/product-specs";
 import { listSpecPresets } from "@store-builder/shared/lib/spec-presets";
-import { mediaPublicUrl } from "@/lib/storage";
+import { mediaPublicUrl } from "@/lib/media-url";
 import DeleteProductButton from "@/components/catalog/DeleteProductButton";
 import Notice from "@/components/catalog/Notice";
 import ProductForm from "@/components/catalog/ProductForm";
 import StatusButtons from "@/components/catalog/StatusButtons";
 import StatusChip from "@/components/catalog/StatusChip";
 import { requireUser } from "@/modules/auth/session";
-import { listCategories } from "@/modules/categories/service";
-import { getProduct } from "@/modules/products/service";
-import type { ProductStatus } from "@/modules/products/status";
-import { NotFoundError } from "@/modules/stores/errors";
-import { getStore } from "@/modules/stores/service";
+import { listCategories } from "@/gateway/catalog";
+import { getProduct } from "@/gateway/catalog";
+import type { ProductStatus } from "@store-builder/shared/modules/products/status";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
+import { getStore } from "@/gateway/stores";
 
 function safeUrl(key: string): string | null {
   try {
@@ -39,12 +39,12 @@ export default async function EditProductPage({
   params: Promise<{ storeId: string; productId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId, productId } = await params;
   const raw = await searchParams;
   let product, categories, store;
   try {
-    [product, categories, store] = await Promise.all([getProduct(user.id, storeId, productId), listCategories(user.id, storeId), getStore(user.id, storeId)]);
+    [product, categories, store] = await Promise.all([getProduct(storeId, productId), listCategories(storeId), getStore(storeId)]);
   } catch (e) {
     if (e instanceof NotFoundError) notFound(); // foreign and missing products look identical
     throw e;
