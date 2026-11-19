@@ -26,7 +26,7 @@ async function expectAccessible(page: Page, label: string) {
 
 test.describe("accessibility (axe, WCAG 2.2 AA)", () => {
   test("platform pages: landing, sign-in, registration, password reset request, legal, 404", async ({ page }) => {
-    const pages: [string, string][] = [["landing", "/"], ["login", "/login"], ["register", "/register"], ["forgot", "/forgot-password"], ["terms", "/terms"], ["404", "/no-such-page"]];
+    const pages: [string, string][] = [["landing", "/"], ["login", "/login"], ["register", "/register"], ["terms", "/terms"], ["404", "/no-such-page"]];
     for (const [label, path] of pages) {
       await page.goto(path);
       await expectAccessible(page, label);

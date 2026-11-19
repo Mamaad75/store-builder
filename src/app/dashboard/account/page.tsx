@@ -17,7 +17,7 @@ export default async function AccountPage() {
         حساب کاربری
       </Typography>
       <Typography color="text.secondary" dir="ltr" sx={{ textAlign: "start" }}>
-        {user.email}
+        {user.username}
       </Typography>
       <Paper variant="outlined" component="section" aria-labelledby="pw-h" sx={{ p: 3 }}>
         <Typography id="pw-h" variant="h6" component="h2" gutterBottom sx={{ fontWeight: 700 }}>

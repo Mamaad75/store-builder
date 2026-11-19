@@ -1,81 +1,18 @@
-import { PASSWORD, countMailsTo, createStoreViaUi, createUser, db, expect, login, loginAndWaitForDashboard, readMailTo, resetLinkFrom, signUpAndIn, test, uniqueEmail } from "./helpers";
+import { PASSWORD, createStoreViaUi, db, expect, login, loginAndWaitForDashboard, signUpAndIn, test } from "./helpers";
 
 test.afterAll(() => db.$disconnect());
 
 const NEW_PASSWORD = "a-brand-new-pass-9";
 
-test.describe("password reset", () => {
-  test("request -> emailed link -> new password; old password and old sessions stop working; the link is single-use", async ({ page, browser, ip }) => {
-    const email = await createUser(page);
-    // a second browser is signed in before the reset
-    const other = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": ip } });
-    const op = await other.newPage();
-    await loginAndWaitForDashboard(op, email);
-
-    await page.goto("/forgot-password");
-    await page.fill("input[name=email]", email);
-    await page.click("button[type=submit]");
-    await expect(page.getByTestId("forgot-sent")).toBeVisible();
-
-    const link = resetLinkFrom((await readMailTo(email)).text);
-    await page.goto(link);
-    await expect(page.locator("input[name=password]")).toBeVisible();
-    await page.fill("input[name=password]", NEW_PASSWORD);
-    await page.click("button[type=submit]");
-    await page.waitForURL(/\/login\?notice=password-reset/);
-    await expect(page.getByTestId("login-notice")).toBeVisible();
-
-    // the session that existed before the reset is gone
-    await op.goto("/dashboard");
-    await expect(op).toHaveURL(/\/login/);
-    await other.close();
-
-    await login(page, email, PASSWORD);
-    await expect(page).toHaveURL(/\/login/); // old password refused
-    await login(page, email, NEW_PASSWORD);
-    await page.waitForURL(/\/dashboard/);
-
-    // the same link cannot be used twice
-    await page.goto(link);
-    await expect(page.getByTestId("reset-invalid")).toBeVisible();
-    // nothing is left behind once the reset is done
-    expect(await db.passwordResetToken.count({ where: { user: { email } } })).toBe(0);
-  });
-
-  test("an unknown address gets the very same confirmation and no email is sent", async ({ page }) => {
-    const ghost = uniqueEmail();
-    await page.goto("/forgot-password");
-    await page.fill("input[name=email]", ghost);
-    await page.click("button[type=submit]");
-    await expect(page.getByTestId("forgot-sent")).toBeVisible();
-    await page.waitForTimeout(500);
-    expect(await countMailsTo(ghost)).toBe(0);
-  });
-
-  test("garbage, truncated and unknown tokens are all the same neutral 'invalid link' page", async ({ page }) => {
-    for (const t of ["", "x", "A".repeat(43), "../../etc/passwd"]) {
-      await page.goto(`/reset-password?token=${encodeURIComponent(t)}`);
-      await expect(page.getByTestId("reset-invalid")).toBeVisible();
-      await expect(page.locator("input[name=password]")).toHaveCount(0);
-    }
-  });
-
-  test("the reset page is noindex and sends no referrer", async ({ page }) => {
-    await page.goto("/reset-password?token=x");
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
-    await expect(page.locator('meta[name="referrer"]')).toHaveAttribute("content", "no-referrer");
-  });
-});
-
 test.describe("account page", () => {
   test("changing the password needs the current one, then ends every session", async ({ page }) => {
-    const email = await signUpAndIn(page);
+    const username = await signUpAndIn(page);
     await page.goto("/dashboard/account");
     await page.fill("input[name=currentPassword]", "wrong-password-1");
     await page.fill("input[name=newPassword]", NEW_PASSWORD);
     await page.click("button:has-text('تغییر رمز عبور')");
     await expect(page.getByText("رمز عبور فعلی نادرست است")).toBeVisible();
-    expect((await db.user.findUniqueOrThrow({ where: { email } })).authVersion).toBe(0);
+    expect((await db.user.findUniqueOrThrow({ where: { username } })).authVersion).toBe(0);
 
     await page.fill("input[name=currentPassword]", PASSWORD);
     await page.fill("input[name=newPassword]", NEW_PASSWORD);
@@ -84,17 +21,17 @@ test.describe("account page", () => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
 
-    await login(page, email, PASSWORD);
+    await login(page, username, PASSWORD);
     await expect(page).toHaveURL(/\/login/);
-    await login(page, email, NEW_PASSWORD);
+    await login(page, username, NEW_PASSWORD);
     await page.waitForURL(/\/dashboard/);
   });
 
   test("'sign out everywhere' ends this and every other session, and the password still works", async ({ page, browser, ip }) => {
-    const email = await signUpAndIn(page);
+    const username = await signUpAndIn(page);
     const other = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": ip } });
     const op = await other.newPage();
-    await loginAndWaitForDashboard(op, email);
+    await loginAndWaitForDashboard(op, username);
 
     await page.goto("/dashboard/account");
     await page.click("button:has-text('خروج از همه دستگاه‌ها')");
@@ -102,7 +39,7 @@ test.describe("account page", () => {
     await op.goto("/dashboard");
     await expect(op).toHaveURL(/\/login/);
     await other.close();
-    await login(page, email, PASSWORD);
+    await login(page, username, PASSWORD);
     await page.waitForURL(/\/dashboard/);
   });
 
@@ -158,7 +95,7 @@ test.describe("landing, legal, errors and accessibility", () => {
   });
 
   test("every public auth form control has an accessible name", async ({ page }) => {
-    for (const [path, labels] of [["/login", ["ایمیل", "رمز عبور"]], ["/register", ["نام", "ایمیل", "رمز عبور"]], ["/forgot-password", ["ایمیل"]]] as const) {
+    for (const [path, labels] of [["/login", ["نام کاربری", "رمز عبور"]], ["/register", ["نام", "نام کاربری", "رمز عبور"]]] as const) {
       await page.goto(path);
       for (const l of labels) await expect(page.getByLabel(l, { exact: false }).first(), `${path} ${l}`).toBeVisible();
       await expect(page.locator("h1")).toHaveCount(1);

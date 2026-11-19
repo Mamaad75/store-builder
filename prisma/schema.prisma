@@ -40,7 +40,10 @@ enum DomainKind {
 
 model User {
   id           String   @id @default(cuid())
-  email        String   @unique
+  /// Sign-in name (ADR 0001, U1): lower-case a-z, 0-9 and "_", starts with a letter, 3-30 characters (also a database CHECK).
+  username     String   @unique
+  /// DEPRECATED (U1): no longer collected or used. Kept only until the approved contract migration drops it.
+  email        String?  @unique
   name         String
   passwordHash String
   authVersion  Int      @default(0)
@@ -51,6 +54,8 @@ model User {
   resetToken   PasswordResetToken?
 }
 
+/// DEPRECATED (U1, ADR 0001): password reset by e-mail was removed with the e-mail address; nothing reads or writes this table.
+/// Kept only until the approved contract migration drops it.
 /// Password-reset token: AT MOST ONE row per user (unique userId), so concurrent reset requests cannot leave two live links.
 /// Only the SHA-256 of the token is stored (the raw value exists only in the emailed link).
 model PasswordResetToken {

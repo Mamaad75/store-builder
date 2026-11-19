@@ -13,7 +13,7 @@ export async function resetDb() {
 let n = 0;
 export async function makeUser() {
   n += 1;
-  return prisma.user.create({ data: { email: `u${n}@example.com`, name: `User ${n}`, passwordHash: "x" } });
+  return prisma.user.create({ data: { username: `user_${n}`, name: `User ${n}`, passwordHash: "x" } });
 }
 
 export async function makeStore(ownerId: string, name = "Shop") {

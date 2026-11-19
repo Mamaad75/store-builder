@@ -2,11 +2,9 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { AuthError, CredentialsSignin } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { getClientIp } from "@/modules/auth/rate-limit";
-import { requestPasswordReset, resetPassword } from "@/modules/auth/account";
 import { registerUser } from "@/modules/auth/service";
 import { loginSchema } from "@/modules/auth/schemas";
 
@@ -15,17 +13,18 @@ export interface FormState {
   fieldErrors?: Record<string, string[]>;
 }
 
-const GENERIC_LOGIN_ERROR = "ایمیل یا رمز عبور نادرست است.";
+const GENERIC_LOGIN_ERROR = "نام کاربری یا رمز عبور نادرست است.";
 const RATE_LIMIT_ERROR = "تعداد تلاش‌ها بیش از حد مجاز است. لطفاً چند دقیقه بعد دوباره تلاش کنید.";
 
 export async function registerAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const ip = getClientIp(await headers());
   const result = await registerUser(
-    { name: formData.get("name"), email: formData.get("email"), password: formData.get("password") },
+    { name: formData.get("name"), username: formData.get("username"), password: formData.get("password") },
     { ip },
   );
   if (!result.ok) {
     if (result.error === "rate_limited") return { error: RATE_LIMIT_ERROR };
+    if (result.error === "username_taken") return { error: "این نام کاربری قبلاً گرفته شده است. نام دیگری انتخاب کنید.", fieldErrors: result.fieldErrors };
     return { error: "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: result.fieldErrors };
   }
   redirect("/login?registered=1");
@@ -37,11 +36,11 @@ function safeCallbackUrl(value: FormDataEntryValue | null): string {
 }
 
 export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const parsed = loginSchema.safeParse({ email: formData.get("email"), password: formData.get("password") });
+  const parsed = loginSchema.safeParse({ username: formData.get("username"), password: formData.get("password") });
   if (!parsed.success) return { error: GENERIC_LOGIN_ERROR };
   try {
     await signIn("credentials", {
-      email: parsed.data.email,
+      username: parsed.data.username,
       password: parsed.data.password,
       redirectTo: safeCallbackUrl(formData.get("callbackUrl")),
     });
@@ -57,24 +56,4 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
 
 export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
-}
-
-/**
- * Same answer for every address (registered or not): the page never reveals whether an account exists. The mail is sent with
- * `after()`, i.e. once the response is on its way, so delivery time cannot reveal it either.
- */
-export async function forgotPasswordAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const result = await requestPasswordReset({ email: formData.get("email") }, { ip: getClientIp(await headers()), defer: (task) => after(task) });
-  if (!result.ok) return { error: RATE_LIMIT_ERROR };
-  redirect("/forgot-password?sent=1");
-}
-
-export async function resetPasswordAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const result = await resetPassword({ token: formData.get("token"), password: formData.get("password") }, { ip: getClientIp(await headers()) });
-  if (!result.ok) {
-    if (result.error === "rate_limited") return { error: RATE_LIMIT_ERROR };
-    if (result.error === "invalid_token") return { error: "این پیوند نامعتبر یا منقضی شده است. دوباره درخواست بازیابی بدهید." };
-    return { error: "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: result.fieldErrors };
-  }
-  redirect("/login?notice=password-reset");
 }

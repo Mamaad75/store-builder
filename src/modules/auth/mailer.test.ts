@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { E2E_FILE_OUTBOX_OVERRIDE, MailConfigError, MailerNotConfiguredError, MemoryMailer, assertMailTransportAllowed, createMailer, enforceMailTransportAtStartup } from "./mailer";
-import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "./schemas";
+import { changePasswordSchema } from "./schemas";
 
 const msg = { to: "a@example.com", subject: "s", text: "t" };
 
@@ -138,17 +138,6 @@ describe("production mail guard (decision D12-8)", () => {
 });
 
 describe("account input schemas", () => {
-  it("forgot: a normalised email only", () => {
-    expect(forgotPasswordSchema.parse({ email: "  ALI@Example.com " }).email).toBe("ali@example.com");
-    expect(forgotPasswordSchema.safeParse({ email: "x" }).success).toBe(false);
-  });
-  it("reset: exactly a 43-character base64url token and a bounded password", () => {
-    const token = "A".repeat(43);
-    expect(resetPasswordSchema.safeParse({ token, password: "12345678" }).success).toBe(true);
-    for (const bad of ["", "A".repeat(42), "A".repeat(44), `${"A".repeat(42)}!`, "../../etc/passwd"]) expect(resetPasswordSchema.safeParse({ token: bad, password: "12345678" }).success, bad).toBe(false);
-    expect(resetPasswordSchema.safeParse({ token, password: "1234567" }).success).toBe(false);
-    expect(resetPasswordSchema.safeParse({ token, password: "x".repeat(129) }).success).toBe(false);
-  });
   it("change: new password differs from the current one", () => {
     expect(changePasswordSchema.safeParse({ currentPassword: "abcdefgh", newPassword: "abcdefgh" }).success).toBe(false);
     expect(changePasswordSchema.safeParse({ currentPassword: "abcdefgh", newPassword: "abcdefgi" }).success).toBe(true);

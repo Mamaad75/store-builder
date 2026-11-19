@@ -25,27 +25,6 @@ function Shell({ action, submit, children }: { action: Action; submit: string; c
   );
 }
 
-export function ForgotPasswordForm({ action }: { action: Action }) {
-  return (
-    <Shell action={action} submit="ارسال پیوند بازیابی">
-      {(fe) => <TextField name="email" type="email" label="ایمیل" autoComplete="email" required error={!!fe.email} helperText={fe.email?.[0]} slotProps={ltr} />}
-    </Shell>
-  );
-}
-
-export function ResetPasswordForm({ action, token }: { action: Action; token: string }) {
-  return (
-    <Shell action={action} submit="تعیین رمز عبور جدید">
-      {(fe) => (
-        <>
-          <input type="hidden" name="token" value={token} />
-          <TextField name="password" type="password" label="رمز عبور جدید" autoComplete="new-password" required error={!!fe.password} helperText={fe.password?.[0] ?? "حداقل ۸ کاراکتر"} slotProps={ltr} />
-        </>
-      )}
-    </Shell>
-  );
-}
-
 export function ChangePasswordForm({ action }: { action: Action }) {
   return (
     <Shell action={action} submit="تغییر رمز عبور">

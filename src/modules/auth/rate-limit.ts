@@ -24,15 +24,12 @@ export interface RateLimiter {
 
 export const AUTH_RULES = {
   loginPerIp: { limit: 30, windowSeconds: 15 * 60 },
-  loginPerEmail: { limit: 10, windowSeconds: 15 * 60 },
+  loginPerUsername: { limit: 10, windowSeconds: 15 * 60 },
   registerPerIp: { limit: 5, windowSeconds: 60 * 60 },
-  forgotPerIp: { limit: 10, windowSeconds: 60 * 60 },
-  forgotPerEmail: { limit: 3, windowSeconds: 60 * 60 },
-  resetPerIp: { limit: 20, windowSeconds: 60 * 60 },
   changePasswordPerUser: { limit: 10, windowSeconds: 15 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
-/** Keys never contain raw emails/IPs, so the table holds no personal data. */
+/** Keys never contain raw usernames/IPs (only a hash), so the table holds no personal data. */
 export function rateLimitKey(scope: string, value: string): string {
   return `${scope}:${createHash("sha256").update(value).digest("hex").slice(0, 32)}`;
 }
@@ -89,7 +86,7 @@ export function getRateLimiter(): RateLimiter {
  * Client IP for rate limiting.
  *
  * Client-supplied forwarding headers are never trusted by default: unless TRUST_PROXY_HEADERS=true
- * every request maps to the shared "unknown" bucket (the per-email limit still applies).
+ * every request maps to the shared "unknown" bucket (the per-username limit still applies).
  *
  * When enabled, the IP is taken from X-Forwarded-For counting from the RIGHT: each trusted proxy
  * appends the address it saw, so with N trusted proxies the real client is the N-th entry from the

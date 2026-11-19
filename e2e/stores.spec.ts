@@ -7,8 +7,8 @@ test.afterAll(() => db.$disconnect());
 async function newUserSession(browser: Browser) {
   const context = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": randomIp() } });
   const page = await context.newPage();
-  const email = await signUpAndIn(page);
-  return { context, page, email };
+  const username = await signUpAndIn(page);
+  return { context, page, username };
 }
 
 test.describe("store management (owner)", () => {
@@ -52,8 +52,8 @@ test.describe("store management (owner)", () => {
   });
 
   test("enforces the 10-store limit in the UI and on the server", async ({ page }) => {
-    const email = await signUpAndIn(page);
-    const user = await db.user.findUniqueOrThrow({ where: { email } });
+    const username = await signUpAndIn(page);
+    const user = await db.user.findUniqueOrThrow({ where: { username } });
     const tv = await db.templateVersion.findFirstOrThrow({ where: { template: { key: "general" } } });
     await db.store.createMany({
       data: Array.from({ length: 10 }, (_, i) => ({ ownerId: user.id, templateVersionId: tv.id, name: `s${i}`, settings: {} })),
@@ -108,12 +108,12 @@ test.describe("tenant isolation (two real users)", () => {
   });
 
   test("forged Server Action requests from A (tampered hidden storeId) cannot update or delete B's store", async ({ page, browser }) => {
-    const aEmail = await signUpAndIn(page);
+    const aUsername = await signUpAndIn(page);
     const aId = await createStoreViaUi(page, "A-shop");
     const b = await newUserSession(browser);
     const bId = await createStoreViaUi(b.page, "B-shop");
     const bBefore = await db.store.findUniqueOrThrow({ where: { id: bId } });
-    const aUser = await db.user.findUniqueOrThrow({ where: { email: aEmail } });
+    const aUser = await db.user.findUniqueOrThrow({ where: { username: aUsername } });
 
     // --- forged UPDATE: swap the hidden storeId to B's id, add forged ownership fields, submit
     await page.goto(`/dashboard/stores/${aId}`);

@@ -7,18 +7,18 @@ import { loginSchema, registerSchema } from "./schemas";
 /** Only data that is safe to return to callers. Never includes the password hash. */
 export interface SafeUser {
   id: string;
-  email: string;
+  username: string;
   name: string;
 }
 
 export type RegisterOutcome =
-  | { ok: true } // identical for new and already-registered emails (no enumeration)
-  | { ok: false; error: "invalid" | "rate_limited"; fieldErrors?: Record<string, string[]>; retryAfterSeconds?: number };
+  | { ok: true }
+  | { ok: false; error: "invalid" | "rate_limited" | "username_taken"; fieldErrors?: Record<string, string[]>; retryAfterSeconds?: number };
 
 /**
- * Registration is deliberately non-enumerating: an existing email yields the same successful
- * outcome as a new one, and the existing account is left untouched. There is no email
- * verification in the MVP, so users sign in afterwards with the password they chose.
+ * Registration by username (ADR 0001, U1). Unlike the former e-mail sign-up, a taken username IS reported: the person must pick
+ * another one, and a username is not a secret (it is never shown publicly either). Login stays non-enumerating (one generic outcome)
+ * and is rate limited per IP and per username. Uniqueness is decided by the database (unique index), never by a read-then-write.
  */
 export async function registerUser(
   input: unknown,
@@ -32,14 +32,16 @@ export async function registerUser(
   if (!parsed.success) {
     return { ok: false, error: "invalid", fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
   }
-  const { name, email, password } = parsed.data;
+  const { name, username, password } = parsed.data;
 
-  // Hash before checking existence so both paths take the same time.
   const passwordHash = await hashPassword(password);
   try {
-    await db.user.create({ data: { name, email, passwordHash } });
+    await db.user.create({ data: { name, username, passwordHash } });
   } catch (e) {
-    if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { ok: false, error: "username_taken", fieldErrors: { username: ["این نام کاربری قبلاً گرفته شده است"] } };
+    }
+    throw e;
   }
   return { ok: true };
 }
@@ -48,27 +50,28 @@ export type AuthenticateResult =
   | { ok: true; user: SafeUser; authVersion: number }
   | { ok: false; reason: "invalid" | "rate_limited" };
 
-/** Returns the same `invalid` outcome for malformed input, unknown email and wrong password. */
+/** Returns the same `invalid` outcome for malformed input, unknown username and wrong password. */
 export async function authenticate(
   credentials: unknown,
   ctx: { ip: string; limiter?: RateLimiter },
 ): Promise<AuthenticateResult> {
   const parsed = loginSchema.safeParse(credentials);
   if (!parsed.success) return { ok: false, reason: "invalid" };
-  const { email, password } = parsed.data;
+  const { username, password } = parsed.data;
 
   const limiter = ctx.limiter ?? getRateLimiter();
-  const [byIp, byEmail] = await Promise.all([
+  const [byIp, byUsername] = await Promise.all([
     limiter.consume(rateLimitKey("login:ip", ctx.ip), AUTH_RULES.loginPerIp),
-    limiter.consume(rateLimitKey("login:email", email), AUTH_RULES.loginPerEmail),
+    limiter.consume(rateLimitKey("login:username", username), AUTH_RULES.loginPerUsername),
   ]);
-  if (!byIp.allowed || !byEmail.allowed) return { ok: false, reason: "rate_limited" };
+  if (!byIp.allowed || !byUsername.allowed) return { ok: false, reason: "rate_limited" };
 
-  const user = await db.user.findUnique({ where: { email } });
+  const user = await db.user.findUnique({ where: { username } });
+  // Unknown names still pay for one Argon2 verification, so timing does not reveal which usernames exist.
   const valid = user ? await verifyPassword(user.passwordHash, password) : await verifyDummyPassword(password);
   if (!user || !valid) return { ok: false, reason: "invalid" };
 
-  return { ok: true, user: { id: user.id, email: user.email, name: user.name }, authVersion: user.authVersion };
+  return { ok: true, user: { id: user.id, username: user.username, name: user.name }, authVersion: user.authVersion };
 }
 
 /** Invalidates every existing JWT of the user (e.g. after password change or suspected compromise). */
@@ -84,5 +87,5 @@ export async function isSessionVersionCurrent(userId: string, authVersion: unkno
 }
 
 export async function getSafeUser(userId: string): Promise<SafeUser | null> {
-  return db.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } });
+  return db.user.findUnique({ where: { id: userId }, select: { id: true, username: true, name: true } });
 }

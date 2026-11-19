@@ -2,26 +2,39 @@ import { describe, expect, it } from "vitest";
 import { decode, encode } from "next-auth/jwt";
 import { hashPassword, verifyPassword, verifyDummyPassword } from "./password";
 import { MemoryRateLimiter, getClientIp, rateLimitKey } from "./rate-limit";
-import { loginSchema, registerSchema } from "./schemas";
+import { RESERVED_USERNAMES, USERNAME_PATTERN, loginSchema, normalizeUsername, registerSchema } from "./schemas";
 
-describe("schemas (server-side validation)", () => {
-  it("normalises email and accepts valid registration", () => {
-    const r = registerSchema.parse({ name: " Ali ", email: " ALI@Example.COM ", password: "12345678" });
-    expect(r).toEqual({ name: "Ali", email: "ali@example.com", password: "12345678" });
+describe("schemas (server-side validation, username: ADR 0001 U1)", () => {
+  it("normalises the username (spaces, case, Persian and Arabic digits) and accepts a valid registration", () => {
+    const r = registerSchema.parse({ name: " Ali ", username: " ALI_Shop۱۲٣ ", password: "12345678" });
+    expect(r).toEqual({ name: "Ali", username: "ali_shop123", password: "12345678" });
+    expect(normalizeUsername("  Zahra_۹ ")).toBe("zahra_9");
   });
   it.each([
-    [{ name: "", email: "a@b.co", password: "12345678" }],
-    [{ name: "x", email: "not-an-email", password: "12345678" }],
-    [{ name: "x", email: "a@b.co", password: "short" }],
-    [{ name: "x", email: "a@b.co", password: "x".repeat(129) }],
-    [{ name: "x", email: "a@b.co" }],
+    [{ name: "", username: "ali_ok", password: "12345678" }],
+    [{ name: "x", username: "ab", password: "12345678" }],
+    [{ name: "x", username: "1abc", password: "12345678" }],
+    [{ name: "x", username: "ali.x", password: "12345678" }],
+    [{ name: "x", username: "ali x", password: "12345678" }],
+    [{ name: "x", username: "علی_رضا", password: "12345678" }],
+    [{ name: "x", username: "a".repeat(31), password: "12345678" }],
+    [{ name: "x", username: "admin", password: "12345678" }],
+    [{ name: "x", username: "ali_ok", password: "short" }],
+    [{ name: "x", username: "ali_ok", password: "x".repeat(129) }],
+    [{ name: "x", username: "ali_ok" }],
+    [{ name: "x", email: "a@b.co", password: "12345678" }],
     [null],
   ])("rejects invalid registration %j", (input) => {
     expect(registerSchema.safeParse(input).success).toBe(false);
   });
+  it("the pattern matches the database CHECK and every reserved name is itself a valid pattern (so only the list rejects it)", () => {
+    expect(USERNAME_PATTERN.source).toBe("^[a-z][a-z0-9_]{2,29}$"); // same as CHECK "User_username_format" in the U1 migration
+    for (const r of RESERVED_USERNAMES) expect(USERNAME_PATTERN.test(r), r).toBe(true);
+  });
   it("rejects malformed login input", () => {
-    expect(loginSchema.safeParse({ email: "a@b.co", password: "" }).success).toBe(false);
-    expect(loginSchema.safeParse({ email: ["a@b.co"], password: "x" }).success).toBe(false);
+    expect(loginSchema.safeParse({ username: "ali_ok", password: "" }).success).toBe(false);
+    expect(loginSchema.safeParse({ username: ["ali_ok"], password: "x" }).success).toBe(false);
+    expect(loginSchema.safeParse({ email: "a@b.co", password: "x" }).success).toBe(false);
   });
 });
 
@@ -54,7 +67,7 @@ describe("MemoryRateLimiter", () => {
     expect((await l.consume("k", rule)).allowed).toBe(true);
   });
   it("keys do not contain raw values", () => {
-    expect(rateLimitKey("login:email", "victim@example.com")).not.toContain("victim");
+    expect(rateLimitKey("login:username", "victim_user")).not.toContain("victim");
   });
   it("ignores forwarding headers unless the proxy is explicitly trusted", () => {
     const h = { get: (n: string) => (n === "x-forwarded-for" ? "6.6.6.6" : null) };

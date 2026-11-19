@@ -6,10 +6,11 @@ import { E2E_DATABASE_URL } from "../playwright.config";
 export const db = new PrismaClient({ datasources: { db: { url: E2E_DATABASE_URL } } });
 
 export const PASSWORD = "password123";
-export const GENERIC_LOGIN_ERROR = "ایمیل یا رمز عبور نادرست است.";
+export const GENERIC_LOGIN_ERROR = "نام کاربری یا رمز عبور نادرست است.";
 export const RATE_LIMIT_TEXT = "بیش از حد";
 
-export const uniqueEmail = () => `user-${randomBytes(6).toString("hex")}@example.com`;
+/** A fresh, valid username (U1): starts with a letter, lower-case hex after "user_", 17 characters. */
+export const uniqueUsername = () => `user_${randomBytes(6).toString("hex")}`;
 export const randomIp = () => `10.${randomBytes(1)[0]}.${randomBytes(1)[0]}.${1 + (randomBytes(1)[0]! % 250)}`;
 
 /**
@@ -41,39 +42,39 @@ export const test = base.extend<{ ip: string }>({
 });
 export { expect };
 
-export async function register(page: Page, email: string, name = "علی", password = PASSWORD) {
+export async function register(page: Page, username: string, name = "علی", password = PASSWORD) {
   await page.goto("/register");
   await page.fill("input[name=name]", name);
-  await page.fill("input[name=email]", email);
+  await page.fill("input[name=username]", username);
   await page.fill("input[name=password]", password);
   await page.click("button[type=submit]");
 }
 
-export async function login(page: Page, email: string, password = PASSWORD) {
+export async function login(page: Page, username: string, password = PASSWORD) {
   await page.goto("/login");
-  await page.fill("input[name=email]", email);
+  await page.fill("input[name=username]", username);
   await page.fill("input[name=password]", password);
   await page.click("button[type=submit]");
 }
 
-export async function createUser(page: Page, email = uniqueEmail()) {
-  await register(page, email);
+export async function createUser(page: Page, username = uniqueUsername()) {
+  await register(page, username);
   await page.waitForURL(/\/login\?registered=1/);
-  return email;
+  return username;
 }
 
-export async function loginAndWaitForDashboard(page: Page, email: string) {
-  await login(page, email);
+export async function loginAndWaitForDashboard(page: Page, username: string) {
+  await login(page, username);
   await page.waitForURL(/\/dashboard/);
 }
 
 export const formAlert = (page: Page) => page.locator(".MuiAlert-message");
 
-/** Registers a user and signs in; returns the email. */
+/** Registers a user and signs in; returns the username. */
 export async function signUpAndIn(page: Page): Promise<string> {
-  const email = await createUser(page);
-  await loginAndWaitForDashboard(page, email);
-  return email;
+  const username = await createUser(page);
+  await loginAndWaitForDashboard(page, username);
+  return username;
 }
 
 /** Legacy labels used by older specs -> the theme key of the card to click. */
@@ -122,29 +123,3 @@ export async function createProductViaUi(
 
 export const productRow = (page: Page, name: string) => page.getByTestId("product-row").filter({ hasText: name });
 export const notice = (page: Page) => page.getByRole("status");
-
-/** The newest message the file mail transport wrote for `to` (polls: the server writes it after answering). */
-export async function readMailTo(to: string, timeoutMs = 10_000): Promise<{ to: string; subject: string; text: string }> {
-  const { readdir, readFile } = await import("node:fs/promises");
-  const { E2E_MAIL_DIR } = await import("../playwright.config");
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const names = (await readdir(E2E_MAIL_DIR).catch(() => [] as string[])).sort().reverse();
-    for (const n of names) {
-      const m = JSON.parse(await readFile(`${E2E_MAIL_DIR}/${n}`, "utf8")) as { to: string; subject: string; text: string };
-      if (m.to === to) return m;
-    }
-    if (Date.now() > deadline) throw new Error(`no mail for ${to}`);
-    await new Promise((r) => setTimeout(r, 200));
-  }
-}
-
-export async function countMailsTo(to: string): Promise<number> {
-  const { readdir, readFile } = await import("node:fs/promises");
-  const { E2E_MAIL_DIR } = await import("../playwright.config");
-  let n = 0;
-  for (const f of await readdir(E2E_MAIL_DIR).catch(() => [] as string[])) if ((JSON.parse(await readFile(`${E2E_MAIL_DIR}/${f}`, "utf8")) as { to: string }).to === to) n++;
-  return n;
-}
-
-export const resetLinkFrom = (text: string) => /https?:\/\/[^\s]+\/reset-password\?token=[A-Za-z0-9_-]{43}/.exec(text)![0].replace(/^https?:\/\/[^/]+/, "");

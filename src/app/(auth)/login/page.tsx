@@ -9,7 +9,6 @@ export const metadata: Metadata = { title: "ورود", robots: { index: false, f
 
 const NOTICES: Record<string, string> = {
   "password-changed": "رمز عبور تغییر کرد. با رمز جدید وارد شوید.",
-  "password-reset": "رمز عبور جدید ثبت شد. اکنون وارد شوید.",
   "signed-out-everywhere": "از همه دستگاه‌ها خارج شدید.",
 };
 
@@ -27,7 +26,7 @@ export default async function LoginPage({
       </Typography>
       {registered && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          ثبت‌نام انجام شد. اکنون با ایمیل و رمز عبور خود وارد شوید.
+          ثبت‌نام انجام شد. اکنون با نام کاربری و رمز عبور خود وارد شوید.
         </Alert>
       )}
       {noticeText && (
@@ -38,9 +37,6 @@ export default async function LoginPage({
       <AuthForm mode="login" action={loginAction} callbackUrl={callbackUrl} />
       <Typography variant="body2" sx={{ mt: 2 }}>
         حساب ندارید؟ <Link href="/register">ثبت‌نام</Link>
-      </Typography>
-      <Typography variant="body2" sx={{ mt: 1 }}>
-        <Link href="/forgot-password">رمز عبور را فراموش کرده‌اید؟</Link>
       </Typography>
     </>
   );

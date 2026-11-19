@@ -1,6 +1,6 @@
 import {
   GENERIC_LOGIN_ERROR, PASSWORD, RATE_LIMIT_TEXT, createUser, db, expect, formAlert, login,
-  loginAndWaitForDashboard, register, test, uniqueEmail,
+  loginAndWaitForDashboard, register, test, uniqueUsername,
 } from "./helpers";
 
 test.afterAll(() => db.$disconnect());
@@ -21,42 +21,59 @@ test.describe("unauthorized dashboard access", () => {
   });
 });
 
+test.describe("username sign-in (ADR 0001, U1)", () => {
+  test("the forms ask for a username, never an e-mail, and the old password-reset pages are gone (real 404)", async ({ page, request, baseURL }) => {
+    for (const path of ["/login", "/register"]) {
+      await page.goto(path);
+      await expect(page.locator("input[name=username]"), path).toBeVisible();
+      await expect(page.locator("input[name=email]"), path).toHaveCount(0);
+    }
+    await page.goto("/login");
+    await expect(page.getByText("فراموش کرده")).toHaveCount(0);
+    for (const path of ["/forgot-password", "/reset-password?token=x"]) {
+      expect((await request.get(`${baseURL}${path}`)).status(), path).toBe(404);
+    }
+  });
+});
+
 test.describe("registration", () => {
-  test("creates an account with an Argon2id hash and lowercased email", async ({ page }) => {
-    const email = uniqueEmail();
-    await register(page, email.toUpperCase());
+  test("creates an account with an Argon2id hash, a lower-cased username and no e-mail", async ({ page }) => {
+    const username = uniqueUsername();
+    await register(page, username.toUpperCase());
     await expect(page).toHaveURL(/\/login\?registered=1/);
-    const user = await db.user.findUniqueOrThrow({ where: { email } });
+    const user = await db.user.findUniqueOrThrow({ where: { username } });
     expect(user.passwordHash).toMatch(/^\$argon2id\$/);
     expect(user.authVersion).toBe(0);
+    expect(user.email).toBeNull();
   });
 
   test("shows field validation errors and creates nothing", async ({ page }) => {
-    const email = uniqueEmail();
-    await register(page, email, "x", "short");
+    const username = uniqueUsername();
+    await register(page, username, "x", "short");
     await expect(formAlert(page)).toBeVisible();
     await expect(page).toHaveURL(/\/register/);
-    expect(await db.user.count({ where: { email } })).toBe(0);
+    expect(await db.user.count({ where: { username } })).toBe(0);
   });
 
-  test("duplicate email gives the same outcome and leaves the account untouched", async ({ page }) => {
-    const email = await createUser(page);
-    await register(page, email, "Attacker", "attackerpass1");
-    await expect(page).toHaveURL(/\/login\?registered=1/);
-    expect(await db.user.count({ where: { email } })).toBe(1);
-    expect((await db.user.findUniqueOrThrow({ where: { email } })).name).toBe("علی");
-    await login(page, email, "attackerpass1");
+  test("a taken username is reported on the form and the existing account stays untouched", async ({ page }) => {
+    const username = await createUser(page);
+    await register(page, username, "Attacker", "attackerpass1");
+    await expect(formAlert(page)).toContainText("قبلاً گرفته شده");
+    await expect(page).toHaveURL(/\/register/);
+    expect(await db.user.count({ where: { username } })).toBe(1);
+    expect((await db.user.findUniqueOrThrow({ where: { username } })).name).toBe("علی");
+    await login(page, username, "attackerpass1");
     await expect(formAlert(page)).toHaveText(GENERIC_LOGIN_ERROR);
   });
 
   test("registration is rate limited per client IP, and spoofed left-hand X-Forwarded-For entries do not help", async ({ page, context, ip }) => {
     for (let i = 0; i < 5; i++) {
       await context.setExtraHTTPHeaders({ "x-forwarded-for": `6.6.6.${i}, ${ip}` }); // attacker rotates a fake IP
-      await register(page, uniqueEmail());
+      await register(page, uniqueUsername());
       await expect(page).toHaveURL(/\/login\?registered=1/);
     }
     await context.setExtraHTTPHeaders({ "x-forwarded-for": `6.6.6.99, ${ip}` });
-    await register(page, uniqueEmail());
+    await register(page, uniqueUsername());
     await expect(formAlert(page)).toContainText(RATE_LIMIT_TEXT);
     await expect(page).toHaveURL(/\/register/);
   });
@@ -64,8 +81,8 @@ test.describe("registration", () => {
 
 test.describe("login and logout", () => {
   test("logs in, reaches the dashboard, sets a hardened cookie and leaks nothing in the session endpoint", async ({ page, context }) => {
-    const email = await createUser(page);
-    await loginAndWaitForDashboard(page, email);
+    const username = await createUser(page);
+    await loginAndWaitForDashboard(page, username);
     await expect(page.getByText("علی", { exact: true })).toBeVisible(); // user name in the app bar
 
     const cookie = (await context.cookies()).find((c) => c.name === "authjs.session-token");
@@ -74,21 +91,21 @@ test.describe("login and logout", () => {
 
     const body = await (await page.request.get("/api/auth/session")).text();
     expect(body).not.toMatch(/argon2|passwordHash|authVersion/);
-    expect(JSON.parse(body).user.email).toBe(email);
+    expect(JSON.parse(body).user.name).toBe("علی");
   });
 
-  test("wrong password and unknown email show the identical generic error", async ({ page }) => {
-    const email = await createUser(page);
-    await login(page, email, "wrong-password-1");
+  test("wrong password and unknown username show the identical generic error", async ({ page }) => {
+    const username = await createUser(page);
+    await login(page, username, "wrong-password-1");
     await expect(formAlert(page)).toHaveText(GENERIC_LOGIN_ERROR);
-    await login(page, uniqueEmail(), PASSWORD);
+    await login(page, uniqueUsername(), PASSWORD);
     await expect(formAlert(page)).toHaveText(GENERIC_LOGIN_ERROR);
     await expect(page).toHaveURL(/\/login/);
   });
 
   test("logout ends access to the dashboard", async ({ page }) => {
-    const email = await createUser(page);
-    await loginAndWaitForDashboard(page, email);
+    const username = await createUser(page);
+    await loginAndWaitForDashboard(page, username);
     await page.getByRole("button", { name: "خروج" }).click();
     await expect(page).toHaveURL(/\/login/);
     await page.goto("/dashboard");
@@ -96,22 +113,22 @@ test.describe("login and logout", () => {
   });
 
   test("callbackUrl cannot redirect to external or non-dashboard locations", async ({ page }) => {
-    const email = await createUser(page);
+    const username = await createUser(page);
     await page.goto("/login?callbackUrl=" + encodeURIComponent("https://evil.example/"));
-    await page.fill("input[name=email]", email);
+    await page.fill("input[name=username]", username);
     await page.fill("input[name=password]", PASSWORD);
     await page.click("button[type=submit]");
     await page.waitForURL(/\/dashboard/);
     expect(new URL(page.url()).hostname).toBe("localhost");
   });
 
-  test("login is rate limited per email; even the correct password is refused while limited", async ({ page }) => {
-    const email = await createUser(page);
+  test("login is rate limited per username; even the correct password is refused while limited", async ({ page }) => {
+    const username = await createUser(page);
     for (let i = 0; i < 10; i++) {
-      await login(page, email, `wrong-password-${i}`);
+      await login(page, username, `wrong-password-${i}`);
       await expect(formAlert(page)).toHaveText(GENERIC_LOGIN_ERROR);
     }
-    await login(page, email, PASSWORD);
+    await login(page, username, PASSWORD);
     await expect(formAlert(page)).toContainText(RATE_LIMIT_TEXT);
     await expect(page).toHaveURL(/\/login/);
   });
@@ -119,31 +136,31 @@ test.describe("login and logout", () => {
 
 test.describe("session invalidation (authVersion)", () => {
   test("bumping authVersion revokes the existing session and clears the cookie; re-login works", async ({ page, context }) => {
-    const email = await createUser(page);
-    await loginAndWaitForDashboard(page, email);
+    const username = await createUser(page);
+    await loginAndWaitForDashboard(page, username);
 
-    await db.user.update({ where: { email }, data: { authVersion: { increment: 1 } } });
+    await db.user.update({ where: { username }, data: { authVersion: { increment: 1 } } });
 
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
     expect((await context.cookies()).find((c) => c.name === "authjs.session-token")).toBeUndefined();
 
-    await loginAndWaitForDashboard(page, email);
+    await loginAndWaitForDashboard(page, username);
     await expect(page.getByText("علی", { exact: true })).toBeVisible(); // user name in the app bar
   });
 
   test("deleting the user revokes the session", async ({ page }) => {
-    const email = await createUser(page);
-    await loginAndWaitForDashboard(page, email);
-    await db.user.delete({ where: { email } });
+    const username = await createUser(page);
+    await loginAndWaitForDashboard(page, username);
+    await db.user.delete({ where: { username } });
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
   });
 
   test("a revoked session is also rejected by the session endpoint", async ({ page }) => {
-    const email = await createUser(page);
-    await loginAndWaitForDashboard(page, email);
-    await db.user.update({ where: { email }, data: { authVersion: { increment: 1 } } });
+    const username = await createUser(page);
+    await loginAndWaitForDashboard(page, username);
+    await db.user.update({ where: { username }, data: { authVersion: { increment: 1 } } });
     expect(await (await page.request.get("/api/auth/session")).json()).toBeNull();
   });
 });

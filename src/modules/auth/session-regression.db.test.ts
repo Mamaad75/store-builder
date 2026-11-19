@@ -22,10 +22,10 @@ beforeEach(resetDb);
 afterAll(() => prisma.$disconnect());
 
 async function createUserAndToken(authVersion?: number, maxAge = 3600) {
-  await registerUser({ name: "Ali", email: "ali@example.com", password: "password123" }, { ip: "1.1.1.1", limiter: new MemoryRateLimiter() });
-  const user = await prisma.user.findUniqueOrThrow({ where: { email: "ali@example.com" } });
+  await registerUser({ name: "Ali", username: "ali_test", password: "password123" }, { ip: "1.1.1.1", limiter: new MemoryRateLimiter() });
+  const user = await prisma.user.findUniqueOrThrow({ where: { username: "ali_test" } });
   const jwt = await encode({
-    token: { sub: user.id, name: user.name, email: user.email, authVersion: authVersion ?? user.authVersion },
+    token: { sub: user.id, name: user.name, authVersion: authVersion ?? user.authVersion },
     secret: SECRET,
     salt: COOKIE,
     maxAge,
@@ -57,7 +57,7 @@ describe("session endpoint with the real Auth.js handler", () => {
     const { user, jwt } = await createUserAndToken();
     const { status, body, setCookie } = await readSession(jwt);
     expect(status).toBe(200);
-    expect(body.user).toMatchObject({ id: user.id, email: "ali@example.com", name: "Ali" });
+    expect(body.user).toMatchObject({ id: user.id, name: "Ali" });
     expect(JSON.stringify(body)).not.toMatch(/argon2|passwordHash|authVersion/);
     expect(setCookie).toContain(COOKIE); // sliding refresh re-issues the cookie
   });
@@ -100,7 +100,7 @@ describe("session endpoint with the real Auth.js handler", () => {
   it("rejects expired tokens and tokens signed with another secret", async () => {
     const { jwt: expired } = await createUserAndToken(0, -300);
     expect((await readSession(expired)).body).toBeNull();
-    const { user } = { user: await prisma.user.findUniqueOrThrow({ where: { email: "ali@example.com" } }) };
+    const { user } = { user: await prisma.user.findUniqueOrThrow({ where: { username: "ali_test" } }) };
     const forged = await encode({ token: { sub: user.id, authVersion: 0 }, secret: "another-secret-another-secret-0123456789", salt: COOKIE, maxAge: 3600 });
     expect((await readSession(forged)).body).toBeNull();
   });

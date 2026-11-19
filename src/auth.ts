@@ -16,14 +16,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/login" },
   providers: [
     Credentials({
-      credentials: { email: {}, password: {} },
+      credentials: { username: {}, password: {} },
       async authorize(credentials, request) {
         const result = await authenticate(credentials, { ip: getClientIp(request.headers) });
         if (!result.ok) {
           if (result.reason === "rate_limited") throw new RateLimitedError();
           return null; // generic CredentialsSignin
         }
-        return { ...result.user, authVersion: result.authVersion };
+        // Only id and display name enter the token; the username is read from the database when needed (getSafeUser).
+        return { id: result.user.id, name: result.user.name, authVersion: result.authVersion };
       },
     }),
   ],

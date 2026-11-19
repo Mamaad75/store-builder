@@ -180,7 +180,7 @@ test.describe("publishing and host routing", () => {
   });
 
   test("forwarded headers cannot select a store, and the session cookie never reaches a store host", async ({ page, browser }) => {
-    const email = await signUpAndIn(page);
+    const username = await signUpAndIn(page);
     const storeId = await createStoreViaUi(page, "فروشگاه امن", "فروشگاه عمومی");
     const l = label();
     await claim(page, storeId, l);
@@ -203,7 +203,7 @@ test.describe("publishing and host routing", () => {
     expect((await page.goto(storeUrl(l, "/api/auth/session")))!.status()).toBe(404);
     await page.goto(`/dashboard`);
     await expect(page).toHaveURL(/\/dashboard/);
-    expect(email).toContain("@");
+    expect(username).toMatch(/^user_/);
     await anon.close();
   });
 

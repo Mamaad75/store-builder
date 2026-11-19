@@ -26,14 +26,13 @@ export default function AuthForm({ mode, action, callbackUrl }: Props) {
           <TextField name="name" label="نام" autoComplete="name" required error={!!fe.name} helperText={fe.name?.[0]} />
         )}
         <TextField
-          name="email"
-          type="email"
-          label="ایمیل"
-          autoComplete="email"
+          name="username"
+          label="نام کاربری"
+          autoComplete="username"
           required
-          error={!!fe.email}
-          helperText={fe.email?.[0]}
-          slotProps={{ htmlInput: { dir: "ltr" } }}
+          error={!!fe.username}
+          helperText={fe.username?.[0] ?? (isRegister ? "حروف انگلیسی، عدد و _ ؛ شروع با حرف؛ ۳ تا ۳۰ کاراکتر" : undefined)}
+          slotProps={{ htmlInput: { dir: "ltr", autoCapitalize: "none", autoCorrect: "off", spellCheck: false, maxLength: 30 } }}
         />
         <TextField
           name="password"

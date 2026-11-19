@@ -18,41 +18,45 @@ beforeEach(async () => {
 });
 afterAll(() => prisma.$disconnect());
 
-const valid = { name: "Ali", email: "ali@example.com", password: "password123" };
+const valid = { name: "Ali", username: "ali_test", password: "password123" };
 const ctx = () => ({ ip: "1.1.1.1", limiter: new MemoryRateLimiter() });
 
-describe("registration", () => {
-  it("creates a user with an Argon2id hash and no raw password", async () => {
+describe("registration (username, ADR 0001 U1)", () => {
+  it("creates a user with an Argon2id hash and no raw password, and without any e-mail", async () => {
     expect(await registerUser(valid, ctx())).toEqual({ ok: true });
-    const u = await prisma.user.findUniqueOrThrow({ where: { email: valid.email } });
+    const u = await prisma.user.findUniqueOrThrow({ where: { username: valid.username } });
     expect(u.passwordHash).toMatch(/^\$argon2id\$/);
     expect(u.passwordHash).not.toContain(valid.password);
     expect(u.authVersion).toBe(0);
+    expect(u.email).toBeNull();
   });
-  it("does not reveal whether an email is already registered, and does not modify the account", async () => {
-    const first = await registerUser(valid, ctx());
-    const second = await registerUser({ ...valid, name: "Attacker", password: "attackerpass1" }, ctx());
-    expect(second).toEqual(first);
-    expect(await prisma.user.count()).toBe(1);
-    const u = await prisma.user.findUniqueOrThrow({ where: { email: valid.email } });
-    expect(u.name).toBe("Ali");
-    expect((await authenticate({ email: valid.email, password: valid.password }, ctx())).ok).toBe(true);
-    expect((await authenticate({ email: valid.email, password: "attackerpass1" }, ctx())).ok).toBe(false);
-  });
-  it("normalises email case so duplicates are detected", async () => {
+  it("reports a taken username (it must be chosen again) and never modifies the existing account", async () => {
     await registerUser(valid, ctx());
-    await registerUser({ ...valid, email: "ALI@EXAMPLE.com" }, ctx());
+    const second = await registerUser({ ...valid, name: "Attacker", password: "attackerpass1" }, ctx());
+    expect(second).toMatchObject({ ok: false, error: "username_taken", fieldErrors: { username: expect.any(Array) } });
     expect(await prisma.user.count()).toBe(1);
+    const u = await prisma.user.findUniqueOrThrow({ where: { username: valid.username } });
+    expect(u.name).toBe("Ali");
+    expect((await authenticate({ username: valid.username, password: valid.password }, ctx())).ok).toBe(true);
+    expect((await authenticate({ username: valid.username, password: "attackerpass1" }, ctx())).ok).toBe(false);
   });
-  it("returns field errors for invalid input and creates nothing", async () => {
-    const r = await registerUser({ name: "", email: "bad", password: "x" }, ctx());
-    expect(r).toMatchObject({ ok: false, error: "invalid" });
+  it("normalises case, spaces and Persian digits, so look-alike names are the same account", async () => {
+    await registerUser({ ...valid, username: "ali_۱۲" }, ctx());
+    expect(await registerUser({ ...valid, username: "  ALI_12 " }, ctx())).toMatchObject({ ok: false, error: "username_taken" });
+    expect(await prisma.user.findMany({ select: { username: true } })).toEqual([{ username: "ali_12" }]);
+  });
+  it("returns field errors for invalid or reserved usernames and creates nothing", async () => {
+    for (const username of ["ab", "1abc", "ali-x", "علی", "a".repeat(31), "admin", "API"]) {
+      const r = await registerUser({ ...valid, username }, ctx());
+      expect(r, username).toMatchObject({ ok: false, error: "invalid", fieldErrors: { username: expect.any(Array) } });
+    }
+    expect(await registerUser({ name: "", username: "ok_name", password: "x" }, ctx())).toMatchObject({ ok: false, error: "invalid" });
     expect(await prisma.user.count()).toBe(0);
   });
   it("is rate limited per IP", async () => {
     const c = ctx();
-    for (let i = 0; i < 5; i++) await registerUser({ ...valid, email: `u${i}@example.com` }, c);
-    const r = await registerUser({ ...valid, email: "u9@example.com" }, c);
+    for (let i = 0; i < 5; i++) await registerUser({ ...valid, username: `user_${i}` }, c);
+    const r = await registerUser({ ...valid, username: "user_9" }, c);
     expect(r).toMatchObject({ ok: false, error: "rate_limited" });
     expect(await prisma.user.count()).toBe(5);
   });
@@ -62,35 +66,35 @@ describe("login", () => {
   beforeEach(async () => {
     await registerUser(valid, ctx());
   });
-  it("succeeds with correct credentials and returns only safe fields", async () => {
-    const r = await authenticate({ email: " ALI@example.com ", password: valid.password }, ctx());
+  it("succeeds with correct credentials (case and spaces normalised) and returns only safe fields", async () => {
+    const r = await authenticate({ username: " ALI_Test ", password: valid.password }, ctx());
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect(Object.keys(r.user).sort()).toEqual(["email", "id", "name"]);
+      expect(Object.keys(r.user).sort()).toEqual(["id", "name", "username"]);
       expect(JSON.stringify(r)).not.toContain("argon2");
     }
   });
-  it("returns the identical outcome for wrong password, unknown email and malformed input", async () => {
-    const wrongPw = await authenticate({ email: valid.email, password: "nope-nope" }, ctx());
-    const unknown = await authenticate({ email: "ghost@example.com", password: "password123" }, ctx());
-    const malformed = await authenticate({ email: 5, password: null }, ctx());
+  it("returns the identical outcome for wrong password, unknown username and malformed input", async () => {
+    const wrongPw = await authenticate({ username: valid.username, password: "nope-nope" }, ctx());
+    const unknown = await authenticate({ username: "ghost_user", password: "password123" }, ctx());
+    const malformed = await authenticate({ username: 5, password: null }, ctx());
     expect(wrongPw).toEqual({ ok: false, reason: "invalid" });
     expect(unknown).toEqual(wrongPw);
     expect(malformed).toEqual(wrongPw);
   });
-  it("rate limits repeated attempts on one email even from different IPs", async () => {
+  it("rate limits repeated attempts on one username even from different IPs", async () => {
     const limiter = new MemoryRateLimiter();
     for (let i = 0; i < 10; i++) {
-      const r = await authenticate({ email: valid.email, password: "bad-bad-bad" }, { ip: `9.9.9.${i}`, limiter });
+      const r = await authenticate({ username: valid.username, password: "bad-bad-bad" }, { ip: `9.9.9.${i}`, limiter });
       expect(r).toEqual({ ok: false, reason: "invalid" });
     }
-    const blocked = await authenticate({ email: valid.email, password: valid.password }, { ip: "9.9.9.99", limiter });
+    const blocked = await authenticate({ username: valid.username, password: valid.password }, { ip: "9.9.9.99", limiter });
     expect(blocked).toEqual({ ok: false, reason: "rate_limited" });
   });
-  it("rate limits one IP across many emails", async () => {
+  it("rate limits one IP across many usernames", async () => {
     const limiter = new MemoryRateLimiter();
-    for (let i = 0; i < 30; i++) await authenticate({ email: `x${i}@example.com`, password: "whatever1" }, { ip: "8.8.8.8", limiter });
-    const r = await authenticate({ email: valid.email, password: valid.password }, { ip: "8.8.8.8", limiter });
+    for (let i = 0; i < 30; i++) await authenticate({ username: `x_user_${i}`, password: "whatever1" }, { ip: "8.8.8.8", limiter });
+    const r = await authenticate({ username: valid.username, password: valid.password }, { ip: "8.8.8.8", limiter });
     expect(r).toEqual({ ok: false, reason: "rate_limited" });
   });
 });
@@ -138,10 +142,10 @@ describe("unauthorized dashboard access (requireUser)", () => {
   it("returns only safe user fields for a valid session", async () => {
     const { requireUser } = await import("./session");
     await registerUser(valid, ctx());
-    const u = await prisma.user.findUniqueOrThrow({ where: { email: valid.email } });
+    const u = await prisma.user.findUniqueOrThrow({ where: { username: valid.username } });
     authMock.mockResolvedValue({ user: { id: u.id } });
     const user = await requireUser();
-    expect(user).toEqual({ id: u.id, email: valid.email, name: "Ali" });
+    expect(user).toEqual({ id: u.id, username: valid.username, name: "Ali" });
   });
 });
 

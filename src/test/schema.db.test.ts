@@ -29,9 +29,16 @@ describe("template seed", () => {
 });
 
 describe("ownership and uniqueness", () => {
-  it("enforces unique user email", async () => {
-    await prisma.user.create({ data: { email: "a@b.com", name: "a", passwordHash: "x" } });
-    await expect(prisma.user.create({ data: { email: "a@b.com", name: "b", passwordHash: "x" } })).rejects.toMatchObject({ code: "P2002" });
+  it("enforces unique usernames (U1)", async () => {
+    await prisma.user.create({ data: { username: "ali", name: "a", passwordHash: "x" } });
+    await expect(prisma.user.create({ data: { username: "ali", name: "b", passwordHash: "x" } })).rejects.toMatchObject({ code: "P2002" });
+  });
+  it("the database refuses usernames the application would refuse (CHECK User_username_format), and e-mail is optional", async () => {
+    for (const bad of ["Ali", "1ali", "al", "ali-x", "ali.x", "a".repeat(31), "علی"]) {
+      await expect(prisma.user.create({ data: { username: bad, name: "x", passwordHash: "x" } }), bad).rejects.toThrow(/User_username_format/);
+    }
+    const u = await prisma.user.create({ data: { username: "a_".padEnd(30, "1"), name: "x", passwordHash: "x" } });
+    expect(u.email).toBeNull();
   });
   it("rejects a store with a non-existent owner", async () => {
     const tv = await prisma.templateVersion.findFirstOrThrow();

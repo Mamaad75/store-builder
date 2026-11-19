@@ -102,9 +102,9 @@ test.describe("production host policy: only the configured root domain and valid
   test("in a real browser an IP-based address is a 404, while the configured name works", async ({ page }) => {
     const ip = await page.goto(`http://127.0.0.1:${PORT}/login`);
     expect(ip!.status()).toBe(404);
-    await expect(page.locator("input[name=email]")).toHaveCount(0);
+    await expect(page.locator("input[name=username]")).toHaveCount(0);
     const ok = await page.goto(`http://localhost:${PORT}/login`);
     expect(ok!.status()).toBe(200);
-    await expect(page.locator("input[name=email]")).toBeVisible();
+    await expect(page.locator("input[name=username]")).toBeVisible();
   });
 });

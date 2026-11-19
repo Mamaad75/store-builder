@@ -691,13 +691,11 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     const acct = read("src/app/dashboard/account/actions.ts");
     expect(acct.startsWith('"use server"')).toBe(true);
     for (const m of acct.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{\n([^\n]*)/g)) expect(m[2], m[1]).toMatch(/requireUser\(\)/);
-    // the reset token is persisted only as a hash and never reaches a log line
+    // account code never logs credentials or identities
     const account = read("src/modules/auth/account.ts");
-    expect(account).toMatch(/tokenHash: sha256\(token\)/);
-    expect(account).not.toMatch(/console\.\w+\([^)]*(token|link|email|to\b)/i);
-    // public auth pages carrying or requesting credentials are never indexed
-    for (const f of ["src/app/(auth)/forgot-password/page.tsx", "src/app/(auth)/reset-password/page.tsx"]) expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
-    expect(read("src/app/(auth)/reset-password/page.tsx")).toMatch(/referrer:\s*"no-referrer"/);
+    expect(account).not.toMatch(/console\.\w+\(/);
+    // public auth pages carrying credentials are never indexed
+    for (const f of ["src/app/(auth)/login/page.tsx", "src/app/(auth)/register/page.tsx"]) expect(read(f), f).toMatch(/robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
     // Mail goes out only through the provider-neutral SMTP transport (DM2-1, superseding the "no transport" part of D12-2):
     // exactly one mail library, pinned to an exact version, and no provider SDK (SES/SendGrid/... would tie the code to a vendor).
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
@@ -739,13 +737,33 @@ describe("architecture guard: SEO (phase 11) reads only published data and never
     for (const f of [".github/workflows/ci.yml", ".env.example"]) expect(read(f), f).not.toMatch(/^[^#\n]*MAIL_TRANSPORT\s*[:=]\s*["']?(log|file)/im); // commented examples are fine
   });
 
-  it("phase 12: one reset token per user is a database constraint, and requests write it with a single ON CONFLICT statement", () => {
-    expect(read("prisma/schema.prisma")).toMatch(/model PasswordResetToken[\s\S]*?userId\s+String\s+@unique/);
-    const account = read("src/modules/auth/account.ts");
-    expect(account).toMatch(/ON CONFLICT \("userId"\) DO UPDATE/);
-    expect(account).not.toMatch(/passwordResetToken\.create\(/); // a plain create could race and leave two live links
+  it("U1 (ADR 0001): sign-in is by username; e-mail and password reset are gone from every production path", () => {
+    // nothing reads or writes the deprecated reset-token table (it is dropped by the approved contract migration later)
+    const holders = prodFiles().filter((f) => /\.passwordResetToken\b|(INTO|FROM|UPDATE|JOIN)\s+"PasswordResetToken"/.test(read(f)));
+    expect(rel(holders)).toEqual([]);
+    // no reset routes, no reset actions
+    for (const p of ["src/app/(auth)/forgot-password/page.tsx", "src/app/(auth)/reset-password/page.tsx"]) expect(existsSyncSafe(p), p).toBe(false);
+    const actions = read("src/app/actions-auth.ts");
+    expect(actions).not.toMatch(/forgotPassword|resetPassword|requestPasswordReset/);
+    // the credentials are username + password, end to end
+    expect(read("src/auth.ts")).toMatch(/credentials: \{ username: \{\}, password: \{\} \}/);
+    expect(actions).toMatch(/username: formData\.get\("username"\)/);
+    expect(read("src/components/AuthForm.tsx")).toMatch(/name="username"/);
+    expect(read("src/components/AuthForm.tsx")).not.toMatch(/name="email"/);
+    // the user record carries a unique username; e-mail is optional and never selected for callers
+    expect(read("prisma/schema.prisma")).toMatch(/username\s+String\s+@unique/);
+    expect(read("src/modules/auth/service.ts")).not.toMatch(/email/);
   });
 });
+
+function existsSyncSafe(p: string): boolean {
+  try {
+    statSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 
 describe("architecture guard: outgoing mail (MVP step M2, decision DM2-1)", () => {
@@ -759,11 +777,5 @@ describe("architecture guard: outgoing mail (MVP step M2, decision DM2-1)", () =
     expect(smtp).toContain("requireTLS: !cfg.secure");
     expect(smtp).toContain("ignoreTLS: false");
     expect(smtp).not.toMatch(/rejectUnauthorized:\s*(false|!|cfg\.|env\.)/);
-  });
-  it("the forgot-password action hands mail delivery to after(), so the answer never waits for SMTP", () => {
-    const actions = read(path.join("src", "app", "actions-auth.ts"));
-    expect(actions).toMatch(/import \{ after \} from "next\/server"/);
-    const forgot = actions.slice(actions.indexOf("export async function forgotPasswordAction"));
-    expect(forgot.slice(0, forgot.indexOf("\n}\n"))).toMatch(/requestPasswordReset\(.*defer: \(task\) => after\(task\)/);
   });
 });

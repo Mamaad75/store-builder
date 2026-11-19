@@ -40,7 +40,7 @@ test.describe("production readiness endpoints and security headers", () => {
     page.on("console", (m) => {
       if (/content security policy/i.test(m.text())) violations.push(m.text());
     });
-    for (const path of ["/", "/login", "/register", "/forgot-password"]) {
+    for (const path of ["/", "/login", "/register"]) {
       await page.goto(path);
       await expect(page.locator("h1")).toHaveCount(1);
     }
