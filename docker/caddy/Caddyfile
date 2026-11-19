@@ -36,7 +36,8 @@ import tls.d/*.caddy
 	# Only the platform hosts: a store subdomain never reaches them. Everything else (pages, storefronts, /api/health, /api/ready of the web
 	# app) goes to the application, which decides by Host header.
 	@api {
-		host {$APP_ROOT_DOMAIN} www.{$APP_ROOT_DOMAIN}
+		# The raw Host header (port included when the root domain has one, as in the CI smoke stack): the `host` matcher ignores ports.
+		header Host {$APP_ROOT_DOMAIN} www.{$APP_ROOT_DOMAIN}
 		path /api/auth/* /api/stores /api/stores/* /api/public/*
 	}
 	handle @api {
