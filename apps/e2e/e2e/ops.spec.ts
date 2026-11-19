@@ -6,7 +6,7 @@ test.describe("production readiness endpoints and security headers", () => {
   test("/api/ready answers 200 with both dependencies ok on the platform host, and never on any other host", async ({ request }) => {
     const ok = await request.get(`http://localhost:${PORT}/api/ready`);
     expect(ok.status()).toBe(200);
-    expect(await ok.json()).toEqual({ status: "ready", checks: { database: "ok", storage: "ok" } });
+    expect(await ok.json()).toEqual({ status: "ready", checks: { api: "ok", database: "ok", storage: "ok" } });
     expect(ok.headers()["cache-control"]).toBe("no-store");
     for (const host of ["evil.com", `shop.localhost:${PORT}`]) {
       const res = await request.get(`http://127.0.0.1:${PORT}/api/ready`, { headers: { host }, failOnStatusCode: false });

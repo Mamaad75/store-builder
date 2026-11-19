@@ -69,8 +69,8 @@ function toState(e: unknown, notFoundUrl: string): PublishState {
   if (e instanceof VersionAlreadyLiveError) return { error: "این نسخه هم‌اکنون زنده است." };
   if (e instanceof IncompatibleVersionError) return { error: "این نسخه با برنامهٔ فعلی قابل نمایش نیست و نمی‌توان آن را زنده کرد." };
   if (e instanceof SubdomainTakenError) return { error: "این زیردامنه قبلاً گرفته شده است." };
-  if (e instanceof SubdomainReservedError) return { error: `این زیردامنه تا ${date(e.until)} رزرو است.` };
-  if (e instanceof ReservedLabelLimitError) return { error: `حداکثر ${fa(e.limit)} زیردامنهٔ آزادشده می‌تواند هم‌زمان رزرو باشد. تا ${date(e.until)} صبر کنید.` };
+  if (e instanceof SubdomainReservedError) return { error: `این زیردامنه تا ${date(new Date(e.until))} رزرو است.` };
+  if (e instanceof ReservedLabelLimitError) return { error: `حداکثر ${fa(e.limit)} زیردامنهٔ آزادشده می‌تواند هم‌زمان رزرو باشد. تا ${date(new Date(e.until))} صبر کنید.` };
   if (e instanceof ConfirmationRequiredError) return { error: "تغییر زیردامنهٔ فروشگاه منتشرشده نیاز به تأیید دارد؛ نشانی قبلی بلافاصله از کار می‌افتد." };
   throw e;
 }

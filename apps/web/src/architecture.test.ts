@@ -14,7 +14,6 @@ const read = (f: string) => (existsSync(f) ? readFileSync(f, "utf8") : `__MISSIN
 const rel = (fs: string[]) => fs.map((f) => f.split(path.sep).join("/")).sort();
 /** Production sources only: test helpers (src/test) intentionally create rows directly. */
 const prodFiles = () => files("src").filter((f) => !f.split(path.sep).includes("test"));
-const touchesDb = (f: string) => /from\s+["']@\/lib\/db["']/.test(read(f));
 
 describe("architecture guard: tenant data is only reachable through the owner-scoped layer", () => {
   it("nothing under src/app or src/components imports the DB client or Prisma directly", () => {
@@ -110,7 +109,6 @@ describe("architecture guard: storefront rendering is independent of the dashboa
 });
 
 describe("architecture guard: media and object storage", () => {
-  const inFiles = (re: RegExp) => rel(prodFiles().filter((f) => re.test(read(f))));
 
 
 
@@ -201,8 +199,6 @@ describe("architecture guard: business category, themes and the section registry
 });
 
 describe("architecture guard: theme switching and candidate preview (phase 9B)", () => {
-  const WRITE_CALL = /\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(|\$executeRaw|\$queryRaw/;
-  const inFiles = (re: RegExp) => rel(prodFiles().filter((f) => re.test(read(f))));
 
   it("the switch action authenticates first and carries the report's revision from a hidden form field", () => {
     const actions = read("src/app/dashboard/actions.ts");
@@ -259,7 +255,6 @@ describe("architecture guard: product specifications and the appliances theme (p
 describe("architecture guard: the public (store host) path never reads draft data", () => {
   const publicSrc = () => read("src/modules/publishing/public-read.ts");
   // Every table name that appears in a FROM/JOIN of the public read module.
-  const tables = (src: string) => [...src.matchAll(/(?:FROM|JOIN)\s+"(\w+)"/gi)].map((m) => m[1]!);
 
   it("the Store table is read for status and the live pointer only (no draft columns)", () => {
     const m = [...publicSrc().matchAll(/s\."(\w+)"/g)].map((x) => x[1]!);
@@ -338,7 +333,6 @@ describe("architecture guard: host validation is enforced by the application (un
 });
 
 describe("architecture guard: draft writers are bounded by the draft lock timeout", () => {
-  const mutation = () => read("src/modules/stores/mutation.ts");
 
   it("every dashboard action module that runs draft mutations maps DraftBusyError to the owner-facing message or notice", () => {
     for (const f of ["src/app/dashboard/actions.ts", "src/app/dashboard/catalog-actions.ts", "src/app/dashboard/pages-actions.ts", "src/app/dashboard/media-actions.ts"]) {
@@ -355,7 +349,6 @@ describe("architecture guard: media release after a committed change never fails
 });
 
 describe("architecture guard: SEO (phase 11) reads only published data and never trusts request headers for identity", () => {
-  const seoFiles = () => files("src/modules/seo");
 
 
   it("the JSON-LD component serialises only through serializeJsonLd, and the serializer escapes the tag-closing characters", () => {

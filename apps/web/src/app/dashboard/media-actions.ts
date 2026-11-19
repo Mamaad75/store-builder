@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/modules/auth/session";
-import { MediaQuotaError, MediaRateLimitError, MediaStorageError, MediaValidationError } from "@store-builder/shared/modules/media/errors";
+import { MEDIA_VALIDATION_MESSAGES, MediaQuotaError, MediaRateLimitError, MediaStorageError, MediaValidationError } from "@store-builder/shared/modules/media/errors";
 import { MAX_MEDIA_BYTES_PER_STORE, MAX_MEDIA_PER_STORE, MAX_UPLOAD_BYTES } from "@store-builder/shared/modules/media/limits";
 import { removeProductImage, removeSectionImage, removeStoreLogo, uploadProductImage, uploadSectionImage, uploadStoreLogo } from "@/gateway/media";
 import { pageUrl } from "@store-builder/shared/modules/pages/urls";
@@ -29,7 +29,7 @@ const str = (fd: FormData, key: string) => {
 function toState(e: unknown, notFoundUrl: string): MediaFormState {
   if (e instanceof NotFoundError) redirect(notFoundUrl);
   if (e instanceof DraftBusyError) return { error: DRAFT_BUSY_MESSAGE };
-  if (e instanceof MediaValidationError) return { error: e.message };
+  if (e instanceof MediaValidationError) return { error: MEDIA_VALIDATION_MESSAGES[e.code] };
   if (e instanceof MediaQuotaError) {
     return {
       error:
