@@ -116,7 +116,7 @@ describe("Caddy", () => {
   const cf = read("docker/caddy/Caddyfile");
   it("ADR 0001: only the platform hosts reach the API, and only through the three browser-facing prefixes; the client address is replaced like for the web app", () => {
     const api = cf.slice(cf.indexOf("@api {"), cf.indexOf("\n\thandle {"));
-    expect(api).toMatch(/header Host \{\$APP_ROOT_DOMAIN\} www\.\{\$APP_ROOT_DOMAIN\}/);
+    expect(api).toMatch(/expression \{http\.request\.hostport\} in \["\{\$APP_ROOT_DOMAIN\}", "www\.\{\$APP_ROOT_DOMAIN\}"\]/);
     expect(api).toMatch(/path \/api\/auth\/\* \/api\/stores \/api\/stores\/\* \/api\/public\/\*/);
     expect(api).toContain("reverse_proxy api:4000");
     expect(api).toContain("header_up X-Forwarded-For {remote_host}");
