@@ -1,45 +1,27 @@
-import NextAuth, { CredentialsSignin } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { log } from "@/lib/log";
-import { jwtCallback } from "@/modules/auth/callbacks";
-import { getClientIp } from "@/modules/auth/rate-limit";
-import { authenticate } from "@/modules/auth/service";
+import { cache } from "react";
+import { cookies } from "next/headers";
+import { ApiUnavailableError, callApi } from "@/lib/api-client";
+import { readSessionCookie, SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
 
-export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
-
-export class RateLimitedError extends CredentialsSignin {
-  code = "rate_limited";
+export interface Session {
+  user: { id: string; name: string };
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
-  pages: { signIn: "/login" },
-  providers: [
-    Credentials({
-      credentials: { username: {}, password: {} },
-      async authorize(credentials, request) {
-        const result = await authenticate(credentials, { ip: getClientIp(request.headers) });
-        if (!result.ok) {
-          if (result.reason === "rate_limited") throw new RateLimitedError();
-          return null; // generic CredentialsSignin
-        }
-        // Only id and display name enter the token; the username is read from the database when needed (getSafeUser).
-        return { id: result.user.id, name: result.user.name, authVersion: result.authVersion };
-      },
-    }),
-  ],
-  callbacks: {
-    jwt: jwtCallback,
-    session({ session, token }) {
-      if (token.sub) session.user.id = token.sub;
-      return session;
-    },
-  },
-  // Log only the error class, never stacks/payloads that could carry credentials.
-  logger: {
-    error(error) {
-      log.error("auth.error", { errorClass: (error as { type?: string }).type ?? "UnknownError" });
-    },
-    warn() {},
-  },
+/**
+ * The signed-in user, asked of the API (ADR 0001, N3: Auth.js is gone). One request per render (React cache) however many layouts and
+ * pages ask. The API verifies the token AND that the user still exists with the same authVersion, so a revoked or expired token is null.
+ * If the API is unreachable the answer is null (the person is sent to /login) and nothing is cached by the framework.
+ */
+export const auth = cache(async (): Promise<Session | null> => {
+  const jar = await cookies();
+  const token = readSessionCookie((n) => jar.get(n)?.value);
+  if (!token) return null;
+  const name = SESSION_COOKIE_NAMES.find((n) => jar.get(n)?.value === token)!;
+  try {
+    const r = await callApi<{ user: { id: string; name: string } }>("GET", "/api/auth/me", { cookie: `${name}=${token}` });
+    return r.status === 200 && r.body?.user?.id ? { user: { id: r.body.user.id, name: r.body.user.name } } : null;
+  } catch (e) {
+    if (e instanceof ApiUnavailableError) return null;
+    throw e;
+  }
 });

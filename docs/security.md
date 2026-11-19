@@ -16,7 +16,7 @@ Set by `src/proxy.ts` through `src/lib/security-headers.ts` for **all** outcomes
 HSTS is also **not** sent by Caddy (no duplicate). CSP and HSTS are disabled in development and test (`NODE_ENV`), where Next needs eval and plain http.
 
 ## Startup refusals (the process exits with code 1 and prints variable NAMES only)
-* `src/lib/server-env.ts` (D13-3): in every environment whose `NODE_ENV` is not exactly `development`/`test`: `DATABASE_URL`, `AUTH_SECRET` (≥ 32 chars, not a placeholder), `AUTH_TRUST_HOST=true`, `APP_ROOT_DOMAIN` (no default, bare host), `APP_PROTOCOL=https`, `TRUST_PROXY_HEADERS=true`, `RATE_LIMIT_BACKEND` not `memory`, `TRUSTED_PROXY_HOPS` sane, complete `S3_*`. Plain http is accepted only for a loopback root domain (the E2E suite).
+* `src/lib/server-env.ts` (D13-3): in every environment whose `NODE_ENV` is not exactly `development`/`test`: `DATABASE_URL`, `INTERNAL_API_URL` (the API; `AUTH_SECRET` is validated by the API itself, ≥ 32 chars, not a placeholder, see docs/api.md), `APP_ROOT_DOMAIN` (no default, bare host), `APP_PROTOCOL=https`, `TRUST_PROXY_HEADERS=true`, `RATE_LIMIT_BACKEND` not `memory`, `TRUSTED_PROXY_HOPS` sane, complete `S3_*`. Plain http is accepted only for a loopback root domain (the E2E suite).
 * `src/modules/auth/mailer.ts` (D12-8): `MAIL_TRANSPORT=log|file` refused outside development/test.
 
 ## Readiness and liveness

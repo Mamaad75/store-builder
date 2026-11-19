@@ -1,7 +1,7 @@
 # Accounts and platform polish (phase 12)
 
 ## Sessions, password change, sign out everywhere
-* Sessions are JWTs carrying `User.authVersion`; every read re-checks it (`src/modules/auth/callbacks.ts`).
+* Sessions are HS256 JWTs in an httpOnly `SameSite=Lax` cookie (`__Host-sb_session` over https) carrying `User.authVersion`; since N3 they are issued and verified by the NestJS API (`apps/api/src/auth`), which re-checks the version on every read. The web app asks the API who is signed in (`src/auth.ts`).
 * **Change password** (`/dashboard/account`): current password required (wrong value: field error, nothing changes), new password 8-128 characters and different from the current one, rate limited (10 per 15 min per user). Success hashes with Argon2id, bumps `authVersion` and signs out: **every session, this one included, ends** and the user signs in again with the new password.
 * **Sign out everywhere**: bumps `authVersion` only (the password is untouched) and signs out.
 
@@ -36,4 +36,4 @@ Still for phase 14: choosing the provider, SPF/DKIM/DMARC on the sender domain a
 * Accessibility: skip link and `main` landmark in the dashboard, `main` on every platform page, labelled navigation, one `h1` per page, labelled controls, `role="alert"` for form errors, `lang="fa" dir="rtl"`. This is a structural pass covered by tests; it is **not** a full WCAG audit with assistive technology (colour contrast of the MUI theme and screen-reader behaviour were not measured).
 
 ## Tests
-Unit (`auth.test.ts` username rules, `mailer.test.ts`, `onboarding.test.ts`, architecture guards), DB (`auth.db.test.ts` registration, taken names, normalisation, login, rate limits; `account.db.test.ts` password change and session invalidation; `schema.db.test.ts` username CHECK and uniqueness), E2E (`e2e/auth.spec.ts` username forms and the 404 of the old reset pages; `e2e/account.spec.ts` change password, sign out everywhere across two browsers, landing, legal, 404, skip link, labels, onboarding).
+Unit (API: `auth-unit.test.ts` username rules, token, cookie; `auth-http.test.ts` the whole REST flow; web: `rate-limit.test.ts`, `mailer.test.ts`, `onboarding.test.ts`, architecture guards), DB (API `auth.db.test.ts`: registration races, login, password change and session invalidation on real PostgreSQL; web `session.db.test.ts`, `rate-limit.db.test.ts`; `schema.db.test.ts` username CHECK and uniqueness), E2E (`e2e/auth.spec.ts` username forms and the 404 of the old reset pages; `e2e/account.spec.ts` change password, sign out everywhere across two browsers, landing, legal, 404, skip link, labels, onboarding).

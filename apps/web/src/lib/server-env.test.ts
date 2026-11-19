@@ -4,8 +4,7 @@ import { enforceServerEnvAtStartup, validateServerEnv } from "./server-env";
 const GOOD = {
   NODE_ENV: "production",
   DATABASE_URL: "postgresql://app:pw@db:5432/app",
-  AUTH_SECRET: "x7Kp2mQ9vR4tYb8nL1cZ5wJ3hG6dF0sA",
-  AUTH_TRUST_HOST: "true",
+  INTERNAL_API_URL: "http://api:4000",
   APP_ROOT_DOMAIN: "example.com",
   APP_PROTOCOL: "https",
   TRUST_PROXY_HEADERS: "true",
@@ -27,12 +26,13 @@ describe("production environment validation (decision D13-3)", () => {
     for (const NODE_ENV of ["development", "test"]) expect(validateServerEnv({ NODE_ENV })).toEqual({ ok: true, problems: [] });
   });
   it("any other NODE_ENV (staging, empty, unset, misspelled) is production-strict", () => {
-    for (const NODE_ENV of ["staging", "Production", "prod", "", undefined]) expect(validateServerEnv({ ...GOOD, NODE_ENV, AUTH_SECRET: "short" }).ok, String(NODE_ENV)).toBe(false);
+    for (const NODE_ENV of ["staging", "Production", "prod", "", undefined]) expect(validateServerEnv({ ...GOOD, NODE_ENV, DATABASE_URL: "mysql://x" }).ok, String(NODE_ENV)).toBe(false);
   });
   it("each missing or unsafe variable is reported by NAME", () => {
-    expect(names({ NODE_ENV: "production" })).toEqual(expect.arrayContaining(["DATABASE_URL", "AUTH_SECRET", "AUTH_TRUST_HOST", "APP_ROOT_DOMAIN", "APP_PROTOCOL", "TRUST_PROXY_HEADERS"]));
-    expect(names({ ...GOOD, AUTH_SECRET: "too-short" })).toEqual(["AUTH_SECRET"]);
-    expect(names({ ...GOOD, AUTH_SECRET: "change-me-generate-with-openssl-rand-base64-32" })).toEqual(["AUTH_SECRET"]);
+    expect(names({ NODE_ENV: "production" })).toEqual(expect.arrayContaining(["DATABASE_URL", "INTERNAL_API_URL", "APP_ROOT_DOMAIN", "APP_PROTOCOL", "TRUST_PROXY_HEADERS"]));
+    expect(names({ ...GOOD, INTERNAL_API_URL: undefined })).toEqual(["INTERNAL_API_URL"]);
+    expect(names({ ...GOOD, INTERNAL_API_URL: "api:4000" })).toEqual(["INTERNAL_API_URL"]);
+    expect(names({ ...GOOD, INTERNAL_API_URL: "http://api:4000/some/path" })).toEqual(["INTERNAL_API_URL"]);
     expect(names({ ...GOOD, APP_PROTOCOL: "http" })).toEqual(["APP_PROTOCOL"]);
     expect(names({ ...GOOD, APP_ROOT_DOMAIN: "https://example.com/" })).toEqual(["APP_ROOT_DOMAIN"]);
     expect(names({ ...GOOD, RATE_LIMIT_BACKEND: "memory" })).toEqual(["RATE_LIMIT_BACKEND"]);
@@ -42,7 +42,7 @@ describe("production environment validation (decision D13-3)", () => {
     expect(names({ ...GOOD, S3_BUCKET: undefined, S3_ENDPOINT: "nope" })).toEqual(["S3 configuration invalid or missing"]);
   });
   it("problems never contain a configured value", () => {
-    const secrets = { ...GOOD, AUTH_SECRET: "tooShortSecretValue", DATABASE_URL: "mysql://user:hunter2@h/db", S3_SECRET_ACCESS_KEY: "" };
+    const secrets = { ...GOOD, INTERNAL_API_URL: "tooShortSecretValue", DATABASE_URL: "mysql://user:hunter2@h/db", S3_SECRET_ACCESS_KEY: "" };
     const text = JSON.stringify(validateServerEnv(secrets));
     for (const v of ["tooShortSecretValue", "hunter2", "mysql://"]) expect(text).not.toContain(v);
   });
@@ -55,7 +55,7 @@ describe("production environment validation (decision D13-3)", () => {
     const exit = vi.fn((c: number): never => {
       throw new Error(`exit:${c}`);
     });
-    expect(() => enforceServerEnvAtStartup({ ...GOOD, AUTH_SECRET: "short-secret-value" }, exit)).toThrow("exit:1");
+    expect(() => enforceServerEnvAtStartup({ ...GOOD, DATABASE_URL: "mysql://u:short-secret-value@h/x" }, exit)).toThrow("exit:1");
     const line = JSON.parse(String(err.mock.calls[0]![0])) as { event: string; problems: string[] };
     expect(line.event).toBe("startup.refused");
     expect(JSON.stringify(line)).not.toContain("short-secret-value");

@@ -17,7 +17,7 @@ Newer decisions never silently override older ones: a change is recorded as a ne
 |---|---|---|
 | A-1 | Modular monolith on Next.js (App Router), TypeScript, MUI (RTL, Persian, Vazirmatn), PostgreSQL, Prisma. One deployment, never one project per customer. | Approved |
 | A-2 | Server Actions only. No REST API in the MVP. | Approved |
-| A-3 | Authentication: Auth.js Credentials with JWT sessions, Argon2id, `User.authVersion` re-checked on every session read. Rate limiting through a storage-agnostic `RateLimiter` (shared PostgreSQL backend). | Approved |
+| A-3 | Authentication: Auth.js Credentials with JWT sessions, Argon2id, `User.authVersion` re-checked on every session read. Rate limiting through a storage-agnostic `RateLimiter` (shared PostgreSQL backend). | Approved; since N3 (ADR 0001) implemented by the NestJS API: Auth.js replaced by an HS256 JWT cookie, same Argon2id, `authVersion` and limiter |
 | A-4 | Multi-tenancy: every tenant row carries `storeId`; ownership is checked **in SQL** by owner-bound repositories; the client never supplies identity. A foreign and a non-existent resource are indistinguishable (404). | Approved |
 | A-5 | At most 10 stores per user, enforced with a row lock on the user (`createStore` is the only place that creates stores). Store deletion is physical, with database cascades, and requires typing the store name. | Approved |
 | A-6 | SVG uploads are forbidden. | Approved |

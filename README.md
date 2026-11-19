@@ -1,7 +1,7 @@
 # Store Builder
 
 Multi-tenant SaaS storefront builder (MVP). Next.js (App Router) + TypeScript + MUI (RTL, Persian) +
-PostgreSQL/Prisma + S3-compatible storage + Auth.js. Modular monolith; stores are rendered by a shared
+PostgreSQL/Prisma + S3-compatible storage + a NestJS API for authentication (ADR 0001). Modular monolith; stores are rendered by a shared
 renderer, not one project per customer.
 
 ## Status
@@ -42,12 +42,12 @@ The platform root domain is configured with `APP_ROOT_DOMAIN` / `APP_PROTOCOL`.
 Dev credentials in `docker-compose.yml` are for local use only.
 
 ## Authentication notes
-- Auth.js v5 (beta) Credentials provider with JWT sessions (7 days). Passwords: Argon2id.
+- Authentication: NestJS API (`apps/api`), username + password, JWT session cookie (7 days). Passwords: Argon2id.
 - `User.authVersion` is stored in the JWT and re-checked against the database whenever the session is read; `invalidateUserSessions(userId)` revokes all tokens of a user.
 - `/dashboard/**` is guarded by `src/proxy.ts` (early redirect) **and** by `requireUser()` on the server.
 - Rate limiting uses a `RateLimiter` interface; the default backend is shared PostgreSQL (`RATE_LIMIT_BACKEND=postgres`). A Redis backend can implement the same interface.
 - Rate limiting keys on the client IP. Forwarding headers are ignored unless `TRUST_PROXY_HEADERS=true`; see `docs/deployment.md` for proxy requirements and the expired-bucket cleanup job (`pnpm db:cleanup`).
-- Generate `AUTH_SECRET` with `openssl rand -base64 32`; never commit it.
+- Generate `AUTH_SECRET` (read only by the API, `apps/api`) with `openssl rand -base64 32`; never commit it.
 
 ## Production readiness (phase 13)
 `Dockerfile` (runtime + jobs targets), `docker-compose.prod.yml`, `docker/caddy/` (custom Caddy), `scripts/backup.sh` / `restore.sh` / `scheduler.ts`.

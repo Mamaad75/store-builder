@@ -36,8 +36,7 @@ Examples (conceptual; verify against your proxy's documentation):
 - **Platform hosts (e.g. Vercel, Cloudflare)**: they set/overwrite the header themselves, but still
   check what a CDN in front adds and set `TRUSTED_PROXY_HOPS` accordingly.
 
-Also required in production: HTTPS only (Auth.js uses the `__Secure-` cookie prefix when the
-request is HTTPS), `AUTH_SECRET` generated with `openssl rand -base64 32`, `AUTH_TRUST_HOST=true`
+Also required in production: HTTPS only (the API names the session cookie `__Host-sb_session` and marks it `Secure` when `APP_PROTOCOL=https`), `AUTH_SECRET` (for the API service) generated with `openssl rand -base64 32`
 only when the app is behind a proxy that sets the correct `Host`.
 
 ## Rate-limit table cleanup
