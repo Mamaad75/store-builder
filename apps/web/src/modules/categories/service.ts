@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { makeSearchKey, slugify, uniqueSlug } from "@/lib/text";
+import { makeSearchKey, slugify, uniqueSlug } from "@store-builder/shared/lib/text";
 import { mapCatalogDbError } from "@/modules/catalog-errors";
 import { CatalogLimitError, CategoryNotEmptyError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { withStoreMutation } from "@/modules/stores/mutation";

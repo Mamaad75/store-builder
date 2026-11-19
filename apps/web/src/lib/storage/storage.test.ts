@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { MemoryMediaStorage } from "@/test/memory-storage";
 import { getStorageConfig, getPublicBaseUrl, StorageConfigError } from "./config";
 import { mediaPublicUrl, setMediaStorageForTests, getMediaStorage } from "./index";
-import { isValidMediaKey, newMediaKey, storeIdOfKey } from "./keys";
+import { isValidMediaKey, newMediaKey, storeIdOfKey } from "@store-builder/shared/lib/storage/keys";
 
 const env = {
   S3_ENDPOINT: "http://localhost:9000",

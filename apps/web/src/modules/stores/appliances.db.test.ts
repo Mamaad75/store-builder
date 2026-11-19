@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getBusinessCategory } from "@/lib/business-categories";
+import { getBusinessCategory } from "@store-builder/shared/lib/business-categories";
 import { addSection, getPageEditor } from "@/modules/pages/service";
 import { getDraftPreview } from "@/modules/storefront/service";
-import { setExtraThemesForTests } from "@/templates/theme-catalog";
+import { setExtraThemesForTests } from "@store-builder/shared/templates/theme-catalog";
 import { makeUser, prisma, resetDb } from "@/test/db-helpers";
 import { ValidationError } from "./errors";
 import { createStore } from "./service";

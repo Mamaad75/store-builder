@@ -38,6 +38,7 @@
     "@mui/material": "^9.5.0",
     "@mui/material-nextjs": "^9.5.0",
     "@prisma/client": "^6.19.3",
+    "@store-builder/shared": "workspace:*",
     "next": "^16.4.5",
     "nodemailer": "10.3.1",
     "react": "^19.3.1",

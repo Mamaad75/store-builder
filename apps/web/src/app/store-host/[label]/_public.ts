@@ -1,11 +1,11 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { getAppEnv } from "@/lib/env";
-import { resolveHost } from "@/lib/hostname";
+import { resolveHost } from "@store-builder/shared/lib/hostname";
 import { mediaPublicUrl } from "@/lib/storage";
 import { publicStoreUrl } from "@/lib/store-url";
 import { loadPublishedSnapshot, resolveLiveStore, type LiveStore } from "@/modules/publishing/public-read";
-import type { StorefrontData } from "@/templates/storefront-data";
+import type { StorefrontData } from "@store-builder/shared/templates/storefront-data";
 
 /**
  * What every public store route needs, in one place: the same host check, the same live-version lookup and the same

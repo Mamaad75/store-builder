@@ -1,0 +1,27 @@
+import type { StorefrontData, StorefrontPage, StorefrontProduct } from "./storefront-data.js";
+
+/** Query parameters a storefront page understands (already parsed and bounded by the engine). */
+export interface StorefrontQuery {
+  /** Category slug filter for the product listing. */
+  category?: string;
+  /** 1-based page number of the product listing. */
+  page: number;
+}
+
+/**
+ * Everything a template/section may use while rendering one page. It is built by the engine from
+ * validated data; templates never reach for databases, sessions or request objects.
+ */
+export interface RenderContext {
+  data: StorefrontData;
+  page: StorefrontPage;
+  query: StorefrontQuery;
+  /** Product being shown on a PRODUCT_DETAIL page, otherwise null. */
+  product: StorefrontProduct | null;
+  /** Prefix of every storefront URL (`/preview/<id>` for the draft preview, `` for a public host). */
+  basePath: string;
+  /** Resolves an internal path (e.g. "/products") against `basePath`. */
+  href: (path: string) => string;
+  /** Public URL of a stored image key, or null when it cannot be built (templates then show a placeholder). */
+  mediaUrl: (key: string) => string | null;
+}

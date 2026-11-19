@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { CardSpecs, ProductSpecs } from "../engine/Specs";
-import { formatNumberFa, formatToman } from "@/lib/money";
-import { buildContactLinks } from "../engine/links";
-import { categoryOf, featuredProducts, listProducts, listUrl, sectionImage } from "../engine/listing";
-import { parseLabelLines } from "../engine/lines";
+import { formatNumberFa, formatToman } from "@store-builder/shared/lib/money";
+import { buildContactLinks } from "@store-builder/shared/templates/engine/links";
+import { categoryOf, featuredProducts, listProducts, listUrl, sectionImage } from "@store-builder/shared/templates/engine/listing";
+import { parseLabelLines } from "@store-builder/shared/templates/engine/lines";
 import type { ExtraSectionComponent, RenderContext, SectionComponent } from "../types";
-import type { StorefrontProduct } from "../storefront-data";
+import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import { initial } from "./Layout";
 import s from "./appliances.module.css";
 

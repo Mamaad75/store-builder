@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { BUSINESS_CATEGORY_KEY_RE } from "@/lib/business-categories";
-import { TYPOGRAPHY_SIZE_SCALES } from "@/templates/sections";
+import { BUSINESS_CATEGORY_KEY_RE } from "@store-builder/shared/lib/business-categories";
+import { TYPOGRAPHY_SIZE_SCALES } from "@store-builder/shared/templates/sections";
 
 export const MAX_STORES_PER_USER = 10;
 

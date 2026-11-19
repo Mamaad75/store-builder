@@ -1,8 +1,8 @@
 import { CardSpecs } from "../engine/Specs";
-import type { StorefrontCategory, StorefrontProduct } from "../storefront-data";
+import type { StorefrontCategory, StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { RenderContext } from "../types";
-import { formatToman } from "@/lib/money";
-import { formatNumberFa } from "@/lib/money";
+import { formatToman } from "@store-builder/shared/lib/money";
+import { formatNumberFa } from "@store-builder/shared/lib/money";
 import s from "./general.module.css";
 
 /** Stock is shown independently of product status: a visible product with zero stock is "ناموجود", not hidden. */

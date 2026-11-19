@@ -2,11 +2,11 @@ import type { Prisma } from "@prisma/client";
 import { isDeepStrictEqual } from "node:util";
 import { ZodError } from "zod";
 import { db } from "@/lib/db";
-import { getBusinessCategory, inferCategoryFromThemeKey } from "@/lib/business-categories";
-import { pageDefinitionSchema } from "@/templates/section-parse";
-import { allThemes, resolveThemeDefinition } from "@/templates/theme-catalog";
+import { getBusinessCategory, inferCategoryFromThemeKey } from "@store-builder/shared/lib/business-categories";
+import { pageDefinitionSchema } from "@store-builder/shared/templates/section-parse";
+import { allThemes, resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
 import { applyStarterCopy } from "./starter-content";
-import { templateSettingsSchema } from "@/templates/sections";
+import { templateSettingsSchema } from "@store-builder/shared/templates/sections";
 import { ConflictError, NotFoundError, StoreLimitError, ValidationError } from "./errors";
 import { StoreRepository, type StoreView } from "./repository";
 import {

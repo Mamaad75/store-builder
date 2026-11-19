@@ -7,11 +7,11 @@ import { deleteMedia, releaseMedia, uploadMedia } from "@/modules/media/service"
 import { addSection, getPageEditor, recoverPage, removeDormantSection, setSectionImage, updateSection } from "@/modules/pages/service";
 import { readPublishedStorefront } from "@/modules/storefront/published";
 import { CandidateThemeUnavailableError, getDraftPreview } from "@/modules/storefront/service";
-import type { EditorSpec } from "@/templates/editor";
-import { PAGE_TYPES, type PageType } from "@/templates/sections";
-import type { ThemeDefinition } from "@/templates/theme";
-import { generalTheme } from "@/templates/general/definition";
-import { setExtraThemesForTests } from "@/templates/theme-catalog";
+import type { EditorSpec } from "@store-builder/shared/templates/editor";
+import { PAGE_TYPES, type PageType } from "@store-builder/shared/templates/sections";
+import type { ThemeDefinition } from "@store-builder/shared/templates/theme";
+import { generalTheme } from "@store-builder/shared/templates/general/definition";
+import { setExtraThemesForTests } from "@store-builder/shared/templates/theme-catalog";
 import { revision, twoTenants } from "@/test/catalog-helpers";
 import { prisma, resetDb } from "@/test/db-helpers";
 import { MemoryMediaStorage } from "@/test/memory-storage";
@@ -347,7 +347,7 @@ describe("concurrency, tenancy and target selection", () => {
     await prisma.templateVersion.update({ where: { id: v2.id }, data: { isActive: true } });
     await expect(rep(a.id, a1, "coffee")).rejects.toBeInstanceOf(ValidationError);
     // with a registered coffee@2 it is chosen
-    const { coffeeTheme } = await import("@/templates/coffee/definition");
+    const { coffeeTheme } = await import("@store-builder/shared/templates/coffee/definition");
     register({ ...coffeeTheme, version: 2 });
     await go(a.id, a1, "coffee");
     expect((await prisma.store.findUniqueOrThrow({ where: { id: a1 } })).templateVersionId).toBe(v2.id);

@@ -22,7 +22,7 @@ import {
   updateCategoryAction,
   type CatalogFormState,
 } from "@/app/dashboard/catalog-actions";
-import { formatNumberFa } from "@/lib/money";
+import { formatNumberFa } from "@store-builder/shared/lib/money";
 
 export interface CategoryItem {
   id: string;

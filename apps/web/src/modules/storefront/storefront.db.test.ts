@@ -4,7 +4,7 @@ import { changeProductStatus, createProduct, updateProduct } from "@/modules/pro
 import { NotFoundError } from "@/modules/stores/errors";
 import { createStore } from "@/modules/stores/service";
 import { buildView } from "@/templates/engine/view";
-import { storefrontDataSchema } from "@/templates/storefront-data";
+import { storefrontDataSchema } from "@store-builder/shared/templates/storefront-data";
 import { revision, snapshotRows, twoTenants, validProduct } from "@/test/catalog-helpers";
 import { makeMedia, makeUnregisteredThemeStore, makeUser, prisma, publishStore, resetDb } from "@/test/db-helpers";
 import { DraftStorefrontRepository } from "./repository";

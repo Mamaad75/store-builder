@@ -8,7 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { MAX_SPEC_ROWS, SPEC_LABEL_MAX, SPEC_VALUE_MAX, type SpecRow } from "@/lib/product-specs";
+import { MAX_SPEC_ROWS, SPEC_LABEL_MAX, SPEC_VALUE_MAX, type SpecRow } from "@store-builder/shared/lib/product-specs";
 
 export type SpecsInitial =
   | { state: "valid"; rows: SpecRow[] }

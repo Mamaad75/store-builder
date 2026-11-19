@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isPlatformHostHeader } from "./host-guard";
 import { getHostPolicy } from "./host-policy";
-import { platformAliases, resolveHost } from "./hostname";
+import { platformAliases, resolveHost } from "@store-builder/shared/lib/hostname";
 
 describe("platformAliases: loopback names exist only in explicit development and test environments", () => {
   it("production, staging, unset and misspelled environments get NO aliases (strict)", () => {

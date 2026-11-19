@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { generalTheme } from "@/templates/general/definition";
-import { coffeeTheme } from "@/templates/coffee/definition";
-import { fashionTheme } from "@/templates/fashion/definition";
-import type { EditorSpec } from "@/templates/editor";
-import type { ThemeDefinition } from "@/templates/theme";
-import { PAGE_TYPES, type PageType } from "@/templates/sections";
+import { generalTheme } from "@store-builder/shared/templates/general/definition";
+import { coffeeTheme } from "@store-builder/shared/templates/coffee/definition";
+import { fashionTheme } from "@store-builder/shared/templates/fashion/definition";
+import type { EditorSpec } from "@store-builder/shared/templates/editor";
+import type { ThemeDefinition } from "@store-builder/shared/templates/theme";
+import { PAGE_TYPES, type PageType } from "@store-builder/shared/templates/sections";
 import { analyzePage } from "./analyze";
 import { computeCompatibility, type PageInput } from "./compat";
 

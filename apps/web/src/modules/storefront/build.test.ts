@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TEMPLATE_DEFINITIONS } from "@/templates/definitions";
+import { TEMPLATE_DEFINITIONS } from "@store-builder/shared/templates/definitions";
 import { StorefrontBuildError, buildStorefrontData, type StorefrontSource } from "./build";
 
 const general = TEMPLATE_DEFINITIONS.find((t) => t.key === "general")!;

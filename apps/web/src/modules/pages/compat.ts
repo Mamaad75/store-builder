@@ -1,5 +1,5 @@
-import type { PageType } from "@/templates/sections";
-import type { ThemeDefinition } from "@/templates/theme";
+import type { PageType } from "@store-builder/shared/templates/sections";
+import type { ThemeDefinition } from "@store-builder/shared/templates/theme";
 import { analyzePage, imageIdOf, type EditorIssueReason } from "./analyze";
 
 /**

@@ -4,7 +4,7 @@ import { DraftStorefrontRepository } from "@/modules/storefront/repository";
 import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { StoreLockBusyError, pgErrorCode, withStoreLock } from "@/modules/stores/mutation";
 import { parseStoreId } from "@/modules/stores/service";
-import { resolveThemeDefinition } from "@/templates/theme-catalog";
+import { resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
 import { LockBudget } from "./budget";
 import { findUnstorableText, serializeSnapshot } from "./canonical";
 import { publishHooks, publishLimits, publishNow } from "./constants";

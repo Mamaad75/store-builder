@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { publishLimits } from "@/modules/publishing/constants";
 import { liveSlugOf } from "@/modules/publishing/repository";
-import { specsUnchanged } from "@/lib/product-specs";
-import { makeSearchKey, normalizeSearchQuery, slugify, uniqueSlug } from "@/lib/text";
+import { specsUnchanged } from "@store-builder/shared/lib/product-specs";
+import { makeSearchKey, normalizeSearchQuery, slugify, uniqueSlug } from "@store-builder/shared/lib/text";
 import { mapCatalogDbError } from "@/modules/catalog-errors";
 import { findInTx as findCategoryInTx } from "@/modules/categories/repository";
 import { releaseMediaBestEffort } from "@/modules/media/service";

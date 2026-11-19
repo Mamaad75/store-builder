@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { MutationContext } from "@/modules/stores/mutation";
-import type { PageType } from "@/templates/sections";
+import type { PageType } from "@store-builder/shared/templates/sections";
 
 export const pageSelect = {
   id: true,

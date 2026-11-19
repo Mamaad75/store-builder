@@ -8,9 +8,9 @@ import { readPublishedStorefront } from "@/modules/storefront/published";
 import { getDraftPreview } from "@/modules/storefront/service";
 import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { getStore, updateStore } from "@/modules/stores/service";
-import { MAX_SECTIONS_PER_PAGE, type EditorSpec } from "@/templates/editor";
-import { setExtraThemesForTests } from "@/templates/theme-catalog";
-import { openingHoursSection } from "@/templates/coffee/definition";
+import { MAX_SECTIONS_PER_PAGE, type EditorSpec } from "@store-builder/shared/templates/editor";
+import { setExtraThemesForTests } from "@store-builder/shared/templates/theme-catalog";
+import { openingHoursSection } from "@store-builder/shared/templates/coffee/definition";
 import { makeMedia, makeUnregisteredThemeStore, prisma, resetDb } from "@/test/db-helpers";
 import { revision, twoTenants, validProduct } from "@/test/catalog-helpers";
 import { MemoryMediaStorage } from "@/test/memory-storage";
@@ -584,7 +584,7 @@ describe("three section states: active, dormant, invalid", () => {
     const { z } = await import("zod");
     // a fake theme section with nested structure and an image reference; general does not approve it -> dormant
     const nested = { type: "general.nested", label: "n", schema: z.object({ imageId: z.string().nullable(), rows: z.array(z.object({ a: z.number(), b: z.array(z.string().nullable()) })) }).strict(), defaults: { imageId: null, rows: [] }, fields: [], image: true };
-    setExtraThemesForTests([{ key: "general", version: 99, meta: { name: "t", description: "t" }, sectionDefinitions: [nested as never], editor: (await import("@/templates/general/editor")).generalEditor }]);
+    setExtraThemesForTests([{ key: "general", version: 99, meta: { name: "t", description: "t" }, sectionDefinitions: [nested as never], editor: (await import("@store-builder/shared/templates/general/editor")).generalEditor }]);
     const entry = { id: "n1", type: "general.nested", props: { rows: [{ b: ["x", null, "y"], a: 2 }, { a: 1, b: [] }], imageId: "ckreference000000000000000" } }; // key order differs from the schema's
     const about = (await row(a1, "ABOUT")).sections as unknown[];
     await prisma.page.updateMany({ where: { storeId: a1, type: "ABOUT" }, data: { sections: [...about, entry] as never } });
@@ -631,7 +631,7 @@ describe("three section states: active, dormant, invalid", () => {
     const m = await uploadMedia(a.id, a1, await photo(), deps);
     // an image-capable section from a theme that this general store does not approve (fake theme definition with an image field)
     const imageSection = { type: "general.dormantPhoto", label: "عکس", schema: (await import("zod")).z.object({ imageId: (await import("zod")).z.string().nullable() }).strict(), defaults: { imageId: null }, fields: [], image: true };
-    setExtraThemesForTests([{ key: "general", version: 99, meta: { name: "t", description: "t" }, sectionDefinitions: [imageSection as never], editor: (await import("@/templates/general/editor")).generalEditor }]);
+    setExtraThemesForTests([{ key: "general", version: 99, meta: { name: "t", description: "t" }, sectionDefinitions: [imageSection as never], editor: (await import("@store-builder/shared/templates/general/editor")).generalEditor }]);
     const dormant = { id: "photo1", type: "general.dormantPhoto", props: { imageId: m.id } };
     const about = (await row(a1, "ABOUT")).sections as unknown[];
     await prisma.page.updateMany({ where: { storeId: a1, type: "ABOUT" }, data: { sections: [...about, dormant] as never } });

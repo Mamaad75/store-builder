@@ -1,4 +1,4 @@
-import { validateSubdomain } from "@/lib/hostname";
+import { validateSubdomain } from "@store-builder/shared/lib/hostname";
 import { db } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { StoreLockBusyError, withStoreLock } from "@/modules/stores/mutation";

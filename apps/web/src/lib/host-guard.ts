@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { getHostPolicy } from "./host-policy";
-import { resolveHost } from "./hostname";
+import { resolveHost } from "@store-builder/shared/lib/hostname";
 
 /**
  * True only when the RAW Host header names the configured platform host (root domain, `www.<root>`, or - in development and

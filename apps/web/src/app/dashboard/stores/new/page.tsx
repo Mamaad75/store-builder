@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
 import { CreateStoreForm } from "@/components/StoreForms";
-import { BUSINESS_CATEGORIES } from "@/lib/business-categories";
+import { BUSINESS_CATEGORIES } from "@store-builder/shared/lib/business-categories";
 import { requireUser } from "@/modules/auth/session";
 import { listActiveTemplates } from "@/modules/stores/service";
 

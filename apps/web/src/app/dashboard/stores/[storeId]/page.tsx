@@ -7,11 +7,11 @@ import { removeStoreLogoAction, uploadStoreLogoAction } from "@/app/dashboard/me
 import ImageUploader from "@/components/ImageUploader";
 import { mediaPublicUrl } from "@/lib/storage";
 import { BusinessCategoryForm, DeleteStoreForm, StoreSettingsForm } from "@/components/StoreForms";
-import { BUSINESS_CATEGORIES } from "@/lib/business-categories";
+import { BUSINESS_CATEGORIES } from "@store-builder/shared/lib/business-categories";
 import { requireUser } from "@/modules/auth/session";
 import { NotFoundError } from "@/modules/stores/errors";
 import { getStore } from "@/modules/stores/service";
-import { templateSettingsSchema } from "@/templates/sections";
+import { templateSettingsSchema } from "@store-builder/shared/templates/sections";
 
 function safeUrl(key: string): string | null {
   try {

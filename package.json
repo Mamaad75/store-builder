@@ -38,7 +38,10 @@
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:backup": "bash scripts/backup.sh",
-    "db:restore": "bash scripts/restore.sh"
+    "db:restore": "bash scripts/restore.sh",
+    "shared:build": "pnpm --filter @store-builder/shared build",
+    "shared:dev": "pnpm --filter @store-builder/shared dev",
+    "shared:test": "pnpm --filter @store-builder/shared test"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -1,4 +1,4 @@
-import type { PageType } from "@/templates/sections";
+import type { PageType } from "@store-builder/shared/templates/sections";
 
 export const pagesUrl = (storeId: string) => `/dashboard/stores/${encodeURIComponent(storeId)}/pages`;
 export const appearanceUrl = (storeId: string) => `/dashboard/stores/${encodeURIComponent(storeId)}/appearance`;

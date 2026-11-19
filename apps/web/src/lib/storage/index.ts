@@ -1,10 +1,10 @@
 import { getPublicBaseUrl, getStorageConfig } from "./config";
-import { isValidMediaKey } from "./keys";
+import { isValidMediaKey } from "@store-builder/shared/lib/storage/keys";
 import { S3MediaStorage } from "./s3";
 import type { MediaStorage } from "./types";
 
 export type { MediaStorage, ListPage, StoredObject } from "./types";
-export { newMediaKey, isValidMediaKey, storeIdOfKey, MEDIA_KEY_PREFIX } from "./keys";
+export { newMediaKey, isValidMediaKey, storeIdOfKey, MEDIA_KEY_PREFIX } from "@store-builder/shared/lib/storage/keys";
 
 let instance: MediaStorage | undefined;
 

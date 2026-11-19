@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { storefrontDataSchema, type StorefrontData } from "@/templates/storefront-data";
+import { storefrontDataSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
 
 /**
  * Reader for the PUBLISHED storefront (used by public routing in phase 10; no route uses it yet and

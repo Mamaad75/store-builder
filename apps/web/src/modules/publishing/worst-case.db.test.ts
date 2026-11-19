@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { makeSearchKey } from "@/lib/text";
+import { makeSearchKey } from "@store-builder/shared/lib/text";
 import { updateProduct } from "@/modules/products/service";
 import { updateStore } from "@/modules/stores/service";
 import { createCategory } from "@/modules/categories/service";

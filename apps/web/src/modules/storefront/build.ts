@@ -1,8 +1,8 @@
-import { analyzeSpecs } from "@/lib/product-specs";
-import { STOREFRONT_SCHEMA_VERSION, storefrontDataSchema, type StorefrontData } from "@/templates/storefront-data";
-import { parseSections, type SectionIssue } from "@/templates/section-parse";
-import { DEFAULT_TYPOGRAPHY, templateSettingsSchema, type TemplateSettings } from "@/templates/sections";
-import { resolveThemeDefinition } from "@/templates/theme-catalog";
+import { analyzeSpecs } from "@store-builder/shared/lib/product-specs";
+import { STOREFRONT_SCHEMA_VERSION, storefrontDataSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
+import { parseSections, type SectionIssue } from "@store-builder/shared/templates/section-parse";
+import { DEFAULT_TYPOGRAPHY, templateSettingsSchema, type TemplateSettings } from "@store-builder/shared/templates/sections";
+import { resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
 
 /** Image columns as stored; only READY images with known dimensions are ever exposed to templates. */
 export interface MediaSource {

@@ -1,5 +1,5 @@
 import type { TemplateModule } from "../types";
-import { generalTheme } from "./definition";
+import { generalTheme } from "@store-builder/shared/templates/general/definition";
 import Layout from "./Layout";
 import { CallToAction, CategoryFilter, ContactInfo, FeaturedProducts, Hero, ImageText, ProductDetail, ProductGrid, RichText } from "./sections";
 

@@ -1,7 +1,7 @@
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { LinkButton } from "@/components/NextLinks";
-import { formatNumberFa } from "@/lib/money";
+import { formatNumberFa } from "@store-builder/shared/lib/money";
 import { buildProductsUrl } from "@/modules/products/list-url";
 import type { ProductListParams } from "@/modules/products/schemas";
 

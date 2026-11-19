@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRateLimiter } from "@/modules/auth/rate-limit";
 import { setMediaStorageForTests } from "@/lib/storage";
-import { analyzeSpecs, specsInputSchema } from "@/lib/product-specs";
+import { analyzeSpecs, specsInputSchema } from "@store-builder/shared/lib/product-specs";
 import { attachProductImage, uploadMedia } from "@/modules/media/service";
 import { readPublishedStorefront } from "@/modules/storefront/published";
 import { getDraftPreview } from "@/modules/storefront/service";

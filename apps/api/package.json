@@ -19,6 +19,7 @@
     "@nestjs/platform-express": "^12.5.1",
     "@node-rs/argon2": "2.2.2",
     "@prisma/client": "^6.19.3",
+    "@store-builder/shared": "workspace:*",
     "helmet": "^8.3.0",
     "jose": "^6.2.15",
     "reflect-metadata": "^0.2.2",

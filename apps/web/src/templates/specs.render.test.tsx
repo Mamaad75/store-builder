@@ -1,11 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { makeStorefront, PRODUCT_A, PRODUCT_B } from "@/test/storefront-fixtures";
-import { MAX_SPEC_ROWS } from "@/lib/product-specs";
+import { MAX_SPEC_ROWS } from "@store-builder/shared/lib/product-specs";
 import StorefrontRenderer from "./engine/StorefrontRenderer";
 import { buildView } from "./engine/view";
-import { THEME_CATALOG } from "./theme-catalog";
-import type { StorefrontData } from "./storefront-data";
+import { THEME_CATALOG } from "@store-builder/shared/templates/theme-catalog";
+import type { StorefrontData } from "@store-builder/shared/templates/storefront-data";
 
 const THEMES = THEME_CATALOG.map((t) => t.key);
 const XSS_LABEL = "<script>alert(1)</script>";

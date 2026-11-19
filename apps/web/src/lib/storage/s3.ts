@@ -6,7 +6,7 @@ import {
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3";
-import { isValidMediaKey } from "./keys";
+import { isValidMediaKey } from "@store-builder/shared/lib/storage/keys";
 import type { StorageConfig } from "./config";
 import type { ListPage, MediaStorage } from "./types";
 

@@ -1,8 +1,8 @@
 import { computeCompatibility, type CompatibilityResult } from "@/modules/pages/compat";
-import { PAGE_TYPES } from "@/templates/sections";
-import type { PageType } from "@/templates/sections";
-import { allThemes, resolveThemeDefinition } from "@/templates/theme-catalog";
-import type { ThemeDefinition } from "@/templates/theme";
+import { PAGE_TYPES } from "@store-builder/shared/templates/sections";
+import type { PageType } from "@store-builder/shared/templates/sections";
+import { allThemes, resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
+import type { ThemeDefinition } from "@store-builder/shared/templates/theme";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";
 import { withStoreMutation } from "./mutation";
 import { findLatestActiveThemeVersion, setTemplateVersionInTx, StoreRepository, themeContextInTx } from "./repository";

@@ -1,5 +1,5 @@
-import type { StarterCopy } from "@/lib/business-categories";
-import type { PageDefinition } from "@/templates/section-parse";
+import type { StarterCopy } from "@store-builder/shared/lib/business-categories";
+import type { PageDefinition } from "@store-builder/shared/templates/section-parse";
 
 /**
  * Category-based starter text, applied ONLY while a store is being created. Structure and section ids come from the

@@ -12,8 +12,8 @@ import ThemeSwitchPanel from "@/components/pages/ThemeSwitchPanel";
 import { ValidationError } from "@/modules/stores/errors";
 import { getStore } from "@/modules/stores/service";
 import { listSwitchableThemes, previewThemeSwitch, type ThemeSwitchReport } from "@/modules/stores/theme-switch";
-import { getSectionDefinition } from "@/templates/section-registry";
-import { templateSettingsSchema } from "@/templates/sections";
+import { getSectionDefinition } from "@store-builder/shared/templates/section-registry";
+import { templateSettingsSchema } from "@store-builder/shared/templates/sections";
 
 export const metadata: Metadata = { title: "ظاهر فروشگاه" };
 

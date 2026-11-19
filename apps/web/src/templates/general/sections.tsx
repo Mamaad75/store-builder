@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { formatToman } from "@/lib/money";
-import { buildContactLinks } from "../engine/links";
-import { categoryOf, featuredProducts, listProducts, listUrl, sectionImage } from "../engine/listing";
+import { formatToman } from "@store-builder/shared/lib/money";
+import { buildContactLinks } from "@store-builder/shared/templates/engine/links";
+import { categoryOf, featuredProducts, listProducts, listUrl, sectionImage } from "@store-builder/shared/templates/engine/listing";
 import type { SectionComponent } from "../types";
 import { ProductSpecs } from "../engine/Specs";
 import ProductCard, { ProductArt, StockBadge, initial } from "./ProductCard";

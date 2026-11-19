@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { analyzePage } from "@/modules/pages/analyze";
-import { TEMPLATE_DEFINITIONS } from "./definitions";
-import { MAX_SECTIONS_PER_PAGE, NON_HIDEABLE_PAGES } from "./editor";
+import { TEMPLATE_DEFINITIONS } from "@store-builder/shared/templates/definitions";
+import { MAX_SECTIONS_PER_PAGE, NON_HIDEABLE_PAGES } from "@store-builder/shared/templates/editor";
 import { generalTemplate } from "./general";
-import { SECTION_DEFAULTS, SECTION_LABELS, defaultSectionProps } from "./section-defaults";
-import { IMAGE_SECTION_TYPES, LINK_TARGETS, SECTION_FIELDS, propsFromForm } from "./section-fields";
+import { SECTION_DEFAULTS, SECTION_LABELS, defaultSectionProps } from "@store-builder/shared/templates/section-defaults";
+import { IMAGE_SECTION_TYPES, LINK_TARGETS, SECTION_FIELDS, propsFromForm } from "@store-builder/shared/templates/section-fields";
 import {
   DEFAULT_TYPOGRAPHY,
   PAGE_TYPES,
@@ -13,7 +13,7 @@ import {
   sectionPropsSchemas,
   templateSettingsSchema,
   typographySchema,
-} from "./sections";
+} from "@store-builder/shared/templates/sections";
 
 describe("limits and rules", () => {
   it("max 20 sections per page; HOME and PRODUCTS can never be hidden", () => {

@@ -1,5 +1,5 @@
-import { businessCategoryLabel } from "@/lib/business-categories";
-import { resolveThemeDefinition } from "@/templates/theme-catalog";
+import { businessCategoryLabel } from "@store-builder/shared/lib/business-categories";
+import { resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
 import type { Metadata } from "next";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";

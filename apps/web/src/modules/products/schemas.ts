@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { MAX_PRICE_TOMAN, parseIntegerInput } from "@/lib/money";
-import { specsInputSchema } from "@/lib/product-specs";
-import { SLUG_MAX, normalizeFa, normalizeFaText, slugify } from "@/lib/text";
+import { MAX_PRICE_TOMAN, parseIntegerInput } from "@store-builder/shared/lib/money";
+import { specsInputSchema } from "@store-builder/shared/lib/product-specs";
+import { SLUG_MAX, normalizeFa, normalizeFaText, slugify } from "@store-builder/shared/lib/text";
 import { PRODUCT_STATUSES } from "./status";
 
 export const MAX_PRODUCTS_PER_STORE = 500;

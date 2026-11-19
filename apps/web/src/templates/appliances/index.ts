@@ -1,5 +1,5 @@
 import type { TemplateModule } from "../types";
-import { appliancesTheme } from "./definition";
+import { appliancesTheme } from "@store-builder/shared/templates/appliances/definition";
 import Layout from "./Layout";
 import { CallToAction, CategoryFilter, ContactInfo, FeaturedProducts, Hero, ImageText, ProductDetail, ProductGrid, RichText, ServiceInfo } from "./sections";
 

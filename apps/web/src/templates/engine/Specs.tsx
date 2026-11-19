@@ -1,4 +1,4 @@
-import { cardSpecs, detailSpecs, type SpecRow } from "@/lib/product-specs";
+import { cardSpecs, detailSpecs, type SpecRow } from "@store-builder/shared/lib/product-specs";
 
 /** Class names a theme supplies from its own CSS module (the engine owns no styles). */
 export interface SpecClasses {

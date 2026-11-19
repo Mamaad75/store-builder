@@ -1,5 +1,5 @@
 import { getAppEnv } from "./env";
-import { platformAliases } from "./hostname";
+import { platformAliases } from "@store-builder/shared/lib/hostname";
 
 export interface HostPolicy {
   rootDomain: string;

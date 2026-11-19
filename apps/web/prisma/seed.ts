@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { TEMPLATE_DEFINITIONS, templateDefinitionSchema } from "../src/templates/definitions";
+import { TEMPLATE_DEFINITIONS, templateDefinitionSchema } from "@store-builder/shared/templates/definitions";
 
 /** Idempotent: creates missing templates/versions, never modifies existing versions. */
 export async function seedTemplates(db: PrismaClient) {

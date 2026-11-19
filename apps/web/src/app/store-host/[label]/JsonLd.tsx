@@ -1,4 +1,4 @@
-import { serializeJsonLd } from "@/modules/seo/jsonld";
+import { serializeJsonLd } from "@store-builder/shared/seo/jsonld";
 
 /**
  * The ONLY place in the application that injects raw markup. It renders `<script type="application/ld+json">` blocks whose

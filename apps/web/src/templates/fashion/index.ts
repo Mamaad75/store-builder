@@ -1,5 +1,5 @@
 import type { TemplateModule } from "../types";
-import { fashionTheme } from "./definition";
+import { fashionTheme } from "@store-builder/shared/templates/fashion/definition";
 import Layout from "./Layout";
 import { CallToAction, CategoryFilter, ContactInfo, FeaturedProducts, Hero, ImageText, ProductDetail, ProductGrid, RichText, SizeGuide } from "./sections";
 

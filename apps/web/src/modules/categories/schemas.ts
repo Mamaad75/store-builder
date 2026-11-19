@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizeFa } from "@/lib/text";
+import { normalizeFa } from "@store-builder/shared/lib/text";
 
 export const MAX_CATEGORIES_PER_STORE = 50;
 

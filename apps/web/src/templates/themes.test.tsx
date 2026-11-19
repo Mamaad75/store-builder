@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { TEMPLATE_DEFINITIONS } from "./definitions";
+import { TEMPLATE_DEFINITIONS } from "@store-builder/shared/templates/definitions";
 import { coffeeTemplate } from "./coffee";
 import { fashionTemplate } from "./fashion";
 import { generalTemplate } from "./general";
 import { listRegisteredTemplates, resolveTemplate } from "./registry";
-import { getSectionDefinition, isCoreSectionType, listSectionDefinitions, defaultPropsOf } from "./section-registry";
-import { parseSection, parseSections, pageDefinitionSchema } from "./section-parse";
-import { PAGE_TYPES, SECTION_TYPES } from "./sections";
-import { THEME_CATALOG, allThemes, resolveThemeDefinition, setExtraThemesForTests } from "./theme-catalog";
-import { EXTRA_SECTION_TYPE_RE } from "./theme";
-import { parseLabelLines, parseTable } from "./engine/lines";
+import { getSectionDefinition, isCoreSectionType, listSectionDefinitions, defaultPropsOf } from "@store-builder/shared/templates/section-registry";
+import { parseSection, parseSections, pageDefinitionSchema } from "@store-builder/shared/templates/section-parse";
+import { PAGE_TYPES, SECTION_TYPES } from "@store-builder/shared/templates/sections";
+import { THEME_CATALOG, allThemes, resolveThemeDefinition, setExtraThemesForTests } from "@store-builder/shared/templates/theme-catalog";
+import { EXTRA_SECTION_TYPE_RE } from "@store-builder/shared/templates/theme";
+import { parseLabelLines, parseTable } from "@store-builder/shared/templates/engine/lines";
 import { makeStorefront } from "@/test/storefront-fixtures";
 import { buildView } from "./engine/view";
 

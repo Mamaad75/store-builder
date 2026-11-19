@@ -1,5 +1,5 @@
-import { TEMPLATE_DEFINITIONS } from "@/templates/definitions";
-import type { StorefrontData } from "@/templates/storefront-data";
+import { TEMPLATE_DEFINITIONS } from "@store-builder/shared/templates/definitions";
+import type { StorefrontData } from "@store-builder/shared/templates/storefront-data";
 
 const general = TEMPLATE_DEFINITIONS.find((t) => t.key === "general")!;
 

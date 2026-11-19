@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { escapeLike } from "@/lib/text";
+import { escapeLike } from "@store-builder/shared/lib/text";
 import type { MutationContext } from "@/modules/stores/mutation";
 import type { ProductStatus } from "./status";
 

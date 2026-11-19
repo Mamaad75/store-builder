@@ -2,8 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { makeUser, prisma, resetDb } from "@/test/db-helpers";
 import { NotFoundError, StoreLimitError, ValidationError } from "./errors";
 import { StoreRepository } from "./repository";
-import { coffeeTheme } from "@/templates/coffee/definition";
-import { setExtraThemesForTests } from "@/templates/theme-catalog";
+import { coffeeTheme } from "@store-builder/shared/templates/coffee/definition";
+import { setExtraThemesForTests } from "@store-builder/shared/templates/theme-catalog";
 import { createStore, deleteStore, getStore, listStores, updateStore } from "./service";
 
 beforeEach(resetDb);

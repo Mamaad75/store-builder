@@ -1,10 +1,10 @@
 import { NotFoundError } from "@/modules/stores/errors";
 import { findLatestActiveThemeVersion, themeVersionDefaults } from "@/modules/stores/repository";
-import { resolveThemeDefinition } from "@/templates/theme-catalog";
+import { resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
 import { parseStoreId } from "@/modules/stores/service";
 import { buildStorefrontData, type StorefrontNotes } from "./build";
 import { DraftStorefrontRepository } from "./repository";
-import type { StorefrontData } from "@/templates/storefront-data";
+import type { StorefrontData } from "@store-builder/shared/templates/storefront-data";
 
 export interface DraftPreview {
   data: StorefrontData;

@@ -1,4 +1,4 @@
-import { buildSitemapXml } from "@/modules/seo/sitemap";
+import { buildSitemapXml } from "@store-builder/shared/seo/sitemap";
 import { hostNamesLabel, loadPublicStore, neutralNotFound } from "../_public";
 
 export const dynamic = "force-dynamic";

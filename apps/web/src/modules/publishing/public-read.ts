@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { storefrontDataSchema, type StorefrontData } from "@/templates/storefront-data";
+import { storefrontDataSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
 import { SNAPSHOT_CACHE_BYTES } from "./constants";
 import { ByteLru } from "./lru";
 

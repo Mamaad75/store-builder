@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
-import type { PageEditorRules } from "@/templates/editor";
-import { parseSection, type PageSection, type SectionIssueReason } from "@/templates/section-parse";
+import type { PageEditorRules } from "@store-builder/shared/templates/editor";
+import { parseSection, type PageSection, type SectionIssueReason } from "@store-builder/shared/templates/section-parse";
 
 export type EditorIssueReason = SectionIssueReason | "duplicate_singleton";
 

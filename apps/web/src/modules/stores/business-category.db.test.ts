@@ -1,9 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { BUSINESS_CATEGORIES } from "@/lib/business-categories";
+import { BUSINESS_CATEGORIES } from "@store-builder/shared/lib/business-categories";
 import { createCategory } from "@/modules/categories/service";
 import { createProduct } from "@/modules/products/service";
 import { getDraftPreview } from "@/modules/storefront/service";
-import { allThemes } from "@/templates/theme-catalog";
+import { allThemes } from "@store-builder/shared/templates/theme-catalog";
 import { revision, snapshotRows, validProduct } from "@/test/catalog-helpers";
 import { makeUnregisteredThemeStore, makeUser, prisma, resetDb } from "@/test/db-helpers";
 import { ConflictError, NotFoundError, ValidationError } from "./errors";

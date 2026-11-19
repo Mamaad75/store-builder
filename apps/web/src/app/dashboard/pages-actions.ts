@@ -8,8 +8,8 @@ import { appearanceUrl, pagesUrl } from "@/modules/pages/urls";
 import { addSection, getPageEditor, moveSection, recoverPage, removeDormantSection, removeSection, setPageVisibility, updateSection } from "@/modules/pages/service";
 import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, ValidationError } from "@/modules/stores/errors";
 import { updateStore } from "@/modules/stores/service";
-import { propsFromFields } from "@/templates/section-fields";
-import { getSectionDefinition } from "@/templates/section-registry";
+import { propsFromFields } from "@store-builder/shared/templates/section-fields";
+import { getSectionDefinition } from "@store-builder/shared/templates/section-registry";
 
 export interface EditorState {
   error?: string;
