@@ -1,5 +1,7 @@
 # چک‌لیست خرید و پیکربندی فاز ۱۴ (Staging)
 
+> **Paths (migration of 2026-11-19, `docs/migration-plan.md`):** `src/modules/*`, `src/lib/storage`, `src/lib/db.ts`, `src/test/*`, `prisma/` and `scripts/` mentioned below now live in `apps/api/…`; pure template, SEO, text and helper code lives in `packages/shared/src/…`; Server Actions, pages and components stay in `apps/web/src/…`. Names and behaviour are unchanged.
+
 این سند نقطه‌ی شروع فاز ۱۴ است (طبق `docs/roadmap.md` و `docs/decisions.md`، بخش «Deployment restrictions»).
 **هیچ چیزی بر اساس این سند خریده، وصل یا deploy نمی‌شود.** هر مرحله‌ای که هزینه دارد، به حساب بیرونی وصل می‌شود یا روی سرور اجرا می‌شود، تأیید صریح جداگانه‌ی صاحب پروژه را لازم دارد.
 

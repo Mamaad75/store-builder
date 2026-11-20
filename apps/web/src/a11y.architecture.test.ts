@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { contrastRatio } from "./templates/engine/color";
+import { contrastRatio } from "@store-builder/shared/templates/engine/color";
 
 /**
  * Accessibility guards for the fixes of the M3 audit (docs/audit-m3-accessibility.md). Each one failed on the code before the fix.

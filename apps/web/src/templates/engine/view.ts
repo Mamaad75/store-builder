@@ -1,8 +1,8 @@
-import { storefrontDataSchema, type StorefrontData } from "../storefront-data";
+import { storefrontDataSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
 import { resolveTemplate } from "../registry";
 import type { RenderContext, TemplateModule } from "../types";
-import { makeHref } from "./links";
-import { resolveStorefrontRoute } from "./route";
+import { makeHref } from "@store-builder/shared/templates/engine/links";
+import { resolveStorefrontRoute } from "@store-builder/shared/templates/engine/route";
 
 export type StorefrontView =
   | { status: "ok"; template: TemplateModule; ctx: RenderContext }

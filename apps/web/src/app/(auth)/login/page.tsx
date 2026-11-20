@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
-import { loginAction } from "@/app/actions-auth";
-import AuthForm from "@/components/AuthForm";
+import { LoginForm } from "@/components/BoundForms";
 
 export const metadata: Metadata = { title: "ورود", robots: { index: false, follow: false } };
 
@@ -34,7 +33,7 @@ export default async function LoginPage({
           {noticeText}
         </Alert>
       )}
-      <AuthForm mode="login" action={loginAction} callbackUrl={callbackUrl} />
+      <LoginForm callbackUrl={callbackUrl} />
       <Typography variant="body2" sx={{ mt: 2 }}>
         حساب ندارید؟ <Link href="/register">ثبت‌نام</Link>
       </Typography>

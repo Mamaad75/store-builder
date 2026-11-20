@@ -60,14 +60,17 @@ describe("docker-compose.prod.yml", () => {
   it("production runtime flags: production env, proxy trust for exactly one hop, shared rate limiter, fail-closed mail", () => {
     for (const kv of ["NODE_ENV: production", 'TRUST_PROXY_HEADERS: "true"', 'TRUSTED_PROXY_HOPS: "1"', "RATE_LIMIT_BACKEND: postgres", "MAIL_TRANSPORT: ${MAIL_TRANSPORT:-none}"]) expect(c).toContain(kv);
   });
-  it("N3: the API holds the session-signing secret alone, is reachable only on the backend network and is up before the app", () => {
+  it("ADR 0001: the API holds the data credentials alone (database, object storage, session secret), publishes no port and is up before the app", () => {
     const api = c.slice(c.indexOf("  api:"), c.indexOf("  app:"));
     expect(api).toContain("environment: *api-env");
-    expect(api).toContain("networks: [backend]");
+    expect(api).toContain("networks: [backend, edge]"); // edge only for outbound object-storage traffic: nothing routes to it
     expect(api).toContain("read_only: true");
     expect(api).not.toMatch(/^\s+ports:/m);
-    expect(c.slice(c.indexOf("x-api-env"), c.indexOf("x-hardening"))).toContain("AUTH_SECRET:");
-    expect(c.slice(c.indexOf("x-app-env"), c.indexOf("# The NestJS API"))).not.toContain("AUTH_SECRET");
+    expect(c.slice(c.indexOf("x-api-env: &api-env"), c.indexOf("x-hardening"))).toContain("AUTH_SECRET:");
+    expect(c.slice(c.indexOf("  migrate:"), c.indexOf("  api:"))).toContain("environment: *api-env");
+    const appEnv = c.slice(c.indexOf("x-app-env: &app-env"), c.indexOf("x-api-env: &api-env"));
+    for (const v of ["AUTH_SECRET", "DATABASE_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_ENDPOINT", "POSTGRES_PASSWORD"]) expect(appEnv, v).not.toContain(v);
+    expect(appEnv).toContain("S3_PUBLIC_BASE_URL");
     expect(c.slice(c.indexOf("  app:"), c.indexOf("  scheduler:"))).toMatch(/api: \{ condition: service_healthy \}/);
   });
   it("the app container is hardened: read-only root, no capabilities, no privilege escalation, migrations finish first", () => {
@@ -98,7 +101,7 @@ describe("docker-compose.prod.yml", () => {
     const sched = c.slice(c.indexOf("  scheduler:"), c.indexOf("  caddy:"));
     expect(sched).toContain("BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}");
     expect(sched).toContain("BALE_CHAT_ID: ${BALE_CHAT_ID:-}");
-    expect(sched).toMatch(/environment:\n\s+<<: \*app-env/); // the scheduler keeps every shared app variable
+    expect(sched).toMatch(/environment:\n\s+<<: \*api-env/); // the scheduler keeps every shared app variable
     expect(c.replace(sched, "")).not.toMatch(/BALE_/); // the web app and the other services never see the bot token
     expect(read("scripts/notify-bale.sh")).toMatch(/curl[^\n]*-K -/); // the URL (with the token) goes to curl on stdin, not argv
   });
@@ -111,6 +114,14 @@ describe("docker-compose.prod.yml", () => {
 
 describe("Caddy", () => {
   const cf = read("docker/caddy/Caddyfile");
+  it("ADR 0001: only the platform hosts reach the API, and only through the three browser-facing prefixes; the client address is replaced like for the web app", () => {
+    const api = cf.slice(cf.indexOf("@api {"), cf.indexOf("\n\thandle {"));
+    expect(api).toMatch(/expression \{http\.request\.hostport\} in \["\{\$APP_ROOT_DOMAIN\}", "www\.\{\$APP_ROOT_DOMAIN\}"\]/);
+    expect(api).toMatch(/path \/api\/auth\/\* \/api\/stores \/api\/stores\/\* \/api\/public\/\*/);
+    expect(api).toContain("reverse_proxy api:4000");
+    expect(api).toContain("header_up X-Forwarded-For {remote_host}");
+    expect(api).not.toMatch(/\/api\/\*\s/); // never the web app's own /api/health and /api/ready
+  });
   it("REPLACES X-Forwarded-For with the connecting address and strips every other forwarding header the application ignores", () => {
     expect(cf).toContain("header_up X-Forwarded-For {remote_host}");
     for (const h of ["X-Forwarded-Host", "Forwarded", "X-Original-Host", "X-Real-Ip"]) expect(cf).toContain(`header_up -${h}`);

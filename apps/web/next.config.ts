@@ -9,8 +9,13 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(import.meta.dirname, "..", ".."),
   reactStrictMode: true,
   poweredByHeader: false,
-  // Image uploads travel through Server Actions: 5 MB file + multipart overhead (the pipeline enforces the real limit).
-  experimental: { serverActions: { bodySizeLimit: "6mb" } },
+  // Development and E2E only: the browser calls the API at /api/* on its own origin. In production Caddy routes these paths straight to
+  // the API (docker/caddy/Caddyfile); here Next proxies them. The prefixes are exactly the ones the API serves for the browser.
+  async rewrites() {
+    const target = process.env.API_DEV_PROXY_URL ?? (process.env.NODE_ENV === "development" ? process.env.INTERNAL_API_URL ?? "http://127.0.0.1:4000" : undefined);
+    if (!target) return [];
+    return ["auth", "stores", "public"].map((p) => ({ source: `/api/${p}/:path*`, destination: `${target}/api/${p}/:path*` }));
+  },
   async headers() {
     return [
       {

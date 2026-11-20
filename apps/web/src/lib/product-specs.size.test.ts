@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PRODUCTS_PER_STORE } from "@/modules/products/schemas";
-import { storefrontProductSchema } from "@/templates/storefront-data";
+import { MAX_PRODUCTS_PER_STORE } from "@store-builder/shared/modules/products/schemas";
+import { storefrontProductSchema } from "@store-builder/shared/templates/storefront-data";
 import {
   MAX_SPEC_ROWS,
   SPEC_LABEL_MAX,
@@ -8,7 +8,7 @@ import {
   SPECS_WORST_CASE_JSON_BYTES_PER_PRODUCT,
   SPECS_WORST_CASE_JSON_BYTES_PER_STORE,
   specsInputSchema,
-} from "./product-specs";
+} from "@store-builder/shared/lib/product-specs";
 
 const bytes = (v: unknown) => Buffer.byteLength(JSON.stringify(v), "utf8");
 

@@ -11,18 +11,34 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:db": "vitest run -c vitest.db.config.ts"
+    "test:db": "vitest run -c vitest.db.config.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset",
+    "test:storage": "vitest run -c vitest.storage.config.ts",
+    "db:studio": "tsx scripts/db-studio.ts",
+    "db:cleanup": "tsx scripts/cleanup-rate-limits.ts",
+    "media:cleanup": "tsx scripts/cleanup-media.ts",
+    "publish:stats": "tsx scripts/publish-stats.ts",
+    "scheduler": "tsx scripts/scheduler.ts",
+    "scheduler:health": "tsx scripts/scheduler-health.ts",
+    "alert:test": "tsx scripts/alert-test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1164.0",
     "@nestjs/common": "^12.5.1",
     "@nestjs/core": "^12.5.1",
     "@nestjs/platform-express": "^12.5.1",
     "@node-rs/argon2": "2.2.2",
     "@prisma/client": "^6.19.3",
+    "@store-builder/shared": "workspace:*",
     "helmet": "^8.3.0",
     "jose": "^6.2.15",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sharp": "^0.35.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -31,10 +47,14 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
     "eslint": "^9.39.5",
+    "prisma": "^6.19.3",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.73.0",
     "vitest": "^5.1.0"
   },
-  "type": "module"
+  "type": "module",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
 }

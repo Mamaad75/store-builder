@@ -36,7 +36,7 @@ export function formatLog(level: LogLevel, event: string, fields: Record<string,
 export type LogSink = (level: LogLevel, line: string) => void;
 
 /* eslint-disable no-console -- the one file allowed to write to the console */
-const consoleSink: LogSink = (level, line) => {
+export const consoleSink: LogSink = (level, line) => {
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.info(line);
@@ -63,3 +63,10 @@ export class JsonLogger implements LoggerService {
   debug(): void {}
   verbose(): void {}
 }
+
+/** Module-level structured logger for the domain modules and jobs (same format as the Nest logger). */
+export const log = {
+  info: (event: string, fields?: Record<string, unknown>) => consoleSink("info", formatLog("info", event, fields)),
+  warn: (event: string, fields?: Record<string, unknown>) => consoleSink("warn", formatLog("warn", event, fields)),
+  error: (event: string, fields?: Record<string, unknown>) => consoleSink("error", formatLog("error", event, fields)),
+};

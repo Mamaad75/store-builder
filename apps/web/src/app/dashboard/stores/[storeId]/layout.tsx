@@ -7,18 +7,18 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import StoreTabs from "@/components/StoreTabs";
 import { requireUser } from "@/modules/auth/session";
-import { NotFoundError } from "@/modules/stores/errors";
-import { getStore } from "@/modules/stores/service";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
+import { getStore } from "@/gateway/stores";
 
 const STATUS_LABEL = { DRAFT: "پیش‌نویس", PUBLISHED: "منتشرشده", UNPUBLISHED: "لغو انتشار" } as const;
 
 /** The layout checks ownership too, but every page re-checks through the owner-scoped service. */
 export default async function StoreLayout({ children, params }: { children: ReactNode; params: Promise<{ storeId: string }> }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId } = await params;
   let store;
   try {
-    store = await getStore(user.id, storeId);
+    store = await getStore(storeId);
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;

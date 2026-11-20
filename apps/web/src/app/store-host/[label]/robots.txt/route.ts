@@ -1,4 +1,4 @@
-import { buildStoreRobotsTxt } from "@/modules/seo/sitemap";
+import { buildStoreRobotsTxt } from "@store-builder/shared/seo/sitemap";
 import { hostNamesLabel, loadPublicStore, neutralNotFound } from "../_public";
 
 export const dynamic = "force-dynamic";

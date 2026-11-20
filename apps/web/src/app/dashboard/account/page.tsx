@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { ChangePasswordForm } from "@/components/AccountForms";
 import { requireUser } from "@/modules/auth/session";
-import { changePasswordAction, signOutEverywhereAction } from "./actions";
+import { BoundChangePasswordForm, SignOutEverywhereForm } from "@/components/BoundForms";
 
 export const metadata: Metadata = { title: "حساب کاربری" };
 
@@ -26,7 +24,7 @@ export default async function AccountPage() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           پس از تغییر، در همه دستگاه‌ها از حساب خارج می‌شوید و باید دوباره وارد شوید.
         </Typography>
-        <ChangePasswordForm action={changePasswordAction} />
+        <BoundChangePasswordForm />
       </Paper>
       <Paper variant="outlined" component="section" aria-labelledby="so-h" sx={{ p: 3 }}>
         <Typography id="so-h" variant="h6" component="h2" gutterBottom sx={{ fontWeight: 700 }}>
@@ -35,11 +33,7 @@ export default async function AccountPage() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           همه نشست‌های فعال شما، از جمله همین نشست، بسته می‌شوند.
         </Typography>
-        <form action={signOutEverywhereAction}>
-          <Button type="submit" variant="outlined" color="error">
-            خروج از همه دستگاه‌ها
-          </Button>
-        </form>
+        <SignOutEverywhereForm />
       </Paper>
     </Stack>
   );

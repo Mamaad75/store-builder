@@ -1,5 +1,7 @@
 # Security controls (phase 13)
 
+> **Paths (migration of 2026-11-19, `docs/migration-plan.md`):** `src/modules/*`, `src/lib/storage`, `src/lib/db.ts`, `src/test/*`, `prisma/` and `scripts/` mentioned below now live in `apps/api/…`; pure template, SEO, text and helper code lives in `packages/shared/src/…`; Server Actions, pages and components stay in `apps/web/src/…`. Names and behaviour are unchanged.
+
 ## Response headers (every response)
 Set by `src/proxy.ts` through `src/lib/security-headers.ts` for **all** outcomes (pages, rewrites to store hosts, redirects, the neutral 404, unknown hosts), computed per request from runtime configuration:
 

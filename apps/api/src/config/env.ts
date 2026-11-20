@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { StorageConfigError, getStorageConfig, type StorageConfig } from "../lib/storage/config.js";
 
 /**
  * The ONLY place that interprets environment variables (an architecture test enforces it). Everything else receives the
@@ -26,6 +27,10 @@ export interface ApiConfig {
   authSecret: string;
   /** Session cookie lifetime in seconds. */
   sessionMaxAgeSeconds: number;
+  /** Object storage (S3-compatible). Required in production; in development `null` means uploads are unavailable. */
+  storage: StorageConfig | null;
+  /** Where rate-limit counters live ("memory" is for single-process development and tests only). */
+  rateLimitBackend: "postgres" | "memory";
   /** True when the platform is served over https: the cookie is then `Secure` and uses the `__Host-` prefix. */
   secureCookies: boolean;
 }
@@ -53,6 +58,7 @@ const schema = z.object({
   APP_ROOT_DOMAIN: z.string().regex(HOST_RE, "a bare host name, optionally with :port"),
   APP_PROTOCOL: z.enum(["http", "https"]),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+  RATE_LIMIT_BACKEND: z.enum(["postgres", "memory"]).default("postgres"),
   API_BODY_LIMIT_BYTES: z.coerce.number().int().min(1024).max(10_485_760).default(1_048_576),
 });
 
@@ -72,6 +78,7 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     APP_ROOT_DOMAIN: blank(env.APP_ROOT_DOMAIN) ?? (dev ? "localhost:3000" : undefined),
     APP_PROTOCOL: blank(env.APP_PROTOCOL) ?? (dev ? "http" : undefined),
     TRUST_PROXY_HOPS: blank(env.TRUST_PROXY_HOPS),
+    RATE_LIMIT_BACKEND: blank(env.RATE_LIMIT_BACKEND),
     API_BODY_LIMIT_BYTES: blank(env.API_BODY_LIMIT_BYTES),
   });
   const problems: string[] = [];
@@ -86,6 +93,14 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     if (PLACEHOLDER_SECRET.test(d.AUTH_SECRET)) problems.push("AUTH_SECRET: looks like a placeholder; generate a real secret");
     if (d.TRUST_PROXY_HOPS < 1) problems.push("TRUST_PROXY_HOPS: must be at least 1 behind the reverse proxy");
   }
+  let storage: StorageConfig | null = null;
+  try {
+    storage = getStorageConfig(env);
+  } catch (e) {
+    if (!(e instanceof StorageConfigError)) throw e;
+    if (!dev) problems.push(e.message.replace("Invalid or missing storage configuration: ", "S3 configuration invalid or missing: "));
+  }
+  if (d && !dev && d.RATE_LIMIT_BACKEND === "memory") problems.push('RATE_LIMIT_BACKEND: "memory" is for single-process development only');
   if (problems.length > 0 || !d) throw new EnvError(problems);
 
   const base = `${d.APP_PROTOCOL}://${d.APP_ROOT_DOMAIN}`;
@@ -105,6 +120,8 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     bodyLimitBytes: d.API_BODY_LIMIT_BYTES,
     authSecret: d.AUTH_SECRET,
     sessionMaxAgeSeconds: SESSION_MAX_AGE_SECONDS,
+    storage,
+    rateLimitBackend: d.RATE_LIMIT_BACKEND,
     secureCookies: d.APP_PROTOCOL === "https",
   };
 }

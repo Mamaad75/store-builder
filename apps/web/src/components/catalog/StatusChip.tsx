@@ -1,5 +1,5 @@
 import Chip from "@mui/material/Chip";
-import { STATUS_LABEL_FA, type ProductStatus } from "@/modules/products/status";
+import { STATUS_LABEL_FA, type ProductStatus } from "@store-builder/shared/modules/products/status";
 
 const COLOR = { DRAFT: "default", ACTIVE: "success", ARCHIVED: "warning" } as const;
 

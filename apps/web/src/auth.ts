@@ -3,8 +3,13 @@ import { cookies } from "next/headers";
 import { ApiUnavailableError, callApi } from "@/lib/api-client";
 import { readSessionCookie, SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
 
+export interface SessionUser {
+  id: string;
+  username: string;
+  name: string;
+}
 export interface Session {
-  user: { id: string; name: string };
+  user: SessionUser;
 }
 
 /**
@@ -18,8 +23,9 @@ export const auth = cache(async (): Promise<Session | null> => {
   if (!token) return null;
   const name = SESSION_COOKIE_NAMES.find((n) => jar.get(n)?.value === token)!;
   try {
-    const r = await callApi<{ user: { id: string; name: string } }>("GET", "/api/auth/me", { cookie: `${name}=${token}` });
-    return r.status === 200 && r.body?.user?.id ? { user: { id: r.body.user.id, name: r.body.user.name } } : null;
+    const r = await callApi<{ user: SessionUser }>("GET", "/api/auth/me", { cookie: `${name}=${token}` });
+    const u = r.status === 200 ? r.body?.user : null;
+    return u?.id ? { user: { id: u.id, username: u.username, name: u.name } } : null;
   } catch (e) {
     if (e instanceof ApiUnavailableError) return null;
     throw e;

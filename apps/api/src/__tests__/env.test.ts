@@ -8,6 +8,11 @@ const prod = {
   APP_PROTOCOL: "https",
   TRUST_PROXY_HOPS: "1",
   AUTH_SECRET: "k3Jx9fQ2vLmZp8RtYw1uB6nCdE4gHs7A",
+  S3_ENDPOINT: "https://s3.example.net",
+  S3_BUCKET: "media-bucket",
+  S3_ACCESS_KEY_ID: "AKIAEXAMPLE",
+  S3_SECRET_ACCESS_KEY: "s3-secret-value",
+  S3_PUBLIC_BASE_URL: "https://media.example.net/media-bucket",
 };
 
 describe("loadConfig", () => {
@@ -21,6 +26,20 @@ describe("loadConfig", () => {
     const c = loadConfig({ NODE_ENV: "development", DATABASE_URL: prod.DATABASE_URL });
     expect(c.rootDomain).toBe("localhost:3000");
     expect(c.production).toBe(false);
+  });
+  it("production needs complete S3 settings, names variables only, and development may go without storage", () => {
+    expect(() => loadConfig({ ...prod, S3_BUCKET: undefined })).toThrow(/S3 configuration invalid or missing/);
+    try {
+      loadConfig({ ...prod, S3_BUCKET: undefined, S3_SECRET_ACCESS_KEY: "leak-me" });
+    } catch (e) {
+      expect((e as Error).message).not.toContain("leak-me");
+    }
+    expect(loadConfig({ NODE_ENV: "development", DATABASE_URL: prod.DATABASE_URL }).storage).toBeNull();
+    expect(loadConfig(prod).storage?.bucket).toBe("media-bucket");
+  });
+  it("refuses RATE_LIMIT_BACKEND=memory in production", () => {
+    expect(() => loadConfig({ ...prod, RATE_LIMIT_BACKEND: "memory" })).toThrow(/RATE_LIMIT_BACKEND/);
+    expect(loadConfig({ NODE_ENV: "development", DATABASE_URL: prod.DATABASE_URL, RATE_LIMIT_BACKEND: "memory" }).rateLimitBackend).toBe("memory");
   });
   it("refuses production without protocol, domain or proxy hops", () => {
     expect(() => loadConfig({ NODE_ENV: "production", DATABASE_URL: prod.DATABASE_URL })).toThrow(EnvError);

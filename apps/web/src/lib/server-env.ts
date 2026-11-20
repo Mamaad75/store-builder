@@ -1,4 +1,3 @@
-import { StorageConfigError, getStorageConfig } from "./storage/config";
 
 /**
  * Production environment validation (decision D13-3). In development and test (NODE_ENV exactly "development" or "test") nothing is
@@ -23,8 +22,6 @@ export function validateServerEnv(env: Env = process.env): { ok: boolean; proble
   const problems: string[] = [];
   const need = (name: string, why: string) => problems.push(`${name}: ${why}`);
 
-  if (!/^postgres(ql)?:\/\/.+/.test(env.DATABASE_URL ?? "")) need("DATABASE_URL", "required, a postgresql:// URL");
-
   // Authentication lives in the NestJS API (ADR 0001, N3): the session-signing secret belongs to the API process, this one only needs to reach it.
   const api = (env.INTERNAL_API_URL ?? "").trim();
   if (!api) need("INTERNAL_API_URL", "required in production (internal URL of the API, e.g. http://api:4000)");
@@ -40,12 +37,8 @@ export function validateServerEnv(env: Env = process.env): { ok: boolean; proble
   const hops = env.TRUSTED_PROXY_HOPS;
   if (hops !== undefined && hops !== "" && !/^[1-9]\d?$/.test(hops)) need("TRUSTED_PROXY_HOPS", "must be a small positive integer");
 
-  try {
-    getStorageConfig(env);
-  } catch (e) {
-    if (e instanceof StorageConfigError) problems.push(e.message.replace("Invalid or missing storage configuration: ", "S3 configuration invalid or missing: "));
-    else throw e;
-  }
+  // Object storage is the API's business (it holds the credentials); the web app only builds public image URLs.
+  if (!/^https?:\/\/[^\s]+$/.test((env.S3_PUBLIC_BASE_URL ?? "").trim())) need("S3_PUBLIC_BASE_URL", "required, the public base URL of the media bucket (https://...)");
   return { ok: problems.length === 0, problems };
 }
 

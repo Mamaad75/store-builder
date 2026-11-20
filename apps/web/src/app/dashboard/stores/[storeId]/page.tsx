@@ -3,15 +3,14 @@ import { notFound } from "next/navigation";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import { removeStoreLogoAction, uploadStoreLogoAction } from "@/app/dashboard/media-actions";
-import ImageUploader from "@/components/ImageUploader";
-import { mediaPublicUrl } from "@/lib/storage";
+import { StoreLogoUploader } from "@/components/BoundForms";
+import { mediaPublicUrl } from "@/lib/media-url";
 import { BusinessCategoryForm, DeleteStoreForm, StoreSettingsForm } from "@/components/StoreForms";
-import { BUSINESS_CATEGORIES } from "@/lib/business-categories";
+import { BUSINESS_CATEGORIES } from "@store-builder/shared/lib/business-categories";
 import { requireUser } from "@/modules/auth/session";
-import { NotFoundError } from "@/modules/stores/errors";
-import { getStore } from "@/modules/stores/service";
-import { templateSettingsSchema } from "@/templates/sections";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
+import { getStore } from "@/gateway/stores";
+import { templateSettingsSchema } from "@store-builder/shared/templates/sections";
 
 function safeUrl(key: string): string | null {
   try {
@@ -24,11 +23,11 @@ function safeUrl(key: string): string | null {
 export const metadata: Metadata = { title: "تنظیمات فروشگاه" };
 
 export default async function StorePage({ params }: { params: Promise<{ storeId: string }> }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId } = await params;
   let store;
   try {
-    store = await getStore(user.id, storeId); // ownership enforced here: missing and foreign are both 404
+    store = await getStore(storeId); // ownership enforced here: missing and foreign are both 404
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;
@@ -41,15 +40,13 @@ export default async function StorePage({ params }: { params: Promise<{ storeId:
         <Divider />
         <BusinessCategoryForm storeId={store.id} current={store.businessCategory} categories={BUSINESS_CATEGORIES.map((c) => ({ key: c.key, name: c.name }))} />
         <Divider />
-        <ImageUploader
+        <StoreLogoUploader
           title="لوگوی فروشگاه"
           help="JPEG، PNG یا WebP؛ حداکثر ۵ مگابایت. لوگو در سربرگ فروشگاه نمایش داده می‌شود. هر کسی که نشانی تصویر را داشته باشد می‌تواند آن را ببیند؛ فایل خصوصی بارگذاری نکنید."
           testId="store-logo"
           hidden={{ storeId: store.id }}
           imageUrl={store.logo ? safeUrl(store.logo.key) : null}
           image={store.logo?.width && store.logo.height ? { width: store.logo.width, height: store.logo.height } : null}
-          uploadAction={uploadStoreLogoAction}
-          removeAction={removeStoreLogoAction}
         />
         <Divider />
         <DeleteStoreForm storeId={store.id} storeName={store.name} />

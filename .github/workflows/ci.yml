@@ -43,46 +43,9 @@ jobs:
       - run: pnpm lint
       - name: Unit tests
         run: pnpm test
-      - name: Production build
-        run: pnpm build
+      - name: Production build (shared package, web app, API)
+        run: pnpm build && pnpm api:build
 
-  api:
-    name: API (NestJS) lint, typecheck, tests
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: storebuilder
-          POSTGRES_PASSWORD: storebuilder # throw-away value for this job's own container only
-          POSTGRES_DB: storebuilder
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U storebuilder"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://storebuilder:storebuilder@localhost:5432/storebuilder
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm db:generate
-      - run: pnpm api:lint
-      - run: pnpm api:typecheck
-      - run: pnpm api:build
-      - run: pnpm api:test
-      - name: API database tests (isolated storebuilder_api_test, real PostgreSQL)
-        run: pnpm api:test:db
   database:
     name: Database tests (PostgreSQL 16)
     runs-on: ubuntu-24.04
@@ -115,7 +78,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
-      - name: Database tests
+      - run: pnpm shared:build
+      - name: Database tests (API domain modules, REST API and scripts on real PostgreSQL)
         run: pnpm test:db
 
   storage:
@@ -158,6 +122,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+      - run: pnpm shared:build
       - name: Start MinIO (throw-away, test-only credentials)
         run: ./scripts/ci-start-minio.sh
       - name: Storage integration tests (real S3 API)
@@ -240,22 +205,22 @@ jobs:
       - name: Start MinIO (throw-away, test-only credentials)
         run: ./scripts/ci-start-minio.sh
       - name: Install Chromium
-        run: pnpm --filter @store-builder/web exec playwright install --with-deps chromium
+        run: pnpm --filter @store-builder/e2e exec playwright install --with-deps chromium
       # Playwright retries a failed test once in CI (playwright.config.ts). A test that only passes on retry
       # is "flaky" and is reported separately below; it is never counted as a plain pass.
       - name: E2E tests
         run: pnpm test:e2e
       - name: Summarise E2E results (passed vs flaky vs failed)
         if: always()
-        run: node apps/web/scripts/ci-summarize-playwright.mjs apps/web/playwright-report/results.json
+        run: node apps/e2e/scripts/ci-summarize-playwright.mjs apps/e2e/playwright-report/results.json
       - name: Upload failure details (traces and report)
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-failure-details
           path: |
-            apps/web/test-results/
-            apps/web/playwright-report/
+            apps/e2e/test-results/
+            apps/e2e/playwright-report/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -294,7 +259,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
       - name: Install Chromium
-        run: pnpm --filter @store-builder/web exec playwright install --with-deps chromium
+        run: pnpm --filter @store-builder/e2e exec playwright install --with-deps chromium
       # Builds the app, jobs and custom Caddy images, boots docker-compose.prod.yml with throw-away generated credentials and a
       # throw-away S3 server, runs a browser flow through Caddy, the jobs, the scheduler health check and a backup + restore drill.
       # Nothing is pushed to a registry; the whole stack is deleted at the end of the script.

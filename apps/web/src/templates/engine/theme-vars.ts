@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
-import type { PageType } from "../sections";
-import type { StorefrontStore } from "../storefront-data";
+import type { PageType } from "@store-builder/shared/templates/sections";
+import type { StorefrontStore } from "@store-builder/shared/templates/storefront-data";
 import type { RenderContext } from "../types";
-import { contrastRatio, readableTextOn } from "./color";
+import { contrastRatio, readableTextOn } from "@store-builder/shared/templates/engine/color";
 
 const SIZE_SCALE = { small: 0.92, normal: 1, large: 1.1 } as const;
 

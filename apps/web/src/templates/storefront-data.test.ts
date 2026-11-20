@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { makeStorefront, PRODUCT_A } from "@/test/storefront-fixtures";
-import { storefrontDataSchema } from "./storefront-data";
+import { makeStorefront, PRODUCT_A } from "@store-builder/shared/testing/storefront-fixtures";
+import { storefrontDataSchema } from "@store-builder/shared/templates/storefront-data";
 
 const ok = (d: unknown) => storefrontDataSchema.safeParse(d).success;
 

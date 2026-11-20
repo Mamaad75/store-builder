@@ -1,12 +1,16 @@
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
+import { configureRateLimiter } from "./lib/rate-limit.js";
+import { configureStorage } from "./lib/storage/index.js";
 import { AppModule, type AppOverrides } from "./app.module.js";
 import type { ApiConfig } from "./config/env.js";
 import { AllExceptionsFilter } from "./http/all-exceptions.filter.js";
 import { JsonLogger } from "./logging/json-logger.js";
 
 export async function createApp(config: ApiConfig, overrides: AppOverrides = {}): Promise<NestExpressApplication> {
+  if (config.storage) configureStorage(config.storage);
+  configureRateLimiter(config.rateLimitBackend);
   const logger = overrides.logger ?? new JsonLogger();
   const app = await NestFactory.create<NestExpressApplication>(AppModule.register(config, { ...overrides, logger }), { logger, bodyParser: false });
   app.setGlobalPrefix("api");
@@ -14,6 +18,8 @@ export async function createApp(config: ApiConfig, overrides: AppOverrides = {})
   app.set("trust proxy", config.trustProxyHops);
   // JSON only, bounded size
   app.useBodyParser("json", { limit: config.bodyLimitBytes });
+  // Image uploads travel as raw bytes (the pipeline enforces the real limits again): 5 MB image + slack.
+  app.useBodyParser("raw", { type: "application/octet-stream", limit: 6 * 1024 * 1024 });
   app.use(
     helmet({
       // The API returns JSON only: nothing may be framed, scripted or embedded from it.

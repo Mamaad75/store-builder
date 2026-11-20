@@ -14,9 +14,9 @@ import Typography from "@mui/material/Typography";
 import { pageEditAction, type EditorState } from "@/app/dashboard/pages-actions";
 import { removeSectionImageAction, uploadSectionImageAction } from "@/app/dashboard/media-actions";
 import ImageUploader from "@/components/ImageUploader";
-import { LINK_TARGETS, type FieldSpec } from "@/templates/section-fields";
-import type { PageSection } from "@/templates/section-parse";
-import { getSectionDefinition } from "@/templates/section-registry";
+import { LINK_TARGETS, type FieldSpec } from "@store-builder/shared/templates/section-fields";
+import type { PageSection } from "@store-builder/shared/templates/section-parse";
+import { getSectionDefinition } from "@store-builder/shared/templates/section-registry";
 
 /** Plain, serialisable view of the page (built on the server). */
 export interface PageEditorProps {

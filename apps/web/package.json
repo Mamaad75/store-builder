@@ -10,26 +10,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:db",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset",
-    "db:studio": "tsx scripts/db-studio.ts",
-    "test:db": "vitest run --config vitest.db.config.mts",
-    "test:storage": "vitest run --config vitest.storage.config.mts",
-    "test:mail": "vitest run --config vitest.mail.config.mts",
-    "db:cleanup": "tsx scripts/cleanup-rate-limits.ts",
-    "media:cleanup": "tsx scripts/cleanup-media.ts",
-    "publish:stats": "tsx scripts/publish-stats.ts",
-    "test:e2e": "playwright test",
-    "scheduler": "tsx scripts/scheduler.ts",
-    "scheduler:health": "tsx scripts/scheduler-health.ts",
-    "alert:test": "tsx scripts/alert-test.ts"
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "test:mail": "vitest run --config vitest.mail.config.mts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1164.0",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -37,31 +21,24 @@
     "@mui/icons-material": "^9.5.0",
     "@mui/material": "^9.5.0",
     "@mui/material-nextjs": "^9.5.0",
-    "@prisma/client": "^6.19.3",
+    "@store-builder/shared": "workspace:*",
     "next": "^16.4.5",
     "nodemailer": "10.3.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "sharp": "^0.35.5",
     "stylis": "^4.4.0",
     "stylis-plugin-rtl": "^2.1.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.14.0",
-    "@playwright/test": "1.63.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/stylis": "^4.2.7",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.5",
-    "prisma": "^6.19.3",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.1.0"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }

@@ -1,8 +1,6 @@
-"use server";
-
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { requireUser } from "@/modules/auth/session";
+import * as api from "@/client/api";
+import { transportState } from "@/client/guard";
+import { go, refresh } from "@/client/nav";
 import {
   ConfirmationRequiredError,
   IncompatibleVersionError,
@@ -24,10 +22,8 @@ import {
   SubdomainReservedError,
   SubdomainTakenError,
   VersionAlreadyLiveError,
-} from "@/modules/publishing/errors";
-import { publishStore, setLiveVersion, unpublishStore } from "@/modules/publishing/service";
-import { claimSubdomain } from "@/modules/publishing/subdomain";
-import { ConflictError, NotFoundError, ValidationError } from "@/modules/stores/errors";
+} from "@store-builder/shared/modules/publishing/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 
 export interface PublishState {
   error?: string;
@@ -44,7 +40,12 @@ const date = (d: Date) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium"
 
 /** Every typed outcome has an owner-facing Persian message; anything unexpected is rethrown (never leaked as text). */
 function toState(e: unknown, notFoundUrl: string): PublishState {
-  if (e instanceof NotFoundError) redirect(notFoundUrl);
+  const transport = transportState(e);
+  if (transport) return transport;
+  if (e instanceof NotFoundError) {
+    go(notFoundUrl);
+    return {};
+  }
   if (e instanceof ValidationError) {
     const first = Object.values(e.fieldErrors).flat()[0];
     return { error: first ?? "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: e.fieldErrors };
@@ -69,22 +70,20 @@ function toState(e: unknown, notFoundUrl: string): PublishState {
   if (e instanceof VersionAlreadyLiveError) return { error: "این نسخه هم‌اکنون زنده است." };
   if (e instanceof IncompatibleVersionError) return { error: "این نسخه با برنامهٔ فعلی قابل نمایش نیست و نمی‌توان آن را زنده کرد." };
   if (e instanceof SubdomainTakenError) return { error: "این زیردامنه قبلاً گرفته شده است." };
-  if (e instanceof SubdomainReservedError) return { error: `این زیردامنه تا ${date(e.until)} رزرو است.` };
-  if (e instanceof ReservedLabelLimitError) return { error: `حداکثر ${fa(e.limit)} زیردامنهٔ آزادشده می‌تواند هم‌زمان رزرو باشد. تا ${date(e.until)} صبر کنید.` };
+  if (e instanceof SubdomainReservedError) return { error: `این زیردامنه تا ${date(new Date(e.until))} رزرو است.` };
+  if (e instanceof ReservedLabelLimitError) return { error: `حداکثر ${fa(e.limit)} زیردامنهٔ آزادشده می‌تواند هم‌زمان رزرو باشد. تا ${date(new Date(e.until))} صبر کنید.` };
   if (e instanceof ConfirmationRequiredError) return { error: "تغییر زیردامنهٔ فروشگاه منتشرشده نیاز به تأیید دارد؛ نشانی قبلی بلافاصله از کار می‌افتد." };
   throw e;
 }
 
-const url = (storeId: string) => `/dashboard/stores/${encodeURIComponent(storeId)}/publish`;
 const notFound = () => "/dashboard";
 
 /** Identity from the session only; input from an explicit whitelist; the owner-scoped service does the rest. */
 export async function publishAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    const r = await publishStore(user.id, storeId, { expectedDraftRevision: str(fd, "expectedDraftRevision") });
-    revalidatePath(url(storeId));
+    const r = await api.publishStore(storeId, { expectedDraftRevision: str(fd, "expectedDraftRevision") });
+    refresh();
     return { success: `نسخهٔ ${fa(r.number)} منتشر شد.` };
   } catch (e) {
     return toState(e, notFound());
@@ -92,11 +91,10 @@ export async function publishAction(_prev: PublishState, fd: FormData): Promise<
 }
 
 export async function unpublishAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    await unpublishStore(user.id, storeId);
-    revalidatePath(url(storeId));
+    await api.unpublishStore(storeId);
+    refresh();
     return { success: "فروشگاه از دسترس خارج شد. همهٔ نسخه‌ها نگه داشته شده‌اند." };
   } catch (e) {
     return toState(e, notFound());
@@ -104,12 +102,11 @@ export async function unpublishAction(_prev: PublishState, fd: FormData): Promis
 }
 
 export async function setLiveVersionAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await requireUser();
   const storeId = str(fd, "storeId");
   const mode = str(fd, "mode") === "republish" ? "republish" : "rollback";
   try {
-    const r = await setLiveVersion(user.id, storeId, { versionNumber: str(fd, "versionNumber"), mode });
-    revalidatePath(url(storeId));
+    const r = await api.setLiveVersion(storeId, { versionNumber: str(fd, "versionNumber"), mode });
+    refresh();
     return { success: mode === "rollback" ? `نسخهٔ ${fa(r.number)} اکنون زنده است.` : `فروشگاه با نسخهٔ ${fa(r.number)} دوباره منتشر شد.` };
   } catch (e) {
     return toState(e, notFound());
@@ -117,11 +114,10 @@ export async function setLiveVersionAction(_prev: PublishState, fd: FormData): P
 }
 
 export async function claimSubdomainAction(_prev: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await requireUser();
   const storeId = str(fd, "storeId");
   try {
-    const r = await claimSubdomain(user.id, storeId, { label: str(fd, "label"), confirmChange: str(fd, "confirmChange") });
-    revalidatePath(url(storeId));
+    const r = await api.claimSubdomain(storeId, { label: str(fd, "label"), confirmChange: str(fd, "confirmChange") });
+    refresh();
     return { success: r.changed ? `زیردامنهٔ «${r.label}» ثبت شد.` : "زیردامنه بدون تغییر ماند." };
   } catch (e) {
     return toState(e, notFound());

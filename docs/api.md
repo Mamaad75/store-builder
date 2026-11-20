@@ -1,5 +1,7 @@
 # API (NestJS) — `apps/api`
 
+> Since the migration of 2026-11-19 (`docs/migration-plan.md`) the API owns **all** business logic and data access; Next.js (`apps/web`) is UI only.
+
 Steps N2–N3 of ADR 0001: the separate backend. It serves authentication (N3); stores, catalog, pages and media arrive in N4–N6.
 
 ## Run locally
@@ -54,3 +56,29 @@ All under `/api/auth`, JSON, always `Cache-Control: no-store`, every state-chang
 
 ## Not yet
 Domain endpoints (N4–N6), CORS (not needed: same origin), publishing `/api/*` through Caddy (the web app reaches the API on the internal network; Caddy routes come with the first endpoint the browser must call itself).
+
+
+## Domain endpoints (owner-scoped; every one needs the session cookie and, for writes, the platform Origin)
+Controllers are thin: they hand `user.id` (from the session, never from the request) and the route/body values to the original services in
+`src/modules/*`, which validate input with Zod, enforce ownership in SQL and bump revisions under the store lock.
+
+| Area | Routes (`/api/…`) |
+|---|---|
+| Stores | `GET/POST stores`, `GET stores/templates`, `GET stores/onboarding`, `GET/PATCH stores/:id`, `PATCH stores/:id/business-category`, `POST stores/:id/delete`, `GET stores/:id/themes`, `GET stores/:id/themes/:key/report`, `POST stores/:id/themes/switch`, `GET stores/:id/preview[?theme=]` |
+| Catalog | `GET/POST stores/:id/categories`, `PATCH categories/:cid`, `POST categories/:cid/delete`; `GET/POST stores/:id/products` (query: `q`, `category`, `status`, `page`), `GET/PATCH products/:pid`, `POST products/:pid/status`, `POST products/:pid/delete` |
+| Pages | `GET stores/:id/pages`, `GET pages/:type`, `POST pages/:type/sections`, `PATCH/… sections/:sid` (`delete`, `delete-dormant`, `move`), `POST pages/:type/visibility`, `POST pages/:type/recover` (all writes carry `expectedRevision`) |
+| Media | raw `application/octet-stream` bodies (≤ 6 MB): `POST stores/:id/products/:pid/image`, `POST stores/:id/logo`, `POST stores/:id/pages/:type/sections/:sid/image[?expectedRevision=]`; `…/delete` variants. Upload + attach is one operation and rolls the image back on failure |
+| Publishing | `GET/POST stores/:id/publish`, `POST stores/:id/unpublish`, `GET stores/:id/versions`, `POST stores/:id/versions/live`, `GET/POST stores/:id/subdomain` |
+| Public (no session) | `GET public/stores/:label` → `{live, data}` of the published version, `GET public/stores/:label/product-redirect?slug=` — one identical 404 for every unavailable case |
+
+**Errors.** Domain errors cross the boundary as `{statusCode, error, errorName, payload}` (`packages/shared/src/errors/registry.ts`): 400 `ValidationError`
+(`payload.fieldErrors`), 404 `NotFoundError` (a foreign id is indistinguishable from a random one), 409 conflicts/busy, 422 limits, 429 rate limits, 502 storage. The web app
+rebuilds the same error classes, so its `instanceof` handling is unchanged. Messages, stacks and causes never travel.
+
+**Readiness** (`GET /api/ready`) checks the database and the object store (2 s each, cached 2 s) and names the failing one.
+
+**Jobs** (`apps/api/scripts`, run with `tsx`; same names as before at the repository root): `pnpm media:cleanup`, `pnpm db:cleanup`, `pnpm scheduler`, `pnpm scheduler:health`, `pnpm alert:test`, `pnpm publish:stats`, `pnpm db:studio`.
+
+**Tests.** Unit and HTTP tests need no database (`pnpm api:test`); `pnpm api:test:db` runs the moved domain tests (≈ 475) and `src/__tests__/domain-http.db.test.ts` (authentication,
+forged requests, ownership on every route, error transport, uploads, public read) on real PostgreSQL; `pnpm test:storage` needs an S3-compatible server. Architecture guards:
+`src/__tests__/domain.architecture.test.ts` (data layer, catalog writes, media/storage, pages, published readers) and `architecture.test.ts` (env, console, Prisma).

@@ -8,14 +8,13 @@
 # Networks: `backend` has NO route to the outside (internal: true) and holds PostgreSQL; `edge` is the only network Caddy is on.
 name: storebuilder
 
+# Web app (Next.js, UI only): no database, no storage credentials, no signing secret. It reaches the API over the internal network and
+# builds public image URLs from S3_PUBLIC_BASE_URL (ADR 0001).
 x-app-env: &app-env
   NODE_ENV: production
   APP_ROOT_DOMAIN: ${APP_ROOT_DOMAIN:?set APP_ROOT_DOMAIN}
   APP_PROTOCOL: ${APP_PROTOCOL:-https}
-  DATABASE_URL: postgresql://${POSTGRES_USER:-storebuilder}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-storebuilder}
-  # Authentication lives in the API (ADR 0001, N3); the web app only needs to reach it over the internal network.
   INTERNAL_API_URL: http://api:4000
-  RATE_LIMIT_BACKEND: postgres
   TRUST_PROXY_HEADERS: "true"
   TRUSTED_PROXY_HOPS: "1"
   MAIL_TRANSPORT: ${MAIL_TRANSPORT:-none}
@@ -26,16 +25,10 @@ x-app-env: &app-env
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   MAIL_FROM: ${MAIL_FROM:-}
-  S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT}
-  S3_REGION: ${S3_REGION:-us-east-1}
-  S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET}
-  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
-  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
-  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
   S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?set S3_PUBLIC_BASE_URL}
 
-# The NestJS API (ADR 0001, N3). AUTH_SECRET signs the session tokens and exists ONLY here. TRUST_PROXY_HOPS=1: the web app (or Caddy)
-# is the one hop that reports the client address.
+# The NestJS API and everything that touches data: database, object storage, the session-signing secret. Also used by the one-shot
+# migrate job and the scheduler, which run the same code. TRUST_PROXY_HOPS=1: the web app (or Caddy) is the one hop that reports the client address.
 x-api-env: &api-env
   NODE_ENV: production
   APP_ROOT_DOMAIN: ${APP_ROOT_DOMAIN:?set APP_ROOT_DOMAIN}
@@ -43,6 +36,14 @@ x-api-env: &api-env
   DATABASE_URL: postgresql://${POSTGRES_USER:-storebuilder}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-storebuilder}
   AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
   TRUST_PROXY_HOPS: "1"
+  RATE_LIMIT_BACKEND: postgres
+  S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
+  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+  S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?set S3_PUBLIC_BASE_URL}
 
 x-hardening: &hardening
   restart: unless-stopped
@@ -79,7 +80,7 @@ services:
     # One-shot job: the shared hardening applies, but it must never be restarted.
     restart: "no"
     command: ["sh", "-c", "pnpm db:deploy && pnpm db:seed"]
-    environment: *app-env
+    environment: *api-env
     depends_on:
       postgres: { condition: service_healthy }
     networks: [backend]
@@ -94,12 +95,13 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-    # backend only: nothing outside the stack (Caddy included) can reach the API directly until its routes are published (N4+).
-    networks: [backend]
+    # backend (database) + edge (outbound to the external object store, and Caddy's route for the browser's /api/auth, /api/stores and
+    # /api/public calls). It publishes no port.
+    networks: [backend, edge]
     expose: ["4000"]
     deploy:
       resources:
-        limits: { memory: 512m }
+        limits: { memory: 768m }
 
   app:
     <<: *hardening
@@ -128,7 +130,7 @@ services:
     init: true
     command: ["node_modules/.bin/tsx", "scripts/scheduler.ts"]
     environment:
-      <<: *app-env
+      <<: *api-env
       # Alerts (Bale, D14-3): only the scheduler sends them. Both empty = alerts off (logged); half or invalid = refuses to start.
       BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}
       BALE_CHAT_ID: ${BALE_CHAT_ID:-}
@@ -163,6 +165,7 @@ services:
       - ${CADDY_TLS_DIR:-./docker/caddy/tls.d}:/etc/caddy/tls.d:ro
     depends_on:
       app: { condition: service_healthy }
+      api: { condition: service_healthy }
     networks: [edge]
 
 networks:

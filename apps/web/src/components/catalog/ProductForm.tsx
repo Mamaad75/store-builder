@@ -10,8 +10,8 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { createProductAction, updateProductAction, type CatalogFormState } from "@/app/dashboard/catalog-actions";
-import { MAX_PRICE_TOMAN, formatToman, parseIntegerInput } from "@/lib/money";
-import { slugify } from "@/lib/text";
+import { MAX_PRICE_TOMAN, formatToman, parseIntegerInput } from "@store-builder/shared/lib/money";
+import { slugify } from "@store-builder/shared/lib/text";
 import ProductSpecsEditor, { type PresetOption, type SpecsInitial } from "./ProductSpecsEditor";
 
 export interface ProductFormValues {

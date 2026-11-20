@@ -4,20 +4,20 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import ProductForm from "@/components/catalog/ProductForm";
 import { requireUser } from "@/modules/auth/session";
-import { getBusinessCategory } from "@/lib/business-categories";
-import { listSpecPresets } from "@/lib/spec-presets";
-import { listCategories } from "@/modules/categories/service";
-import { getStore } from "@/modules/stores/service";
-import { NotFoundError } from "@/modules/stores/errors";
+import { getBusinessCategory } from "@store-builder/shared/lib/business-categories";
+import { listSpecPresets } from "@store-builder/shared/lib/spec-presets";
+import { listCategories } from "@/gateway/catalog";
+import { getStore } from "@/gateway/stores";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 
 export const metadata: Metadata = { title: "افزودن محصول" };
 
 export default async function NewProductPage({ params }: { params: Promise<{ storeId: string }> }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId } = await params;
   let categories, store;
   try {
-    [categories, store] = await Promise.all([listCategories(user.id, storeId), getStore(user.id, storeId)]);
+    [categories, store] = await Promise.all([listCategories(storeId), getStore(storeId)]);
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;

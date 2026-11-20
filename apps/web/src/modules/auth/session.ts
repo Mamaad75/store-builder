@@ -1,13 +1,11 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { getSafeUser, type SafeUser } from "./service";
+import { auth, type SessionUser } from "@/auth";
 
-/** Current user from the validated session (jwt callback already checked authVersion), or null. */
+export type SafeUser = SessionUser;
+
+/** Current user from the validated session (the API checked the token and authVersion), or null. */
 export async function getCurrentUser(): Promise<SafeUser | null> {
-  const session = await auth();
-  const id = session?.user?.id;
-  if (!id) return null;
-  return getSafeUser(id);
+  return (await auth())?.user ?? null;
 }
 
 /** Server-side guard for pages, layouts and server actions. */

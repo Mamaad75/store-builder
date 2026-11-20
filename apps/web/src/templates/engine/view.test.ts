@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { makeStorefront, PRODUCT_A } from "@/test/storefront-fixtures";
+import { makeStorefront, PRODUCT_A } from "@store-builder/shared/testing/storefront-fixtures";
 import { listRegisteredTemplates, resolveTemplate } from "../registry";
 import { buildView } from "./view";
-import { resolveStorefrontRoute } from "./route";
+import { resolveStorefrontRoute } from "@store-builder/shared/templates/engine/route";
 
 const req = (segments: string[] = [], searchParams?: Record<string, string | string[]>) => ({ basePath: "/preview/s1", segments, searchParams });
 

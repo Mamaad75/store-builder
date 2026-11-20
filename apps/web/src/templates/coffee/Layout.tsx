@@ -1,4 +1,4 @@
-import { buildContactLinks } from "../engine/links";
+import { buildContactLinks } from "@store-builder/shared/templates/engine/links";
 import { navItems, themeStyleVars } from "../engine/theme-vars";
 import type { LayoutProps } from "../types";
 import s from "./coffee.module.css";

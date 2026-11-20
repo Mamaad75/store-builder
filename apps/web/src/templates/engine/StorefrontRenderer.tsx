@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
-import { isCoreSectionType } from "../section-registry";
-import type { PageSection } from "../section-parse";
+import { isCoreSectionType } from "@store-builder/shared/templates/section-registry";
+import type { PageSection } from "@store-builder/shared/templates/section-parse";
 import type { RenderContext, SectionComponent, TemplateModule } from "../types";
 
 function renderSection(template: TemplateModule, section: PageSection, ctx: RenderContext): ReactElement | null {

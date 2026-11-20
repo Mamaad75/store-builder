@@ -1,5 +1,5 @@
 import type { TemplateModule } from "../types";
-import { coffeeTheme } from "./definition";
+import { coffeeTheme } from "@store-builder/shared/templates/coffee/definition";
 import Layout from "./Layout";
 import { CallToAction, CategoryFilter, ContactInfo, FeaturedProducts, Hero, ImageText, OpeningHours, ProductDetail, ProductGrid, RichText } from "./sections";
 

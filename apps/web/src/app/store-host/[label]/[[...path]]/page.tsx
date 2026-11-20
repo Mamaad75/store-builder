@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { buildMetadata } from "@/modules/seo/metadata";
-import { buildJsonLd } from "@/modules/seo/jsonld";
+import { buildJsonLd } from "@store-builder/shared/seo/jsonld";
 import StorefrontRenderer from "@/templates/engine/StorefrontRenderer";
 import { buildView } from "@/templates/engine/view";
 import JsonLd from "../JsonLd";

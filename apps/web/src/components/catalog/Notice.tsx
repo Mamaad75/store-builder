@@ -1,5 +1,5 @@
 import Alert from "@mui/material/Alert";
-import { getNotice } from "@/modules/products/notices";
+import { getNotice } from "@store-builder/shared/modules/products/notices";
 
 /** Renders a banner for a whitelisted notice code from the URL; unknown codes render nothing. */
 export default function Notice({ code }: { code: string | string[] | undefined }) {

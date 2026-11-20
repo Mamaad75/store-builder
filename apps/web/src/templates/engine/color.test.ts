@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { StorefrontStore } from "../storefront-data";
-import { contrastRatio, readableTextOn } from "./color";
+import type { StorefrontStore } from "@store-builder/shared/templates/storefront-data";
+import { contrastRatio, readableTextOn } from "@store-builder/shared/templates/engine/color";
 import { themeStyleVars } from "./theme-vars";
 
 const hex = (r: number, g: number, b: number) => `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { makeStorefront, PRODUCT_A, PRODUCT_B } from "@/test/storefront-fixtures";
+import { makeStorefront, PRODUCT_A, PRODUCT_B } from "@store-builder/shared/testing/storefront-fixtures";
 import { buildView } from "@/templates/engine/view";
-import { storefrontDataSchema, type StorefrontData } from "@/templates/storefront-data";
-import { buildJsonLd, serializeJsonLd, socialProfileUrls } from "./jsonld";
-import { buildMetadata, canonicalPath, pageDescription, pageTitle, type SeoContext } from "./metadata";
-import { buildSitemapXml, buildStoreRobotsTxt, sitemapPaths, xmlEscape } from "./sitemap";
-import { clip, cleanText } from "./text";
+import { storefrontDataSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
+import { buildJsonLd, serializeJsonLd, socialProfileUrls } from "@store-builder/shared/seo/jsonld";
+import { buildMetadata } from "./metadata";
+import { canonicalPath, pageDescription, pageTitle, type SeoContext } from "@store-builder/shared/seo/metadata";
+import { buildSitemapXml, buildStoreRobotsTxt, sitemapPaths, xmlEscape } from "@store-builder/shared/seo/sitemap";
+import { clip, cleanText } from "@store-builder/shared/seo/text";
 
 const BASE = "https://shop.example.com";
 const media = (key: string) => `https://cdn.example.com/${key}`;

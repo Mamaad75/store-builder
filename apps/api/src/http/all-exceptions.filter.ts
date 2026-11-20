@@ -1,5 +1,6 @@
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpStatus, Inject } from "@nestjs/common";
 import type { Response } from "express";
+import { domainErrorPayload, isDomainError, statusOfDomainError } from "@store-builder/shared/errors/registry";
 import { LOGGER } from "../config/tokens.js";
 import { ApiProblem } from "./api-problem.js";
 import type { JsonLogger } from "../logging/json-logger.js";
@@ -16,6 +17,7 @@ const REASONS: Record<number, string> = {
   422: "Unprocessable Entity",
   429: "Too Many Requests",
   500: "Internal Server Error",
+  502: "Bad Gateway",
   503: "Service Unavailable",
 };
 
@@ -26,6 +28,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const res = host.switchToHttp().getResponse<Response>();
+    if (isDomainError(exception)) {
+      const dcode = statusOfDomainError(exception.name);
+      if (dcode >= 500) this.logger.event("error", "api.domain_error", { statusCode: dcode, errorName: exception.name });
+      const dbody: Record<string, unknown> = { statusCode: dcode, error: REASONS[dcode] ?? "Unprocessable Entity", errorName: exception.name, payload: domainErrorPayload(exception) };
+      const retry = (exception as { retryAfterSeconds?: number }).retryAfterSeconds;
+      if (retry) res.setHeader("Retry-After", String(Math.ceil(retry)));
+      res.status(dcode).json(dbody);
+      return;
+    }
     const status = exception instanceof HttpException ? exception.getStatus() : (exception as { status?: number; statusCode?: number })?.status ?? (exception as { statusCode?: number })?.statusCode ?? HttpStatus.INTERNAL_SERVER_ERROR;
     const code = typeof status === "number" && status >= 400 && status <= 599 ? status : 500;
     if (code >= 500) this.logger.event("error", "api.error", { statusCode: code, errorClass: exception instanceof Error ? exception.name : "UnknownError" });

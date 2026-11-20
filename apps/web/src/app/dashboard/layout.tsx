@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import AppBar from "@mui/material/AppBar";
-import { logoutAction } from "@/app/actions-auth";
+import LogoutButton from "@/components/LogoutButton";
+import { RouterBridge } from "@/client/nav";
 import { TextLink } from "@/components/NextLinks";
 import SiteFooter from "@/components/SiteFooter";
 import SkipLink from "@/components/SkipLink";
@@ -25,6 +25,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const user = await requireUser();
   return (
     <ThemeRegistry>
+      <RouterBridge />
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
         <SkipLink />
         <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
@@ -34,11 +35,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               <TextLink href="/dashboard">فروشگاه‌ها</TextLink>
               <TextLink href="/dashboard/account">{user.name}</TextLink>
             </Box>
-            <form action={logoutAction}>
-              <Button type="submit" size="small">
-                خروج
-              </Button>
-            </form>
+            <LogoutButton />
           </Toolbar>
         </AppBar>
         <Container component="main" id="main" sx={{ py: 4 }}>

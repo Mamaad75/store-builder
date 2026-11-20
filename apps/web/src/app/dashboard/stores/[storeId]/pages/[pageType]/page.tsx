@@ -5,12 +5,12 @@ import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import PageEditor from "@/components/pages/PageEditor";
-import { mediaPublicUrl } from "@/lib/storage";
+import { mediaPublicUrl } from "@/lib/media-url";
 import { requireUser } from "@/modules/auth/session";
-import { UnsupportedTemplateError } from "@/modules/pages/errors";
-import { getPageEditor } from "@/modules/pages/service";
-import { pageTypeFromSlug, pagesUrl } from "@/modules/pages/urls";
-import { NotFoundError } from "@/modules/stores/errors";
+import { UnsupportedTemplateError } from "@store-builder/shared/modules/pages/errors";
+import { getPageEditor } from "@/gateway/pages";
+import { pageTypeFromSlug, pagesUrl } from "@store-builder/shared/modules/pages/urls";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 
 export const metadata: Metadata = { title: "ویرایش صفحه" };
 
@@ -23,11 +23,11 @@ function safeUrl(key: string): string | null {
 }
 
 export default async function EditPagePage({ params }: { params: Promise<{ storeId: string; pageType: string }> }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId, pageType } = await params;
   let view;
   try {
-    view = await getPageEditor(user.id, storeId, pageTypeFromSlug(pageType)); // foreign/missing store and unknown page: the same 404
+    view = await getPageEditor(storeId, pageTypeFromSlug(pageType)); // foreign/missing store and unknown page: the same 404
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     if (e instanceof UnsupportedTemplateError) {

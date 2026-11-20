@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
-import { buildContactLinks } from "../engine/links";
-import { contrastRatio, readableTextOn } from "../engine/color";
+import { buildContactLinks } from "@store-builder/shared/templates/engine/links";
+import { contrastRatio, readableTextOn } from "@store-builder/shared/templates/engine/color";
 import type { LayoutProps } from "../types";
 import { initial } from "./ProductCard";
 import s from "./general.module.css";

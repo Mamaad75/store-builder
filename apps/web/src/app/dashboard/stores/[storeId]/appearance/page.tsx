@@ -5,24 +5,25 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import AppearanceForm from "@/components/pages/AppearanceForm";
 import { requireUser } from "@/modules/auth/session";
-import { NotFoundError } from "@/modules/stores/errors";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 import Alert from "@mui/material/Alert";
 import ThemePicker from "@/components/pages/ThemePicker";
 import ThemeSwitchPanel from "@/components/pages/ThemeSwitchPanel";
-import { ValidationError } from "@/modules/stores/errors";
-import { getStore } from "@/modules/stores/service";
-import { listSwitchableThemes, previewThemeSwitch, type ThemeSwitchReport } from "@/modules/stores/theme-switch";
-import { getSectionDefinition } from "@/templates/section-registry";
-import { templateSettingsSchema } from "@/templates/sections";
+import { ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { getStore } from "@/gateway/stores";
+import { listSwitchableThemes, previewThemeSwitch } from "@/gateway/stores";
+import type { ThemeSwitchReport } from "@store-builder/shared/modules/stores/theme-switch-types";
+import { getSectionDefinition } from "@store-builder/shared/templates/section-registry";
+import { templateSettingsSchema } from "@store-builder/shared/templates/sections";
 
 export const metadata: Metadata = { title: "ظاهر فروشگاه" };
 
 export default async function AppearancePage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId } = await params;
   let store;
   try {
-    store = await getStore(user.id, storeId);
+    store = await getStore(storeId);
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;
@@ -31,12 +32,12 @@ export default async function AppearancePage({ params, searchParams }: { params:
   const sp = await searchParams;
   const target = typeof sp.target === "string" ? sp.target : null;
   const switched = typeof sp.switched === "string" ? sp.switched : null;
-  const { current, themes } = await listSwitchableThemes(user.id, storeId);
+  const { current, themes } = await listSwitchableThemes(storeId);
   let report: ThemeSwitchReport | null = null;
   let reportError: string | null = null;
   if (target) {
     try {
-      report = await previewThemeSwitch(user.id, storeId, target);
+      report = await previewThemeSwitch(storeId, target);
     } catch (e) {
       if (e instanceof ValidationError) reportError = "این قالب در دسترس نیست.";
       else if (e instanceof NotFoundError) notFound();

@@ -4,23 +4,22 @@ import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { removeProductImageAction, uploadProductImageAction } from "@/app/dashboard/media-actions";
-import ImageUploader from "@/components/ImageUploader";
-import { getBusinessCategory } from "@/lib/business-categories";
-import { SPEC_PROBLEM_FA, analyzeSpecs, previewStoredSpecs } from "@/lib/product-specs";
-import { listSpecPresets } from "@/lib/spec-presets";
-import { mediaPublicUrl } from "@/lib/storage";
+import { ProductImageUploader } from "@/components/BoundForms";
+import { getBusinessCategory } from "@store-builder/shared/lib/business-categories";
+import { SPEC_PROBLEM_FA, analyzeSpecs, previewStoredSpecs } from "@store-builder/shared/lib/product-specs";
+import { listSpecPresets } from "@store-builder/shared/lib/spec-presets";
+import { mediaPublicUrl } from "@/lib/media-url";
 import DeleteProductButton from "@/components/catalog/DeleteProductButton";
 import Notice from "@/components/catalog/Notice";
 import ProductForm from "@/components/catalog/ProductForm";
 import StatusButtons from "@/components/catalog/StatusButtons";
 import StatusChip from "@/components/catalog/StatusChip";
 import { requireUser } from "@/modules/auth/session";
-import { listCategories } from "@/modules/categories/service";
-import { getProduct } from "@/modules/products/service";
-import type { ProductStatus } from "@/modules/products/status";
-import { NotFoundError } from "@/modules/stores/errors";
-import { getStore } from "@/modules/stores/service";
+import { listCategories } from "@/gateway/catalog";
+import { getProduct } from "@/gateway/catalog";
+import type { ProductStatus } from "@store-builder/shared/modules/products/status";
+import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
+import { getStore } from "@/gateway/stores";
 
 function safeUrl(key: string): string | null {
   try {
@@ -39,12 +38,12 @@ export default async function EditProductPage({
   params: Promise<{ storeId: string; productId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const { storeId, productId } = await params;
   const raw = await searchParams;
   let product, categories, store;
   try {
-    [product, categories, store] = await Promise.all([getProduct(user.id, storeId, productId), listCategories(user.id, storeId), getStore(user.id, storeId)]);
+    [product, categories, store] = await Promise.all([getProduct(storeId, productId), listCategories(storeId), getStore(storeId)]);
   } catch (e) {
     if (e instanceof NotFoundError) notFound(); // foreign and missing products look identical
     throw e;
@@ -87,15 +86,13 @@ export default async function EditProductPage({
             presets={listSpecPresets(getBusinessCategory(store.businessCategory)?.suggestedSpecPresets).map((pr) => ({ key: pr.key, name: pr.name, labels: [...pr.labels] }))}
           />
           <Divider />
-          <ImageUploader
+          <ProductImageUploader
             title="تصویر محصول"
             help="JPEG، PNG یا WebP؛ حداکثر ۵ مگابایت. تصویر بهینه و به WebP تبدیل می‌شود و اطلاعات مکانی/دوربین آن حذف می‌شود. هر کسی که نشانی تصویر را داشته باشد می‌تواند آن را ببیند."
             testId="product-image"
             hidden={{ storeId, productId: product.id }}
             imageUrl={product.image ? safeUrl(product.image.key) : null}
             image={product.image?.width && product.image.height ? { width: product.image.width, height: product.image.height } : null}
-            uploadAction={uploadProductImageAction}
-            removeAction={removeProductImageAction}
           />
           <Divider />
           <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
