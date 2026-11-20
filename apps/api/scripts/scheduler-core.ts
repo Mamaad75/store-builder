@@ -1,8 +1,9 @@
 import { formatLog } from "../src/lib/log.js";
 
 /**
- * The periodic job runner of the production stack (phase 13). Pure logic lives here so it is unit-tested; scripts/scheduler.ts is the
- * thin process around it. It satisfies the mechanical part of the Phase 14 media-cleanup gate (D10-13): periodic execution, exit-code
+ * The periodic jobs of the production stack (phase 13; since phase 2.2b TRIGGERED by BullMQ Job Schedulers in the worker process,
+ * src/platform/queue/maintenance-queue.ts, which also guarantees no overlap). Pure logic lives here so it is unit-tested; scripts/worker.ts
+ * wires it. It satisfies the mechanical part of the Phase 14 media-cleanup gate (D10-13): periodic execution, exit-code
  * detection, structured failure logs, and a health probe that goes unhealthy when a job has not SUCCEEDED recently. Alert routing and
  * the staging proof stay Phase 14 work.
  */
@@ -94,12 +95,10 @@ export function evaluateHealth(status: SchedulerStatus | null, jobs: JobSpec[], 
 export interface LoopDeps {
   run: (command: string[], timeoutMs: number) => Promise<{ exitCode: number | null; timedOut: boolean }>;
   now: () => Date;
-  sleep: (ms: number) => Promise<void>;
   write: (line: string, level: "info" | "error") => void;
   save: (status: SchedulerStatus) => void;
   getStatus: () => SchedulerStatus;
   setStatus: (s: SchedulerStatus) => void;
-  stopped: () => boolean;
   /** Operational alert (Bale, D14-3). Must never throw (src/lib/alert.ts createNotifier). Optional: no alerts in tests that omit it. */
   alert?: (event: string, fields: Record<string, unknown>) => Promise<void>;
 }
@@ -128,13 +127,4 @@ export async function runOnce(job: JobSpec, d: LoopDeps): Promise<ExitClass> {
     await d.alert?.("job.failed", common);
   }
   return cls;
-}
-
-/** Never overlaps itself: the next run starts one interval after the previous one FINISHED. */
-export async function runLoop(job: JobSpec, d: LoopDeps): Promise<void> {
-  while (!d.stopped()) {
-    await runOnce(job, d);
-    if (d.stopped()) break;
-    await d.sleep(job.intervalMs);
-  }
 }

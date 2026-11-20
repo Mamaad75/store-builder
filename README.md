@@ -66,6 +66,6 @@ Dev credentials in `docker-compose.yml` are for local use only.
 - Generate `AUTH_SECRET` (read only by the API, `apps/api`) with `openssl rand -base64 32`; never commit it.
 
 ## Production readiness (phase 13)
-`Dockerfile` (runtime = web, api, jobs targets), `docker-compose.prod.yml`, `docker/caddy/` (custom Caddy), `scripts/backup.sh` / `restore.sh` / `scheduler.ts`.
+`Dockerfile` (runtime = web, api, jobs targets), `docker-compose.prod.yml`, `docker/caddy/` (custom Caddy), `scripts/backup.sh` / `restore.sh` / `apps/api/scripts/worker.ts` (queue: docs/async.md).
 Operations: `docs/runbook.md`. Security controls: `docs/security.md`. CI builds the images and smoke-tests the whole stack; no Docker daemon is needed for the unit and DB tests.
 

@@ -16,9 +16,11 @@ const alerts: string[] = [];
 const admin = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
 
 async function wipeQueue() {
-  const q = new Queue(DOMAIN_EVENTS_QUEUE, { connection: admin, prefix: PREFIX });
-  await q.obliterate({ force: true });
-  await q.close();
+  for (const name of [DOMAIN_EVENTS_QUEUE, "maintenance"]) {
+    const q = new Queue(name, { connection: admin, prefix: PREFIX });
+    await q.obliterate({ force: true });
+    await q.close();
+  }
 }
 beforeEach(async () => {
   await resetDb();
@@ -35,8 +37,8 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-const run = (handlers: Record<string, EventHandler>) =>
-  (worker = startWorker({ redisUrl: REDIS_URL, handlers, alert: async (e) => void alerts.push(e), idlePollMs: 50, prefix: PREFIX, delivery: FAST }));
+const run = async (handlers: Record<string, EventHandler>) =>
+  (worker = await startWorker({ redisUrl: REDIS_URL, handlers, alert: async (e) => void alerts.push(e), idlePollMs: 50, prefix: PREFIX, delivery: FAST }));
 const emit = (type = "store.published", storeId: string | null = "s1") => prisma.$transaction((tx) => recordEvent({ tx }, { type, storeId, payload: { n: 1 } }));
 async function until(cond: () => Promise<boolean> | boolean, ms = 10_000) {
   const end = Date.now() + ms;
@@ -94,5 +96,45 @@ describe("worker: outbox -> queue -> consumer (real Valkey)", () => {
     run({ "store.published": async (e) => void seen.push(e.storeId!) });
     await until(() => seen.length === 2);
     expect(seen.sort()).toEqual(["s1", "s2"]);
+  });
+});
+
+describe("worker: maintenance jobs on BullMQ Job Schedulers (phase 2.2b, real Valkey)", () => {
+  it("runs each scheduled job repeatedly, never two at once, even with two worker processes", async () => {
+    let running = 0;
+    let maxRunning = 0;
+    const runs: string[] = [];
+    const maintenance = {
+      jobs: [{ name: "job-a", everyMs: 150 }, { name: "job-b", everyMs: 150 }],
+      run: async (name: string) => {
+        running += 1;
+        maxRunning = Math.max(maxRunning, running);
+        await new Promise((r) => setTimeout(r, 120)); // longer than half the interval: overlaps would show up
+        runs.push(name);
+        running -= 1;
+      },
+    };
+    const opts = { redisUrl: REDIS_URL, handlers: {}, alert: async () => undefined, idlePollMs: 50, prefix: PREFIX, delivery: FAST, maintenance };
+    worker = await startWorker(opts);
+    const second = await startWorker(opts); // a second worker process on the same queue
+    try {
+      await until(() => runs.filter((n) => n === "job-a").length >= 2 && runs.filter((n) => n === "job-b").length >= 2);
+    } finally {
+      await second.stop();
+    }
+    expect(maxRunning).toBe(1); // global concurrency 1 across both processes
+  });
+
+  it("a scheduler that is no longer in the job table is removed on start (a deleted job stops firing)", async () => {
+    worker = await startWorker({ redisUrl: REDIS_URL, handlers: {}, alert: async () => undefined, prefix: PREFIX, delivery: FAST, maintenance: { jobs: [{ name: "old-job", everyMs: 60_000 }], run: async () => undefined } });
+    await worker.stop();
+    const seen: string[] = [];
+    worker = await startWorker({ redisUrl: REDIS_URL, handlers: {}, alert: async () => undefined, prefix: PREFIX, delivery: FAST, maintenance: { jobs: [{ name: "new-job", everyMs: 60_000 }], run: async (n) => void seen.push(n) } });
+    const q = new Queue("maintenance", { connection: admin, prefix: PREFIX });
+    try {
+      expect((await q.getJobSchedulers()).map((s) => s.key)).toEqual(["new-job"]);
+    } finally {
+      await q.close();
+    }
   });
 });

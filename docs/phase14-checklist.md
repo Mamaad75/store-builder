@@ -82,7 +82,7 @@
 
 ### ۲.۷ لاگ و هشدار (T8، T9)
 باید این رخدادها هشدار بدهند (roadmap، D10-13 و فاز ۱۳):
-`job.failed`، `scheduler.unhealthy`، `startup.refused`، `readiness.failed`، `media.release_failed`، `media.reclaim_failed`، `backup.failed`، و **نبودِ اجرای موفق** در بازه‌ی مورد انتظار، و `scanTruncated: true` در دو اجرای پشت‌سرهم.
+`job.failed`، `worker.unhealthy`، `startup.refused`، `readiness.failed`، `media.release_failed`، `media.reclaim_failed`، `backup.failed`، و **نبودِ اجرای موفق** در بازه‌ی مورد انتظار، و `scanTruncated: true` در دو اجرای پشت‌سرهم.
 به‌علاوه یک مانیتور uptime بیرونی روی `https://<دامنه>/api/ready`.
 
 ## ۳. کار کدی که در فاز ۱۴ لازم است (هر کدام جدا بازبینی و تأیید می‌شود)

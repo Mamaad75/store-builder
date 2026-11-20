@@ -22,10 +22,9 @@
     "db:cleanup": "tsx scripts/cleanup-rate-limits.ts",
     "media:cleanup": "tsx scripts/cleanup-media.ts",
     "publish:stats": "tsx scripts/publish-stats.ts",
-    "scheduler": "tsx scripts/scheduler.ts",
     "worker": "tsx --env-file-if-exists=.env scripts/worker.ts",
     "test:queue": "vitest run -c vitest.queue.config.ts",
-    "scheduler:health": "tsx scripts/scheduler-health.ts",
+    "worker:health": "tsx scripts/worker-health.ts",
     "alert:test": "tsx scripts/alert-test.ts"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { JOBS, MINUTE, TSX_BIN, classifyExit, emptyStatus, evaluateHealth, recordResult, recordStart, runLoop, runOnce, type JobSpec, type LoopDeps, type SchedulerStatus } from "../../scripts/scheduler-core.js";
+import { JOBS, MINUTE, TSX_BIN, classifyExit, emptyStatus, evaluateHealth, recordResult, recordStart, runOnce, type JobSpec, type LoopDeps, type SchedulerStatus } from "../../scripts/scheduler-core.js";
 
 const T0 = new Date("2026-01-01T00:00:00Z");
 const at = (min: number) => new Date(T0.getTime() + min * MINUTE);
@@ -58,7 +58,7 @@ describe("status and health", () => {
 
 function harness(results: ({ exitCode: number | null; timedOut: boolean } | "stop")[]) {
   const lines: { line: string; level: string }[] = [];
-  let now = T0.getTime();
+  const now = T0.getTime();
   let status: SchedulerStatus = emptyStatus(T0);
   let stopped = false;
   let running = 0;
@@ -79,60 +79,55 @@ function harness(results: ({ exitCode: number | null; timedOut: boolean } | "sto
       return next;
     },
     now: () => new Date(now),
-    sleep: async (ms) => {
-      now += ms;
-    },
     write: (line, level) => lines.push({ line, level }),
     save: (s) => saved.push(s),
     getStatus: () => status,
     setStatus: (s) => {
       status = s;
     },
-    stopped: () => stopped,
   };
-  return { deps, lines, saved, alerts, getStatus: () => status, maxRunning: () => maxRunning };
+  return { deps, lines, saved, alerts, getStatus: () => status, maxRunning: () => maxRunning, stopped: () => stopped };
+}
+
+/** What the maintenance queue does: one run per scheduler tick, until the harness says stop (BullMQ owns the timing since 2.2b). */
+async function runTicks(job: JobSpec, h: ReturnType<typeof harness>): Promise<void> {
+  while (!h.stopped()) await runOnce(job, h.deps);
 }
 
 describe("alerts (Bale, D14-3)", () => {
   it("every failed run alerts with the job and exit class; the first success after failures alerts 'recovered'; steady success is silent", async () => {
     const h = harness([{ exitCode: 0, timedOut: false }, { exitCode: 2, timedOut: false }, { exitCode: null, timedOut: true }, { exitCode: 0, timedOut: false }, { exitCode: 0, timedOut: false }, "stop"]);
-    await runLoop(JOB, h.deps);
+    await runTicks(JOB, h);
     expect(h.alerts.map((a) => a.event)).toEqual(["job.failed", "job.failed", "job.recovered"]);
     expect(h.alerts[0]!.fields).toMatchObject({ job: "j", exitCode: 2, class: "failed_items", consecutiveFailures: 1 });
     expect(h.alerts[1]!.fields).toMatchObject({ class: "timeout", consecutiveFailures: 2 });
     expect(h.alerts[2]!.fields).toEqual({ job: "j", previousFailures: 2 });
   });
-  it("without an alert dependency the loop behaves exactly as before (alerts are optional)", async () => {
+  it("without an alert dependency runs behave exactly as before (alerts are optional)", async () => {
     const h = harness([{ exitCode: 1, timedOut: false }, "stop"]);
     delete h.deps.alert;
-    await expect(runLoop(JOB, h.deps)).resolves.toBeUndefined();
+    await expect(runTicks(JOB, h)).resolves.toBeUndefined();
   });
 });
 
-describe("the run loop", () => {
+describe("one scheduled run", () => {
   it("logs a failure as a structured ERROR line with the exit code and class, success as info", async () => {
     const h = harness([{ exitCode: 2, timedOut: false }, { exitCode: 0, timedOut: false }, "stop"]);
-    await runLoop(JOB, h.deps);
+    await runTicks(JOB, h);
     const parsed = h.lines.map((l) => ({ ...JSON.parse(l.line), _level: l.level }));
     const failed = parsed.find((p) => p.event === "job.failed")!;
     expect(failed).toMatchObject({ level: "error", _level: "error", job: "j", exitCode: 2, class: "failed_items", consecutiveFailures: 1 });
     expect(parsed.filter((p) => p.event === "job.finish")).toHaveLength(2); // the clean run, and the final stop sentinel
     expect(h.getStatus().jobs.j!.consecutiveFailures).toBe(0); // recovered by a later run
   });
-  it("a crash and a timeout are errors too, and the loop keeps going (a failed run is retried next interval)", async () => {
+  it("a crash and a timeout are errors too, and the next tick runs again (a failed run is retried next interval)", async () => {
     const h = harness([{ exitCode: 1, timedOut: false }, { exitCode: null, timedOut: true }, { exitCode: 0, timedOut: false }, "stop"]);
-    await runLoop(JOB, h.deps);
+    await runTicks(JOB, h);
     const failed = h.lines.map((l) => JSON.parse(l.line)).filter((p) => p.event === "job.failed");
     expect(failed.map((f) => f.class)).toEqual(["crashed", "timeout"]);
     expect(failed.map((f) => f.consecutiveFailures)).toEqual([1, 2]);
   });
-  it("never overlaps itself and waits one interval AFTER each run finished", async () => {
-    const h = harness([{ exitCode: 0, timedOut: false }, { exitCode: 0, timedOut: false }, "stop"]);
-    await runLoop(JOB, h.deps);
-    expect(h.maxRunning()).toBe(1);
-    const starts = h.lines.map((l) => JSON.parse(l.line)).filter((p) => p.event === "job.start").map((p) => Date.parse(p.ts));
-    expect(starts[1]! - starts[0]!).toBe(JOB.intervalMs);
-  });
+  // "never overlaps itself" is now a property of the maintenance queue (global concurrency 1): src/worker/worker.queue.test.ts.
   it("persists the status before and after every run, and log lines never contain the command line or environment", async () => {
     const h = harness([{ exitCode: 0, timedOut: false }, "stop"]);
     await runOnce(JOB, h.deps);

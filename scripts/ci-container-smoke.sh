@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CI only (phase 13): builds the production images, boots the production compose stack with throw-away credentials, proves it works
-# end to end (readiness, headers, a real browser flow through Caddy, jobs, scheduler health, backup + restore drill) and tears it down.
+# end to end (readiness, headers, a real browser flow through Caddy, jobs, worker health, backup + restore drill) and tears it down.
 # Nothing is pushed to a registry and no real secret exists: every credential below is generated for this run and discarded with it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -18,6 +18,7 @@ APP_PROTOCOL=https
 POSTGRES_USER=smoke
 POSTGRES_DB=smoke
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
+VALKEY_PASSWORD=$(openssl rand -hex 16)
 AUTH_SECRET=$(openssl rand -base64 33)
 S3_ENDPOINT=http://minio:9000
 S3_REGION=us-east-1
@@ -81,12 +82,14 @@ step "browser smoke test through Caddy"
 SMOKE_PORT="${PORT}" pnpm --filter @store-builder/e2e exec playwright test -c playwright.smoke.config.ts
 endstep
 
-step "jobs and scheduler"
-"${DC[@]}" run --rm --no-deps scheduler pnpm media:cleanup
-"${DC[@]}" run --rm --no-deps scheduler pnpm db:cleanup
-for i in $(seq 1 30); do "${DC[@]}" exec -T scheduler pnpm scheduler:health >/dev/null 2>&1 && break; [ "${i}" -eq 30 ] && { echo "scheduler is not healthy" >&2; exit 1; }; sleep 2; done
-"${DC[@]}" logs scheduler --no-color | grep -E '"event":"job.(finish|failed)"' | head -4
-if "${DC[@]}" logs scheduler --no-color | grep -q '"event":"job.failed"'; then echo "a scheduled job failed" >&2; exit 1; fi
+step "jobs, worker and queue"
+"${DC[@]}" run --rm --no-deps worker pnpm media:cleanup
+"${DC[@]}" run --rm --no-deps worker pnpm db:cleanup
+for i in $(seq 1 30); do "${DC[@]}" exec -T worker pnpm worker:health >/dev/null 2>&1 && break; [ "${i}" -eq 30 ] && { echo "worker is not healthy" >&2; exit 1; }; sleep 2; done
+"${DC[@]}" logs worker --no-color | grep -E '"event":"job.(finish|failed)"' | head -4
+if "${DC[@]}" logs worker --no-color | grep -q '"event":"job.failed"'; then echo "a scheduled job failed" >&2; exit 1; fi
+# The browser smoke above published a store: its store.published event must have gone outbox -> Valkey -> consumer (phase 2.2).
+for i in $(seq 1 30); do "${DC[@]}" logs worker --no-color | grep -q '"event":"store.published.received"' && break; [ "${i}" -eq 30 ] && { echo "the store.published event was not delivered" >&2; exit 1; }; sleep 2; done
 endstep
 
 step "backup and restore drill (compose mode)"

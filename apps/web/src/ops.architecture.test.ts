@@ -71,10 +71,10 @@ describe("docker-compose.prod.yml", () => {
     const appEnv = c.slice(c.indexOf("x-app-env: &app-env"), c.indexOf("x-api-env: &api-env"));
     for (const v of ["AUTH_SECRET", "DATABASE_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_ENDPOINT", "POSTGRES_PASSWORD"]) expect(appEnv, v).not.toContain(v);
     expect(appEnv).toContain("S3_PUBLIC_BASE_URL");
-    expect(c.slice(c.indexOf("  app:"), c.indexOf("  scheduler:"))).toMatch(/api: \{ condition: service_healthy \}/);
+    expect(c.slice(c.indexOf("  app:"), c.indexOf("  worker:"))).toMatch(/api: \{ condition: service_healthy \}/);
   });
   it("the app container is hardened: read-only root, no capabilities, no privilege escalation, migrations finish first", () => {
-    const app = c.slice(c.indexOf("  app:"), c.indexOf("  scheduler:"));
+    const app = c.slice(c.indexOf("  app:"), c.indexOf("  worker:"));
     expect(app).toContain("read_only: true");
     expect(app).toContain("service_completed_successfully");
     const hard = c.slice(c.indexOf("x-hardening"), c.indexOf("services:"));
@@ -84,7 +84,7 @@ describe("docker-compose.prod.yml", () => {
   it("EVERY service, the one-shot migrate job included, inherits the shared hardening; migrate is never restarted", () => {
     const servicesPart = c.slice(c.indexOf("services:"), c.indexOf("\nnetworks:"));
     const names = [...servicesPart.matchAll(/^ {2}([a-z][a-z0-9_-]*):\s*$/gm)].map((m) => m[1]!);
-    expect(names).toEqual(expect.arrayContaining(["postgres", "migrate", "api", "app", "scheduler", "caddy"]));
+    expect(names).toEqual(expect.arrayContaining(["postgres", "valkey", "migrate", "api", "app", "worker", "caddy"]));
     for (const [i, name] of names.entries()) {
       const start = servicesPart.indexOf(`\n  ${name}:`);
       const end = i + 1 < names.length ? servicesPart.indexOf(`\n  ${names[i + 1]}:`) : servicesPart.length;
@@ -92,16 +92,32 @@ describe("docker-compose.prod.yml", () => {
     }
     expect(c.slice(c.indexOf("  migrate:"), c.indexOf("  app:"))).toContain('restart: "no"');
   });
-  it("the scheduler has a real init (signals, reaping) and runs through tsx directly, not through a pnpm wrapper", () => {
-    const sched = c.slice(c.indexOf("  scheduler:"), c.indexOf("  caddy:"));
-    expect(sched).toContain("init: true");
-    expect(sched).toContain('command: ["node_modules/.bin/tsx", "scripts/scheduler.ts"]');
+  it("the worker (outbox relay, consumers, maintenance jobs; replaced the scheduler in phase 2.2b) has a real init and runs through tsx directly", () => {
+    const worker = c.slice(c.indexOf("  worker:"), c.indexOf("  caddy:"));
+    expect(worker).toContain("init: true");
+    expect(worker).toContain('command: ["node_modules/.bin/tsx", "scripts/worker.ts"]');
+    expect(worker).toContain("valkey: { condition: service_healthy }");
+    expect(worker).toContain('test: ["CMD", "pnpm", "worker:health"]');
+    expect(c).not.toMatch(/^ {2}scheduler:/m);
   });
-  it("Bale alert credentials reach ONLY the scheduler, from the environment, never as literals (D14-3)", () => {
-    const sched = c.slice(c.indexOf("  scheduler:"), c.indexOf("  caddy:"));
+  it("valkey (the queue) is pinned by digest, internal-only, password-protected from the environment, durable and non-evicting", () => {
+    const v = c.slice(c.indexOf("  valkey:"), c.indexOf("  migrate:"));
+    expect(v).toMatch(/image: valkey\/valkey:[\w.-]+@sha256:[0-9a-f]{64}/);
+    expect(v).toContain("networks: [backend]");
+    expect(v).not.toMatch(/^\s+ports:/m);
+    expect(v).toContain("VALKEY_PASSWORD: ${VALKEY_PASSWORD:?set VALKEY_PASSWORD}");
+    expect(v).toContain('--requirepass \\"$$VALKEY_PASSWORD\\"'); // $$: read inside the container, never interpolated into the command
+    for (const flag of ["--appendonly yes", "--maxmemory-policy noeviction"]) expect(v).toContain(flag);
+    const worker = c.slice(c.indexOf("  worker:"), c.indexOf("  caddy:"));
+    expect(worker).toContain("REDIS_URL: redis://:${VALKEY_PASSWORD:?set VALKEY_PASSWORD}@valkey:6379");
+    // only the worker talks to the queue (the API never does: docs/async.md)
+    expect(c.replace(worker, "")).not.toMatch(/REDIS_URL/);
+  });
+  it("Bale alert credentials reach ONLY the worker, from the environment, never as literals (D14-3)", () => {
+    const sched = c.slice(c.indexOf("  worker:"), c.indexOf("  caddy:"));
     expect(sched).toContain("BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}");
     expect(sched).toContain("BALE_CHAT_ID: ${BALE_CHAT_ID:-}");
-    expect(sched).toMatch(/environment:\n\s+<<: \*api-env/); // the scheduler keeps every shared app variable
+    expect(sched).toMatch(/environment:\n\s+<<: \*api-env/); // the worker keeps every shared app variable
     expect(c.replace(sched, "")).not.toMatch(/BALE_/); // the web app and the other services never see the bot token
     expect(read("scripts/notify-bale.sh")).toMatch(/curl[^\n]*-K -/); // the URL (with the token) goes to curl on stdin, not argv
   });

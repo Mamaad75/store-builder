@@ -2,6 +2,7 @@ import type { Notifier } from "../lib/alert.js";
 import { log } from "../lib/log.js";
 import { PrismaOutboxStore } from "../platform/outbox/prisma-outbox.store.js";
 import { RELAY_DEFAULTS, relayOnce, type OutboxStore } from "../platform/outbox/relay.js";
+import { startMaintenance, type ScheduledJob } from "../platform/queue/maintenance-queue.js";
 import { BullMqEventPublisher, createEventQueue, createRedisConnection, startEventWorker, type DeliveryPolicy, type EventHandler } from "../platform/queue/event-queue.js";
 
 export interface RunningWorker {
@@ -18,17 +19,21 @@ export interface WorkerOptions {
   /** Test seams: an isolated key prefix and a faster retry policy. */
   prefix?: string;
   delivery?: DeliveryPolicy;
+  /** Periodic jobs (BullMQ Job Schedulers, no overlap across processes). `run` reports its own failures. */
+  maintenance?: { jobs: readonly ScheduledJob[]; run: (name: string) => Promise<void> };
 }
 
 /**
- * The worker process (phase 2.2): the outbox relay loop plus the domain-event consumers. The database handle (`useDb`) must be set
+ * The worker process (phase 2.2): the outbox relay loop, the domain-event consumers and (2.2b) the periodic maintenance jobs. The database handle (`useDb`) must be set
  * by the caller. One relay loop per process; several processes are safe (claims use SKIP LOCKED and leases).
  */
-export function startWorker(o: WorkerOptions): RunningWorker {
+export async function startWorker(o: WorkerOptions): Promise<RunningWorker> {
   const connection = createRedisConnection(o.redisUrl);
   const queue = createEventQueue(connection, o.prefix);
   const deps = { store: o.store ?? new PrismaOutboxStore(), publisher: new BullMqEventPublisher(queue, o.delivery), log, alert: o.alert };
   const consumer = startEventWorker(connection, o.handlers, { log, onFinalFailure: (fields) => o.alert("event.dead", fields) }, { prefix: o.prefix });
+
+  const maintenance = o.maintenance ? await startMaintenance(connection, o.maintenance.jobs, o.maintenance.run, { log }, o.prefix) : null;
 
   let stopping = false;
   let timer: NodeJS.Timeout | undefined;
@@ -53,6 +58,7 @@ export function startWorker(o: WorkerOptions): RunningWorker {
       stopping = true;
       if (timer) clearTimeout(timer);
       await current;
+      await maintenance?.close();
       await consumer.close();
       await queue.close();
       connection.disconnect();

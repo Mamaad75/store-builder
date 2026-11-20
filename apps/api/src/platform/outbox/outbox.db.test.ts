@@ -99,3 +99,25 @@ describe("outbox: relay side (claims, leases, retries)", () => {
     expect((await prisma.outboxEvent.findUniqueOrThrow({ where: { id: a!.id } })).lastError).toBeNull();
   });
 });
+
+describe("outbox: retention (db-cleanup, phase 2.2b)", () => {
+  it("deletes published events past retention only; unpublished events are kept however old", async () => {
+    await insert(4);
+    const [a, b, c] = await store.claim(10, 60_000);
+    for (const e of [a!, b!, c!]) await store.markPublished(e.id);
+    await prisma.outboxEvent.updateMany({ where: { id: { in: [a!.id, b!.id] } }, data: { publishedAt: new Date(Date.now() - 8 * 86_400_000) } });
+    await prisma.outboxEvent.updateMany({ where: { publishedAt: null }, data: { occurredAt: new Date(Date.now() - 90 * 86_400_000) } }); // old but undelivered
+    expect(await store.purgePublished(7)).toBe(2);
+    const left = await prisma.outboxEvent.findMany();
+    expect(left).toHaveLength(2);
+    expect(left.some((e) => e.id === c!.id)).toBe(true); // published recently: kept
+    expect(left.some((e) => e.publishedAt === null)).toBe(true); // never delivered: kept
+  });
+
+  it("purges in batches until done", async () => {
+    await insert(25);
+    await prisma.outboxEvent.updateMany({ data: { publishedAt: new Date(Date.now() - 30 * 86_400_000) } });
+    expect(await store.purgePublished(7, 10)).toBe(25);
+    expect(await prisma.outboxEvent.count()).toBe(0);
+  });
+});

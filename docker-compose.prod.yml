@@ -1,9 +1,9 @@
-# PRODUCTION STACK (phase 13) - single host: Caddy (TLS edge) -> app -> PostgreSQL, plus a one-shot migrate job and the scheduler.
+# PRODUCTION STACK (phase 13) - single host: Caddy (TLS edge) -> app -> PostgreSQL, plus a one-shot migrate job, the worker and its queue (Valkey).
 # Nothing here is deployed by this repository; phase 14 does that with explicit approval. Object storage is EXTERNAL (S3_* variables).
 #
 #   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 #
-# Services: caddy (TLS edge) -> app (Next.js) -> api (NestJS) -> postgres; plus the one-shot migrate job and the scheduler.
+# Services: caddy (TLS edge) -> app (Next.js) -> api (NestJS) -> postgres; plus the one-shot migrate job, valkey (queue) and the worker.
 # Required variables are listed in .env.production.example; `${VAR:?...}` makes compose refuse to start without them.
 # Networks: `backend` has NO route to the outside (internal: true) and holds PostgreSQL; `edge` is the only network Caddy is on.
 name: storebuilder
@@ -28,7 +28,7 @@ x-app-env: &app-env
   S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?set S3_PUBLIC_BASE_URL}
 
 # The NestJS API and everything that touches data: database, object storage, the session-signing secret. Also used by the one-shot
-# migrate job and the scheduler, which run the same code. TRUST_PROXY_HOPS=1: the web app (or Caddy) is the one hop that reports the client address.
+# migrate job and the worker, which run the same code. TRUST_PROXY_HOPS=1: the web app (or Caddy) is the one hop that reports the client address.
 x-api-env: &api-env
   NODE_ENV: production
   APP_ROOT_DOMAIN: ${APP_ROOT_DOMAIN:?set APP_ROOT_DOMAIN}
@@ -72,6 +72,29 @@ services:
       timeout: 5s
       retries: 10
     shm_size: 256mb
+
+  # Queue of the worker (phase 2.2, docs/async.md): Valkey (BSD, Redis-compatible), self-hosted, on the internal network only.
+  # The password comes from the environment (never a literal); AOF keeps queued jobs across restarts; BullMQ requires noeviction.
+  # The source of truth for events is PostgreSQL (outbox), so this volume needs no backup.
+  valkey:
+    <<: *hardening
+    image: valkey/valkey:8.1-alpine@sha256:9971099af41c36e887aabdfe22b80c0fe45df949163dfc9cb434febc57cfc3fc
+    # The official image starts as root to fix /data ownership, then drops to the valkey user.
+    cap_add: [CHOWN, SETGID, SETUID]
+    command: ["sh", "-c", "exec valkey-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction --requirepass \"$$VALKEY_PASSWORD\""]
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?set VALKEY_PASSWORD}
+    volumes:
+      - valkeydata:/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli --no-auth-warning -a \"$$VALKEY_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits: { memory: 384m }
 
   migrate:
     <<: *hardening
@@ -121,28 +144,35 @@ services:
       resources:
         limits: { memory: 1g }
 
-  scheduler:
+  worker:
     <<: *hardening
     build: { context: ., target: jobs }
     image: storebuilder-jobs:local
-    # init: a real PID 1 that forwards SIGTERM and reaps exited job processes. The scheduler runs through tsx directly (no pnpm
-    # wrapper), and each job runs in its own process group that a timeout kills as a whole (scripts/scheduler-process.ts).
+    # Outbox relay, domain-event consumers and the periodic maintenance jobs (phase 2.2; replaced the scheduler in 2.2b).
+    # init: a real PID 1 that forwards SIGTERM and reaps exited job processes. The worker runs through tsx directly (no pnpm
+    # wrapper), and each maintenance job runs in its own process group that a timeout kills as a whole (scripts/scheduler-process.ts).
     init: true
-    command: ["node_modules/.bin/tsx", "scripts/scheduler.ts"]
+    command: ["node_modules/.bin/tsx", "scripts/worker.ts"]
     environment:
       <<: *api-env
-      # Alerts (Bale, D14-3): only the scheduler sends them. Both empty = alerts off (logged); half or invalid = refuses to start.
+      # VALKEY_PASSWORD must be URL-safe (e.g. openssl rand -hex 32): it is embedded in the URL.
+      REDIS_URL: redis://:${VALKEY_PASSWORD:?set VALKEY_PASSWORD}@valkey:6379
+      # Alerts (Bale, D14-3): only the worker sends them. Both empty = alerts off (logged); half or invalid = refuses to start.
       BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}
       BALE_CHAT_ID: ${BALE_CHAT_ID:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
+      valkey: { condition: service_healthy }
     networks: [backend, edge]
     healthcheck:
-      test: ["CMD", "pnpm", "scheduler:health"]
+      test: ["CMD", "pnpm", "worker:health"]
       interval: 60s
       timeout: 20s
       retries: 3
       start_period: 90s
+    deploy:
+      resources:
+        limits: { memory: 512m }
 
   caddy:
     <<: *hardening
@@ -175,5 +205,6 @@ networks:
 
 volumes:
   pgdata:
+  valkeydata:
   caddy_data:
   caddy_config:

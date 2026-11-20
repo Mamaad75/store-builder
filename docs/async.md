@@ -49,6 +49,7 @@ pnpm test:queue                 # تست یکپارچه با Valkey واقعی (
 
 ## وضعیت
 * **۲.۲a (انجام شد):** جدول OutboxEvent، recordEvent، relay، صف BullMQ روی Valkey، فرایند worker، رویداد `store.published`، تست‌ها و گاردها.
-* **۲.۲b (بعدی):** کارهای دوره‌ای scheduler (`media-cleanup`، `db-cleanup`) به Job Scheduler صف منتقل می‌شوند، پاک‌سازی ردیف‌های outbox
-  منتشرشده‌ی قدیمی اضافه می‌شود، و سرویس‌های `valkey` و `worker` جای `scheduler` را در `docker-compose.prod.yml` می‌گیرند (فقط فایل؛ هیچ
-  استقراری بدون تأیید انجام نمی‌شود).
+* **۲.۲b (انجام شد):** کارهای دوره‌ای (`media-cleanup` هر ۳۰ دقیقه، `db-cleanup` هر ۱۵ دقیقه) حالا Job Scheduler صف `maintenance` هستند
+  (همزمانی سراسری ۱: حتی با چند worker هیچ اجرایی با دیگری هم‌پوشانی ندارد)؛ `db-cleanup` رویدادهای منتشرشده‌ی قدیمی‌تر از ۷ روز را پاک می‌کند
+  (منتشرنشده‌ها هرگز)؛ در `docker-compose.prod.yml` سرویس‌های `valkey` (رمز از محیط، فقط شبکه‌ی داخلی، digest) و `worker` جای `scheduler` را
+  گرفتند (فقط فایل؛ هیچ استقراری بدون تأیید انجام نمی‌شود). سلامت: `pnpm worker:health`. تصمیم‌ها: D22-1 و D22-2 در `docs/decisions.md`.

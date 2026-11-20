@@ -10,7 +10,7 @@ DC="docker compose -f docker-compose.prod.yml --env-file .env.production"
 
 ## Stack
 `caddy` (TLS edge, only published ports 80/443) → `app` (Next.js standalone, port 3000 on the edge network) → `api` (NestJS, port 4000, internal network only: sign-in, sessions) → `postgres` (internal network only). `app` starts only when `api` is healthy.
-`migrate` is a one-shot job (`prisma migrate deploy` + idempotent theme seed) that must finish before `app` and `scheduler` start. `scheduler` runs
+`migrate` is a one-shot job (`prisma migrate deploy` + idempotent theme seed) that must finish before `app` and `worker` start (`worker` also waits for a healthy `valkey`; phase 2.2, docs/async.md). `worker` runs
 the media cleanup every 30 min and the db cleanup every 15 min (the same scripts as `pnpm media:cleanup` / `pnpm db:cleanup`, started through `tsx`
 directly). Object storage is external (`S3_*`).
 `/api/ready` results are shared for 5 s per app process (concurrent requests share one probe), so a dependency coming back or going away shows
@@ -19,7 +19,7 @@ up within 5 s; it is public, and this keeps request volume from driving database
 ## Deploy / update
 1. `git fetch && git checkout <release commit>` (a commit whose CI run is green, including the container job).
 2. Take a backup first (below). `$DC build`.
-3. `$DC up -d`. Compose reruns `migrate` (a no-op when nothing is pending), then recreates `app`/`scheduler` whose image changed.
+3. `$DC up -d`. Compose reruns `migrate` (a no-op when nothing is pending), then recreates `app`/`worker` whose image changed.
 4. Verify: `curl -fsS https://<root>/api/ready` → `{"status":"ready",…}`; `$DC ps` shows `api`, `app`, `postgres` healthy; `$DC logs --since 5m app scheduler | grep '"level":"error"'` is empty.
 
 Migrations are forward-only. A migration that cannot be undone by the application version before it must say so in its pull request; take the backup immediately before.
@@ -47,15 +47,15 @@ The target name must be a plain identifier (letters, digits, underscore). It ver
 The same flow runs automatically in CI against the smoke stack (counts compared with the live smoke database).
 
 ## Scheduler and the media-cleanup gate
-`$DC logs scheduler` shows one JSON line per run: `job.start`, then `job.finish` (info) or `job.failed` (**error**, with `exitCode`, `class`: `failed_items` = exit 2, `crashed`, `timeout`, and `consecutiveFailures`). A failed run is simply retried at the next interval; a failed item stays in the database and is retried too.
+The maintenance jobs are triggered by BullMQ Job Schedulers stored in Valkey (phase 2.2b; global concurrency 1, so no run overlaps another, even with several workers). `$DC logs worker` shows one JSON line per run: `job.start`, then `job.finish` (info) or `job.failed` (**error**, with `exitCode`, `class`: `failed_items` = exit 2, `crashed`, `timeout`, and `consecutiveFailures`). A failed run is simply retried at the next interval; a failed item stays in the database and is retried too.
 Each job runs in its own process group: a `timeout` kills the whole job tree (no orphaned job can keep running into the next run), and stopping the container sends SIGTERM to every running job (`init: true` forwards signals and reaps processes).
-Health: `$DC exec scheduler pnpm scheduler:health` (exit 1 when a job has not **succeeded** for 3 intervals; compose uses it as the container health check). Manual run: `$DC run --rm --no-deps scheduler pnpm media:cleanup`.
-This covers items 1 and 2 of the phase 14 gate (D10-13) mechanically. **Still phase 14:** shipping the `job.failed` / `scheduler.unhealthy` / `media.*_failed` lines to a log pipeline with an alert, proving recovery of an injected failure in staging, and testing the scheduled job in staging before production.
+Health: `$DC exec worker pnpm worker:health` (exit 1 when a job has not **succeeded** for 3 intervals; compose uses it as the container health check). Manual run: `$DC run --rm --no-deps worker pnpm media:cleanup`. Valkey down = no job runs, so the same health check turns unhealthy; events are not lost (they wait in the `OutboxEvent` table).
+This covers items 1 and 2 of the phase 14 gate (D10-13) mechanically. **Still phase 14:** shipping the `job.failed` / `worker.unhealthy` / `media.*_failed` lines to a log pipeline with an alert, proving recovery of an injected failure in staging, and testing the scheduled job in staging before production.
 
 ## Alerts (Bale, D14-3)
-* **Set up:** create a bot with `@botfather` in Bale, put `BALE_BOT_TOKEN` and `BALE_CHAT_ID` (the chat or group that receives alerts) into `.env.production`, `$DC up -d scheduler`, then prove the channel: `$DC run --rm --no-deps scheduler pnpm alert:test` (exit 0 only when Bale accepted the message).
-* **What alerts today:** every failed scheduled run (`job.failed`, with job, exit code, class and failure streak) and the first success after failures (`job.recovered`), from the scheduler; a failed backup through `BACKUP_FAILURE_HOOK=scripts/notify-bale.sh` (host side, needs `curl` and the same two variables in the host environment of the backup cron job).
-* **Not yet alerting:** a scheduler that is down altogether, `scanTruncated` on consecutive runs and readiness failures: add an external uptime monitor on `https://<root>/api/ready` and keep the container health check; these remain items of the phase 14 monitoring checklist.
+* **Set up:** create a bot with `@botfather` in Bale, put `BALE_BOT_TOKEN` and `BALE_CHAT_ID` (the chat or group that receives alerts) into `.env.production`, `$DC up -d worker`, then prove the channel: `$DC run --rm --no-deps worker pnpm alert:test` (exit 0 only when Bale accepted the message).
+* **What alerts today:** every failed scheduled run (`job.failed`, with job, exit code, class and failure streak) and the first success after failures (`job.recovered`), an outbox event stuck after 10 publish attempts (`outbox.stuck`) and an event whose consumer used up all attempts (`event.dead`), from the worker; a failed backup through `BACKUP_FAILURE_HOOK=scripts/notify-bale.sh` (host side, needs `curl` and the same two variables in the host environment of the backup cron job).
+* **Not yet alerting:** a worker that is down altogether, `scanTruncated` on consecutive runs and readiness failures: add an external uptime monitor on `https://<root>/api/ready` and keep the container health check; these remain items of the phase 14 monitoring checklist.
 * Both variables empty = alerts off (the scheduler logs `alert.disabled`); half or malformed values stop the scheduler at start (`startup.refused`, names only). The token is part of the request URL, so no URL is ever logged; a failed delivery is one `alert.failed` line and never fails the job.
 
 ## Secrets
