@@ -1,5 +1,7 @@
 # Roadmap
 
+> **Product direction from 2026-11-20 (`docs/adr/0002-commerce-saas-architecture.md`, proposed):** the platform becomes a full commerce SaaS on par with Mixin, Sazito and Wepido (cart, checkout, Iranian payment gateways, orders, shipping, OTP customers, discounts, Torob/Emalls feeds, custom domains, subscriptions) for 1000+ merchants. Phase 1 there = the NestJS migration (done); phase 2 = SaaS foundations; phase 3 = commerce core; phase 4 = staging (former phase 14); then growth, platform billing and launch. The phase table below is the history of the catalogue MVP.
+
 > **Paths (migration of 2026-11-19, `docs/migration-plan.md`):** `src/modules/*`, `src/lib/storage`, `src/lib/db.ts`, `src/test/*`, `prisma/` and `scripts/` mentioned below now live in `apps/api/…`; pure template, SEO, text and helper code lives in `packages/shared/src/…`; Server Actions, pages and components stay in `apps/web/src/…`. Names and behaviour are unchanged.
 
 Status legend: **Done** = implemented, tested and reviewed; **Implemented** = implemented and tested, awaiting review or first CI run; **Next** = approved and queued; **Planned** = not started.

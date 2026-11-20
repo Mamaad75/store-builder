@@ -32,6 +32,8 @@ CI fails on any HIGH or CRITICAL advisory in production dependencies (`pnpm audi
 
 * **GHSA-ggr8-5vv4-36mx** (`deepmerge-ts < 8`, stack exhaustion on recursive object graphs), reached only through `@prisma/client > prisma > @prisma/config`, i.e. Prisma's own CLI configuration loading. It merges trusted, developer-written configuration; no request data ever reaches it. Remove the entry when Prisma ships a patched dependency (check on every Prisma upgrade).
 
+**Override instead of an exception (2026-11-20):** **GHSA-7589-6fvf-x4pw** (high, ReDoS in `effect` ≤ 3.22.0) arrives on the same Prisma path. Every Prisma release, 7.x included, pins the vulnerable `effect`, so `pnpm.overrides` in the root `package.json` forces the patched **3.22.4** (Prisma generate, migrate and seed verified with it). Drop the override once Prisma depends on a patched `effect` itself.
+
 ## Containers
 Runtime image: non-root `node` user, standalone output only (no sources, no dev dependencies, no `.env`), read-only root filesystem with tmpfs for `/tmp` and the Next cache, all capabilities dropped, `no-new-privileges`, memory limit. PostgreSQL sits on an `internal: true` network and publishes no port. Only Caddy publishes 80/443. Base images are pinned by digest (Dependabot proposes updates). The images are rebuilt from the lockfile; nothing is pulled at run time.
 
