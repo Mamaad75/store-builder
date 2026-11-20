@@ -5,7 +5,7 @@
   "description": "NestJS (Express) backend service (ADR 0001, step N2): skeleton with configuration, logging, health/readiness and the HTTP security baseline",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "tsx src/main.ts",
+    "dev": "tsx --env-file=.env src/main.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",

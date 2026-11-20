@@ -19,17 +19,16 @@ Two processes (plus PostgreSQL and an S3-compatible server):
 ```bash
 pnpm install
 cp apps/web/.env.example apps/web/.env.local
+cp apps/api/.env.example apps/api/.env
 pnpm db:up          # PostgreSQL + MinIO (needs Docker)
 pnpm db:generate && pnpm db:deploy && pnpm db:seed   # Prisma client, migrations, templates (all in apps/api)
 pnpm shared:build   # once, and again after changing packages/shared (`pnpm shared:dev` watches)
-# terminal 1: the API on http://localhost:4000
-DATABASE_URL=postgresql://storebuilder:storebuilder@localhost:5432/storebuilder NODE_ENV=development \
-  S3_ENDPOINT=http://localhost:9000 S3_BUCKET=store-builder-media S3_ACCESS_KEY_ID=minioadmin S3_SECRET_ACCESS_KEY=minioadmin \
-  S3_PUBLIC_BASE_URL=http://localhost:9000/store-builder-media pnpm api:dev
+# terminal 1: the API on http://localhost:4000 (reads apps/api/.env, copy it from apps/api/.env.example)
+pnpm api:dev
 # terminal 2: the web app on http://localhost:3000  (stores: http://<name>.localhost:3000)
 pnpm dev
 ```
-(PowerShell: set the variables with `$env:NAME = "value"` first.) Without S3 settings the API still starts in development; uploads and `/api/ready` then report storage as unavailable.
+Without S3 settings the API still starts in development; uploads and `/api/ready` then report storage as unavailable.
 
 **Developing from Iran:** Docker Hub answers 403 to Iranian networks, so `pnpm db:up` cannot pull its images directly. Add a domestic
 registry mirror to the Docker daemon (Docker Desktop: Settings → Docker Engine), for example
