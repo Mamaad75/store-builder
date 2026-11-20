@@ -1,38 +1,21 @@
-<<<<<<< HEAD
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@/auth';
+import { readSessionCookie } from '@/lib/session-cookie';
 import { getAppEnv } from '@/lib/env';
 import { securityHeaders } from '@/lib/security-headers';
 import { getHostPolicy } from '@/lib/host-policy';
 import { normalizeHostHeader } from '@/lib/hostname';
 import { STORE_ROUTE_PREFIX, decideRoute } from '@/lib/store-routing';
 import { resolveProductRedirect } from '@/modules/publishing/public-read';
-=======
-import { NextResponse, type NextRequest } from "next/server";
-import { readSessionCookie } from "@/lib/session-cookie";
-import { getAppEnv } from "@/lib/env";
-import { securityHeaders } from "@/lib/security-headers";
-import { getHostPolicy } from "@/lib/host-policy";
-import { normalizeHostHeader } from "@/lib/hostname";
-import { STORE_ROUTE_PREFIX, decideRoute } from "@/lib/store-routing";
-import { resolveProductRedirect } from "@/modules/publishing/public-read";
->>>>>>> b5bd5e0f3a2e7267efc0e1d48820bb1903b0113a
 
 /**
  * Early redirect for dashboard and draft-preview requests without a session cookie. This is a convenience layer only (it does not
  * validate the token): authorisation is enforced again on the server in layouts/actions via requireUser(), which asks the API.
  */
-<<<<<<< HEAD
-const requireSession = auth((req) => {
-  if (!req.auth?.user?.id) {
-    const url = new URL('/login', req.nextUrl.origin);
-    url.searchParams.set('callbackUrl', req.nextUrl.pathname);
-=======
+
 function requireSession(req: NextRequest): NextResponse {
   if (!readSessionCookie((n) => req.cookies.get(n)?.value)) {
-    const url = new URL("/login", req.nextUrl.origin);
-    url.searchParams.set("callbackUrl", req.nextUrl.pathname);
->>>>>>> b5bd5e0f3a2e7267efc0e1d48820bb1903b0113a
+    const url = new URL('/login', req.nextUrl.origin);
+    url.searchParams.set('callbackUrl', req.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
   return NextResponse.next();
@@ -84,31 +67,19 @@ async function route(req: NextRequest): Promise<Response> {
   }
 
   const p = req.nextUrl.pathname;
-<<<<<<< HEAD
+
   if (p.startsWith('/dashboard') || p.startsWith('/preview'))
-    return (
-      requireSession as unknown as (
-        r: NextRequest,
-        e: never,
-      ) => Promise<Response>
-    )(req, ev);
-=======
-  if (p.startsWith("/dashboard") || p.startsWith("/preview")) return requireSession(req);
->>>>>>> b5bd5e0f3a2e7267efc0e1d48820bb1903b0113a
+    return requireSession(req);
   return NextResponse.next();
 }
 
 /** Every response, whichever branch produced it (rewrite, redirect, 404, next), carries the platform's security headers. */
-<<<<<<< HEAD
-export async function proxy(req: NextRequest, ev: never) {
-  const res = await route(req, ev);
-  for (const [k, v] of Object.entries(securityHeaders(process.env)))
-    res.headers.set(k, v);
-=======
+
 export async function proxy(req: NextRequest) {
   const res = await route(req);
-  for (const [k, v] of Object.entries(securityHeaders(process.env))) res.headers.set(k, v);
->>>>>>> b5bd5e0f3a2e7267efc0e1d48820bb1903b0113a
+  for (const [k, v] of Object.entries(securityHeaders(process.env)))
+    res.headers.set(k, v);
+
   return res;
 }
 
