@@ -6,7 +6,7 @@ import type {
   CategoryDto, DraftPreviewDto, EditResultDto, Jsonify, LiveStoreDto, OnboardingFactDto, PageEditorViewDto, PageSummaryDto, ProductDto, ProductListDto,
   PublishResultDto, PublishStateDto, StoreDto, SubdomainStateDto, TemplateOptionDto, VersionDto,
 } from "@store-builder/shared/dto/index";
-import type { listCategories } from "./modules/categories/service.js";
+import type { CategoryService } from "./modules/categories/categories.api.js";
 import type { getPageEditor, listPages, addSection } from "./modules/pages/service.js";
 import type { getProduct, listProducts } from "./modules/products/service.js";
 import type { getPublishState, listVersions, publishStore } from "./modules/publishing/service.js";
@@ -23,7 +23,7 @@ type Assert<T extends true> = T;
 export type _31546 = Assert<Same<Resolved<typeof getStore>, StoreDto>>;
 export type _79929 = Assert<Same<Resolved<typeof listActiveTemplates>, TemplateOptionDto[]>>;
 export type _62335 = Assert<Same<Resolved<typeof getOnboardingFacts>, OnboardingFactDto[]>>;
-export type _23509 = Assert<Same<Resolved<typeof listCategories>, CategoryDto[]>>;
+export type _23509 = Assert<Same<Resolved<CategoryService["list"]>, CategoryDto[]>>;
 export type _36355 = Assert<Same<Resolved<typeof getProduct>, ProductDto>>;
 export type _30231 = Assert<Same<Resolved<typeof listProducts>, ProductListDto>>;
 export type _50896 = Assert<Same<Resolved<typeof addSection>, EditResultDto>>;

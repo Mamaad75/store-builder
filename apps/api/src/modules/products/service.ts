@@ -4,7 +4,7 @@ import { liveSlugOf } from "../publishing/repository.js";
 import { specsUnchanged } from "@store-builder/shared/lib/product-specs";
 import { makeSearchKey, normalizeSearchQuery, slugify, uniqueSlug } from "@store-builder/shared/lib/text";
 import { mapCatalogDbError } from "../catalog-errors.js";
-import { findInTx as findCategoryInTx } from "../categories/repository.js";
+import { findCategoryInTx } from "../categories/categories.api.js";
 import { releaseMediaBestEffort } from "../media/service.js";
 import { CatalogLimitError, ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { withStoreMutation, type MutationContext } from "../stores/mutation.js";

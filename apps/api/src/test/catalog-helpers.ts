@@ -1,3 +1,4 @@
+import { createCategoryService, type CategoryService } from "../modules/categories/categories.api.js";
 import { createStore } from "../modules/stores/service.js";
 import { makeUser, prisma } from "./db-helpers.js";
 
@@ -23,3 +24,10 @@ export const snapshotRows = async (storeId: string) =>
   });
 
 export const validProduct = (over: Record<string, unknown> = {}) => ({ name: "چای سبز", price: 12500, stockQuantity: 5, ...over });
+
+// The category use cases as plain functions for the database tests (production code gets CategoryService through NestJS DI).
+const categoryService = createCategoryService();
+export const listCategories = (...a: Parameters<CategoryService["list"]>) => categoryService.list(...a);
+export const createCategory = (...a: Parameters<CategoryService["create"]>) => categoryService.create(...a);
+export const updateCategory = (...a: Parameters<CategoryService["update"]>) => categoryService.update(...a);
+export const deleteCategory = (...a: Parameters<CategoryService["delete"]>) => categoryService.delete(...a);

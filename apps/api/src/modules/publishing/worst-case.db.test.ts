@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeSearchKey } from "@store-builder/shared/lib/text";
 import { updateProduct } from "../products/service.js";
 import { updateStore } from "../stores/service.js";
-import { createCategory } from "../categories/service.js";
+import { createCategory } from "../../test/catalog-helpers.js";
 import { prisma, resetDb } from "../../test/db-helpers.js";
 import { draftRevisionOf, publishableStore } from "../../test/publish-helpers.js";
 import { DEFAULT_PUBLISH_LIMITS, setPublishHooksForTests, setPublishLimitsForTests } from "./constants.js";

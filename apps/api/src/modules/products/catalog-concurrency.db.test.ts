@@ -1,7 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma, resetDb } from "../../test/db-helpers.js";
-import { revision, twoTenants, validProduct } from "../../test/catalog-helpers.js";
-import { createCategory, deleteCategory } from "../categories/service.js";
+import { createCategory, deleteCategory, revision, twoTenants, validProduct } from "../../test/catalog-helpers.js";
 import { CatalogLimitError, CategoryNotEmptyError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { changeProductStatus, createProduct, deleteProduct, updateProduct } from "./service.js";
 

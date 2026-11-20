@@ -1,6 +1,9 @@
 import type { Prisma } from "@prisma/client";
-import { db } from "../../lib/db.js";
-import type { MutationContext } from "../stores/mutation.js";
+import { db } from "../../../lib/db.js";
+import type { MutationContext } from "../../stores/stores.api.js";
+import type { CategoryView } from "../application/ports.js";
+
+// Row-level Prisma access for categories: the only file of the module that reaches the database.
 
 export const categorySelect = {
   id: true,
@@ -10,7 +13,6 @@ export const categorySelect = {
   _count: { select: { products: true } },
 } satisfies Prisma.ProductCategorySelect;
 
-export type CategoryView = Prisma.ProductCategoryGetPayload<{ select: typeof categorySelect }>;
 
 /** Reads are bound to the owner through the store relation, in SQL. */
 export class CategoryRepository {

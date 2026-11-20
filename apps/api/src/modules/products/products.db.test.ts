@@ -1,7 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma, resetDb } from "../../test/db-helpers.js";
-import { revision, snapshotRows, twoTenants, validProduct } from "../../test/catalog-helpers.js";
-import { createCategory } from "../categories/service.js";
+import { createCategory, revision, snapshotRows, twoTenants, validProduct } from "../../test/catalog-helpers.js";
 import { CatalogLimitError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import {
   type GetPublishedSlug,

@@ -1,10 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { BUSINESS_CATEGORIES } from "@store-builder/shared/lib/business-categories";
-import { createCategory } from "../categories/service.js";
+import { createCategory, revision, snapshotRows, validProduct } from "../../test/catalog-helpers.js";
 import { createProduct } from "../products/service.js";
 import { getDraftPreview } from "../storefront/service.js";
 import { allThemes } from "@store-builder/shared/templates/theme-catalog";
-import { revision, snapshotRows, validProduct } from "../../test/catalog-helpers.js";
 import { makeUnregisteredThemeStore, makeUser, prisma, resetDb } from "../../test/db-helpers.js";
 import { ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { createStore, listActiveTemplates, updateBusinessCategory, updateStore } from "./service.js";

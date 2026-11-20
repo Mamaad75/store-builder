@@ -2,36 +2,13 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UseGuards }
 import { SessionGuard } from "../../auth/session.guard.js";
 import type { SafeUser } from "../../auth/ports.js";
 import { CurrentUser } from "../../http/current-user.js";
-import { createCategory, deleteCategory, listCategories, updateCategory } from "../categories/service.js";
 import { changeProductStatus, createProduct, deleteProduct, getProduct, listProducts, updateProduct } from "../products/service.js";
 import { parseProductListParams } from "@store-builder/shared/modules/products/schemas";
 
-/** Categories and products of one store (owner-scoped in the services). */
+/** Products of one store (owner-scoped in the services). Categories: modules/categories/interface/categories.controller.ts. */
 @Controller("stores/:storeId")
 @UseGuards(SessionGuard)
 export class CatalogController {
-  @Get("categories")
-  categories(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string) {
-    return listCategories(user.id, storeId);
-  }
-
-  @Post("categories")
-  @HttpCode(201)
-  addCategory(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Body() body: unknown) {
-    return createCategory(user.id, storeId, body);
-  }
-
-  @Patch("categories/:categoryId")
-  renameCategory(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Param("categoryId") id: string, @Body() body: unknown) {
-    return updateCategory(user.id, storeId, id, body);
-  }
-
-  @Post("categories/:categoryId/delete")
-  @HttpCode(200)
-  removeCategory(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Param("categoryId") id: string, @Body() body: unknown) {
-    return deleteCategory(user.id, storeId, id, body ?? { moveProducts: false });
-  }
-
   @Get("products")
   products(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Query() query: Record<string, string | string[] | undefined>) {
     return listProducts(user.id, storeId, parseProductListParams(query));

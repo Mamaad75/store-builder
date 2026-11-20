@@ -12,6 +12,7 @@ import { createPrismaClient } from "./database/prisma-client.js";
 import { PostgresRateLimiter } from "./database/rate-limiter.js";
 import { PrismaUserRepository } from "./database/user.repository.js";
 import { CatalogController } from "./modules/catalog/catalog.controller.js";
+import { CategoriesModule } from "./modules/categories/categories.module.js";
 import { MediaController } from "./modules/media/media.controller.js";
 import { PagesController } from "./modules/pages/pages.controller.js";
 import { PublishingController } from "./modules/publishing/publishing.controller.js";
@@ -58,9 +59,12 @@ export class AppModule {
     }
     return {
       module: AppModule,
+      // Global, so the feature modules (ADR 0002 layout) resolve SessionGuard and its dependencies without importing AppModule back.
+      global: true,
+      imports: [CategoriesModule],
       controllers: [HealthController, AuthController, StoresController, CatalogController, PagesController, MediaController, PublishingController, PublicStoresController, ...(overrides.extraControllers ?? [])],
       providers,
-      exports: [CONFIG, LOGGER, DATABASE],
+      exports: [CONFIG, LOGGER, DATABASE, AuthService, SessionGuard],
     };
   }
 }

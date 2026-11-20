@@ -1,10 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma, resetDb } from "../../test/db-helpers.js";
-import { revision, snapshotRows, twoTenants, validProduct } from "../../test/catalog-helpers.js";
+import { createCategory, deleteCategory, listCategories, revision, snapshotRows, twoTenants, updateCategory, validProduct } from "../../test/catalog-helpers.js";
 import { CatalogLimitError, CategoryNotEmptyError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { createProduct } from "../products/service.js";
-import { CategoryRepository } from "./repository.js";
-import { createCategory, deleteCategory, listCategories, updateCategory } from "./service.js";
+import { CategoryRepository } from "./infrastructure/prisma-category.repository.js";
 
 beforeEach(resetDb);
 afterAll(() => prisma.$disconnect());

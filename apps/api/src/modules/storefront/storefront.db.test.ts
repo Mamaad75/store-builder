@@ -1,11 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { createCategory, updateCategory } from "../categories/service.js";
+import { createCategory, revision, snapshotRows, twoTenants, updateCategory, validProduct } from "../../test/catalog-helpers.js";
 import { changeProductStatus, createProduct, updateProduct } from "../products/service.js";
 import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 import { createStore } from "../stores/service.js";
 import { resolveStorefrontRoute } from "@store-builder/shared/templates/engine/route";
 import { storefrontDataSchema } from "@store-builder/shared/templates/storefront-data";
-import { revision, snapshotRows, twoTenants, validProduct } from "../../test/catalog-helpers.js";
 import { makeMedia, makeUnregisteredThemeStore, makeUser, prisma, publishStore, resetDb } from "../../test/db-helpers.js";
 import { DraftStorefrontRepository } from "./repository.js";
 import { readPublishedStorefront } from "./published.js";

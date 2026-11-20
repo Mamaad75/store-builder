@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../lib/db.js";
-import { createCategory } from "../categories/service.js";
+import { createCategory } from "../../test/catalog-helpers.js";
 import { setPublishHooksForTests, setPublishLimitsForTests } from "../publishing/constants.js";
 import { publishStore } from "../publishing/service.js";
 import { updateProduct } from "../products/service.js";

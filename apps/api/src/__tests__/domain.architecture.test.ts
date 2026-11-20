@@ -25,13 +25,13 @@ describe("architecture guard: tenant data is only reachable through the owner-sc
       "src/modules/stores/service.ts",
     ]);
     expect(rel(files("src/modules/products").filter(touchesDb))).toEqual(["src/modules/products/repository.ts"]);
-    expect(rel(files("src/modules/categories").filter(touchesDb))).toEqual(["src/modules/categories/repository.ts"]);
+    expect(rel(files("src/modules/categories").filter(touchesDb))).toEqual(["src/modules/categories/infrastructure/prisma-category.repository.ts"]);
   });
 
 });
 
 describe("architecture guard: catalog writes go through withStoreMutation", () => {
-  const catalogRepos = ["src/modules/products/repository.ts", "src/modules/categories/repository.ts"];
+  const catalogRepos = ["src/modules/products/repository.ts", "src/modules/categories/infrastructure/prisma-category.repository.ts"];
 
   it("product and category rows are only written inside the two catalog repositories", () => {
     const writes = /\.(product|productCategory)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/;

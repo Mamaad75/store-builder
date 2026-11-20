@@ -6,7 +6,27 @@
 
 ## [منتشرنشده]
 
-### 2026-11-20 — طرح معماری هدف: فروشگاه‌ساز SaaS برای ۱۰۰۰+ فروشنده (ADR 0002، منتظر تأیید)
+### 2026-11-20 — فاز ۲.۱: قرارداد لایه‌های ماژول، گارد مرزها و ماژول مرجع `categories`
+* **چرا:** ADR 0002 (حالا پذیرفته‌شده) هر ماژول را لایه‌ای (domain / application / infrastructure / interface) می‌خواهد و ارتباط بین ماژول‌ها را فقط از
+  راه رابط عمومی. بدون گارد خودکار، این قاعده با اولین ماژول جدید (سفارش، پرداخت) می‌شکند.
+* **چه:**
+  * `docs/architecture/modules.md`: قرارداد کامل: چیدمان پوشه‌ها، جدول importهای مجاز هر لایه، Unit of Work، خطاهای قرارداد port، الگوی تست، چک‌لیست ماژول جدید.
+  * گارد جدید `apps/api/src/__tests__/module-boundaries.architecture.test.ts` (۱۰ آزمون): domain و application بدون Nest/Prisma/HTTP؛ interface بدون
+    infrastructure و پایگاه‌داده؛ فقط infrastructure به پایگاه‌داده می‌رسد؛ ماژول دیگر فقط از `<module>.api.ts`؛ هر ماژول جدید باید لایه‌ای باشد و تست unit
+    داشته باشد؛ ماژول‌های قدیمی در فهرست ثابت `LEGACY` (فقط کوچک می‌شود). با تزریق عمدی ۴ تخلف بررسی شد که هر ۴ را می‌گیرد.
+  * `modules/categories` به ماژول مرجع تبدیل شد: `domain/category.ts` (قواعد خالص: سقف تعداد، یکتایی نام با نرمال‌سازی فارسی، slug)،
+    `application/` (`CategoryService` + portها: Reader، UnitOfWork، StoreOwnership، `DuplicateKeyError`/`StillReferencedError`)،
+    `infrastructure/` (همان repository قبلی بدون تغییر منطق + آداپتورهای روی `withStoreMutation`)، `interface/categories.controller.ts`، `categories.module.ts` (DI)،
+    `categories.api.ts`. مسیرهای HTTP و رفتار عوض نشده‌اند.
+  * `modules/stores/stores.api.ts`: رابط عمومی ماژول قدیمی stores (`withStoreMutation`، `MutationContext`، `getStore`). `products` دسته را از `categories.api.ts` می‌خواند.
+  * `AppModule` سراسری شد و `AuthService`/`SessionGuard` را export می‌کند تا ماژول‌های فرزند Guard نشست را resolve کنند.
+  * ADR 0002 به «پذیرفته‌شده» تغییر کرد.
+* **تفاوت رفتاری (فقط مسیرهای عملاً غیرممکن):** نقض FK هنگام ساخت/تغییر نام دسته (ممکن نیست، ردیف فروشگاه قفل است) دیگر به خطای اعتبارسنجی `categoryId`
+  ترجمه نمی‌شود.
+* **آزمون‌ها (محلی):** typecheck و lint API سالم؛ واحد API ۲۷۷ قبول (۲۳ آزمون جدید domain/application/گارد؛ همان ۲ رد قدیمی ویندوز `db-studio-guard`)؛
+  DB ۵۰۲ قبول (همان ۲ رد `pg_dump` نسخه‌ی ۱۸؛ شامل `categories.db.test.ts` و مسیرهای HTTP دسته در `domain-http.db.test.ts`). E2E در CI.
+
+### 2026-11-20 — طرح معماری هدف: فروشگاه‌ساز SaaS برای ۱۰۰۰+ فروشنده (ADR 0002)
 * **چه:** `docs/adr/0002-commerce-saas-architecture.md`: خط پایه‌ی بازار از بررسی میکسین، سازیتو و وپیدو؛ یکپارچه‌ی ماژولار NestJS با لایه‌های Clean
   Architecture در هر ماژول؛ ۱۶ ماژول هدف؛ جداسازی مستأجر با `storeId` + Row-Level Security؛ دو جمعیت کاربر (فروشنده با نقش، مشتری با OTP)؛ طراحی
   پرداخت (port و آداپتور، تأیید سمت سرور، idempotency، رمزنگاری کلید درگاه)؛ سفارش و موجودی؛ Redis، BullMQ و Outbox؛ `/api/v1` با OpenAPI؛ دامنه‌ی
