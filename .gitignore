@@ -150,3 +150,6 @@ playwright-report/
 # compiled output next to sources must never be committed
 apps/api/prisma/*.js
 apps/api/prisma/*.js.map
+
+# This is a pnpm workspace: an npm lockfile is always an accident (e.g. a stray `npm install`).
+package-lock.json

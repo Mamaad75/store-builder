@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -9,7 +9,8 @@ function files(dir: string): string[] {
     return statSync(p).isDirectory() ? (n === "__tests__" || n === "test" ? [] : files(p)) : p.endsWith(".ts") && !p.endsWith(".test.ts") ? [p] : [];
   });
 }
-const src = files(ROOT).map((p) => ({ p: p.slice(ROOT.length + 1), text: readFileSync(p, "utf8") }));
+// Relative paths always use "/" so the expectations below hold on Windows checkouts too (path.join yields "\" there).
+const src = files(ROOT).map((p) => ({ p: p.slice(ROOT.length + 1).split(sep).join("/"), text: readFileSync(p, "utf8") }));
 
 describe("architecture guards", () => {
   it("only config/env.ts reads process.env (main.ts passes it in once; the jobs read theirs in scripts/)", () => {
