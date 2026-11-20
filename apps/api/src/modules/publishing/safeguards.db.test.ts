@@ -287,7 +287,7 @@ describe("one consistent draft state per snapshot, under concurrent draft writes
 });
 
 describe("the lock-hold budget covers EVERY step, including everything after the large snapshot INSERT", () => {
-  const STEPS = ["checks", "rate-limit", "read-draft", "build", "serialize", "no-op-check", "number", "insert-version", "insert-products", "reserve-slugs", "pointer", "deferred-work", "commit-fence"];
+  const STEPS = ["checks", "rate-limit", "read-draft", "build", "serialize", "no-op-check", "number", "insert-version", "insert-products", "reserve-slugs", "pointer", "outbox", "deferred-work", "commit-fence"];
 
   it.each(STEPS)("a delay at step %s that exhausts the budget rolls everything back and releases the lock", async (step) => {
     const s = await publishableStore({ products: 2 });

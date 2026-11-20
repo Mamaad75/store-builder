@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EnvError, loadConfig } from "../config/env.js";
+import { EnvError, loadConfig, loadWorkerConfig } from "../config/env.js";
 
 const prod = {
   NODE_ENV: "production",
@@ -69,6 +69,28 @@ describe("loadConfig", () => {
     } catch (e) {
       expect((e as Error).message).not.toContain("SECRETPW");
       expect((e as Error).message).not.toContain(prod.AUTH_SECRET);
+    }
+  });
+});
+
+describe("loadWorkerConfig (phase 2.2)", () => {
+  const worker = { NODE_ENV: "production", DATABASE_URL: "postgresql://u:SECRETPW@db:5432/x", REDIS_URL: "redis://:QUEUEPW@valkey:6379" };
+  it("accepts a production configuration with a password-protected queue", () => {
+    expect(loadWorkerConfig(worker)).toMatchObject({ production: true, redisUrl: worker.REDIS_URL });
+  });
+  it("defaults to the local Valkey only in development", () => {
+    expect(loadWorkerConfig({ NODE_ENV: "development", DATABASE_URL: worker.DATABASE_URL }).redisUrl).toBe("redis://localhost:6379");
+    expect(() => loadWorkerConfig({ NODE_ENV: "production", DATABASE_URL: worker.DATABASE_URL })).toThrow(EnvError);
+  });
+  it("refuses a production queue without a password, and a non-redis URL; problems name variables, never values", () => {
+    for (const REDIS_URL of ["redis://valkey:6379", "http://valkey:6379"]) {
+      try {
+        loadWorkerConfig({ ...worker, REDIS_URL });
+        expect.unreachable(REDIS_URL);
+      } catch (e) {
+        expect((e as EnvError).problems.join(" ")).toMatch(/^REDIS_URL/);
+        expect((e as Error).message).not.toMatch(/SECRETPW|valkey:6379/);
+      }
     }
   });
 });

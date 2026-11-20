@@ -259,6 +259,28 @@ model RateLimitBucket {
   @@index([resetAt])
 }
 
+/// Transactional outbox (ADR 0002 §2.8, phase 2.2). A domain event is inserted in the SAME transaction as the change it describes,
+/// so it exists exactly when the change committed; the worker's relay publishes it to the queue and stamps `publishedAt`.
+/// No foreign key to Store on purpose: an event must outlive its store (e.g. "store.deleted"), and the relay never joins.
+/// CHECK constraints (type format, attempts >= 0) live in the migration SQL.
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  /// "<context>.<event>", e.g. "store.published".
+  type        String    @db.VarChar(100)
+  payload     Json
+  storeId     String?
+  occurredAt  DateTime  @default(now())
+  /// Not published before this time: the relay's retry backoff after a failed publish.
+  availableAt DateTime  @default(now())
+  publishedAt DateTime?
+  attempts    Int       @default(0)
+  /// Fixed, non-sensitive description of the last publish failure (never a URL or a payload).
+  lastError   String?   @db.VarChar(200)
+
+  /// The relay's scan: unpublished rows that are due, oldest first.
+  @@index([publishedAt, availableAt])
+}
+
 /// Which slug each product has in each version. Immutable; written with the version.
 model StoreVersionProduct {
   versionId String

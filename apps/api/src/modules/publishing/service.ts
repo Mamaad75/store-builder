@@ -1,4 +1,5 @@
 import { log } from "../../lib/log.js";
+import { recordEvent } from "../../platform/outbox/outbox.js";
 import { z } from "zod";
 import { StorefrontBuildError, buildStorefrontData } from "../storefront/build.js";
 import { DraftStorefrontRepository } from "../storefront/repository.js";
@@ -132,6 +133,8 @@ export async function publishStore(ownerId: string, storeId: unknown, input: unk
         await budget.step("insert-products", () => insertVersionProducts(ctx, versionId, built.data.products.map((p) => ({ productId: p.id, slug: p.slug }))));
         await budget.step("reserve-slugs", () => reserveSlugs(ctx, built.data.products.map((p) => ({ id: p.id, name: p.name, slug: p.slug })), limits));
         await budget.step("pointer", () => setLive(ctx, versionId, now));
+        // In the same transaction: the event exists exactly when the new version went live (phase 2.2 outbox).
+        await budget.step("outbox", () => recordEvent(ctx, { type: "store.published", storeId: ctx.storeId, payload: { versionId, number } }));
         await budget.settleDeferred();
         await budget.fence();
         return { versionId, number, draftRevision: ctx.store.draftRevision, snapshotBytes: snap.bytes, contentHash: snap.hash, buildMs };

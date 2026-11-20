@@ -18,6 +18,23 @@ services:
       timeout: 3s
       retries: 10
 
+  # Queue backend (ADR 0002 §2.8, phase 2.2): Valkey = BSD-licensed, Redis-compatible; BullMQ requires `noeviction`.
+  # AOF keeps queued jobs across restarts. Bound to loopback only (no password in development).
+  valkey:
+    image: valkey/valkey:8.1-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      # Host port is configurable for machines that already run Redis on 6379 (then point REDIS_URL at the new port).
+      - "127.0.0.1:${VALKEY_HOST_PORT:-6379}:6379"
+    volumes:
+      - valkeydata:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   minio:
     image: bitnamilegacy/minio:2025.7.23 # upstream minio/minio is no longer on Docker Hub; DEVELOPMENT ONLY (unmaintained)
     restart: unless-stopped
@@ -55,3 +72,4 @@ services:
 volumes:
   pgdata:
   miniodata:
+  valkeydata:

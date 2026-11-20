@@ -6,6 +6,26 @@
 
 ## [منتشرنشده]
 
+### 2026-11-20 — فاز ۲.۲a: Outbox تراکنشی، صف BullMQ روی Valkey و فرایند worker
+* **چرا:** ADR 0002 §۲.۸. کارهای پس‌زمینه (پیامک، فید ترب، کش، تطبیق پرداخت در فازهای بعد) باید بدون کند کردن درخواست و **بدون گم شدن** انجام شوند.
+  تصمیم مالک: Valkey (BSD، سازگار با Redis، خودمیزبان؛ مناسب میزبانی ایران) به‌جای Redis 8 یا صف روی PostgreSQL. فعلاً هیچ چیز روی سرور نمی‌رود؛ همه‌ی تست‌ها محلی.
+* **چه:**
+  * زیرساخت محلی: سرویس `valkey` (8.1-alpine، AOF، `noeviction`، فقط loopback) در `docker-compose.yml`؛ image از mirror داخلی (docker.arvancloud.ir) آزموده شد.
+  * وابستگی‌ها (نسخه‌ی دقیق): `bullmq` 6.7.1 (۱۴ روز از انتشار)، `ioredis` 6.0.0. build script اختیاری `msgpackr-extract` اجرا نمی‌شود (نسخه‌ی JS خالص). `pnpm audit` تمیز.
+  * **Migration `20261120135415_phase2_outbox`** (فقط expand): جدول جدید `OutboxEvent` + ایندکس + CHECK برای قالب نوع رویداد و `attempts >= 0`؛ با `down.sql`.
+    روی پایگاه‌داده‌ی یک‌بارمصرف آزموده شد: اعمال، بررسی CHECK، نبودِ drift با schema، برگشت با down.sql، اعمال دوباره.
+  * `platform/outbox`: `recordEvent` (فقط داخل تراکنش، با امضای تابع اجبار می‌شود)، relay با claim + lease + `FOR UPDATE SKIP LOCKED`، backoff نمایی، هشدار بله.
+  * `platform/queue`: صف `domain-events` روی BullMQ، `jobId` = شناسه‌ی رویداد (ارسال تکراری نادیده گرفته می‌شود)، ۸ تلاش برای consumer، هشدار بعد از شکست نهایی.
+  * `src/worker` + `scripts/worker.ts` (`pnpm worker`): relay + consumerها؛ `loadWorkerConfig` (`REDIS_URL`؛ در production بدون رمز رد می‌شود).
+  * اولین رویداد: `store.published` در همان تراکنش انتشار (گام بودجه‌ی `outbox`)؛ consumer فعلاً فقط لاگ ساخت‌یافته می‌نویسد.
+  * گاردهای معماری: bullmq/ioredis فقط در `platform/queue`؛ فقط worker از صف استفاده می‌کند (API به Valkey وابسته نیست)؛ نوشتن outbox فقط در `platform/outbox`.
+  * CI: کار جدید `queue` با Valkey (سنجاق‌شده با digest)؛ `pnpm test:queue`. مستندات: `docs/async.md`، README.
+* **آزمون‌ها (محلی):** typecheck و lint سالم؛ واحد API ۲۹۲ قبول (همان ۲ رد ویندوزی)؛ DB ۵۱۰ قبول (همان ۲ رد `pg_dump` ۱۸؛ شامل ۷ تست جدید outbox و گام جدید
+  `outbox` در تست بودجه‌ی قفل)؛ صف ۵ از ۵ روی Valkey واقعی (تحویل، تحویل یک‌باره با ارسال تکراری، تلاش دوباره و هشدار، رویدادهای زمان خاموشی worker)؛
+  اجرای دستی `pnpm worker` روی پایگاه‌داده‌ی dev: رویداد درج‌شده در کمتر از ۲ ثانیه تحویل و ثبت شد.
+* **آزموده نشده:** توقف تمیز با Ctrl+C روی ویندوز (handler دارد؛ روی لینوکس/CI بررسی می‌شود)؛ E2E در CI.
+* **بعدی (۲.۲b):** انتقال کارهای scheduler به Job Scheduler صف، پاک‌سازی outbox قدیمی، و `valkey`/`worker` در compose تولید (فقط فایل).
+
 ### 2026-11-20 — فاز ۲.۱: قرارداد لایه‌های ماژول، گارد مرزها و ماژول مرجع `categories`
 * **چرا:** ADR 0002 (حالا پذیرفته‌شده) هر ماژول را لایه‌ای (domain / application / infrastructure / interface) می‌خواهد و ارتباط بین ماژول‌ها را فقط از
   راه رابط عمومی. بدون گارد خودکار، این قاعده با اولین ماژول جدید (سفارش، پرداخت) می‌شکند.

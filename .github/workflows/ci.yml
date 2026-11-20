@@ -82,6 +82,52 @@ jobs:
       - name: Database tests (API domain modules, REST API and scripts on real PostgreSQL)
         run: pnpm test:db
 
+  queue:
+    name: Queue tests (Valkey + PostgreSQL 16)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: storebuilder
+          POSTGRES_PASSWORD: storebuilder # throw-away value for this job's own container only
+          POSTGRES_DB: storebuilder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U storebuilder"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      valkey:
+        # Same server as docker-compose.yml (Valkey 8.1, BSD-licensed, Redis-compatible), pinned by digest.
+        image: valkey/valkey:8.1-alpine@sha256:9971099af41c36e887aabdfe22b80c0fe45df949163dfc9cb434febc57cfc3fc
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://storebuilder:storebuilder@localhost:5432/storebuilder
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm shared:build
+      - name: Queue integration tests (outbox relay -> BullMQ -> consumers, real Valkey)
+        run: pnpm test:queue
+
   storage:
     name: Storage tests (MinIO + PostgreSQL 16)
     runs-on: ubuntu-24.04

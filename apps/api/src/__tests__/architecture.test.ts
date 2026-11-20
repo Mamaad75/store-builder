@@ -24,6 +24,19 @@ describe("architecture guards", () => {
   it("only files under database/ import the Prisma client as a value (CommonJS: type imports elsewhere are erased at compile time)", () => {
     expect(src.filter((f) => /^import\s+(?!type\b)[^;]*from\s+["']@prisma\/client["']/m.test(f.text) && !f.p.startsWith("database/")).map((f) => f.p)).toEqual([]);
   });
+  it("the queue client (bullmq, ioredis) is imported only by platform/queue/ (phase 2.2)", () => {
+    expect(src.filter((f) => /from\s+["'](bullmq|ioredis)["']/.test(f.text) && !f.p.startsWith("platform/queue/")).map((f) => f.p)).toEqual([]);
+  });
+  it("the API process does not depend on the queue: only the worker composes platform/queue (a Valkey outage cannot stop the API)", () => {
+    const users = src.filter((f) => /from\s+["'][^"']*platform\/queue\//.test(f.text) && !f.p.startsWith("platform/queue/")).map((f) => f.p);
+    expect(users.every((p) => p.startsWith("worker/")), users.join(", ")).toBe(true);
+  });
+  it("outbox rows are written only by platform/outbox/ (events are emitted with recordEvent inside the caller's transaction)", () => {
+    const writes = /\.outboxEvent\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b|(INSERT INTO|UPDATE|DELETE FROM)\s+"OutboxEvent"/;
+    expect(src.filter((f) => writes.test(f.text) && !f.p.startsWith("platform/outbox/")).map((f) => f.p)).toEqual([]);
+    const outbox = src.find((f) => f.p === "platform/outbox/outbox.ts")!.text;
+    expect(outbox).toMatch(/export async function recordEvent\(scope: TransactionScope,/); // a transaction is required by the signature
+  });
   it("relative imports carry the .js suffix (native ESM)", () => {
     const bad = src.flatMap((f) => [...f.text.matchAll(/from "(\.[^"]+)"/g)].filter((m) => !m[1]!.endsWith(".js")).map((m) => `${f.p}: ${m[1]}`));
     expect(bad).toEqual([]);

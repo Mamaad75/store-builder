@@ -15,5 +15,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "prisma/**/*.ts", "vitest.storage.config.ts", "vitest.config.ts", "vitest.db.config.ts", "eslint.config.mjs"]
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "vitest.storage.config.ts", "vitest.config.ts", "vitest.db.config.ts", "vitest.queue.config.ts", "eslint.config.mjs"]
 }

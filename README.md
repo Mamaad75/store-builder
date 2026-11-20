@@ -15,18 +15,20 @@ Phases 1-12 are implemented and accepted; phase 13 (production readiness: contai
 * `apps/e2e`: Playwright end-to-end and production-stack smoke tests.
 
 ## Development
-Two processes (plus PostgreSQL and an S3-compatible server):
+Two processes (plus PostgreSQL and an S3-compatible server; a third, the worker, for background events):
 ```bash
 pnpm install
 cp apps/web/.env.example apps/web/.env.local
 cp apps/api/.env.example apps/api/.env
-pnpm db:up          # PostgreSQL + MinIO (needs Docker)
+pnpm db:up          # PostgreSQL + MinIO + Valkey (needs Docker)
 pnpm db:generate && pnpm db:deploy && pnpm db:seed   # Prisma client, migrations, templates (all in apps/api)
 pnpm shared:build   # once, and again after changing packages/shared (`pnpm shared:dev` watches)
 # terminal 1: the API on http://localhost:4000 (reads apps/api/.env, copy it from apps/api/.env.example)
 pnpm api:dev
 # terminal 2: the web app on http://localhost:3000  (stores: http://<name>.localhost:3000)
 pnpm dev
+# terminal 3 (optional): the worker = outbox relay + event consumers (docs/async.md); REDIS_URL defaults to redis://localhost:6379
+pnpm worker
 ```
 Without S3 settings the API still starts in development; uploads and `/api/ready` then report storage as unavailable.
 
@@ -37,6 +39,7 @@ The npm registry, GitHub and `ghcr.io` were reachable directly. Line endings are
 with the shell scripts and the architecture tests.
 
 Other local-machine notes:
+* **Port 6379 already taken** (e.g. a local Redis): `VALKEY_HOST_PORT=16379 pnpm db:up`, then `REDIS_URL=redis://localhost:16379`.
 * **Port 5432 already taken** (e.g. a native PostgreSQL service): `POSTGRES_HOST_PORT=15432 pnpm db:up`, then use port 15432 in
   `DATABASE_URL` and `E2E_DATABASE_URL`. On Windows avoid ports in the reserved ranges (`netsh interface ipv4 show excludedportrange protocol=tcp`).
 * **Playwright's browser download CDN refuses Iranian networks.** Run the E2E suite on an installed browser instead:
@@ -47,7 +50,7 @@ Other local-machine notes:
 * The backup/restore DB tests need `pg_dump`/`pg_restore`/`psql` **of the same major version as the server (16)** on `PATH`; newer clients write
   settings (`transaction_timeout`) that a 16 server rejects.
 
-Checks: `pnpm check` (typecheck + lint + unit tests + DB tests). Browser E2E tests: `pnpm test:e2e` (builds web and API and uses an isolated `storebuilder_e2e` database; needs an S3-compatible server on :9000). `E2E_CPU_THROTTLE=6 pnpm test:e2e` slows the main page 6x to expose timing races (hydration, late rendering) like those seen on slow CI runners. Database tests: `pnpm test:db` (API; needs PostgreSQL; uses an isolated `storebuilder_api_test` database that it recreates). Storage tests: `pnpm test:storage`.
+Checks: `pnpm check` (typecheck + lint + unit tests + DB tests). Browser E2E tests: `pnpm test:e2e` (builds web and API and uses an isolated `storebuilder_e2e` database; needs an S3-compatible server on :9000). `E2E_CPU_THROTTLE=6 pnpm test:e2e` slows the main page 6x to expose timing races (hydration, late rendering) like those seen on slow CI runners. Database tests: `pnpm test:db` (API; needs PostgreSQL; uses an isolated `storebuilder_api_test` database that it recreates). Storage tests: `pnpm test:storage`. Queue tests (outbox relay, BullMQ, consumers on a real Valkey): `pnpm test:queue`.
 
 Inspect the local database visually: `pnpm db:studio` (Prisma Studio at http://localhost:5555, local database only, loopback only). See `docs/local-database.md` (includes the DBeaver option for ER diagrams).
 

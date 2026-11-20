@@ -66,6 +66,46 @@ const blank = (v: string | undefined) => (v === undefined || v.trim() === "" ? u
 const isNonProduction = (nodeEnv: string) => nodeEnv === "development" || nodeEnv === "test";
 const isLoopbackRoot = (root: string) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(root);
 
+/**
+ * Configuration of the worker process (phase 2.2: outbox relay + queue consumers). The API itself never talks to the queue: it only
+ * writes outbox rows, so a Valkey outage cannot take the API down.
+ */
+export interface WorkerConfig {
+  nodeEnv: string;
+  production: boolean;
+  databaseUrl: string;
+  /** Valkey/Redis URL of the queue (secret: may carry a password). Never logged. */
+  redisUrl: string;
+}
+
+const workerSchema = z.object({
+  DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\/.+/, "a postgresql:// URL"),
+  REDIS_URL: z.string().regex(/^rediss?:\/\/.+/, "a redis:// or rediss:// URL"),
+});
+
+export function loadWorkerConfig(env: Record<string, string | undefined>): WorkerConfig {
+  const nodeEnv = env.NODE_ENV ?? "";
+  const dev = isNonProduction(nodeEnv);
+  const parsed = workerSchema.safeParse({
+    DATABASE_URL: blank(env.DATABASE_URL),
+    // Development convenience only: the local Valkey of docker-compose.yml. Production has no default.
+    REDIS_URL: blank(env.REDIS_URL) ?? (dev ? "redis://localhost:6379" : undefined),
+  });
+  const problems = parsed.success ? [] : parsed.error.issues.map((i) => `${String(i.path[0])}: ${i.message}`);
+  if (parsed.success && !dev) {
+    // Defense in depth: even on the internal network the queue must require a password outside development.
+    let password = "";
+    try {
+      password = new URL(parsed.data.REDIS_URL).password;
+    } catch {
+      problems.push("REDIS_URL: not a valid URL");
+    }
+    if (!password && problems.length === 0) problems.push("REDIS_URL: must carry a password in production (redis://:<password>@host:6379)");
+  }
+  if (problems.length > 0 || !parsed.success) throw new EnvError(problems);
+  return { nodeEnv, production: !dev, databaseUrl: parsed.data.DATABASE_URL, redisUrl: parsed.data.REDIS_URL };
+}
+
 export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
   const nodeEnv = env.NODE_ENV ?? "";
   const dev = isNonProduction(nodeEnv);
