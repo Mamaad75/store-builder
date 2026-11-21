@@ -39,3 +39,11 @@ Runtime image: non-root `node` user, standalone output only (no sources, no dev 
 
 ## Edge contract (Caddy ↔ application)
 Caddy replaces `X-Forwarded-For` with the connecting address and removes `X-Forwarded-Host`, `Forwarded`, `X-Original-Host`, `X-Real-Ip`; the application trusts the last `X-Forwarded-For` entry (`TRUSTED_PROXY_HOPS=1`) and only the raw `Host`. If a CDN is ever placed in front of Caddy, `TRUSTED_PROXY_HOPS` and Caddy's trusted proxies must change together (docs/deployment.md).
+
+## Store access control (phase 2.3)
+
+* Tenant isolation is still enforced in SQL by the owner-scoped services; staff access is an additional, earlier decision: `StoreAccessGuard` resolves the caller's role (owner by `Store.ownerId`, staff by a `StoreMember` row) and the route's permission before any service runs, and the services then act for the owner. A route without `@RequirePermission` fails closed (the guard throws) and fails the architecture test.
+* No role = 404 like a missing store (no existence leak); a role without the permission = 403.
+* Staff join only by accepting an invitation addressed to their own account (D23-2); invitations expire after 14 days and are consumed atomically (`DELETE ... RETURNING`), so a double accept cannot create two memberships.
+* The audit log stores identifiers and small facts only (no request bodies, no secrets), records the real actor, and is visible to OWNER and MANAGER; 365-day retention.
+

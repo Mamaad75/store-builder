@@ -1,11 +1,10 @@
 import { BadRequestException, Body, Controller, HttpCode, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
 import { SessionGuard } from "../../auth/session.guard.js";
-import type { SafeUser } from "../../auth/ports.js";
-import { CurrentUser } from "../../http/current-user.js";
 import { setSectionImage } from "../pages/service.js";
 import { uploadProductImage, uploadSectionImage, uploadStoreLogo } from "./orchestration.js";
 import { detachProductImage, removeStoreLogo } from "./service.js";
+import { Audit, RequirePermission, StoreAccess, StoreAccessGuard, type StoreAccessContext } from "../access/access.api.js";
 
 /** The image bytes of an upload: the raw request body (`application/octet-stream`, size-limited in app.ts). */
 function imageBytes(req: Request): Buffer {
@@ -15,48 +14,60 @@ function imageBytes(req: Request): Buffer {
 
 /** Image uploads: the client supplies only the bytes; key, type, dimensions and owner are decided on the server. */
 @Controller("stores/:storeId")
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, StoreAccessGuard)
 export class MediaController {
   @Post("products/:productId/image")
   @HttpCode(200)
-  async productImage(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Param("productId") productId: string, @Req() req: Request) {
-    return uploadProductImage(user.id, storeId, productId, imageBytes(req));
+  @RequirePermission("media.write")
+  @Audit("product.image_set", { type: "product", param: "productId" })
+  async productImage(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Param("productId") productId: string, @Req() req: Request) {
+    return uploadProductImage(a.ownerId, storeId, productId, imageBytes(req));
   }
 
   @Post("products/:productId/image/delete")
   @HttpCode(204)
-  async removeProductImage(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Param("productId") productId: string): Promise<void> {
-    await detachProductImage(user.id, storeId, productId);
+  @RequirePermission("media.write")
+  @Audit("product.image_removed", { type: "product", param: "productId" })
+  async removeProductImage(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Param("productId") productId: string): Promise<void> {
+    await detachProductImage(a.ownerId, storeId, productId);
   }
 
   @Post("logo")
   @HttpCode(200)
-  async logo(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Req() req: Request) {
-    return uploadStoreLogo(user.id, storeId, imageBytes(req));
+  @RequirePermission("store.settings")
+  @Audit("store.logo_set")
+  async logo(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Req() req: Request) {
+    return uploadStoreLogo(a.ownerId, storeId, imageBytes(req));
   }
 
   @Post("logo/delete")
   @HttpCode(204)
-  async removeLogo(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string): Promise<void> {
-    await removeStoreLogo(user.id, storeId);
+  @RequirePermission("store.settings")
+  @Audit("store.logo_removed")
+  async removeLogo(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string): Promise<void> {
+    await removeStoreLogo(a.ownerId, storeId);
   }
 
   @Post("pages/:pageType/sections/:sectionId/image")
   @HttpCode(200)
+  @RequirePermission("pages.write")
+  @Audit("page.section_image_set", { type: "section", param: "sectionId" })
   async sectionImage(
-    @CurrentUser() user: SafeUser,
+    @StoreAccess() a: StoreAccessContext,
     @Param("storeId") storeId: string,
     @Param("pageType") pageType: string,
     @Param("sectionId") sectionId: string,
     @Query("expectedRevision") expectedRevision: string | undefined,
     @Req() req: Request,
   ) {
-    return uploadSectionImage(user.id, storeId, pageType, sectionId, expectedRevision, imageBytes(req));
+    return uploadSectionImage(a.ownerId, storeId, pageType, sectionId, expectedRevision, imageBytes(req));
   }
 
   @Post("pages/:pageType/sections/:sectionId/image/delete")
   @HttpCode(200)
-  removeSectionImage(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Param("pageType") pageType: string, @Param("sectionId") sectionId: string, @Body() body: { expectedRevision?: unknown } | undefined) {
-    return setSectionImage(user.id, storeId, pageType, sectionId, null, body?.expectedRevision);
+  @RequirePermission("pages.write")
+  @Audit("page.section_image_removed", { type: "section", param: "sectionId" })
+  removeSectionImage(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Param("pageType") pageType: string, @Param("sectionId") sectionId: string, @Body() body: { expectedRevision?: unknown } | undefined) {
+    return setSectionImage(a.ownerId, storeId, pageType, sectionId, null, body?.expectedRevision);
   }
 }

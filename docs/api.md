@@ -58,6 +58,38 @@ All under `/api/auth`, JSON, always `Cache-Control: no-store`, every state-chang
 Domain endpoints (N4–N6), CORS (not needed: same origin), publishing `/api/*` through Caddy (the web app reaches the API on the internal network; Caddy routes come with the first endpoint the browser must call itself).
 
 
+## Store access: roles, staff and audit log (phase 2.3, D23-1..3)
+
+Every `/stores/:storeId/...` route runs `SessionGuard` then `StoreAccessGuard` and declares a permission (`@RequirePermission`;
+an architecture test fails any `:storeId` route without one). The guard resolves the caller's role in SQL once per request:
+**no role = 404** (identical to a missing store), **role without the permission = 403 `PermissionDeniedError`**. The request then
+runs the existing owner-scoped services **for the store's owner** (`a.ownerId`); the audit log records the **real** actor.
+
+| Role | Permissions (`packages/shared/src/modules/access/permissions.ts`) |
+|---|---|
+| OWNER (`Store.ownerId`) | everything |
+| MANAGER | everything except `store.delete` and `members.manage` |
+| OPERATOR | `store.view`, `catalog.write`, `media.write`, `pages.write` |
+
+| Method | Path | Permission / who |
+|---|---|---|
+| GET | `/stores/:storeId/team` | `members.manage`: `{ members: [owner, ...staff], invitations }` |
+| POST | `/stores/:storeId/team/invitations` | `members.manage`: `{ username, role: "MANAGER" | "OPERATOR" }` → 201 `{ id }`; 400 `InvitationTargetError` (`unknown_user`, `self`, `owner`, `already_member`, `already_invited`), 409 `StaffLimitError` (20) |
+| POST | `/stores/:storeId/team/invitations/:invitationId/cancel` | `members.manage` → 204 |
+| PATCH | `/stores/:storeId/team/members/:userId` | `members.manage`: `{ role }` → 204 |
+| POST | `/stores/:storeId/team/members/:userId/remove` | `members.manage` → 204 (the owner is not a member row: never removable) |
+| GET | `/stores/:storeId/audit?limit=&before=` | `audit.view`: newest first, `limit` 1–100 (default 50), `before` = `createdAt` cursor |
+| GET | `/me/invitations` | the session user's pending invitations |
+| POST | `/me/invitations/:invitationId/accept` | → 200 `{ storeId }`; 404 when unknown, expired or addressed to someone else (indistinguishable) |
+| POST | `/me/invitations/:invitationId/decline` | → 204 |
+| GET | `/me/shared-stores` | stores where the user is staff: `[{ storeId, name, role }]` |
+| POST | `/me/memberships/:membershipStoreId/leave` | → 204 |
+
+Audited actions (successful writes only): `product.*`, `category.*`, `page.*`, `store.settings_updated`, `store.category_changed`,
+`store.logo_set/removed`, `store.theme_switched`, `store.published/unpublished`, `store.version_live`, `store.subdomain_claimed`,
+`store.deleted`, `staff.*`. Kept 365 days (`db-cleanup`). An audit write that fails never fails the request; it is logged as
+`audit.write_failed`.
+
 ## Domain endpoints (owner-scoped; every one needs the session cookie and, for writes, the platform Origin)
 Controllers are thin: they hand `user.id` (from the session, never from the request) and the route/body values to the original services in
 `src/modules/*`, which validate input with Zod, enforce ownership in SQL and bump revisions under the store lock.

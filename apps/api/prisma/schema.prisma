@@ -33,25 +33,33 @@ enum MediaStatus {
   DELETING // being removed; never referenced again, physical delete in progress/retried
 }
 
+/// Staff roles of a store (D23-1). The OWNER is not a role row: it is Store.ownerId (exactly one per store).
+enum StoreRole {
+  MANAGER // everything except deleting the store and managing staff
+  OPERATOR // catalog, media and pages only
+}
+
 enum DomainKind {
   SUBDOMAIN
   CUSTOM
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String              @id @default(cuid())
   /// Sign-in name (ADR 0001, U1): lower-case a-z, 0-9 and "_", starts with a letter, 3-30 characters (also a database CHECK).
-  username     String   @unique
+  username     String              @unique
   /// DEPRECATED (U1): no longer collected or used. Kept only until the approved contract migration drops it.
-  email        String?  @unique
+  email        String?             @unique
   name         String
   passwordHash String
-  authVersion  Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  authVersion  Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
   stores       Store[]
   media        Media[]
   resetToken   PasswordResetToken?
+  memberships  StoreMember[]
+  invitations  StoreInvitation[]   @relation("invitee")
 }
 
 /// DEPRECATED (U1, ADR 0001): password reset by e-mail was removed with the e-mail address; nothing reads or writes this table.
@@ -120,6 +128,8 @@ model Store {
   products         Product[]
   media            Media[]
   domains          Domain[]
+  members          StoreMember[]
+  invitations      StoreInvitation[]
   publishedSlugs   PublishedSlug[]
 
   @@index([ownerId, createdAt])
@@ -318,4 +328,50 @@ model SubdomainReservation {
   reservedUntil   DateTime @db.Timestamptz(6)
 
   @@index([previousStoreId])
+}
+
+/// A staff member of a store (phase 2.3, D23-1). Created only by accepting an invitation (D23-2). Deleted with the store or the user.
+model StoreMember {
+  storeId   String
+  userId    String
+  role      StoreRole
+  createdAt DateTime  @default(now())
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, userId])
+  @@index([userId])
+}
+
+/// A pending invitation (D23-2): the invitee must accept it. One per store and invitee; expires after 14 days.
+model StoreInvitation {
+  id            String    @id @default(cuid())
+  storeId       String
+  invitedUserId String
+  role          StoreRole
+  invitedById   String
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  invitedUser   User      @relation("invitee", fields: [invitedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, invitedUserId])
+  @@index([invitedUserId])
+}
+
+/// Audit log of sensitive store actions (D23-3). No foreign keys on purpose: an entry must outlive the actor and the store.
+/// Kept one year, then deleted by db-cleanup. Plain identifiers and small facts only; never secrets or free text from requests.
+model AuditEvent {
+  id         String   @id @default(cuid())
+  storeId    String?
+  /// The real actor (a staff member acting for the owner is recorded as themself).
+  actorId    String?
+  action     String   @db.VarChar(60)
+  targetType String?  @db.VarChar(40)
+  targetId   String?  @db.VarChar(64)
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([storeId, createdAt])
+  @@index([createdAt])
 }

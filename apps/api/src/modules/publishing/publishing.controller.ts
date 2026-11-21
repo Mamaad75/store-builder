@@ -1,50 +1,60 @@
 import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from "@nestjs/common";
 import { SessionGuard } from "../../auth/session.guard.js";
-import type { SafeUser } from "../../auth/ports.js";
-import { CurrentUser } from "../../http/current-user.js";
 import { getPublishState, listVersions, publishStore, setLiveVersion, unpublishStore } from "./service.js";
 import { claimSubdomain, getSubdomainState } from "./subdomain.js";
+import { Audit, RequirePermission, StoreAccess, StoreAccessGuard, type StoreAccessContext } from "../access/access.api.js";
 
 /** Publishing, versions and the subdomain of one store (owner-scoped). */
 @Controller("stores/:storeId")
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, StoreAccessGuard)
 export class PublishingController {
   @Get("publish")
-  state(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string) {
-    return getPublishState(user.id, storeId);
+  @RequirePermission("store.view")
+  state(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string) {
+    return getPublishState(a.ownerId, storeId);
   }
 
   @Post("publish")
   @HttpCode(200)
-  publish(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Body() body: unknown) {
-    return publishStore(user.id, storeId, body);
+  @RequirePermission("publish")
+  @Audit("store.published")
+  publish(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Body() body: unknown) {
+    return publishStore(a.ownerId, storeId, body);
   }
 
   @Post("unpublish")
   @HttpCode(204)
-  async unpublish(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string): Promise<void> {
-    await unpublishStore(user.id, storeId);
+  @RequirePermission("publish")
+  @Audit("store.unpublished")
+  async unpublish(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string): Promise<void> {
+    await unpublishStore(a.ownerId, storeId);
   }
 
   @Get("versions")
-  versions(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string) {
-    return listVersions(user.id, storeId);
+  @RequirePermission("store.view")
+  versions(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string) {
+    return listVersions(a.ownerId, storeId);
   }
 
   @Post("versions/live")
   @HttpCode(200)
-  live(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Body() body: { versionNumber?: unknown; mode?: unknown } | undefined) {
-    return setLiveVersion(user.id, storeId, { versionNumber: body?.versionNumber, mode: body?.mode === "republish" ? "republish" : "rollback" });
+  @RequirePermission("publish")
+  @Audit("store.version_live")
+  live(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Body() body: { versionNumber?: unknown; mode?: unknown } | undefined) {
+    return setLiveVersion(a.ownerId, storeId, { versionNumber: body?.versionNumber, mode: body?.mode === "republish" ? "republish" : "rollback" });
   }
 
   @Get("subdomain")
-  subdomain(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string) {
-    return getSubdomainState(user.id, storeId);
+  @RequirePermission("store.view")
+  subdomain(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string) {
+    return getSubdomainState(a.ownerId, storeId);
   }
 
   @Post("subdomain")
   @HttpCode(200)
-  claim(@CurrentUser() user: SafeUser, @Param("storeId") storeId: string, @Body() body: { label?: unknown; confirmChange?: unknown } | undefined) {
-    return claimSubdomain(user.id, storeId, { label: body?.label, confirmChange: body?.confirmChange });
+  @RequirePermission("domain.manage")
+  @Audit("store.subdomain_claimed")
+  claim(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Body() body: { label?: unknown; confirmChange?: unknown } | undefined) {
+    return claimSubdomain(a.ownerId, storeId, { label: body?.label, confirmChange: body?.confirmChange });
   }
 }

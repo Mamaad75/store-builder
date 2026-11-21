@@ -143,3 +143,60 @@ describe("architecture guard: modules talk through their public API (ADR 0002 §
     expect(allImports.some((i) => i.file === "app.module.ts" && i.target === "modules/categories/categories.module.ts")).toBe(true);
   });
 });
+
+describe("architecture guard: store access (phase 2.3, D23-1)", () => {
+  const controllers = walk(SRC).filter((f) => f.endsWith(".controller.ts") || f.endsWith("controllers.ts")).map((f) => ({ p: relSrc(f), text: readFileSync(f, "utf8") }));
+  /** Every route handler with its own decorators, its class path and whether the class applies StoreAccessGuard (line scanner). */
+  function routes(text: string): { name: string; decorators: string; classPath: string }[] {
+    const out: { name: string; decorators: string; classPath: string }[] = [];
+    let classPath = "";
+    let classDecorators = "";
+    let classGuarded = false;
+    let pending: string[] = [];
+    for (const line of text.split(/\r?\n/)) {
+      if (/^@/.test(line)) classDecorators += line;
+      if (/^export class /.test(line)) {
+        classPath = classDecorators.match(/@Controller\("([^"]*)"\)/)?.[1] ?? "";
+        classGuarded = /StoreAccessGuard/.test(classDecorators);
+        classDecorators = "";
+        pending = [];
+        continue;
+      }
+      if (/^ {2}@/.test(line)) {
+        pending.push(line);
+        continue;
+      }
+      const m = line.match(/^ {2}(?:async )?(\w+)\(/);
+      if (m) {
+        const decorators = pending.join("\n");
+        if (/@(Get|Post|Patch|Put|Delete)\(/.test(decorators)) out.push({ name: m[1]!, decorators: decorators + (classGuarded ? "\n@UseGuards(StoreAccessGuard)" : ""), classPath });
+        pending = [];
+      }
+    }
+    return out;
+  }
+
+  it("every route under a :storeId path is guarded by StoreAccessGuard and declares its permission", () => {
+    const bad: string[] = [];
+    let checked = 0;
+    for (const c of controllers) {
+      for (const r of routes(c.text)) {
+        const routePath = r.decorators.match(/@(?:Get|Post|Patch|Put|Delete)\("([^"]*)"\)/)?.[1] ?? "";
+        if (!`${r.classPath}/${routePath}`.includes(":storeId")) continue;
+        checked++;
+        if (!/StoreAccessGuard/.test(r.decorators)) bad.push(`${c.p} ${r.name}: no StoreAccessGuard`);
+        if (!/@RequirePermission\("[a-z.]+"\)/.test(r.decorators)) bad.push(`${c.p} ${r.name}: no @RequirePermission`);
+      }
+    }
+    expect(bad).toEqual([]);
+    expect(checked).toBeGreaterThanOrEqual(40); // the scanner really sees the store routes
+  });
+
+  it("store routes hand the services the resolved owner, never the session user (a member acts FOR the owner, audited as themself)", () => {
+    for (const c of controllers.filter((x) => /StoreAccessGuard/.test(x.text) && !x.p.includes("access/"))) {
+      const storeScoped = c.p.endsWith("stores.controller.ts") ? c.text.slice(c.text.indexOf('@Get(":storeId")')) : c.text;
+      expect(storeScoped, c.p).not.toMatch(/\buser\.id\b/);
+      expect(storeScoped, c.p).toMatch(/a\.ownerId/);
+    }
+  });
+});
