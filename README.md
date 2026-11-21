@@ -15,6 +15,8 @@ Phases 1-12 are implemented and accepted; phase 13 (production readiness: contai
 * `apps/e2e`: Playwright end-to-end and production-stack smoke tests.
 
 ## Development
+**Step-by-step local guide (Persian, Windows/PowerShell): [`docs/local-development.md`](docs/local-development.md)** — prerequisites, env files, services, running, tests and troubleshooting.
+
 Two processes (plus PostgreSQL and an S3-compatible server; a third, the worker, for background events):
 ```bash
 pnpm install
