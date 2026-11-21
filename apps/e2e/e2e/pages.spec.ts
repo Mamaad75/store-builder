@@ -315,7 +315,7 @@ test.describe("isolation and templates", () => {
     await page.setViewportSize({ width: 360, height: 740 });
     for (const path of ["pages", "pages/home", "appearance"]) {
       await page.goto(`/dashboard/stores/${storeId}/${path}`);
-      await expect(page.getByRole("tablist")).toBeVisible();
+      await expect(page.getByRole("button", { name: "باز کردن منو" })).toBeVisible(); // the sections menu (drawer) on narrow screens
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow, path).toBeLessThanOrEqual(0);
     }

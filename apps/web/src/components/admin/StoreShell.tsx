@@ -27,6 +27,7 @@ import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
@@ -113,15 +114,17 @@ function Sidebar({ store, base, pathname, onNavigate }: { store: StoreShellProps
           const active = item.match?.(pathname) ?? false;
           if (!item.children) {
             return (
-              <ListItemButton key={item.href} component={Link} href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined} sx={rowSx(active)}>
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
+              <ListItem key={item.href} disablePadding>
+                <ListItemButton component={Link} href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined} sx={rowSx(active)}>
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              </ListItem>
             );
           }
           const expanded = open[item.label] ?? false;
           return (
-            <Box key={item.href}>
+            <ListItem key={item.href} disablePadding sx={{ display: "block" }}>
               <ListItemButton onClick={() => setOpen((o) => ({ ...o, [item.label]: !expanded }))} aria-expanded={expanded} sx={rowSx(active)}>
                 <ListItemIcon>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.label} />
@@ -132,26 +135,30 @@ function Sidebar({ store, base, pathname, onNavigate }: { store: StoreShellProps
                   {item.children.map((c) => {
                     const childActive = c.exact ? pathname === c.href : pathname.startsWith(c.href);
                     return (
-                      <ListItemButton key={c.href} component={Link} href={c.href} onClick={onNavigate} aria-current={childActive ? "page" : undefined} sx={{ ...rowSx(childActive), py: 0.75, "&::before": undefined }}>
-                        <ListItemIcon sx={{ minWidth: 34 }}>{c.icon}</ListItemIcon>
-                        <ListItemText primary={c.label} slotProps={{ primary: { sx: { fontSize: 14 } } }} />
-                      </ListItemButton>
+                      <ListItem key={c.href} disablePadding>
+                        <ListItemButton component={Link} href={c.href} onClick={onNavigate} aria-current={childActive ? "page" : undefined} sx={{ ...rowSx(childActive), py: 0.75, "&::before": undefined }}>
+                          <ListItemIcon sx={{ minWidth: 34 }}>{c.icon}</ListItemIcon>
+                          <ListItemText primary={c.label} slotProps={{ primary: { sx: { fontSize: 14 } } }} />
+                        </ListItemButton>
+                      </ListItem>
                     );
                   })}
                 </List>
               </Collapse>
-            </Box>
+            </ListItem>
           );
         })}
       </List>
-      <Box sx={{ p: 1.5, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-        <ListItemButton component={Link} href="/dashboard" onClick={onNavigate} sx={rowSx(false)}>
-          <ListItemIcon>
-            <ArrowBackRounded />
-          </ListItemIcon>
-          <ListItemText primary="همهٔ فروشگاه‌ها" />
-        </ListItemButton>
-      </Box>
+      <List sx={{ p: 1.5, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <ListItem disablePadding>
+          <ListItemButton component={Link} href="/dashboard" onClick={onNavigate} sx={rowSx(false)}>
+            <ListItemIcon>
+              <ArrowBackRounded />
+            </ListItemIcon>
+            <ListItemText primary="همهٔ فروشگاه‌ها" />
+          </ListItemButton>
+        </ListItem>
+      </List>
     </Box>
   );
 }
@@ -181,7 +188,7 @@ export default function StoreShell({ store, liveUrl, children }: StoreShellProps
           <IconButton aria-label="باز کردن منو" onClick={() => setDrawer(true)} sx={{ display: { md: "none" } }}>
             <MenuRounded />
           </IconButton>
-          <Box component="form" role="search" method="get" action={`${base}/products`} sx={{ flex: 1, maxWidth: 520 }}>
+          <Box component="form" role="search" action={`${base}/products`} data-testid="store-search" sx={{ flex: 1, maxWidth: 520 }}>
             <TextField
               name="q"
               size="small"
@@ -211,7 +218,7 @@ export default function StoreShell({ store, liveUrl, children }: StoreShellProps
             )}
           </Box>
         </Box>
-        <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 2.5, md: 4 }, maxWidth: 1120, mx: "auto" }}>
+        <Box data-testid="store-content" sx={{ px: { xs: 2, md: 4 }, py: { xs: 2.5, md: 4 }, maxWidth: 1120, mx: "auto" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", mb: 3 }}>
             <Typography variant="h5" component="h1" sx={{ fontWeight: 800 }}>
               {store.name}

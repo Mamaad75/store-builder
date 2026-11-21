@@ -17,6 +17,7 @@ test.describe("store management (owner)", () => {
     await expect(page.getByText("هنوز فروشگاهی نساخته‌اید")).toBeVisible();
 
     const id = await createStoreViaUi(page, "فروشگاه من", "پوشاک");
+    await page.goto(`/dashboard/stores/${id}`); // legacy themes are created through the API: open the store's settings
     const row = await db.store.findUniqueOrThrow({ where: { id }, include: { templateVersion: { include: { template: true } }, pages: true } });
     expect(row.templateVersion.template.key).toBe("fashion");
     expect(row.pages).toHaveLength(5);

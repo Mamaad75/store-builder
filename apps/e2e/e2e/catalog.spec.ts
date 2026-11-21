@@ -409,8 +409,10 @@ test.describe("UI polish", () => {
     await waitForHydration(page, "form:has(input[name=primaryColor])");
     const form = page.locator("form:has(input[name=primaryColor])");
     const box = (await form.boundingBox())!;
-    const leftGap = box.x;
-    const rightGap = 1280 - (box.x + box.width);
+    // centred within the admin's content column (the sidebar takes one side of the viewport), not hugging either edge
+    const col = (await page.getByTestId("store-content").boundingBox())!;
+    const leftGap = box.x - col.x;
+    const rightGap = col.x + col.width - (box.x + box.width);
     expect(Math.abs(leftGap - rightGap)).toBeLessThan(40);
 
     // hex field + native picker stay in sync; invalid hex is flagged; saving persists the colour
