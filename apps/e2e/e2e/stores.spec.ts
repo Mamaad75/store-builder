@@ -99,7 +99,7 @@ test.describe("tenant isolation (two real users)", () => {
 
     await page.goto("/dashboard");
     // the store card (the onboarding checklist also names the newest unpublished store, so match the card link)
-    await expect(page.getByRole("link", { name: /فروشگاه الف/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^فروشگاه الف/ })).toBeVisible();
     await expect(page.getByText("محرمانه")).toHaveCount(0);
 
     // B still sees their own store
