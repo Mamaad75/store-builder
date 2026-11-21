@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
-import Container from "@mui/material/Container";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import AppBar from "@mui/material/AppBar";
@@ -38,9 +37,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <LogoutButton />
           </Toolbar>
         </AppBar>
-        <Container component="main" id="main" sx={{ py: 4 }}>
+        <Box component="main" id="main">
           {children}
-        </Container>
+        </Box>
         <SiteFooter />
       </Box>
     </ThemeRegistry>

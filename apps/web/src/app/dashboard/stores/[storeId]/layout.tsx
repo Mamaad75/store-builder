@@ -1,16 +1,12 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
-import StoreTabs from "@/components/StoreTabs";
+import StoreShell from "@/components/admin/StoreShell";
+import { mediaPublicUrl } from "@/lib/media-url";
+import { publicStoreUrl } from "@/lib/store-url";
 import { requireUser } from "@/modules/auth/session";
 import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 import { getStore } from "@/gateway/stores";
-
-const STATUS_LABEL = { DRAFT: "پیش‌نویس", PUBLISHED: "منتشرشده", UNPUBLISHED: "لغو انتشار" } as const;
+import { getSubdomainState } from "@/gateway/publishing";
 
 /** The layout checks ownership too, but every page re-checks through the owner-scoped service. */
 export default async function StoreLayout({ children, params }: { children: ReactNode; params: Promise<{ storeId: string }> }) {
@@ -23,29 +19,21 @@ export default async function StoreLayout({ children, params }: { children: Reac
     if (e instanceof NotFoundError) notFound();
     throw e;
   }
+  // The live address is only offered while the store is published.
+  let liveUrl: string | null = null;
+  if (store.status === "PUBLISHED") {
+    const sub = await getSubdomainState(storeId).catch(() => null);
+    if (sub?.current) liveUrl = publicStoreUrl(sub.current);
+  }
+  let logoUrl: string | null = null;
+  try {
+    logoUrl = store.logo ? mediaPublicUrl(store.logo.key) : null;
+  } catch {
+    logoUrl = null; // an unconfigured media URL must never break the admin
+  }
   return (
-    <Box sx={{ maxWidth: 960, mx: "auto" }}>
-      <Stack spacing={2}>
-        <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 800 }}>
-            {store.name}
-          </Typography>
-          <Chip size="small" label={STATUS_LABEL[store.status]} />
-          <Button
-            component="a"
-            href={`/preview/${encodeURIComponent(store.id)}`}
-            target="_blank"
-            rel="noopener"
-            size="small"
-            variant="outlined"
-            sx={{ marginInlineStart: "auto" }}
-          >
-            پیش‌نمایش پیش‌نویس
-          </Button>
-        </Stack>
-        <StoreTabs storeId={store.id} />
-        {children}
-      </Stack>
-    </Box>
+    <StoreShell store={{ id: store.id, name: store.name, status: store.status, logoUrl }} liveUrl={liveUrl}>
+      {children}
+    </StoreShell>
   );
 }

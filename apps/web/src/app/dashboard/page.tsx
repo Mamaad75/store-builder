@@ -1,3 +1,4 @@
+import PageContainer from "@/components/PageContainer";
 import { businessCategoryLabel } from "@store-builder/shared/lib/business-categories";
 import { resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
 import type { Metadata } from "next";
@@ -23,6 +24,7 @@ export default async function DashboardPage() {
   const [stores, facts] = await Promise.all([listStores(), getOnboardingFacts()]);
   const onboarding = buildOnboarding(facts);
   return (
+    <PageContainer>
     <Stack spacing={3}>
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
         <Typography variant="h5" component="h1" sx={{ fontWeight: 800 }}>
@@ -57,5 +59,6 @@ export default async function DashboardPage() {
         </Grid>
       )}
     </Stack>
+    </PageContainer>
   );
 }

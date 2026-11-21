@@ -1,3 +1,4 @@
+import PageContainer from "@/components/PageContainer";
 import type { Metadata } from "next";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -10,6 +11,7 @@ export const metadata: Metadata = { title: "حساب کاربری" };
 export default async function AccountPage() {
   const user = await requireUser();
   return (
+    <PageContainer>
     <Stack spacing={3} sx={{ maxWidth: 520 }}>
       <Typography variant="h5" component="h1" sx={{ fontWeight: 800 }}>
         حساب کاربری
@@ -36,5 +38,6 @@ export default async function AccountPage() {
         <SignOutEverywhereForm />
       </Paper>
     </Stack>
+    </PageContainer>
   );
 }
