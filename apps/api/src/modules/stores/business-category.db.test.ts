@@ -35,11 +35,14 @@ describe("creation: business category and theme are independent choices", () => 
     expect((await getDraftPreview(u.id, id)).data.template.key).toBe(theme);
   });
 
-  it("without a category, a best-effort one is inferred from the theme (coffee -> coffee-food, fashion -> fashion, else general)", async () => {
-    const u = await makeUser();
+  it("without a category, a best-effort one is inferred from the theme (each theme -> the category it is made for; bazaar, general -> general)", async () => {
     const got: Record<string, string> = {};
-    for (const t of THEMES) got[t] = (await cat((await createStore(u.id, { name: t, templateKey: t })).id)).businessCategory;
-    expect(got).toEqual({ general: "general", coffee: "coffee-food", fashion: "fashion", appliances: "home-appliances" });
+    // one owner per theme: there are more themes than the per-user store limit (MAX_STORES_PER_USER)
+    for (const t of THEMES) got[t] = (await cat((await createStore((await makeUser()).id, { name: t, templateKey: t })).id)).businessCategory;
+    expect(got).toEqual({
+      general: "general", coffee: "coffee-food", fashion: "fashion", appliances: "home-appliances",
+      bazaar: "general", circuit: "digital", sormeh: "beauty", dookht: "fashion", arcade: "digital-goods", sofreh: "coffee-food", golkhaneh: "flowers", khaneh: "home-appliances",
+    });
   });
 
   it("rejects unknown or malformed categories and creates nothing", async () => {
@@ -62,10 +65,11 @@ describe("creation: business category and theme are independent choices", () => 
     await makeUser();
     const t = await prisma.template.upsert({ where: { key: "legacy-demo" }, create: { key: "legacy-demo", name: "x" }, update: {} });
     await prisma.templateVersion.create({ data: { templateId: t.id, version: 1, defaultSettings: {}, defaultPages: [] } });
-    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["general", "coffee", "fashion", "appliances"]);
-    expect((await listActiveTemplates())[1]!.name).toBe("گرم و ادیتوریال");
+    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh", "general", "coffee", "fashion", "appliances"]);
+    expect((await listActiveTemplates())[9]!.name).toBe("گرم و ادیتوریال");
+    expect((await listActiveTemplates())[0]!.name).toBe("بازار");
     await prisma.template.update({ where: { key: "coffee" }, data: { isActive: false } });
-    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["general", "fashion", "appliances"]);
+    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh", "general", "fashion", "appliances"]);
   });
 });
 

@@ -1,0 +1,19 @@
+/* مدار — tech & digital: cool slate page, white product tiles, a graphite hero, key specs as chips, stock as a status dot. */
+.root { --bg: #f2f4f7; --surface: #e9edf2; --card-bg: #ffffff; --header-bg: #ffffff; --ink: #111827; --muted: #556072; --line: #dce1e8; --img-bg: #ffffff; --img-fit: contain; --radius-card: 12px; --radius-btn: 8px; --radius-chip: 6px; --display: "Estedad Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #172131; --footer-ink: #eef2f8; --footer-muted: #a9b4c6; }
+.root .heroInner { background: #172131; color: #eef2f8; border-radius: 18px; padding: 32px; }
+.root .heroSub { color: #a9b4c6; }
+.root .heroArt { background: #22304a; border-radius: 12px; }
+.root .hero .placeholder { background: transparent; color: #7f95ba; }
+.root .hero :focus-visible { outline-color: #9db8ff; }
+.root .cardArt { padding: 14px; border-bottom: 1px solid var(--line); }
+.root .cardSpecs { display: flex; flex-wrap: wrap; gap: 4px; }
+.root .cardSpecRow { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; }
+.root .cardSpecTerm { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.root .stock { display: inline-flex; align-items: center; gap: 6px; }
+.root .stock::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); }
+.root .tile { background: var(--card-bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.root .tileArt { border-radius: 8px; }
+.root .highlight { border-inline-start: 3px solid var(--primary); border-radius: 8px; }
+.root .cta { background: var(--card-bg); border: 1px solid var(--line); }
+.root .specsList { background: var(--card-bg); }

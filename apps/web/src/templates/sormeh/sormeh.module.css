@@ -1,0 +1,15 @@
+/* سُرمه — beauty & perfume: powder tones, arch frames, pill controls, need-based category chips, soft borderless cards. */
+.root { --bg: #fff8f6; --surface: #f7e7e3; --card-bg: #ffffff; --header-bg: #fff8f6; --ink: #3a1c32; --muted: #7a5c6d; --line: #efdad4; --img-bg: #f7e7e3; --radius-card: 22px; --radius-btn: 999px; --display: "El Messiri Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #3a1c32; --footer-ink: #fff3f0; --footer-muted: #e2c9d3; }
+.root .heroTitle { font-size: clamp(2em, 4.4vw, 3.1em); }
+.root .heroArt { border-radius: 999px 999px 26px 26px; aspect-ratio: 4 / 4.4; background: linear-gradient(180deg, #f2d3cd, #e8b9b3); max-width: 460px; justify-self: center; width: 100%; }
+.root .hero .placeholder { background: transparent; color: #8e3a5a; }
+.root .tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+.root .tile { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 18px; border: 1px solid #e3c3bb; border-radius: 999px; background: var(--card-bg); }
+.root .tileArt { display: none; }
+.root .tile:hover { border-color: var(--primary); }
+.root .card { border-color: transparent; }
+.root .cardArt { margin: 8px 8px 0; border-radius: 16px; }
+.root .cardCta { border-radius: 999px; border-color: var(--ink); color: var(--ink); }
+.root .highlight { background: transparent; border-color: #e3c3bb; border-radius: 18px; }
+.root .cta { background: var(--surface); border-radius: 26px; }
+.root .chip { border-color: #e3c3bb; }

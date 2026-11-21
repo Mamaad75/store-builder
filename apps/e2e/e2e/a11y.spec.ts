@@ -46,7 +46,7 @@ test.describe("accessibility (axe, WCAG 2.2 AA)", () => {
     await expectAccessible(page, "account");
   });
 
-  for (const theme of ["general", "coffee", "fashion", "appliances"] as const) {
+  for (const theme of ["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh", "general", "coffee", "fashion", "appliances"] as const) {
     test(`storefront theme "${theme}" with a LIGHT brand colour and an active product (preview)`, async ({ page }) => {
       await signUpAndIn(page);
       const storeId = await createStoreViaUi(page, `فروشگاه ${theme}`, theme);

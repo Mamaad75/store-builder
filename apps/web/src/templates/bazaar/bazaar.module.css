@@ -1,0 +1,21 @@
+/* بازار — general marketplace: dense, white, the merchant's colour as a bold banner; round category bubbles. */
+.root { --surface: #f3f5f7; --ink: #1a2233; --muted: #5b6577; --line: #e4e8ed; --radius-card: 10px; --radius-btn: 10px; }
+.root .header { box-shadow: 0 1px 0 var(--line); }
+.root .brand { color: var(--link); }
+.root .hero { padding-block: 20px 8px; }
+.root .heroInner { background: var(--primary); color: var(--on-primary); border-radius: 18px; padding: 28px; }
+.root .heroSub { color: inherit; opacity: .92; }
+.root .hero .btn { background: var(--on-primary); color: var(--primary) !important; border-color: var(--on-primary); }
+.root .heroArt { border-radius: 14px; background: color-mix(in srgb, var(--on-primary) 14%, var(--primary)); }
+.root .hero .placeholder { color: var(--on-primary); background: transparent; }
+.root .hero :focus-visible { outline-color: var(--on-primary); }
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 96px), 1fr)); }
+.root .tileArt { border-radius: 50%; background: var(--surface); }
+.root .tileName { font-size: .9em; }
+.root .card { border-radius: 10px; }
+.root .cardBody { padding: 10px 12px 14px; gap: 4px; }
+.root .price { font-size: 1.05em; }
+.root .highlightsSection { padding-block: 24px; }
+.root .highlight { background: var(--surface); border-color: transparent; }
+.root .cta { background: color-mix(in srgb, var(--primary) 10%, white); }
+@media (max-width: 760px) { .root .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; } .root .tileName { font-size: .82em; } }

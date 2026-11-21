@@ -1,0 +1,17 @@
+/* گلخانه — flowers & plants: sage and deep green, greenhouse-arch frames, occasion pills, a same-day delivery band. */
+.root { --bg: #f6f8f3; --surface: #e4ecde; --card-bg: transparent; --header-bg: #f6f8f3; --ink: #1e3a2b; --muted: #4f6357; --line: #d3ddcc; --img-bg: #e4ecde; --img-ratio: 4 / 5; --radius-card: 14px; --radius-img: 999px 999px 14px 14px; --radius-btn: 999px; --display: "Noto Naskh Arabic Variable", "Vazirmatn Variable", Tahoma, serif; --footer-bg: #1e3a2b; --footer-ink: #eef4ea; --footer-muted: #bcd0c0; }
+.root .heroTitle { line-height: 1.6; font-size: clamp(1.9em, 4.2vw, 3em); }
+.root .heroArt { border-radius: 999px 999px 0 0; aspect-ratio: 3 / 4; max-width: 400px; width: 100%; justify-self: center; }
+.root .sectionTitle, .root .detailTitle, .root .ctaTitle { line-height: 1.7; }
+.root .card { border: 0; }
+.root .cardBody { padding: 10px 2px 4px; }
+.root .detailArt { border-radius: 999px 999px 18px 18px; }
+.root .tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+.root .tile { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 18px; background: #ffffff; border: 1px solid var(--line); border-radius: 999px; }
+.root .tileArt { display: none; }
+.root .tile:hover { border-color: var(--primary); }
+.root .notice { background: var(--ink); color: #eef4ea; border-radius: 18px; }
+.root .notice :focus-visible { outline-color: #eef4ea; }
+.root .highlight { background: #ffffff; }
+.root .cta { background: var(--surface); border-radius: 22px; }
+.root .chip { background: #ffffff; }

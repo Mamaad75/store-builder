@@ -42,6 +42,43 @@ Preservation criterion (not byte equality: JSONB does not keep object key order)
 
 **Media:** dormant sections stay in `Page.sections`, so `isMediaReferenced` (page-JSON scan) keeps their images protected; the Phase 7 reference-aware deletion is unchanged. Dormant images never reach `StorefrontData.images` (it is built from rendered sections only). Deleting a dormant section releases its media through the normal reference-aware rule.
 
+## Business themes on the storefront kit (2026-11)
+
+Eight themes, one per business category, owner-approved from a visual preview (original designs informed by each trade's UX patterns; no brand, logo, colour scheme or copy of the reference sites is reused):
+
+| Theme (key) | Name | Category it is suggested for | Display face | Signature |
+|---|---|---|---|---|
+| `bazaar` | بازار | general | Vazirmatn | brand-coloured hero banner, round category bubbles, category strip under the header |
+| `circuit` | مدار | digital (new) | Estedad | graphite hero, key specs as chips, stock as a status dot, products on white |
+| `sormeh` | سُرمه | beauty (new) | El Messiri | arch hero frame, powder tones, pill controls, need-based category pills |
+| `dookht` | دوخت | fashion | Alexandria | full-width hero with the title on a solid black panel, 3:4 photos, sharp corners, size guide |
+| `arcade` | آرکید | digital-goods (new) | Changa | dark by design, glowing hero, 16:9 cards, spec table on cards, activation steps |
+| `sofreh` | سفره | coffee-food | Markazi Text | round "plate" photos, menu board with dotted leaders, opening hours band, WhatsApp order |
+| `golkhaneh` | گلخانه | flowers (new) | Noto Naskh Arabic | greenhouse-arch frames, occasion pills, same-day delivery band |
+| `khaneh` | خانه | home-appliances | IBM Plex Sans Arabic | products whole on white, room tiles, charcoal service band |
+
+* **Structure:** `apps/web/src/templates/kit/kit.tsx` implements every core section and the kit sections once (same markup, wording and
+  accessibility as the MVP themes); each theme is `createKitTemplate(definition, its CSS module, options)`. Styling is two CSS modules:
+  `kit/base.module.css` (structure, focus, responsive rules, all driven by tokens) and the theme's module (tokens on `.root` and
+  `.root .x` overrides, which always win). The pure side is `packages/shared/src/templates/kit/`: section factories
+  (`<key>.categories`, `<key>.highlights`, lines, notice, size guide), `kitEditor` and the eight definitions.
+* **Kit sections:** `<key>.categories` (the store's own categories as tiles, each showing the image of its first product with one;
+  nothing while the store has no categories), `<key>.highlights` ("title: text" lines), plus `sofreh.menu`, `sofreh.hours`,
+  `arcade.steps` (an ordered list: a real sequence), `golkhaneh.delivery`, `dookht.sizeGuide`. All singletons, all plain text.
+* **No cart yet:** cards link to the product page; `sofreh` cards and every kit product page offer "order on WhatsApp" / "call to order"
+  only when the store has a valid number (`buildContactLinks` builds the URL; the product name is URL-encoded).
+* **Fonts:** self-hosted from npm (`@fontsource*`, all OFL), imported in `app/layout.tsx`; a file is downloaded only when a page uses
+  the face (`font-display: swap`). Every face was checked with a WOFF2 cmap reader for پ چ ژ گ ک ی and Persian digits, and rendered in
+  Chrome with ZWNJ words (correct non-joining, no fallback). Readex Pro was dropped: it has no Persian letters. Body text stays Vazirmatn.
+* **Contrast:** buttons use `--primary`/`--on-primary` (readable text chosen by the engine) and links `--accent`; the dark theme
+  derives a light link colour from the brand. Checked locally with the E2E axe rule set (WCAG 2.2 AA, 1280 and 375 px, no scroll at
+  320 px) on all eight themes and five page types, with a light (#facc15) and a dark (#111827) brand colour: no violations. The E2E
+  accessibility spec now covers all twelve themes.
+* **Specs on cards:** every theme shows up to two spec rows on cards (rule of 9C); themes only style them (chips, a table, quiet rows).
+* **Data the themes are ready for but the product does not have yet (phase 3):** compare-at price and discount badges, variants (size,
+  colour, shade, weight, platform/duration), several images per product, brand, ratings, digital delivery (codes, download links).
+* The four MVP themes are unchanged and remain available; the new themes are listed first and suggested by the business categories.
+
 ## Theme-specific sections (9A)
 
 * `coffee.openingHours` `{ title, body (lines "label: hours"), note }` - dotted-leader rows. Approved on home, about, contact.

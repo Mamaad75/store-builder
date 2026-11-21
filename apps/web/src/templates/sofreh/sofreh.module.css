@@ -1,0 +1,21 @@
+/* سفره — food & cafe: pistachio and cocoa, a menu board with dotted leaders, round "plate" photos, WhatsApp ordering. */
+.root { --surface: #eef3e4; --ink: #3b2416; --muted: #6a5646; --line: #e6ddcf; --img-bg: #eef3e4; --radius-card: 18px; --radius-btn: 12px; --display: "Markazi Text Variable", "Vazirmatn Variable", Tahoma, serif; --footer-bg: #3b2416; --footer-ink: #f6efe4; --footer-muted: #d7c7b4; }
+.root .brand { font-size: 1.6em; }
+.root .heroInner { background: var(--surface); border-radius: 26px; padding: 28px; }
+.root .heroTitle { font-size: clamp(2.4em, 5.4vw, 3.8em); line-height: 1.15; }
+.root .heroArt { aspect-ratio: 1; border-radius: 50%; max-width: 320px; width: 100%; justify-self: center; background: #ffffff; box-shadow: 0 0 0 12px color-mix(in srgb, var(--primary) 16%, white); }
+.root .sectionTitle, .root .ctaTitle { font-size: 2em; line-height: 1.25; }
+.root .detailTitle { font-size: 2.3em; line-height: 1.2; }
+.root .card { border-color: transparent; text-align: center; }
+.root .cardArt { width: 78%; margin: 14px auto 0; border-radius: 50%; aspect-ratio: 1; }
+.root .cardBody { justify-items: center; }
+.root .cardCta { color: var(--link); border-color: currentColor; justify-self: center; }
+.root .tileArt { border-radius: 50%; }
+.root .menu .lines { border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px; background: #ffffff; }
+.root .hours { background: var(--ink); color: #f6efe4; }
+.root .hours .lineLabel::after { border-color: #7a6250; }
+.root .hours .linesNote { color: #d7c7b4; }
+.root .hours :focus-visible { outline-color: #f6efe4; }
+.root .highlight { background: var(--surface); border-color: transparent; }
+.root .cta { background: var(--surface); border-radius: 22px; }
+@media (max-width: 760px) { .root .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; } .root .tileName { font-size: .85em; } }

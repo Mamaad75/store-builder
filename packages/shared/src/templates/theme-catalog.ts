@@ -2,14 +2,17 @@ import { appliancesTheme } from "./appliances/definition.js";
 import { coffeeTheme } from "./coffee/definition.js";
 import { fashionTheme } from "./fashion/definition.js";
 import { generalTheme } from "./general/definition.js";
+import { KIT_THEMES } from "./kit/themes.js";
 import type { ThemeDefinition } from "./theme.js";
 
 /**
  * The pure catalog of registered themes (no React). Server code uses it to validate theme choices, to find the editor
  * spec of a store's theme and to resolve section definitions; `registry.ts` maps the same (key, version) pairs to the
  * React modules (a test keeps the two in sync). Adding a theme = its `definition.ts` + one line here + one line there.
+ * Order = the order offered to merchants: the eight business themes (2026-11) first, then the four MVP themes, which stay
+ * available unchanged (existing stores keep rendering exactly as before).
  */
-export const THEME_CATALOG: readonly ThemeDefinition[] = [generalTheme, coffeeTheme, fashionTheme, appliancesTheme];
+export const THEME_CATALOG: readonly ThemeDefinition[] = [...KIT_THEMES, generalTheme, coffeeTheme, fashionTheme, appliancesTheme];
 
 let extra: readonly ThemeDefinition[] = [];
 let all: readonly ThemeDefinition[] = THEME_CATALOG;

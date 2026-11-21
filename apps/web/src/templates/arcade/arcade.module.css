@@ -1,0 +1,22 @@
+/* آرکید — subscriptions, gift cards, downloads: dark by design, glowing hero from the merchant colour, wide 16:9 cards, amber prices. */
+.root { --bg: #0f1226; --surface: #1a1e3d; --card-bg: #161a36; --header-bg: #0f1226; --ink: #eef0ff; --muted: #a7add4; --line: #2b3058; --img-bg: #20254a; --img-ratio: 16 / 9; --radius-card: 14px; --radius-btn: 10px; --display: "Changa Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #0b0d1d; --footer-ink: #eef0ff; --footer-muted: #a7add4; --link: color-mix(in srgb, var(--primary) 45%, #ffffff); color-scheme: dark; }
+.root .heroInner { border-radius: 20px; padding: 32px; border: 1px solid var(--line); background: radial-gradient(120% 140% at 15% 50%, color-mix(in srgb, var(--primary) 45%, #0f1226) 0%, #1a1e3d 62%); }
+.root .heroSub { color: #c3c8ea; }
+.root .heroArt { aspect-ratio: 16 / 10; background: color-mix(in srgb, var(--primary) 18%, #0f1226); }
+.root .placeholder { color: color-mix(in srgb, var(--primary) 55%, #ffffff); background: transparent; }
+.root .price { color: #ffc266; }
+.root .stock { color: #7cf0c5; }
+.root .stockLow { color: #ffd08a; }
+.root .stockOut { color: #ff9aa5; }
+.root .cardSpecs { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; }
+.root .cardSpecRow { display: contents; }
+.root .cardSpecTerm::after { content: ""; }
+.root .cardSpecDef { color: #dadff7; }
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); }
+.root .tile { background: var(--card-bg); border: 1px solid var(--line); border-radius: 14px; padding: 10px; text-align: start; }
+.root .tileArt { aspect-ratio: 16 / 9; border-radius: 10px; }
+.root .tileName { font-family: var(--display); font-weight: 700; }
+.root .chip[aria-current="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.root .cta { background: var(--surface); border: 1px solid var(--line); }
+.root .notice { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.root .stepNum { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 30%, transparent); }

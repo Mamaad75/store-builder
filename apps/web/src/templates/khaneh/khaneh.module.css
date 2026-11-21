@@ -1,0 +1,17 @@
+/* خانه — home appliances & decor: warm stone page, products whole on white, room tiles, a charcoal service band. */
+.root { --bg: #f4f3f0; --surface: #eae8e3; --card-bg: #ffffff; --header-bg: #ffffff; --ink: #23272e; --muted: #5a5f69; --line: #e0ddd6; --img-bg: #ffffff; --img-fit: contain; --radius-card: 8px; --radius-btn: 6px; --radius-chip: 6px; --display: "IBM Plex Sans Arabic", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #23272e; --footer-ink: #f1efea; --footer-muted: #b9bcc2; }
+.root .heroInner { background: #ffffff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; gap: 0; }
+.root .heroText { padding: 32px; }
+.root .heroArt { border-radius: 0; aspect-ratio: 5 / 4; background: linear-gradient(180deg, #ece8e0 0 72%, #dad4c8 72%); padding: 18px 24px 0; }
+.root .hero .placeholder { background: transparent; }
+.root .cardArt { padding: 16px; border-bottom: 1px solid var(--line); }
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
+.root .tile { grid-template-columns: 56px 1fr; align-items: center; text-align: start; background: #ffffff; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.root .tileArt { border-radius: 6px; background: var(--surface); }
+.root .tileArt .placeholder { font-size: 1.4em; }
+.root .highlightsSection { background: var(--ink); color: #f1efea; }
+.root .highlightsSection .sectionTitle { color: #ffffff; }
+.root .highlight { background: transparent; border-color: #3d424a; }
+.root .highlightText { color: #c4c7cc; }
+.root .highlightsSection :focus-visible { outline-color: #ffffff; }
+.root .cta { background: #ffffff; border: 1px solid var(--line); }

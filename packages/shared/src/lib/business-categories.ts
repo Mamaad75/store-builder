@@ -32,7 +32,7 @@ export const BUSINESS_CATEGORIES: readonly BusinessCategory[] = [
     key: "general",
     name: "عمومی",
     description: "فروشگاهی با محصولات متنوع.",
-    suggestedThemes: ["general"],
+    suggestedThemes: ["bazaar","general"],
     suggestedSpecPresets: ["general"],
     starter: {
       heroTitle: "به فروشگاه ما خوش آمدید",
@@ -43,25 +43,39 @@ export const BUSINESS_CATEGORIES: readonly BusinessCategory[] = [
     },
   },
   {
-    key: "coffee-food",
-    name: "قهوه و مواد غذایی",
-    description: "قهوه، چای، شیرینی و مواد غذایی.",
-    suggestedThemes: ["coffee", "general"],
-    suggestedSpecPresets: ["general"],
+    key: "digital",
+    name: "دیجیتال و تکنولوژی",
+    description: "گوشی، لپ‌تاپ، لوازم جانبی و کالای دیجیتال.",
+    suggestedThemes: ["circuit","bazaar"],
+    suggestedSpecPresets: ["digital","general"],
     starter: {
-      heroTitle: "قهوه تازه، هر روز",
-      heroSubtitle: "دانه‌های برشته‌شده و محصولات خوش‌طعم برای شروع بهتر روز شما",
+      heroTitle: "کالای دیجیتال با گارانتی معتبر",
+      heroSubtitle: "مقایسه‌ی آسان مشخصات و خرید مطمئن",
       cta: "مشاهده محصولات",
-      aboutTitle: "داستان ما",
-      aboutBody: "ما با عشق قهوه و مواد غذایی باکیفیت تهیه و عرضه می‌کنیم. این متن را از بخش ویرایش تغییر دهید.",
+      aboutTitle: "درباره فروشگاه",
+      aboutBody: "ما کالای دیجیتال اصل را با مشخصات روشن و پشتیبانی عرضه می‌کنیم. این متن را از بخش ویرایش تغییر دهید.",
+    },
+  },
+  {
+    key: "beauty",
+    name: "آرایشی، بهداشتی و عطر",
+    description: "مراقبت پوست و مو، آرایش، عطر و اکسسوری.",
+    suggestedThemes: ["sormeh","bazaar"],
+    suggestedSpecPresets: ["beauty","general"],
+    starter: {
+      heroTitle: "زیبایی ساده، مراقبت روزانه",
+      heroSubtitle: "محصولات اصل آرایشی و مراقبتی برای هر نوع پوست",
+      cta: "مشاهده محصولات",
+      aboutTitle: "درباره ما",
+      aboutBody: "ما محصولات اصل آرایشی و بهداشتی را با مشاوره عرضه می‌کنیم. این متن را از بخش ویرایش تغییر دهید.",
     },
   },
   {
     key: "fashion",
     name: "پوشاک",
     description: "لباس، کیف، کفش و اکسسوری.",
-    suggestedThemes: ["fashion", "general"],
-    suggestedSpecPresets: ["general"],
+    suggestedThemes: ["dookht","fashion"],
+    suggestedSpecPresets: ["clothing","general"],
     starter: {
       heroTitle: "استایل خودتان را پیدا کنید",
       heroSubtitle: "جدیدترین مدل‌های پوشاک با کیفیت و قیمت مناسب",
@@ -71,11 +85,53 @@ export const BUSINESS_CATEGORIES: readonly BusinessCategory[] = [
     },
   },
   {
+    key: "digital-goods",
+    name: "اشتراک و محصول دیجیتال",
+    description: "اشتراک، گیفت‌کارت، اکانت و محصولات دانلودی.",
+    suggestedThemes: ["arcade","circuit"],
+    suggestedSpecPresets: ["digital-goods","general"],
+    starter: {
+      heroTitle: "اشتراک و گیفت‌کارت، با تحویل سریع",
+      heroSubtitle: "کد و راهنمای فعال‌سازی برای هر محصول",
+      cta: "انتخاب محصول",
+      aboutTitle: "درباره ما",
+      aboutBody: "ما اشتراک‌ها و محصولات دیجیتال را با راهنمای فعال‌سازی و پشتیبانی عرضه می‌کنیم. این متن را از بخش ویرایش تغییر دهید.",
+    },
+  },
+  {
+    key: "coffee-food",
+    name: "قهوه و مواد غذایی",
+    description: "قهوه، چای، شیرینی و مواد غذایی.",
+    suggestedThemes: ["sofreh","coffee"],
+    suggestedSpecPresets: ["food","general"],
+    starter: {
+      heroTitle: "قهوه تازه، هر روز",
+      heroSubtitle: "دانه‌های برشته‌شده و محصولات خوش‌طعم برای شروع بهتر روز شما",
+      cta: "مشاهده محصولات",
+      aboutTitle: "داستان ما",
+      aboutBody: "ما با عشق قهوه و مواد غذایی باکیفیت تهیه و عرضه می‌کنیم. این متن را از بخش ویرایش تغییر دهید.",
+    },
+  },
+  {
+    key: "flowers",
+    name: "گل و گیاه",
+    description: "دسته‌گل، گیاه آپارتمانی، باکس گل و گلدان.",
+    suggestedThemes: ["golkhaneh","bazaar"],
+    suggestedSpecPresets: ["plant","general"],
+    starter: {
+      heroTitle: "گلی که حرف شما را می‌زند",
+      heroSubtitle: "دسته‌گل تازه و گیاه سالم برای هر مناسبت",
+      cta: "انتخاب گل",
+      aboutTitle: "درباره ما",
+      aboutBody: "ما گل و گیاه تازه را با بسته‌بندی زیبا و ارسال سریع عرضه می‌کنیم. این متن را از بخش ویرایش تغییر دهید.",
+    },
+  },
+  {
     key: "home-appliances",
     name: "لوازم خانگی",
     description: "لوازم برقی و وسایل کاربردی منزل.",
-    suggestedThemes: ["appliances", "general"],
-    suggestedSpecPresets: ["appliance", "general"],
+    suggestedThemes: ["khaneh","appliances"],
+    suggestedSpecPresets: ["appliance","general"],
     starter: {
       heroTitle: "لوازم خانگی مطمئن برای خانهٔ شما",
       heroSubtitle: "کالاهای اصل با گارانتی و مشخصات روشن",
@@ -94,5 +150,6 @@ export const businessCategoryLabel = (key: string): string => byKey.get(key)?.na
 
 /** Best-effort starting category for a theme key (used by the migration backfill and by callers that pass no category). */
 export function inferCategoryFromThemeKey(themeKey: string): string {
-  return themeKey === "coffee" ? "coffee-food" : themeKey === "fashion" ? "fashion" : themeKey === "appliances" ? "home-appliances" : "general";
+  const byTheme: Record<string, string> = { coffee: "coffee-food", fashion: "fashion", appliances: "home-appliances", circuit: "digital", sormeh: "beauty", dookht: "fashion", arcade: "digital-goods", sofreh: "coffee-food", golkhaneh: "flowers", khaneh: "home-appliances" };
+  return byTheme[themeKey] ?? "general";
 }
