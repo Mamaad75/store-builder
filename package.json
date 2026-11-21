@@ -35,6 +35,7 @@
     "worker": "pnpm --filter @store-builder/api worker",
     "test:queue": "pnpm --filter @store-builder/api test:queue",
     "worker:health": "pnpm --filter @store-builder/api worker:health",
+    "secrets:rotate": "pnpm --filter @store-builder/api secrets:rotate",
     "alert:test": "pnpm --filter @store-builder/api alert:test",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",

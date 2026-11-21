@@ -20,13 +20,14 @@ export const PERMISSIONS = [
   "domain.manage", // subdomain claim/release
   "members.manage", // invitations, roles, removing staff
   "audit.view",
+  "secrets.manage", // payment gateway keys and other store secrets (phase 2.4): owner only
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 const ALL: readonly Permission[] = PERMISSIONS;
 export const ROLE_PERMISSIONS: Readonly<Record<StoreRole, readonly Permission[]>> = {
   OWNER: ALL,
-  MANAGER: ALL.filter((p) => p !== "store.delete" && p !== "members.manage"),
+  MANAGER: ALL.filter((p) => p !== "store.delete" && p !== "members.manage" && p !== "secrets.manage"),
   OPERATOR: ["store.view", "catalog.write", "media.write", "pages.write"],
 };
 

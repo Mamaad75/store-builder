@@ -196,7 +196,8 @@ describe("architecture guard: store access (phase 2.3, D23-1)", () => {
     for (const c of controllers.filter((x) => /StoreAccessGuard/.test(x.text) && !x.p.includes("access/"))) {
       const storeScoped = c.p.endsWith("stores.controller.ts") ? c.text.slice(c.text.indexOf('@Get(":storeId")')) : c.text;
       expect(storeScoped, c.p).not.toMatch(/\buser\.id\b/);
-      expect(storeScoped, c.p).toMatch(/a\.ownerId/);
+      // legacy services take the owner id (a.ownerId); layered modules take the whole resolved context (store id + real actor)
+      expect(storeScoped, c.p).toMatch(/a\.ownerId|this\.\w+\.\w+\(a[,)]/);
     }
   });
 });

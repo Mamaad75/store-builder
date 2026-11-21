@@ -17,6 +17,8 @@ export const testConfig: ApiConfig = {
   rateLimitBackend: "postgres" as const,
   authSecret: "test-secret-test-secret-test-secret-1234",
   sessionMaxAgeSeconds: 7 * 24 * 60 * 60,
+  // a fixed TEST-ONLY master key (32 bytes); production keys come from SECRETS_MASTER_KEYS
+  secrets: { activeId: "test1", keys: new Map([["test1", Buffer.alloc(32, 7)]]) },
   secureCookies: false,
 };
 

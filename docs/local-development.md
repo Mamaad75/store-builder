@@ -84,6 +84,7 @@ Copy-Item apps/web/.env.example apps/web/.env.local
 | `S3_FORCE_PATH_STYLE` | `true` | |
 | `S3_PUBLIC_BASE_URL` | `http://localhost:9000/store-builder-media` | آدرس عمومی تصاویر |
 | `REDIS_URL` | `redis://localhost:6379` | فقط worker استفاده می‌کند؛ در development اگر خالی باشد همین مقدار فرض می‌شود |
+| `SECRETS_MASTER_KEYS` / `SECRETS_ACTIVE_KEY_ID` | اختیاری؛ مثلاً `dev1:<کلید>` و `dev1` | کلید اصلی رمزنگاری «کلیدهای محرمانه‌ی فروشگاه» (مثل کلید درگاه پرداخت). بدون آن این قابلیت خاموش است. ساخت کلید: `node -e "console.log(require(crypto).randomBytes(32).toString(base64))"`. این کلید را هرگز commit نکنید |
 
 اگر متغیرهای `S3_*` را خالی بگذارید، API باز هم بالا می‌آید ولی آپلود تصویر کار نمی‌کند.
 

@@ -37,6 +37,18 @@ describe("architecture guards", () => {
     const outbox = src.find((f) => f.p === "platform/outbox/outbox.ts")!.text;
     expect(outbox).toMatch(/export async function recordEvent\(scope: TransactionScope,/); // a transaction is required by the signature
   });
+  it("cipher primitives live only in platform/crypto/ (phase 2.4); only the secrets module and the config use the envelope", () => {
+    expect(src.filter((f) => /\b(createCipheriv|createDecipheriv)\b/.test(f.text) && !f.p.startsWith("platform/crypto/")).map((f) => f.p)).toEqual([]);
+    const users = src.filter((f) => /from\s+["'][^"']*platform\/crypto\/envelope/.test(f.text)).map((f) => f.p).sort();
+    expect(users).toEqual(["config/env.ts", "modules/secrets/infrastructure/compose.ts", "modules/secrets/infrastructure/rotation.ts"]);
+  });
+  it("no controller can return a secret value: reveal() is never called from the interface layer or any controller", () => {
+    // any mention of `reveal` (call, destructuring, bracket access) in an HTTP-facing file fails; so does a service method other than reveal returning open()
+    expect(src.filter((f) => (f.p.includes("/interface/") || f.p.endsWith("controller.ts") || f.p.endsWith("controllers.ts")) && /\breveal\b/.test(f.text)).map((f) => f.p)).toEqual([]);
+    const svc = src.find((f) => f.p === "modules/secrets/application/secret.service.ts")!.text;
+    expect(svc.match(/\.open\(/g)).toHaveLength(1);
+    expect(svc.slice(svc.indexOf("async reveal(")).match(/\.open\(/g)).toHaveLength(1);
+  });
   it("relative imports carry the .js suffix (native ESM)", () => {
     const bad = src.flatMap((f) => [...f.text.matchAll(/from "(\.[^"]+)"/g)].filter((m) => !m[1]!.endsWith(".js")).map((m) => `${f.p}: ${m[1]}`));
     expect(bad).toEqual([]);

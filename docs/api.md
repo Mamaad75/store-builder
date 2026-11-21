@@ -90,6 +90,18 @@ Audited actions (successful writes only): `product.*`, `category.*`, `page.*`, `
 `store.deleted`, `staff.*`. Kept 365 days (`db-cleanup`). An audit write that fails never fails the request; it is logged as
 `audit.write_failed`.
 
+## Store secrets (phase 2.4, D24-1)
+
+Owner only (`secrets.manage`). Write-only: no route returns a value.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/stores/:storeId/secrets` | `{ configured, secrets: [{ name, hint, updatedAt }] }` — `hint` = last 4 characters (values of 24+ characters only) |
+| PUT | `/stores/:storeId/secrets/:name` | `{ value }` (1–4096 characters, trimmed; control, format/bidi and lone-surrogate characters refused) → 204; name format `area.provider.field` (else 404); 20 per store (409 `SecretLimitError`); 503 `SecretsUnavailableError` when the server has no master keys |
+| POST | `/stores/:storeId/secrets/:name/delete` | → 204 |
+
+Audited as `secret.set` / `secret.deleted` (the name only). Server-side consumers use `SecretService.reveal(storeId, name)` (`modules/secrets/secrets.api.ts`).
+
 ## Domain endpoints (owner-scoped; every one needs the session cookie and, for writes, the platform Origin)
 Controllers are thin: they hand `user.id` (from the session, never from the request) and the route/body values to the original services in
 `src/modules/*`, which validate input with Zod, enforce ownership in SQL and bump revisions under the store lock.

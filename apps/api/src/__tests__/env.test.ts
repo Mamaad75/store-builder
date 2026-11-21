@@ -94,3 +94,21 @@ describe("loadWorkerConfig (phase 2.2)", () => {
     }
   });
 });
+
+describe("secrets master keys (phase 2.4, D24-1)", () => {
+  const key = Buffer.alloc(32, 9).toString("base64");
+  it("absent = feature off; a valid list + active id = on; half or invalid configuration refuses to start without printing the key", () => {
+    expect(loadConfig({ NODE_ENV: "development", DATABASE_URL: "postgresql://u:p@h:5432/d" }).secrets).toBeNull();
+    const on = loadConfig({ NODE_ENV: "development", DATABASE_URL: "postgresql://u:p@h:5432/d", SECRETS_MASTER_KEYS: `k1:${key}`, SECRETS_ACTIVE_KEY_ID: "k1" }).secrets;
+    expect(on?.activeId).toBe("k1");
+    for (const env of [{ SECRETS_MASTER_KEYS: `k1:${key}` }, { SECRETS_ACTIVE_KEY_ID: "k1" }, { SECRETS_MASTER_KEYS: "k1:dG9vLXNob3J0", SECRETS_ACTIVE_KEY_ID: "k1" }]) {
+      try {
+        loadConfig({ NODE_ENV: "development", DATABASE_URL: "postgresql://u:p@h:5432/d", ...env });
+        expect.unreachable(JSON.stringify(Object.keys(env)));
+      } catch (e) {
+        expect((e as EnvError).problems.join(" ")).toMatch(/SECRETS_/);
+        expect((e as Error).message).not.toContain(key);
+      }
+    }
+  });
+});

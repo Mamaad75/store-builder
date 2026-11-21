@@ -129,6 +129,7 @@ model Store {
   media            Media[]
   domains          Domain[]
   members          StoreMember[]
+  secrets          StoreSecret[]
   invitations      StoreInvitation[]
   publishedSlugs   PublishedSlug[]
 
@@ -374,4 +375,22 @@ model AuditEvent {
 
   @@index([storeId, createdAt])
   @@index([createdAt])
+}
+
+/// A store secret (phase 2.4, D24-1), e.g. a payment gateway key: ONLY the envelope (wrapped data key + sealed value) is stored, bound to
+/// (storeId, name) by AES-GCM associated data. The value is never returned by the API; `hint` is the last 4 characters for recognition
+/// (only for values of 12+ characters). Deleted with the store.
+model StoreSecret {
+  storeId    String
+  name       String   @db.VarChar(80)
+  keyId      String   @db.VarChar(32)
+  wrappedKey Bytes
+  sealed     Bytes
+  hint       String?  @db.VarChar(4)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, name])
+  @@index([keyId])
 }

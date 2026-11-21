@@ -1,4 +1,5 @@
 import { InvitationTargetError, PermissionDeniedError, StaffLimitError } from "../modules/access/errors.js";
+import { SecretLimitError, SecretsUnavailableError } from "../modules/secrets/errors.js";
 import { CandidateThemeUnavailableError } from "../modules/storefront/errors.js";
 import { MediaInUseError, MediaQuotaError, MediaRateLimitError, MediaStorageError, MediaValidationError } from "../modules/media/errors.js";
 import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } from "../modules/pages/errors.js";
@@ -21,13 +22,14 @@ export const DOMAIN_ERRORS: Record<string, ErrorClass> = {
   MediaValidationError, MediaQuotaError, MediaInUseError, MediaRateLimitError, MediaStorageError,
   ThemeSwitchBlockedError, CandidateThemeUnavailableError,
   PermissionDeniedError, InvitationTargetError, StaffLimitError,
+  SecretsUnavailableError, SecretLimitError,
   ...publishingErrors,
 };
 
 /** HTTP status per class (the default for a domain error is 422). */
 const STATUS: Record<string, number> = {
   NotFoundError: 404, ValidationError: 400, ConflictError: 409, DraftBusyError: 409, PublishBusyError: 409, StoreAlreadyLiveError: 409, VersionAlreadyLiveError: 409,
-  PermissionDeniedError: 403, InvitationTargetError: 400, StaffLimitError: 409,
+  PermissionDeniedError: 403, InvitationTargetError: 400, StaffLimitError: 409, SecretsUnavailableError: 503, SecretLimitError: 409,
   SubdomainTakenError: 409, SlugReservationConflictError: 409, MediaInUseError: 409, MediaRateLimitError: 429, PublishRateLimitedError: 429, MediaStorageError: 502, PublishTimedOutError: 503,
 };
 

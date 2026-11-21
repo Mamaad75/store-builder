@@ -25,6 +25,7 @@
     "worker": "tsx --env-file-if-exists=.env scripts/worker.ts",
     "test:queue": "vitest run -c vitest.queue.config.ts",
     "worker:health": "tsx scripts/worker-health.ts",
+    "secrets:rotate": "tsx scripts/rotate-secrets.ts",
     "alert:test": "tsx scripts/alert-test.ts"
   },
   "dependencies": {

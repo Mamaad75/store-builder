@@ -44,6 +44,9 @@ x-api-env: &api-env
   S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
   S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
   S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?set S3_PUBLIC_BASE_URL}
+  # Store secrets (phase 2.4, D24-1): master keys of the envelope encryption. Empty = feature off; half or invalid = the API refuses to start.
+  SECRETS_MASTER_KEYS: ${SECRETS_MASTER_KEYS:-}
+  SECRETS_ACTIVE_KEY_ID: ${SECRETS_ACTIVE_KEY_ID:-}
 
 x-hardening: &hardening
   restart: unless-stopped

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { StorageConfigError, getStorageConfig, type StorageConfig } from "../lib/storage/config.js";
+import { parseMasterKeys, type MasterKeys } from "../platform/crypto/envelope.js";
 
 /**
  * The ONLY place that interprets environment variables (an architecture test enforces it). Everything else receives the
@@ -33,6 +34,11 @@ export interface ApiConfig {
   rateLimitBackend: "postgres" | "memory";
   /** True when the platform is served over https: the cookie is then `Secure` and uses the `__Host-` prefix. */
   secureCookies: boolean;
+  /**
+   * Master keys of the store-secret envelope encryption (phase 2.4, D24-1): SECRETS_MASTER_KEYS + SECRETS_ACTIVE_KEY_ID. null = the
+   * secrets feature is off (its endpoints answer "not configured"). Key material never leaves this object and is never logged.
+   */
+  secrets: MasterKeys | null;
 }
 
 export class EnvError extends Error {
@@ -141,6 +147,8 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     if (!dev) problems.push(e.message.replace("Invalid or missing storage configuration: ", "S3 configuration invalid or missing: "));
   }
   if (d && !dev && d.RATE_LIMIT_BACKEND === "memory") problems.push('RATE_LIMIT_BACKEND: "memory" is for single-process development only');
+  const secrets = parseMasterKeys(env.SECRETS_MASTER_KEYS, env.SECRETS_ACTIVE_KEY_ID);
+  if (secrets && "error" in secrets) problems.push(secrets.error); // half or invalid configuration refuses to start, in every environment
   if (problems.length > 0 || !d) throw new EnvError(problems);
 
   const base = `${d.APP_PROTOCOL}://${d.APP_ROOT_DOMAIN}`;
@@ -163,5 +171,6 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     storage,
     rateLimitBackend: d.RATE_LIMIT_BACKEND,
     secureCookies: d.APP_PROTOCOL === "https",
+    secrets: secrets && !("error" in secrets) ? secrets : null,
   };
 }

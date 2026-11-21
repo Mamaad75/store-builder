@@ -47,3 +47,11 @@ Caddy replaces `X-Forwarded-For` with the connecting address and removes `X-Forw
 * Staff join only by accepting an invitation addressed to their own account (D23-2); invitations expire after 14 days and are consumed atomically (`DELETE ... RETURNING`), so a double accept cannot create two memberships.
 * The audit log stores identifiers and small facts only (no request bodies, no secrets), records the real actor, and is visible to OWNER and MANAGER; 365-day retention.
 
+## Store secrets (phase 2.4, D24-1)
+
+* Envelope encryption (`apps/api/src/platform/crypto/envelope.ts`): AES-256-GCM, a random 256-bit data key per record wrapped by an environment master key, 96-bit random IVs, associated data binding each record to `store + name`; tampering, a wrong key or a moved record all fail with one generic `EnvelopeError`. Data keys are zeroed after use.
+* Master keys: `SECRETS_MASTER_KEYS` (`id:base64-32-bytes`, comma separated) and `SECRETS_ACTIVE_KEY_ID`; generate a key with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Keep them out of backups of the database (they are not in the database). Rotation: add the new key to `SECRETS_MASTER_KEYS`, make it `SECRETS_ACTIVE_KEY_ID`, restart EVERY API instance (none may still write with the old active key), run `pnpm secrets:rotate` until it reports `remaining: 0` (exit code 2 otherwise; `failed` counts records it could not open, each once), then remove the old key. The update is a compare-and-set on the old wrapped key, so a value changed meanwhile is never overwritten with a stale data key.
+* A write, the per-store cap (20) and its audit entry run in one transaction under a per-store advisory lock: concurrent requests cannot pass the cap and no change exists without its audit record.
+* The 4-character hint is stored outside the envelope, so it is kept only for values of 24+ characters.
+* Only the owner manages secrets; the API never returns a value; no controller may call `reveal` (architecture test); cipher primitives are allowed only in `platform/crypto/` (architecture test).
+
