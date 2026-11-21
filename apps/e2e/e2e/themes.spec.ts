@@ -49,10 +49,23 @@ test.describe("creating stores: business category and theme are separate choices
     await page.goto("/dashboard/stores/new");
     await waitForHydration(page, "form:has(input[name=templateKey])");
     await page.locator("[data-category-key=coffee-food] button").click();
-    await expect(page.locator("input[name=templateKey]")).toHaveValue("coffee");
-    await page.locator("[data-theme-key=fashion] button").click();
-    await expect(page.locator("input[name=templateKey]")).toHaveValue("fashion");
+    await expect(page.locator("input[name=templateKey]")).toHaveValue("sofreh");
+    await page.locator("[data-theme-key=dookht] button").click();
+    await expect(page.locator("input[name=templateKey]")).toHaveValue("dookht");
     await expect(page.locator("input[name=businessCategory]")).toHaveValue("coffee-food");
+  });
+
+  test("the create form offers exactly the eight business themes (the MVP themes are legacy, DT-2) and each category suggests its own", async ({ page }) => {
+    await signUpAndIn(page);
+    await page.goto("/dashboard/stores/new");
+    await waitForHydration(page, "form:has(input[name=templateKey])");
+    const offered = await page.locator("[data-theme-key]").evaluateAll((els) => els.map((e) => e.getAttribute("data-theme-key")));
+    expect(offered).toEqual(["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh"]);
+    const suggested: Record<string, string> = { general: "bazaar", digital: "circuit", beauty: "sormeh", fashion: "dookht", "digital-goods": "arcade", "coffee-food": "sofreh", flowers: "golkhaneh", "home-appliances": "khaneh" };
+    for (const [category, theme] of Object.entries(suggested)) {
+      await page.locator(`[data-category-key=${category}] button`).click();
+      await expect(page.locator("input[name=templateKey]"), category).toHaveValue(theme);
+    }
   });
 });
 

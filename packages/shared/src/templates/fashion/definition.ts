@@ -44,4 +44,5 @@ export const fashionTheme: ThemeDefinition = {
   meta: { name: "مینیمال و مدرن", description: "فضای سفید زیاد، تصویر محصول در مرکز توجه و تایپوگرافی ظریف." },
   sectionDefinitions: [sizeGuideSection],
   editor,
+  legacy: true,
 };

@@ -16,8 +16,8 @@ const go = async (ownerId: string, storeId: string, key: string) => switchTheme(
 const pagesJson = async (storeId: string) => JSON.stringify((await prisma.page.findMany({ where: { storeId }, orderBy: { type: "asc" } })).map((p) => [p.type, p.sections, p.legacySections, p.revision]));
 
 describe("the appliances theme and the home-appliances category", () => {
-  it("the category suggests the khaneh theme first and the appliances theme second (a suggestion only: any theme is allowed)", () => {
-    expect(getBusinessCategory("home-appliances")!.suggestedThemes).toEqual(["khaneh", "appliances"]);
+  it("the category suggests the khaneh theme (appliances is legacy since DT-2: kept for existing stores, no longer suggested)", () => {
+    expect(getBusinessCategory("home-appliances")!.suggestedThemes).toEqual(["khaneh"]);
   });
 
   it("a home-appliances store on the appliances theme gets the five standard pages with the category's starter text, and previews with that theme", async () => {

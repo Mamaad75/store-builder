@@ -38,4 +38,5 @@ export const coffeeTheme: ThemeDefinition = {
   meta: { name: "گرم و ادیتوریال", description: "رنگ‌های گرم، تیتر درشت و کارت‌های منوگونه؛ برای فروشگاه‌هایی با حس داستان و کیفیت." },
   sectionDefinitions: [openingHoursSection],
   editor,
+  legacy: true,
 };

@@ -34,6 +34,11 @@ export interface ThemeDefinition {
   readonly meta: ThemeMeta;
   readonly sectionDefinitions: readonly SectionDefinition[];
   readonly editor: EditorSpec;
+  /**
+   * Kept for the stores that already use it (they render, edit, publish and switch exactly as before), but no longer offered
+   * when a store is created (decision DT-2). The four MVP themes are legacy since the business themes of 2026-11.
+   */
+  readonly legacy?: boolean;
 }
 
 /** Namespaced key of a theme-specific section type: `<themeKey>.<name>`. */

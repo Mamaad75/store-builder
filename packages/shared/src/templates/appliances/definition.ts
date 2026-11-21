@@ -53,4 +53,5 @@ export const appliancesTheme: ThemeDefinition = {
   meta: { name: "تمیز و کاتالوگی", description: "چیدمان شفاف و فنی با تصویر کامل محصول و جدول مشخصات؛ مناسب کالاهایی که مشخصات فنی دارند." },
   sectionDefinitions: [serviceInfoSection],
   editor,
+  legacy: true,
 };

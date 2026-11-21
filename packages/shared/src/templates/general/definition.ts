@@ -7,4 +7,5 @@ export const generalTheme: ThemeDefinition = {
   meta: { name: "ساده و همه‌منظوره", description: "چیدمان خنثی و روشن که برای هر نوع فروشگاهی مناسب است." },
   sectionDefinitions: [],
   editor: generalEditor,
+  legacy: true,
 };

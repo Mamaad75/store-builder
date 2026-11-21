@@ -40,13 +40,16 @@ export function parseStoreId(storeId: unknown): string {
 }
 
 /**
- * Themes a new store can be created with: active in the database AND registered in code, in catalog order. The display
+ * Themes OFFERED for a new store: active in the database AND registered in code AND not legacy, in catalog order. The display
  * name/description come from the theme's own metadata (a visual direction), not from the seed's `Template.name`.
+ * `createStore` still accepts a legacy key (DT-2): nothing about those themes is broken, they are only no longer offered.
  */
 export async function listActiveTemplates(): Promise<{ key: string; name: string; description: string }[]> {
   const rows = await db.template.findMany({ where: { isActive: true, versions: { some: { isActive: true } } }, select: { key: true, versions: { where: { isActive: true }, select: { version: true } } } });
   const out: { key: string; name: string; description: string }[] = [];
   for (const t of allThemes()) {
+    // Legacy themes (DT-2) keep working for the stores that use them but are no longer offered for a new store.
+    if (t.legacy) continue;
     const row = rows.find((r) => r.key === t.key);
     if (row && row.versions.some((v) => v.version === t.version)) out.push({ key: t.key, name: t.meta.name, description: t.meta.description });
   }

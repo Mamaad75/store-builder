@@ -29,14 +29,14 @@ const save = async (page: Page) => {
 };
 
 test.describe("product specifications: editing", () => {
-  test("a home-appliances store: the category suggests the appliances theme, the preset adds label rows, rows without a value are skipped", async ({ page }) => {
+  test("a home-appliances store: the category suggests the khaneh theme, the preset adds label rows, rows without a value are skipped", async ({ page }) => {
     await signUpAndIn(page);
     await page.goto("/dashboard/stores/new");
     await waitForHydration(page, "form:has(input[name=templateKey])");
     await page.locator("[data-category-key=home-appliances] button").click();
-    await expect(page.locator("input[name=templateKey]")).toHaveValue("appliances");
-    const storeId = await createStoreViaUi(page, "لوازم خانگی من", "appliances", "home-appliances");
-    expect((await db.store.findUniqueOrThrow({ where: { id: storeId }, include: { templateVersion: { include: { template: true } } } })).templateVersion.template.key).toBe("appliances");
+    await expect(page.locator("input[name=templateKey]")).toHaveValue("khaneh");
+    const storeId = await createStoreViaUi(page, "لوازم خانگی من", "khaneh", "home-appliances");
+    expect((await db.store.findUniqueOrThrow({ where: { id: storeId }, include: { templateVersion: { include: { template: true } } } })).templateVersion.template.key).toBe("khaneh");
 
     await createProductViaUi(page, storeId, { name: "ماشین لباسشویی", price: "25000000", stock: "4" });
     const id = await productIdOf(storeId, "ماشین لباسشویی");

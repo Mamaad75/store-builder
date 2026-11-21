@@ -81,10 +81,27 @@ export async function signUpAndIn(page: Page): Promise<string> {
 const THEME_BY_LABEL: Record<string, string> = { "فروشگاه عمومی": "general", "قهوه و مواد غذایی": "coffee", "پوشاک": "fashion" };
 
 /**
+ * The four MVP themes are legacy since DT-2: no longer offered on the create form, but existing stores keep using them and the API
+ * still accepts them. Specs that exercise those themes create their store through the same API the form calls (same session,
+ * same validation), so their behaviour stays covered.
+ */
+export const LEGACY_THEMES: ReadonlySet<string> = new Set(["general", "coffee", "fashion", "appliances"]);
+
+async function createLegacyStore(page: Page, name: string, templateKey: string, businessCategory?: string): Promise<string> {
+  await page.goto("/dashboard");
+  const origin = new URL(page.url()).origin;
+  const res = await page.request.post("/api/stores", { data: { name, templateKey, ...(businessCategory ? { businessCategory } : {}) }, headers: { origin } });
+  expect(res.status(), await res.text()).toBe(201);
+  return ((await res.json()) as { id: string }).id;
+}
+
+/**
  * Creates a store through the UI and returns its id. `templateName` is a legacy label ("فروشگاه عمومی", ...) or a theme key;
  * `category` (optional) is a business category key chosen independently of the theme.
  */
 export async function createStoreViaUi(page: Page, name: string, templateName?: string, category?: string): Promise<string> {
+  const key = templateName ? (THEME_BY_LABEL[templateName] ?? templateName) : undefined;
+  if (key && LEGACY_THEMES.has(key)) return createLegacyStore(page, name, key, category);
   await page.goto("/dashboard/stores/new");
   await waitForHydration(page, "form:has(input[name=templateKey])");
   await page.fill("input[name=name]", name);

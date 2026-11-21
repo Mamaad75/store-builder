@@ -61,15 +61,22 @@ describe("creation: business category and theme are independent choices", () => 
     expect(await prisma.store.count()).toBe(0);
   });
 
-  it("the theme list offers registered themes (catalog order, theme metadata names) and hides unregistered or inactive ones", async () => {
+  it("the theme list offers registered, non-legacy themes (catalog order, theme metadata names) and hides unregistered, inactive or legacy ones", async () => {
     await makeUser();
     const t = await prisma.template.upsert({ where: { key: "legacy-demo" }, create: { key: "legacy-demo", name: "x" }, update: {} });
     await prisma.templateVersion.create({ data: { templateId: t.id, version: 1, defaultSettings: {}, defaultPages: [] } });
-    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh", "general", "coffee", "fashion", "appliances"]);
-    expect((await listActiveTemplates())[9]!.name).toBe("گرم و ادیتوریال");
+    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh"]); // the four MVP themes are legacy (DT-2)
     expect((await listActiveTemplates())[0]!.name).toBe("بازار");
-    await prisma.template.update({ where: { key: "coffee" }, data: { isActive: false } });
-    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh", "general", "fashion", "appliances"]);
+    await prisma.template.update({ where: { key: "sofreh" }, data: { isActive: false } });
+    expect((await listActiveTemplates()).map((x) => x.key)).toEqual(["bazaar", "circuit", "sormeh", "dookht", "arcade", "golkhaneh", "khaneh"]);
+  });
+
+  it("a legacy theme is no longer offered but still works: an existing store (and an API client) can still use it", async () => {
+    const u = await makeUser();
+    expect((await listActiveTemplates()).map((x) => x.key)).not.toContain("general");
+    const { id } = await createStore(u.id, { name: "قدیمی", templateKey: "general" });
+    const s = await prisma.store.findUniqueOrThrow({ where: { id }, include: { templateVersion: { include: { template: true } } } });
+    expect(s.templateVersion.template.key).toBe("general");
   });
 });
 

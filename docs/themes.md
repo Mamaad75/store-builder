@@ -77,7 +77,8 @@ Eight themes, one per business category, owner-approved from a visual preview (o
 * **Specs on cards:** every theme shows up to two spec rows on cards (rule of 9C); themes only style them (chips, a table, quiet rows).
 * **Data the themes are ready for but the product does not have yet (phase 3):** compare-at price and discount badges, variants (size,
   colour, shade, weight, platform/duration), several images per product, brand, ratings, digital delivery (codes, download links).
-* The four MVP themes are unchanged and remain available; the new themes are listed first and suggested by the business categories.
+* The four MVP themes are **legacy** (DT-2, `legacy: true`): no longer offered for a new store nor suggested by a category, otherwise
+  unchanged (existing stores keep them, they remain switch targets, the API still accepts their keys).
 
 ## Theme-specific sections (9A)
 
