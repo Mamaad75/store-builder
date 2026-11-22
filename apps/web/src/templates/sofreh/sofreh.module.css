@@ -1,21 +1,50 @@
-/* سفره — food & cafe: pistachio and cocoa, a menu board with dotted leaders, round "plate" photos, WhatsApp ordering. */
-.root { --surface: #eef3e4; --ink: #3b2416; --muted: #6a5646; --line: #e6ddcf; --img-bg: #eef3e4; --radius-card: 18px; --radius-btn: 12px; --display: "Markazi Text Variable", "Vazirmatn Variable", Tahoma, serif; --footer-bg: #3b2416; --footer-ink: #f6efe4; --footer-muted: #d7c7b4; }
-.root .brand { font-size: 1.6em; }
-.root .heroInner { background: var(--surface); border-radius: 26px; padding: 28px; }
-.root .heroTitle { font-size: clamp(2.4em, 5.4vw, 3.8em); line-height: 1.15; }
-.root .heroArt { aspect-ratio: 1; border-radius: 50%; max-width: 320px; width: 100%; justify-self: center; background: #ffffff; box-shadow: 0 0 0 12px color-mix(in srgb, var(--primary) 16%, white); }
-.root .sectionTitle, .root .ctaTitle { font-size: 2em; line-height: 1.25; }
-.root .detailTitle { font-size: 2.3em; line-height: 1.2; }
-.root .card { border-color: transparent; text-align: center; }
-.root .cardArt { width: 78%; margin: 14px auto 0; border-radius: 50%; aspect-ratio: 1; }
-.root .cardBody { justify-items: center; }
-.root .cardCta { color: var(--link); border-color: currentColor; justify-self: center; }
-.root .tileArt { border-radius: 50%; }
-.root .menu .lines { border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px; background: #ffffff; }
+/*
+ * سفره — food & cafe: pistachio and cocoa on a warm cream page, a large serif headline, round "plate" photos, a menu board
+ * with dotted leaders and a cocoa opening-hours card, WhatsApp ordering on every card.
+ */
+.root { --bg: #fffcf6; --surface: #eef3e4; --surface-2: #e3ead4; --ink: #3b2416; --muted: #6a5646; --line: #e9dfcf; --img-bg: #eef3e4; --search-bg: #f6f1e6; --topbar-bg: #3b2416; --topbar-ink: #e9dccb; --radius-card: 20px; --radius-lg: 28px; --radius-btn: 14px; --display: "Markazi Text Variable", "Vazirmatn Variable", Tahoma, serif; --footer-bg: #3b2416; --footer-ink: #f6efe4; --footer-muted: #d7c7b4; }
+.root .topBarPhone:hover, .root .topBarIcon:hover { color: #ffffff; }
+.root .topBar :focus-visible { outline-color: #f6efe4; }
+.root .brand { font-size: 1.75em; }
+.root .brandMark { border-radius: 50%; }
+.root .navRowInner { justify-content: center; }
+.root .navLink { font-size: 1.02em; }
+
+.root .heroInner { background: var(--surface); }
+.root .heroDeco { background:
+  radial-gradient(circle at 96% 105%, color-mix(in srgb, var(--primary) 20%, transparent) 0 18%, transparent 18.5%),
+  radial-gradient(circle at 4% -5%, rgb(59 36 22 / 7%) 0 16%, transparent 16.5%); }
+.root .heroTitle { font-size: clamp(2.5em, 5.6vw, 4em); line-height: 1.12; }
+.root .heroArt { aspect-ratio: 1; border-radius: 50%; max-width: 340px; width: 100%; justify-self: center; background: #ffffff; box-shadow: 0 0 0 14px color-mix(in srgb, var(--primary) 16%, white), 0 30px 50px -24px rgb(59 36 22 / 45%); }
+.root .sectionTitle, .root .ctaTitle, .root .promoTitle { font-size: 2em; line-height: 1.2; }
+.root .detailTitle { font-size: 2.4em; line-height: 1.15; }
+
+.root .card { border-color: transparent; background: #ffffff; text-align: center; }
+.root .card:hover { box-shadow: 0 16px 32px -18px rgb(59 36 22 / 40%); }
+.root .cardArt { width: 76%; margin: 16px auto 0; border-radius: 50%; aspect-ratio: 1; }
+.root .cardBody { align-items: center; }
+.root .cardFoot { flex-direction: column; align-items: center; gap: 2px; }
+.root .price { margin: 0; }
+.root .cardCta { color: var(--link); border-color: currentColor; align-self: center; border-radius: 999px; padding-inline: 18px; }
+.root .badge { inset-inline: 0; margin-inline: auto; width: fit-content; }
+.root .cardSpecRow { justify-content: center; }
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 120px), 1fr)); }
+.root .tileArt { border-radius: 50%; box-shadow: 0 0 0 6px var(--bg), 0 0 0 7px var(--line); }
+.root .menu .lines { border: 1px solid var(--line); border-radius: 22px; padding: 22px 26px; background: #ffffff; box-shadow: 0 1px 0 var(--line); font-size: 1.05em; }
+.root .menu .sectionHead, .root .hours .sectionHead { justify-content: center; }
+.root .menu .lines, .root .hours .lines { margin-inline: auto; }
+.root .menu .linesNote, .root .hours .linesNote { text-align: center; }
 .root .hours { background: var(--ink); color: #f6efe4; }
 .root .hours .lineLabel::after { border-color: #7a6250; }
 .root .hours .linesNote { color: #d7c7b4; }
 .root .hours :focus-visible { outline-color: #f6efe4; }
 .root .highlight { background: var(--surface); border-color: transparent; }
-.root .cta { background: var(--surface); border-radius: 22px; }
-@media (max-width: 760px) { .root .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; } .root .tileName { font-size: .85em; } }
+.root .highlightIcon { border-radius: 50%; background: #ffffff; }
+.root .cta { background: var(--ink); color: #f6efe4; }
+.root .cta .btn { background: #f6efe4; color: var(--ink) !important; border-color: #f6efe4; }
+.root .cta :focus-visible { outline-color: #f6efe4; }
+.root .promo[data-tone="2"] { background: var(--ink); color: #f6efe4; }
+.root .promoArt .img { border-radius: 50%; margin: 14px; height: calc(100% - 28px); width: calc(100% - 28px); }
+.root .detailArt { border-radius: 50%; border: 0; box-shadow: 0 0 0 12px var(--surface); max-width: 460px; }
+.root .footer :focus-visible { outline-color: #f6efe4; }
+@media (max-width: 760px) { .root .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; } .root .tileName { font-size: .85em; } .root .tileCount { display: none; } }

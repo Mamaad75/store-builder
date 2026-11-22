@@ -1,25 +1,65 @@
-/* دوخت — fashion: black on white, sharp corners, full-height 3:4 photography, large wide type set on a solid panel. */
-.root { --surface: #f1efec; --ink: #000000; --muted: #5c5c5c; --line: #e5e3df; --img-bg: #eeece8; --img-ratio: 3 / 4; --radius-card: 0; --radius-btn: 0; --radius-chip: 0; --display: "Alexandria Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #000000; --footer-ink: #ffffff; --footer-muted: #c8c8c8; --btn-bg: var(--ink); --btn-ink: #ffffff; }
-.root .navLink[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--ink); }
+/*
+ * دوخت — fashion: black on white, sharp corners, full-height 3:4 photography, a full-bleed hero with large wide type on a
+ * solid panel, image-led category tiles with the name on the photo, borderless cards, a black footer.
+ */
+.root { --surface: #f1efec; --surface-2: #e7e4df; --ink: #000000; --muted: #5c5c5c; --line: #e5e3df; --img-bg: #eeece8; --img-ratio: 3 / 4; --radius-card: 0; --radius-lg: 0; --radius-btn: 0; --radius-chip: 0; --rail-card: 240px; --search-bg: #f4f3f1; --topbar-bg: #000000; --topbar-ink: #d9d9d9; --display: "Alexandria Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #000000; --footer-ink: #ffffff; --footer-muted: #c8c8c8; --btn-bg: var(--ink); --btn-ink: #ffffff; --shadow-md: none; }
+.root .topBarPhone:hover, .root .topBarIcon:hover { color: #ffffff; }
+.root .topBar :focus-visible { outline-color: #ffffff; }
+.root .brand { font-size: 1.6em; letter-spacing: -.01em; }
+.root .brandMark { border-radius: 0; background: var(--ink); color: #fff; }
+.root .navRowInner { justify-content: center; }
+.root .navLink { color: var(--ink); font-weight: 500; }
+.root .navLink[aria-current="page"]::after { background: var(--ink); border-radius: 0; height: 2px; }
+.root .actionPrimary { background: var(--ink); border-color: var(--ink); color: #fff !important; }
+
+/* hero: full bleed photo with a black text panel */
 .root .hero { padding-block: 0 12px; }
-.root .heroInner { max-width: none; padding-inline: 0; grid-template-columns: minmax(0, 1fr); position: relative; }
-.root .heroArt { grid-row: 1; grid-column: 1; aspect-ratio: 16 / 7; border-radius: 0; }
-.root .heroText { grid-row: 1; grid-column: 1; align-self: end; justify-self: start; margin: 0 max(16px, calc((100% - var(--maxw)) / 2 + 16px)) 24px; background: var(--ink); color: #fff; padding: 24px 28px; max-width: 560px; position: relative; }
+.root .hero > .container { max-width: none; padding-inline: 0; }
+.root .heroInner { border-radius: 0; padding: 0; background: var(--img-bg); grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.root .heroDeco { display: none; }
+.root .heroArt { grid-row: 1; grid-column: 1; aspect-ratio: 16 / 7; border-radius: 0; box-shadow: none; }
+.root .heroText { grid-row: 1; grid-column: 1; align-self: end; justify-self: start; margin: 0 max(16px, calc((100% - var(--maxw)) / 2 + 16px)) 28px; background: var(--ink); color: #fff; padding: 26px 30px; max-width: 560px; position: relative; }
 .root .heroTitle { font-size: clamp(2em, 5vw, 3.6em); line-height: 1.15; }
 /* No hero photo yet: a large faint initial on the far side, never behind the text panel. */
 .root .heroPlaceholder { justify-items: end; padding-inline-end: 8%; font-size: 16em; color: color-mix(in srgb, var(--primary) 30%, var(--img-bg)); background: var(--img-bg); }
 .root .heroSub { color: #d6d6d6; }
 .root .hero .btn { background: #fff; color: #000 !important; border-color: #fff; }
-.root .hero :focus-visible { outline-color: #fff; }
-.root .card { border: 0; }
+.root .heroInner :focus-visible { outline-color: #fff; }
+
+/* image-led category tiles: the name sits on the photo */
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 12px; }
+.root .tile { position: relative; gap: 0; }
+.root .tileArt { aspect-ratio: 3 / 4; }
+.root .tile:hover .tileArt { transform: none; box-shadow: none; }
+.root .tileArt .img { transition: transform .5s var(--ease); }
+.root .tile:hover .tileArt .img { transform: scale(1.04); }
+.root .tileName { position: absolute; inset-inline: 0; bottom: 0; margin: 0; padding: 26px 12px 12px; background: linear-gradient(transparent, rgb(0 0 0 / 72%)); color: #fff; font-family: var(--display); font-weight: 700; font-size: 1.05em; }
+.root .tileCount { display: none; }
+.root .tile:hover .tileName { color: #fff; text-decoration: underline; }
+
+.root .sectionTitle { font-size: 1.7em; }
+.root .seeAll { color: var(--ink); text-decoration: underline; text-underline-offset: 6px; }
+.root .card { border: 0; background: transparent; }
+.root .card:hover { box-shadow: none; }
 .root .cardBody { padding: 10px 0 0; }
 .root .cardHeading { font-weight: 500; }
-.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); }
-.root .tileArt { aspect-ratio: 3 / 4; }
-.root .tileName { font-family: var(--display); font-weight: 700; }
-.root .sectionTitle { font-size: 1.7em; }
-.root .highlight { border-color: var(--ink); }
+/* borderless cards: the price follows the name (no gap down to the tallest card in the row) */
+.root .cardFoot { margin-top: 2px; }
+.root .badge { border-radius: 0; background: #fff; color: #000; }
+.root .highlight { border-color: var(--ink); border-radius: 0; }
+.root .highlightIcon { border-radius: 0; background: var(--ink); color: #fff; }
 .root .cta { background: var(--ink); color: #fff; }
+.root .ctaDeco { display: none; }
 .root .cta .btn { background: #fff; color: #000 !important; border-color: #fff; }
 .root .cta :focus-visible { outline-color: #fff; }
+.root .promo[data-tone="0"], .root .promo[data-tone="2"] { background: #000; color: #fff; }
+.root .promo[data-tone="1"], .root .promo[data-tone="3"] { background: var(--surface); color: #000; }
+.root .promo:focus-visible { outline-color: var(--primary); }
+.root .promoArt .img { border-radius: 0; }
+.root .promoTitle { font-size: 1.6em; }
 .root .chip[aria-current="true"] { background: var(--ink); }
+.root .pageLink[aria-current="page"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.root .buyBox { border-color: var(--ink); box-shadow: none; }
+.root .socialBtn:hover { background: #fff; color: #000; border-color: #fff; }
+.root .footer :focus-visible { outline-color: #fff; }
+@media (max-width: 760px) { .root .heroArt { aspect-ratio: 4 / 5; } .root .heroText { margin: 0 16px 16px; padding: 18px 20px; } }

@@ -1,22 +1,48 @@
-/* آرکید — subscriptions, gift cards, downloads: dark by design, glowing hero from the merchant colour, wide 16:9 cards, amber prices. */
-.root { --bg: #0f1226; --surface: #1a1e3d; --card-bg: #161a36; --header-bg: #0f1226; --ink: #eef0ff; --muted: #a7add4; --line: #2b3058; --img-bg: #20254a; --img-ratio: 16 / 9; --radius-card: 14px; --radius-btn: 10px; --display: "Changa Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #0b0d1d; --footer-ink: #eef0ff; --footer-muted: #a7add4; --link: color-mix(in srgb, var(--primary) 45%, #ffffff); color-scheme: dark; }
-.root .heroInner { border-radius: 20px; padding: 32px; border: 1px solid var(--line); background: radial-gradient(120% 140% at 15% 50%, color-mix(in srgb, var(--primary) 45%, #0f1226) 0%, #1a1e3d 62%); }
+/*
+ * آرکید — subscriptions, gift cards, downloads: dark by design, a glowing hero and glowing card edges from the merchant
+ * colour, wide 16:9 cards, amber prices, numbered activation steps.
+ */
+.root { --bg: #0d1022; --surface: #171b38; --surface-2: #20254a; --card-bg: #141833; --header-bg: #0d1022; --ink: #eef0ff; --muted: #a7add4; --line: #2a2f57; --img-bg: #1d2246; --img-ratio: 16 / 9; --search-bg: #171b38; --topbar-bg: #090b19; --topbar-ink: #a7add4; --radius-card: 16px; --radius-lg: 22px; --radius-btn: 12px; --rail-card: 260px; --display: "Changa Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #090b19; --footer-ink: #eef0ff; --footer-muted: #a7add4; --link: color-mix(in srgb, var(--primary) 45%, #ffffff); --ok: #7cf0c5; --warn: #ffd08a; --bad: #ff9aa5; --shadow-md: 0 18px 40px -18px color-mix(in srgb, var(--primary) 55%, black); color-scheme: dark; }
+.root .brandMark { box-shadow: 0 0 18px color-mix(in srgb, var(--primary) 70%, transparent); }
+.root .navLink[aria-current="page"]::after { background: var(--link); box-shadow: 0 0 10px var(--link); }
+.root .searchInput:focus { background: #11152c; }
+
+.root .heroInner { border: 1px solid var(--line); background: radial-gradient(120% 140% at 15% 50%, color-mix(in srgb, var(--primary) 45%, #0d1022) 0%, #171b38 62%); }
+.root .heroDeco { background:
+  radial-gradient(circle at 92% 12%, color-mix(in srgb, var(--primary) 40%, transparent) 0 2px, transparent 3px) 0 0 / 46px 46px,
+  radial-gradient(circle at 50% 50%, rgb(255 255 255 / 7%) 0 1px, transparent 2px) 0 0 / 22px 22px; }
 .root .heroSub { color: #c3c8ea; }
-.root .heroArt { aspect-ratio: 16 / 10; background: color-mix(in srgb, var(--primary) 18%, #0f1226); }
+.root .heroArt { aspect-ratio: 16 / 10; background: color-mix(in srgb, var(--primary) 18%, #0d1022); }
 .root .placeholder { color: color-mix(in srgb, var(--primary) 55%, #ffffff); background: transparent; }
+.root .hero .btn { box-shadow: 0 0 28px -4px color-mix(in srgb, var(--primary) 80%, transparent); }
+.root .asideTile { background: var(--surface); border-color: var(--line); }
+
+.root .card { background: linear-gradient(var(--card-bg), var(--card-bg)) padding-box, linear-gradient(160deg, color-mix(in srgb, var(--primary) 50%, var(--line)), var(--line) 45%) border-box; border: 1px solid transparent; }
+.root .card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
 .root .price { color: #ffc266; }
-.root .stock { color: #7cf0c5; }
-.root .stockLow { color: #ffd08a; }
-.root .stockOut { color: #ff9aa5; }
+.root .priceUnit { color: #d8b98a; }
+.root .badge { background: #ff9aa5; color: #2a0a10; }
 .root .cardSpecs { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; }
 .root .cardSpecRow { display: contents; }
 .root .cardSpecTerm::after { content: ""; }
 .root .cardSpecDef { color: #dadff7; }
-.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); }
-.root .tile { background: var(--card-bg); border: 1px solid var(--line); border-radius: 14px; padding: 10px; text-align: start; }
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); }
+.root .tile { background: var(--card-bg); border: 1px solid var(--line); border-radius: 16px; padding: 10px; text-align: start; }
+.root .tile:hover { border-color: color-mix(in srgb, var(--primary) 60%, var(--line)); }
+.root .tile:hover .tileArt { transform: none; box-shadow: none; }
 .root .tileArt { aspect-ratio: 16 / 9; border-radius: 10px; }
 .root .tileName { font-family: var(--display); font-weight: 700; }
 .root .chip[aria-current="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-.root .cta { background: var(--surface); border: 1px solid var(--line); }
+.root .chipCount { background: var(--surface-2); }
+.root .cta { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.root .ctaDeco { background: radial-gradient(70% 140% at 100% 50%, color-mix(in srgb, var(--primary) 40%, transparent), transparent 70%); }
+.root .cta .btn { background: var(--primary); color: var(--on-primary) !important; border-color: var(--primary); }
+.root .cta :focus-visible { outline-color: var(--link); }
 .root .notice { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
-.root .stepNum { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 30%, transparent); }
+.root .stepNum { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 30%, transparent), 0 0 22px color-mix(in srgb, var(--primary) 60%, transparent); }
+.root .highlightIcon, .root .contactIcon { background: color-mix(in srgb, var(--primary) 22%, transparent); color: var(--link); }
+.root .promo[data-tone="1"], .root .promo[data-tone="3"] { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.root .promo[data-tone="2"] { background: linear-gradient(135deg, #2a1f63, #12163a); color: #eef0ff; }
+.root .promo:focus-visible { outline-color: var(--link); }
+.root .trustIcon { color: var(--link); }
+.root .socialBtn:focus-visible, .root .footer :focus-visible { outline-color: var(--link); }

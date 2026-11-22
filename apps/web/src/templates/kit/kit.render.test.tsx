@@ -116,3 +116,94 @@ describe("kit: theme-specific sections", () => {
     expect(html).toContain('<th scope="row">M</th>');
   });
 });
+
+describe("kit v2: header, listing, home rails and product page", () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => ({ ...PRODUCT_A, id: `p${i}`, name: `کالا ${i + 1}`, slug: `kala-${i + 1}`, price: 1000 * (n - i), categoryId: i % 2 === 0 ? "cat-tea" : "cat-coffee" }));
+
+  it.each(KEYS)("%s: the header search is a GET form to the product list that keeps the carried preview query as hidden fields", (key) => {
+    const v = buildView(storefront(key), { basePath: "/p", segments: [], carryQuery: `theme=${key}` });
+    if (v.status !== "ok") throw new Error(v.status);
+    const html = renderToStaticMarkup(<StorefrontRenderer template={v.template} ctx={v.ctx} />);
+    expect(html).toMatch(/<form[^>]*role="search"[^>]*action="\/p\/products"[^>]*method="get"/);
+    expect(html).toContain(`<input type="hidden" name="theme" value="${key}"/>`);
+    expect(html).toMatch(/<label[^>]*for="site-search"[^>]*>جستجو در محصولات<\/label>/);
+    const input = html.match(/<input[^>]*id="site-search"[^>]*>/)?.[0] ?? "";
+    expect(input).toContain('name="q"');
+    expect(input).toMatch(/maxLength="60"/i);
+  });
+
+  it("a search query is shown escaped in the field and the heading, and the empty result says so", () => {
+    const evil = "<b>x</b>";
+    const html = (() => {
+      const v = buildView(storefront("bazaar"), { basePath: "/p", segments: ["products"], searchParams: { q: evil } });
+      if (v.status !== "ok") throw new Error(v.status);
+      return renderToStaticMarkup(<StorefrontRenderer template={v.template} ctx={v.ctx} />);
+    })();
+    expect(html).not.toContain("<b>x</b>");
+    expect(html).toContain('value="&lt;b&gt;x&lt;/b&gt;"');
+    expect(html).toContain("نتیجه‌ای برای «&lt;b&gt;x&lt;/b&gt;» پیدا نشد");
+    expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+  });
+
+  it("sort links keep the category and the search, mark the active order, and the numbered pager keeps all three", () => {
+    const data = storefront("circuit", { products: many(40) });
+    const v = buildView(data, { basePath: "/p", segments: ["products"], searchParams: { q: "کالا", category: "چای", sort: "cheap", page: "2" } });
+    if (v.status !== "ok") throw new Error(v.status);
+    const html = renderToStaticMarkup(<StorefrontRenderer template={v.template} ctx={v.ctx} />);
+    const enc = (s: string) => encodeURIComponent(s);
+    expect(html).toContain(`href="/p/products?q=${enc("کالا")}&amp;category=${enc("چای")}&amp;sort=expensive"`);
+    expect(html).toMatch(/aria-current="true"[^>]*>ارزان‌ترین</);
+    expect(html).toContain(`href="/p/products?q=${enc("کالا")}&amp;category=${enc("چای")}&amp;sort=cheap"`); // page 1 has no page parameter
+    expect(html).toMatch(/aria-current="page" aria-label="صفحه ۲"/);
+    expect(html).toContain('rel="prev"');
+  });
+
+  it("promos link only to a store category or to the product list (owners never type a URL)", () => {
+    const data = storefront("khaneh");
+    const home = data.pages.find((p) => p.type === "HOME")!;
+    const promos = home.sections.find((x) => x.type === "khaneh.promos")!;
+    (promos.props as Record<string, unknown>).items = "چای خوب | تازه | چای\nجای دیگر | javascript:alert(1) | https://evil.example\nسوم | | ";
+    const html = render(data);
+    expect(html).toContain(`href="/p/products?category=${encodeURIComponent("چای")}" data-tone="0"`);
+    expect(html).toContain('href="/p/products" data-tone="1"');
+    expect(html).toContain('href="/p/products" data-tone="2"');
+    expect(html).not.toContain('href="https://evil.example');
+    expect(html).not.toContain('href="javascript:');
+  });
+
+  it("category rows: one rail per category that has products, each a focusable labelled region with a see-all link", () => {
+    const html = render(storefront("bazaar", { products: many(6) }));
+    expect(html).toMatch(/role="region" aria-label="چای" tabindex="0"/);
+    expect(html).toMatch(/role="region" aria-label="قهوه" tabindex="0"/);
+    expect(html).toContain(`aria-label="مشاهده همه محصولات چای"`);
+    expect(render(storefront("bazaar", { products: [] }))).not.toContain('aria-label="چای"');
+  });
+
+  it("product page: breadcrumbs end at the product, the buy box lists the store's own points, related products exclude the product", () => {
+    const data = storefront("sormeh", { products: many(5) });
+    const html = render(data, ["products", "kala-1"]);
+    expect(html).toMatch(/<li aria-current="page">کالا 1<\/li>/);
+    expect(html).toContain("اصالت کالا: تضمین‌شده");
+    const related = html.slice(html.indexOf("دیگر محصولات"));
+    expect(related).toContain('href="/p/products/kala-3"');
+    expect(related).not.toContain('href="/p/products/kala-1"');
+  });
+
+  it("the mobile dock lists the store's pages with the current one marked", () => {
+    const html = render(storefront("golkhaneh"), ["contact"]);
+    const dock = html.slice(html.indexOf('aria-label="پیمایش سریع"'));
+    expect(dock).toMatch(/href="\/p\/contact" aria-current="page"/);
+    expect(dock).toContain('href="/p/products"');
+  });
+
+  it("pageWindow keeps first, last and neighbours with gaps; highlightIcon maps owner points by keyword", async () => {
+    const { pageWindow } = await import("./kit");
+    const { highlightIcon } = await import("./icons");
+    expect(pageWindow(1, 1)).toEqual([1]);
+    expect(pageWindow(5, 9)).toEqual([1, null, 4, 5, 6, null, 9]);
+    expect(pageWindow(2, 4)).toEqual([1, 2, 3, 4]);
+    expect(highlightIcon("ارسال سریع: به سراسر کشور")).toBe("truck");
+    expect(highlightIcon("گارانتی معتبر")).toBe("shield");
+    expect(highlightIcon("چیزی دیگر")).toBe("check");
+  });
+});

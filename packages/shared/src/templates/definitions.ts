@@ -72,7 +72,17 @@ function extra(key: KitKey, name: string, id: string): Section {
 function kitPages(key: KitKey, o: Copy, featuredTitle: string, more: { home?: Section[]; products?: Section[]; about?: Section[]; contact?: Section[] } = {}): PageDefinition[] {
   const base = pages(o);
   const [heroS, featured, about, cta] = base[0]!.sections;
-  base[0]!.sections = [heroS!, extra(key, "categories", "home-categories"), { ...featured!, props: { ...featured!.props, title: featuredTitle } } as Section, ...(more.home ?? []), extra(key, "highlights", "home-highlights"), about!, cta!];
+  base[0]!.sections = [
+    heroS!,
+    extra(key, "categories", "home-categories"),
+    extra(key, "promos", "home-promos"),
+    { ...featured!, props: { ...featured!.props, title: featuredTitle, limit: 10 } } as Section, // a rail: more than one screen
+    extra(key, "categoryRows", "home-category-rows"),
+    ...(more.home ?? []),
+    extra(key, "highlights", "home-highlights"),
+    about!,
+    cta!,
+  ];
   base[1]!.sections = [...base[1]!.sections, ...(more.products ?? [])];
   base[3]!.sections = [...base[3]!.sections, ...(more.about ?? [])];
   base[4]!.sections = [...base[4]!.sections, ...(more.contact ?? [])];

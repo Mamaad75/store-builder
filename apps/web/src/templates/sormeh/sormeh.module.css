@@ -1,15 +1,54 @@
-/* سُرمه — beauty & perfume: powder tones, arch frames, pill controls, need-based category chips, soft borderless cards. */
-.root { --bg: #fff8f6; --surface: #f7e7e3; --card-bg: #ffffff; --header-bg: #fff8f6; --ink: #3a1c32; --muted: #7a5c6d; --line: #efdad4; --img-bg: #f7e7e3; --radius-card: 22px; --radius-btn: 999px; --display: "El Messiri Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #3a1c32; --footer-ink: #fff3f0; --footer-muted: #e2c9d3; }
-.root .heroTitle { font-size: clamp(2em, 4.4vw, 3.1em); }
-.root .heroArt { border-radius: 999px 999px 26px 26px; aspect-ratio: 4 / 4.4; background: linear-gradient(180deg, #f2d3cd, #e8b9b3); max-width: 460px; justify-self: center; width: 100%; }
+/*
+ * سُرمه — beauty & perfume: powder tones, arch frames on the hero and the cards, pill controls, need-based category pills,
+ * soft borderless cards on a blush page, a plum footer.
+ */
+.root { --bg: #fff8f6; --surface: #f7e7e3; --surface-2: #f1d9d3; --card-bg: #ffffff; --header-bg: #fff8f6; --ink: #3a1c32; --muted: #7a5c6d; --line: #efdad4; --img-bg: #f7e7e3; --search-bg: #ffffff; --topbar-bg: #3a1c32; --topbar-ink: #f3dfe6; --radius-card: 22px; --radius-lg: 28px; --radius-btn: 999px; --radius-chip: 999px; --rail-card: 210px; --display: "El Messiri Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #3a1c32; --footer-ink: #fff3f0; --footer-muted: #e2c9d3; --shadow-md: 0 14px 30px -14px rgb(90 30 60 / 30%); }
+.root .topBarPhone:hover, .root .topBarIcon:hover { color: #ffffff; }
+.root .topBar :focus-visible { outline-color: #fff3f0; }
+.root .searchInput { border-color: var(--line); }
+.root .brand { font-size: 1.5em; }
+.root .brandMark { border-radius: 50% 50% 12px 12px; }
+.root .headerInner { padding-block: 14px; }
+.root .nav ul { justify-content: center; }
+.root .navRowInner { justify-content: center; }
+
+.root .heroInner { background: linear-gradient(120deg, #fbe9e5 0%, #fff8f6 55%, #f7e1ea 100%); }
+.root .heroDeco { background:
+  radial-gradient(circle at 6% 20%, color-mix(in srgb, var(--primary) 12%, transparent) 0 9%, transparent 9.5%),
+  radial-gradient(circle at 46% 92%, color-mix(in srgb, var(--primary) 10%, transparent) 0 6%, transparent 6.5%); }
+.root .heroTitle { font-size: clamp(2em, 4.4vw, 3.1em); line-height: 1.35; }
+.root .heroArt { border-radius: 999px 999px 26px 26px; aspect-ratio: 4 / 4.6; background: linear-gradient(180deg, #f2d3cd, #e8b9b3); max-width: 420px; justify-self: center; width: 100%; box-shadow: 0 0 0 10px #ffffff, var(--shadow-md); }
 .root .hero .placeholder { background: transparent; color: #8e3a5a; }
-.root .tiles { display: flex; flex-wrap: wrap; gap: 10px; }
-.root .tile { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 18px; border: 1px solid #e3c3bb; border-radius: 999px; background: var(--card-bg); }
+
+.root .tilesSection .sectionTitle { text-align: center; width: 100%; }
+.root .tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.root .tile { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding-inline: 18px; border: 1px solid #e3c3bb; border-radius: 999px; background: var(--card-bg); transition: border-color .2s, background .2s; }
 .root .tileArt { display: none; }
-.root .tile:hover { border-color: var(--primary); }
-.root .card { border-color: transparent; }
-.root .cardArt { margin: 8px 8px 0; border-radius: 16px; }
-.root .cardCta { border-radius: 999px; border-color: var(--ink); color: var(--ink); }
-.root .highlight { background: transparent; border-color: #e3c3bb; border-radius: 18px; }
-.root .cta { background: var(--surface); border-radius: 26px; }
+.root .tileName { margin: 0; }
+.root .tileCount { font-size: .74em; }
+.root .tile:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, white); }
+
+.root .sectionHead { justify-content: center; position: relative; }
+.root .sectionHead .seeAll { position: absolute; inset-inline-end: 0; }
+.root .sectionTitle { text-align: center; }
+.root .card { border-color: transparent; box-shadow: 0 1px 0 var(--line); }
+.root .cardArt { margin: 8px 8px 0; border-radius: 999px 999px 16px 16px; }
+.root .cardBody { text-align: center; align-items: center; }
+.root .cardFoot { justify-content: center; flex-direction: column; align-items: center; gap: 2px; }
+.root .price { margin: 0; color: #8e2f55; }
+.root .cardCta { border-radius: 999px; border-color: var(--ink); color: var(--ink); align-self: center; }
+.root .cardSpecRow { justify-content: center; }
+.root .badge { inset-inline: 0; margin-inline: auto; width: fit-content; }
+.root .highlight { background: transparent; border-color: #e3c3bb; border-radius: 22px; flex-direction: column; text-align: center; }
+.root .highlightIcon { border-radius: 50%; background: #ffffff; box-shadow: 0 0 0 1px #e3c3bb; }
+.root .cta { background: #3a1c32; color: #fff3f0; }
+.root .cta .btn { background: #fff3f0; color: #3a1c32 !important; border-color: #fff3f0; }
+.root .cta :focus-visible { outline-color: #fff3f0; }
+.root .promo[data-tone="0"] { background: #3a1c32; color: #fff3f0; }
+.root .promo[data-tone="1"] { background: #f7e1ea; }
+.root .promo:focus-visible { outline-color: var(--ink); }
+.root .promoArt .img { border-radius: 999px 999px 0 0; }
+.root .detailArt { border-radius: 999px 999px 28px 28px; }
 .root .chip { border-color: #e3c3bb; }
+.root .footer :focus-visible { outline-color: #fff3f0; }
+@media (max-width: 760px) { .root .sectionHead { justify-content: space-between; } .root .sectionHead .seeAll { position: static; } .root .sectionTitle { text-align: start; } }

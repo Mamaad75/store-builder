@@ -10,7 +10,8 @@ export function buildMetadata(ctx: SeoContext, baseUrl: string): Metadata {
     title: { absolute: title }, // never the platform's "| سایت‌ساز فروشگاهی" suffix
     description,
     alternates: { canonical: url },
-    robots: { index: true, follow: true },
+    // Search results are thin, endless pages: kept out of the index, their links still followed.
+    robots: ctx.query.q ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: {
       type: "website",
       url,

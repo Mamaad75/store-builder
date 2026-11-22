@@ -1,17 +1,54 @@
-/* گلخانه — flowers & plants: sage and deep green, greenhouse-arch frames, occasion pills, a same-day delivery band. */
-.root { --bg: #f6f8f3; --surface: #e4ecde; --card-bg: transparent; --header-bg: #f6f8f3; --ink: #1e3a2b; --muted: #4f6357; --line: #d3ddcc; --img-bg: #e4ecde; --img-ratio: 4 / 5; --radius-card: 14px; --radius-img: 999px 999px 14px 14px; --radius-btn: 999px; --display: "Noto Naskh Arabic Variable", "Vazirmatn Variable", Tahoma, serif; --footer-bg: #1e3a2b; --footer-ink: #eef4ea; --footer-muted: #bcd0c0; }
+/*
+ * گلخانه — flowers & plants: sage and deep green, greenhouse-arch frames on every photo, a gallery grid, occasion pills,
+ * a same-day delivery band and a botanical hero.
+ */
+.root { --bg: #f6f8f3; --surface: #e4ecde; --surface-2: #d7e2cf; --card-bg: transparent; --header-bg: #f6f8f3; --ink: #1e3a2b; --muted: #4f6357; --line: #d3ddcc; --img-bg: #e4ecde; --img-ratio: 4 / 5; --search-bg: #ffffff; --topbar-bg: #1e3a2b; --topbar-ink: #d7e6da; --radius-card: 16px; --radius-lg: 26px; --radius-img: 999px 999px 16px 16px; --radius-btn: 999px; --display: "Noto Naskh Arabic Variable", "Vazirmatn Variable", Tahoma, serif; --footer-bg: #1e3a2b; --footer-ink: #eef4ea; --footer-muted: #bcd0c0; --shadow-md: 0 16px 30px -18px rgb(30 58 43 / 40%); }
+.root .topBarPhone:hover, .root .topBarIcon:hover { color: #ffffff; }
+.root .topBar :focus-visible { outline-color: #eef4ea; }
+.root .searchInput { border-color: var(--line); }
+.root .brand { font-size: 1.5em; }
+.root .brandMark { border-radius: 999px 999px 10px 10px; }
+.root .navRowInner { justify-content: center; }
+
+.root .heroInner { background: linear-gradient(160deg, #eef3e8, #e1eada); }
+.root .heroDeco { background:
+  radial-gradient(ellipse 28% 40% at 4% 100%, color-mix(in srgb, var(--primary) 18%, transparent) 0 60%, transparent 61%),
+  radial-gradient(ellipse 18% 30% at 14% 100%, rgb(30 58 43 / 12%) 0 60%, transparent 61%),
+  radial-gradient(circle at 94% 8%, rgb(255 255 255 / 70%) 0 12%, transparent 12.5%); }
 .root .heroTitle { line-height: 1.6; font-size: clamp(1.9em, 4.2vw, 3em); }
-.root .heroArt { border-radius: 999px 999px 0 0; aspect-ratio: 3 / 4; max-width: 400px; width: 100%; justify-self: center; }
-.root .sectionTitle, .root .detailTitle, .root .ctaTitle { line-height: 1.7; }
+.root .heroArt { border-radius: 999px 999px 0 0; aspect-ratio: 3 / 4; max-width: 380px; width: 100%; justify-self: center; box-shadow: 0 0 0 8px #ffffff, var(--shadow-md); }
+.root .sectionTitle, .root .detailTitle, .root .ctaTitle, .root .promoTitle { line-height: 1.7; }
+.root .sectionHead { justify-content: center; position: relative; }
+.root .sectionHead .seeAll { position: absolute; inset-inline-end: 0; }
+.root .sectionTitle { text-align: center; }
+
 .root .card { border: 0; }
-.root .cardBody { padding: 10px 2px 4px; }
-.root .detailArt { border-radius: 999px 999px 18px 18px; }
-.root .tiles { display: flex; flex-wrap: wrap; gap: 10px; }
-.root .tile { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 18px; background: #ffffff; border: 1px solid var(--line); border-radius: 999px; }
+.root .card:hover { box-shadow: none; }
+.root .card:hover .cardArt { box-shadow: var(--shadow-md); }
+.root .cardArt { transition: box-shadow .25s; }
+.root .cardBody { padding: 12px 4px 4px; text-align: center; align-items: center; }
+.root .cardFoot { flex-direction: column; align-items: center; gap: 2px; margin-top: 2px; }
+.root .price { margin: 0; color: #7a2a44; }
+.root .cardSpecRow { justify-content: center; }
+.root .badge { inset-block-start: 22%; inset-inline: 0; margin-inline: auto; width: fit-content; }
+.root .detailArt { border-radius: 999px 999px 18px 18px; border: 0; }
+.root .tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.root .tile { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding-inline: 18px; background: #ffffff; border: 1px solid var(--line); border-radius: 999px; }
 .root .tileArt { display: none; }
+.root .tileName { margin: 0; }
+.root .tileCount { font-size: .74em; }
 .root .tile:hover { border-color: var(--primary); }
-.root .notice { background: var(--ink); color: #eef4ea; border-radius: 18px; }
+.root .notice { background: var(--ink); color: #eef4ea; }
+.root .noticeIcon { background: color-mix(in srgb, #ffffff 12%, transparent); }
 .root .notice :focus-visible { outline-color: #eef4ea; }
 .root .highlight { background: #ffffff; }
-.root .cta { background: var(--surface); border-radius: 22px; }
-.root .chip { background: #ffffff; }
+.root .highlightIcon { border-radius: 999px 999px 10px 10px; }
+.root .cta { background: var(--ink); color: #eef4ea; }
+.root .cta .btn { background: #eef4ea; color: var(--ink) !important; border-color: #eef4ea; }
+.root .cta :focus-visible { outline-color: #eef4ea; }
+.root .promo[data-tone="1"] { background: #ffffff; border: 1px solid var(--line); }
+.root .promo[data-tone="3"] { background: var(--surface); }
+.root .promoArt .img { border-radius: 999px 999px 0 0; }
+.root .chip:not([aria-current="true"]) { background: #ffffff; }
+.root .footer :focus-visible { outline-color: #eef4ea; }
+@media (max-width: 760px) { .root .sectionHead { justify-content: space-between; } .root .sectionHead .seeAll { position: static; } .root .sectionTitle { text-align: start; } }

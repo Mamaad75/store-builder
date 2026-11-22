@@ -9,18 +9,21 @@ import { kitTheme, linesSection, noticeSection, sizeGuideSection } from "./kit-s
 
 export const bazaarTheme: ThemeDefinition = kitTheme({
   key: "bazaar",
+  promos: "تازه‌های فروشگاه | محصولاتی که همین هفته رسیده‌اند |\nانتخاب مشتری‌ها | پرفروش‌ترین کالاهای ماه |",
   meta: { name: "بازار", description: "فروشگاه پرکالا و چندمنظوره: دسته‌های دایره‌ای، کارت‌های فشرده و جست‌وجوی سریع میان دسته‌ها." },
   highlights: { title: "", items: "ارسال سریع: به سراسر کشور\nضمانت بازگشت: ۷ روز\nپرداخت امن: درگاه بانکی\nپشتیبانی: هر روز ۹ تا ۲۱" },
 });
 
 export const circuitTheme: ThemeDefinition = kitTheme({
   key: "circuit",
+  promos: "لپ‌تاپ و کامپیوتر | قدرت برای کار، درس و بازی |\nموبایل و لوازم جانبی | مدل‌های تازه با گارانتی معتبر |",
   meta: { name: "مدار", description: "دیجیتال و تکنولوژی: هیروی گرافیتی، مشخصات کلیدی روی هر کارت و وضعیت موجودی روشن." },
   highlights: { title: "خرید مطمئن", items: "گارانتی معتبر: برای همه‌ی کالاهای دیجیتال\nتست قبل از ارسال: برای کالاهای باز\nارسال بیمه‌شده: برای کالاهای گران\nمشاوره‌ی خرید: تلفنی و رایگان" },
 });
 
 export const sormehTheme: ThemeDefinition = kitTheme({
   key: "sormeh",
+  promos: "مراقبت از پوست | روتین روزانه، متناسب با پوست شما |\nعطر و ادکلن | رایحه‌ای که در یاد می‌ماند |",
   meta: { name: "سُرمه", description: "آرایشی، بهداشتی و عطر: قاب‌های طاقی، رنگ‌های پودری و دکمه‌های کپسولی." },
   categoriesTitle: "بر اساس نیاز شما",
   highlights: { title: "", items: "اصالت کالا: تضمین‌شده\nمشاوره‌ی پوست: رایگان\nبسته‌بندی هدیه: به انتخاب شما\nارسال: ۱ تا ۳ روز کاری" },
@@ -28,6 +31,7 @@ export const sormehTheme: ThemeDefinition = kitTheme({
 
 export const dookhtTheme: ThemeDefinition = kitTheme({
   key: "dookht",
+  promos: "کلکسیون تازه | طرح‌های این فصل را ببینید |\nلباس روزمره | راحت، ساده و خوش‌دوخت |",
   meta: { name: "دوخت", description: "پوشاک و مد: عکس‌های تمام‌قد، تایپوگرافی درشت و گوشه‌های تیز." },
   categoriesTitle: "",
   highlights: { title: "", items: "مرجوعی: تا ۱۴ روز\nتعویض سایز: بدون هزینه\nارسال: ۲ تا ۴ روز کاری\nپرداخت: امن" },
@@ -36,6 +40,7 @@ export const dookhtTheme: ThemeDefinition = kitTheme({
 
 export const arcadeTheme: ThemeDefinition = kitTheme({
   key: "arcade",
+  promos: "گیفت‌کارت | کد معتبر با تحویل سریع |\nاشتراک سرویس‌ها | موسیقی، فیلم و بازی |",
   meta: { name: "آرکید", description: "اشتراک، گیفت‌کارت و محصولات دانلودی: تم تیره، کارت‌های پهن و جدول ویژگی هر محصول." },
   categoriesTitle: "پلتفرم‌ها",
   highlights: { title: "", items: "تحویل سریع: کد در حساب شما\nپشتیبانی: ۱۰ صبح تا ۱۲ شب\nضمانت سالم بودن کد: یا بازگشت وجه\nراهنمای فعال‌سازی: برای هر محصول" },
@@ -53,6 +58,7 @@ export const arcadeTheme: ThemeDefinition = kitTheme({
 
 export const sofrehTheme: ThemeDefinition = kitTheme({
   key: "sofreh",
+  promos: "قهوه‌ی تازه‌برشته | دانه‌ها را هر هفته برشته می‌کنیم |\nشیرینی روز | پخت هر صبح، همان روز |",
   meta: { name: "سفره", description: "خوراکی و کافه: تابلوی منو، ساعت کاری، عکس‌های گرد و سفارش از واتس‌اپ." },
   highlights: { title: "", items: "تازه و روزانه: پخت هر صبح\nبسته‌بندی بهداشتی: مناسب ارسال\nسفارش واتس‌اپ: پاسخ سریع\nتحویل حضوری: در محل فروشگاه" },
   extras: [
@@ -77,6 +83,7 @@ export const sofrehTheme: ThemeDefinition = kitTheme({
 
 export const golkhanehTheme: ThemeDefinition = kitTheme({
   key: "golkhaneh",
+  promos: "دسته‌گل | برای تولد، سالگرد و هر بهانه‌ای |\nگیاه آپارتمانی | سبزی ماندگار برای خانه و دفتر |",
   meta: { name: "گلخانه", description: "گل و گیاه: قاب‌های طاقی مثل پنجره‌ی گلخانه، رنگ‌های گیاهی و نوار مهلت ارسال." },
   categoriesTitle: "برای چه مناسبتی؟",
   highlights: { title: "", items: "تازگی گل: تا ۵ روز\nکارت پیام: رایگان و دست‌نویس\nارسال همان روز: برای سفارش‌های صبح\nراهنمای نگهداری: همراه هر گیاه" },
@@ -94,6 +101,7 @@ export const golkhanehTheme: ThemeDefinition = kitTheme({
 
 export const khanehTheme: ThemeDefinition = kitTheme({
   key: "khaneh",
+  promos: "آشپزخانه | لوازم برقی و پخت‌وپز |\nشست‌وشو و نظافت | کالاهای مطمئن با گارانتی |",
   meta: { name: "خانه", description: "لوازم خانگی و دکوراسیون: تصویر کامل کالا روی زمینه‌ی سفید، مشخصه‌ی کلیدی و نوار خدمات." },
   categoriesTitle: "برای کجای خانه؟",
   highlights: { title: "خدمات فروشگاه", items: "نصب: راهنمایی یا نصب در محل\nگارانتی و خدمات: طبق شرایط هر کالا\nارسال کالای حجیم: تا درب منزل\nمشاوره‌ی خرید: تلفنی" },

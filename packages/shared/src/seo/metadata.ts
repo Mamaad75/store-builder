@@ -27,7 +27,8 @@ export function canonicalPath(ctx: SeoContext): string {
       const list = listProducts(ctx as RenderContext);
       const q = new URLSearchParams();
       if (list.category) q.set("category", list.category.slug);
-      if (list.page > 1) q.set("page", String(list.page)); // the clamped page, so ?page=999 canonicalises to the last page
+      // Search results (noindex) canonicalise to the listing they search; a sort never changes the canonical page.
+      if (list.page > 1 && !list.q) q.set("page", String(list.page)); // the clamped page, so ?page=999 canonicalises to the last page
       const s = q.toString();
       return `/products${s ? `?${s}` : ""}`;
     }
@@ -58,6 +59,7 @@ export function pageTitle(ctx: SeoContext): string {
       return ctx.product ? `${ctx.product.name} | ${name}` : name;
     case "PRODUCTS": {
       const list = listProducts(ctx as RenderContext);
+      if (list.q) return `جستجوی «${list.q}» | ${name}`;
       const base = list.category ? list.category.name : ctx.page.title;
       return `${base}${list.page > 1 ? ` - صفحه ${faNumber(list.page)}` : ""} | ${name}`;
     }

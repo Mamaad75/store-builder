@@ -6,7 +6,15 @@ export interface StorefrontQuery {
   category?: string;
   /** 1-based page number of the product listing. */
   page: number;
+  /** Search text of the product listing (normalised for display, at most SEARCH_MAX characters); absent when empty. */
+  q?: string;
+  /** Sort order of the product listing; absent = the store's own order. */
+  sort?: ProductSort;
 }
+
+/** Listing sort orders a visitor may pick (the default, the store's own order, has no key). */
+export const PRODUCT_SORTS = ["cheap", "expensive", "available"] as const;
+export type ProductSort = (typeof PRODUCT_SORTS)[number];
 
 /**
  * Everything a template/section may use while rendering one page. It is built by the engine from

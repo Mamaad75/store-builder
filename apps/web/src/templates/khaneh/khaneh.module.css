@@ -1,17 +1,46 @@
-/* خانه — home appliances & decor: warm stone page, products whole on white, room tiles, a charcoal service band. */
-.root { --bg: #f4f3f0; --surface: #eae8e3; --card-bg: #ffffff; --header-bg: #ffffff; --ink: #23272e; --muted: #5a5f69; --line: #e0ddd6; --img-bg: #ffffff; --img-fit: contain; --radius-card: 8px; --radius-btn: 6px; --radius-chip: 6px; --display: "IBM Plex Sans Arabic", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #23272e; --footer-ink: #f1efea; --footer-muted: #b9bcc2; }
-.root .heroInner { background: #ffffff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; gap: 0; }
-.root .heroText { padding: 32px; }
-.root .heroArt { border-radius: 0; aspect-ratio: 5 / 4; background: linear-gradient(180deg, #ece8e0 0 72%, #dad4c8 72%); padding: 18px 24px 0; }
+/*
+ * خانه — home appliances & decor: a warm stone page, products whole on white, a clean catalogue hero standing on a "floor",
+ * room tiles with a thumbnail, a charcoal service band, a charcoal footer.
+ */
+.root { --bg: #f4f3f0; --surface: #eae8e3; --surface-2: #e0ddd6; --card-bg: #ffffff; --header-bg: #ffffff; --ink: #23272e; --muted: #5a5f69; --line: #e0ddd6; --img-bg: #ffffff; --img-fit: contain; --search-bg: #f4f3f0; --topbar-bg: #23272e; --topbar-ink: #d0d2d6; --radius-card: 10px; --radius-lg: 14px; --radius-btn: 8px; --radius-chip: 8px; --display: "IBM Plex Sans Arabic", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #23272e; --footer-ink: #f1efea; --footer-muted: #b9bcc2; }
+.root .topBarPhone:hover, .root .topBarIcon:hover { color: #ffffff; }
+.root .topBar :focus-visible { outline-color: #f1efea; }
+.root .brandMark { border-radius: 8px; }
+.root .catMenuBtn { background: var(--primary); color: var(--on-primary); padding-inline: 14px; border-radius: 8px; min-height: 40px; margin-block: 4px; }
+.root .catMenuBtn::after { display: none; }
+.root .catMenu[open] .catMenuBtn { color: var(--on-primary); filter: brightness(.92); }
+.root .catMenuBtn:focus-visible { outline-color: var(--ink); }
+
+.root .heroInner { background: #ffffff; border: 1px solid var(--line); gap: 0; padding: 0; }
+.root .heroDeco { background: radial-gradient(circle at 0 0, color-mix(in srgb, var(--primary) 10%, transparent) 0 30%, transparent 30.5%); }
+.root .heroText { padding: clamp(22px, 4vw, 44px); }
+.root .heroArt { border-radius: 0; aspect-ratio: 5 / 4; background: linear-gradient(180deg, #ece8e0 0 72%, #dad4c8 72%); padding: 18px 24px 0; box-shadow: none; height: 100%; }
 .root .hero .placeholder { background: transparent; }
+.root .asideTile { background: #ffffff; border-color: var(--line); border-radius: var(--radius-lg); }
+.root .asideArt { background: var(--surface); }
+
 .root .cardArt { padding: 16px; border-bottom: 1px solid var(--line); }
-.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
-.root .tile { grid-template-columns: 56px 1fr; align-items: center; text-align: start; background: #ffffff; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-.root .tileArt { border-radius: 6px; background: var(--surface); }
+.root .card:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--line)); }
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); }
+.root .tile { grid-template-columns: 60px 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 12px; row-gap: 0; text-align: start; background: #ffffff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.root .tile:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); }
+.root .tile:hover .tileArt { transform: none; box-shadow: none; }
+.root .tileArt { grid-row: span 2; border-radius: 8px; background: var(--surface); }
 .root .tileArt .placeholder { font-size: 1.4em; }
+.root .tileName { margin: 0; align-self: end; }
+.root .tileCount { align-self: start; }
 .root .highlightsSection { background: var(--ink); color: #f1efea; }
 .root .highlightsSection .sectionTitle { color: #ffffff; }
 .root .highlight { background: transparent; border-color: #3d424a; }
+.root .highlightIcon { background: rgb(255 255 255 / 8%); color: #ffffff; }
 .root .highlightText { color: #c4c7cc; }
 .root .highlightsSection :focus-visible { outline-color: #ffffff; }
-.root .cta { background: #ffffff; border: 1px solid var(--line); }
+.root .cta { background: #ffffff; color: var(--ink); border: 1px solid var(--line); }
+.root .ctaDeco { background: radial-gradient(circle at 100% 0, color-mix(in srgb, var(--primary) 12%, transparent) 0 34%, transparent 34.5%); }
+.root .cta .btn { background: var(--btn-bg); color: var(--btn-ink) !important; border-color: var(--btn-bg); }
+.root .cta :focus-visible { outline-color: var(--link); }
+.root .promo[data-tone="1"] { background: #ffffff; border: 1px solid var(--line); }
+.root .promoArt { background: #ffffff; }
+.root .promoArt .img { border-radius: 0; padding: 12px; }
+.root .specsList { background: #ffffff; }
+.root .footer :focus-visible { outline-color: #f1efea; }

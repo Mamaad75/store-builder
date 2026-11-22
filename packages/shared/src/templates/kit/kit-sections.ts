@@ -94,6 +94,40 @@ export function sizeGuideSection(themeKey: string): SectionDefinition {
   };
 }
 
+/**
+ * Promotional tiles (2 to 4), one per line: "عنوان | توضیح | نام دسته". Each tile links to the named category of the store
+ * (matched by name or slug) or, without a match, to all products: owners never type a URL, so a tile cannot point off-site.
+ * The tile art is the first product image of that category.
+ */
+export function promosSection(themeKey: string, items: string): SectionDefinition {
+  return {
+    type: `${themeKey}.promos`,
+    label: "بنرهای تبلیغاتی",
+    schema: schema({ title: optionalTitle, items: z.string().max(800) }),
+    defaults: { title: "", items },
+    fields: [
+      { name: "title", label: "عنوان (خالی = بدون عنوان)", kind: "text", max: 120 },
+      { name: "items", label: "بنرها (هر خط یک بنر؛ «عنوان | توضیح | نام دسته»؛ حداکثر ۴)", kind: "textarea", max: 800, help: "اگر نام دسته خالی باشد یا پیدا نشود، بنر به همه محصولات می‌رود." },
+    ],
+    image: false,
+  };
+}
+
+/** One product rail per category (in the store's order), each with a "see all" link. Renders nothing without categories. */
+export function categoryRowsSection(themeKey: string): SectionDefinition {
+  return {
+    type: `${themeKey}.categoryRows`,
+    label: "ردیف محصولات هر دسته",
+    schema: schema({ categories: z.number().int().min(1).max(6), limit: z.number().int().min(4).max(12) }),
+    defaults: { categories: 3, limit: 8 },
+    fields: [
+      { name: "categories", label: "تعداد دسته‌ها", kind: "number", min: 1, max: 6 },
+      { name: "limit", label: "تعداد محصول در هر ردیف", kind: "number", min: 4, max: 12 },
+    ],
+    image: false,
+  };
+}
+
 type Page = "HOME" | "PRODUCTS" | "ABOUT" | "CONTACT";
 
 /** Where a theme's own extra sections may be placed. Every extra section of a kit theme is a singleton. */
@@ -108,10 +142,12 @@ const rules = (allowed: string[], singletons: string[], required: string[] = [])
 export function kitEditor(themeKey: string, extras: readonly ExtraPlacement[]): EditorSpec {
   const cats = `${themeKey}.categories`;
   const hi = `${themeKey}.highlights`;
+  const promos = `${themeKey}.promos`;
+  const rows = `${themeKey}.categoryRows`;
   const on = (page: Page) => extras.filter((e) => e.pages.includes(page)).map((e) => e.def.type);
   return {
     pages: {
-      HOME: rules(["hero", cats, "featuredProducts", "imageText", "richText", "callToAction", "contactInfo", hi, ...on("HOME")], ["hero", cats, hi, ...on("HOME")]),
+      HOME: rules(["hero", cats, promos, "featuredProducts", rows, "imageText", "richText", "callToAction", "contactInfo", hi, ...on("HOME")], ["hero", cats, promos, rows, hi, ...on("HOME")]),
       PRODUCTS: rules(["categoryFilter", "productGrid", "richText", "callToAction", ...on("PRODUCTS")], ["categoryFilter", "productGrid", ...on("PRODUCTS")], ["productGrid"]),
       PRODUCT_DETAIL: rules(["productDetail"], ["productDetail"], ["productDetail"]),
       ABOUT: rules(["richText", "imageText", "callToAction", "contactInfo", hi, ...on("ABOUT")], [hi, ...on("ABOUT")]),
@@ -120,14 +156,14 @@ export function kitEditor(themeKey: string, extras: readonly ExtraPlacement[]): 
   };
 }
 
-/** A complete kit theme definition (version 1): categories + highlights + the theme's extras. */
-export function kitTheme(o: { key: string; meta: ThemeMeta; highlights: { title: string; items: string }; categoriesTitle?: string; extras?: readonly ExtraPlacement[] }): ThemeDefinition {
+/** A complete kit theme definition (version 1): category tiles, promos, category rows, highlights and the theme's extras. */
+export function kitTheme(o: { key: string; meta: ThemeMeta; highlights: { title: string; items: string }; promos: string; categoriesTitle?: string; extras?: readonly ExtraPlacement[] }): ThemeDefinition {
   const extras = o.extras ?? [];
   return {
     key: o.key,
     version: 1,
     meta: o.meta,
-    sectionDefinitions: [categoriesSection(o.key, o.categoriesTitle), highlightsSection(o.key, o.highlights), ...extras.map((e) => e.def)],
+    sectionDefinitions: [categoriesSection(o.key, o.categoriesTitle), promosSection(o.key, o.promos), categoryRowsSection(o.key), highlightsSection(o.key, o.highlights), ...extras.map((e) => e.def)],
     editor: kitEditor(o.key, extras),
   };
 }

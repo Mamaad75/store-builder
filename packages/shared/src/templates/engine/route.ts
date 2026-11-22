@@ -1,7 +1,10 @@
 import type { StorefrontData, StorefrontPage, StorefrontProduct } from "../storefront-data.js";
-import type { StorefrontQuery } from "../context-types.js";
+import { PRODUCT_SORTS, type ProductSort, type StorefrontQuery } from "../context-types.js";
+import { makeSearchKey, normalizeFa } from "../../lib/text.js";
 
 export const PRODUCTS_PER_PAGE = 12;
+/** Longest search text a listing accepts (longer input is cut, never rejected). */
+export const SEARCH_MAX = 60;
 
 export type StorefrontRoute =
   | { kind: "page"; page: StorefrontPage; product: StorefrontProduct | null; query: StorefrontQuery }
@@ -17,7 +20,12 @@ export function parseQuery(sp: SearchParams | undefined, data: StorefrontData): 
   const n = rawPage && /^\d{1,4}$/.test(rawPage) ? Number(rawPage) : 1;
   const rawCat = first(sp?.category);
   const category = rawCat && data.categories.some((c) => c.slug === rawCat) ? rawCat : undefined;
-  return { page: Math.max(1, n), ...(category ? { category } : {}) };
+  // Search text: display-normalised and cut; a query with nothing searchable left (only spaces or marks) is no query.
+  const rawQ = first(sp?.q);
+  const q = rawQ ? normalizeFa(rawQ.slice(0, 200)).slice(0, SEARCH_MAX).trim() : "";
+  const rawSort = first(sp?.sort);
+  const sort = (PRODUCT_SORTS as readonly string[]).includes(rawSort ?? "") ? (rawSort as ProductSort) : undefined;
+  return { page: Math.max(1, n), ...(category ? { category } : {}), ...(q && makeSearchKey(q) ? { q } : {}), ...(sort ? { sort } : {}) };
 }
 
 const SEGMENT_PAGE = { products: "PRODUCTS", about: "ABOUT", contact: "CONTACT" } as const;

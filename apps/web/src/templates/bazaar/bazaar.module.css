@@ -1,21 +1,50 @@
-/* بازار — general marketplace: dense, white, the merchant's colour as a bold banner; round category bubbles. */
-.root { --surface: #f3f5f7; --ink: #1a2233; --muted: #5b6577; --line: #e4e8ed; --radius-card: 10px; --radius-btn: 10px; }
-.root .header { box-shadow: 0 1px 0 var(--line); }
+/*
+ * بازار — general marketplace: dense and white, the merchant's colour as a bold hero banner and as a "featured" band
+ * that holds a rail of products, round category bubbles, compact cards with thin borders, a light-grey footer.
+ */
+.root { --surface: #f3f5f7; --surface-2: #e8ecf0; --ink: #1a2233; --muted: #5b6577; --line: #e4e8ed; --radius-card: 12px; --radius-lg: 18px; --radius-btn: 10px; --search-bg: #f0f2f5; }
 .root .brand { color: var(--link); }
-.root .hero { padding-block: 20px 8px; }
-.root .heroInner { background: var(--primary); color: var(--on-primary); border-radius: 18px; padding: 28px; }
-.root .heroSub { color: inherit; opacity: .92; }
+.root .brandMark { border-radius: 50%; }
+.root .catMenuBtn { color: var(--ink); }
+
+/* hero: a solid banner in the store colour */
+.root .heroInner { background: var(--primary); color: var(--on-primary); }
+.root .heroDeco { background:
+  radial-gradient(circle at 8% 115%, color-mix(in srgb, var(--on-primary) 16%, transparent) 0 24%, transparent 24.5%),
+  radial-gradient(circle at 96% -12%, color-mix(in srgb, var(--on-primary) 12%, transparent) 0 22%, transparent 22.5%),
+  repeating-linear-gradient(135deg, color-mix(in srgb, var(--on-primary) 5%, transparent) 0 2px, transparent 2px 14px); }
+.root .heroSub { color: inherit; }
 .root .hero .btn { background: var(--on-primary); color: var(--primary) !important; border-color: var(--on-primary); }
-.root .heroArt { border-radius: 14px; background: color-mix(in srgb, var(--on-primary) 14%, var(--primary)); }
+.root .heroArt { background: color-mix(in srgb, var(--on-primary) 14%, var(--primary)); box-shadow: none; }
 .root .hero .placeholder { color: var(--on-primary); background: transparent; }
-.root .hero :focus-visible { outline-color: var(--on-primary); }
-.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 96px), 1fr)); }
-.root .tileArt { border-radius: 50%; background: var(--surface); }
+.root .heroInner :focus-visible { outline-color: var(--on-primary); }
+
+/* round category bubbles */
+.root .tilesSection { padding-block: 26px 12px; }
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 104px), 1fr)); gap: 18px 12px; }
+.root .tileArt { border-radius: 50%; background: var(--surface); border: 3px solid var(--bg); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, var(--line)); }
 .root .tileName { font-size: .9em; }
-.root .card { border-radius: 10px; }
-.root .cardBody { padding: 10px 12px 14px; gap: 4px; }
-.root .price { font-size: 1.05em; }
+.root .tileCount { display: none; }
+
+/* featured: a coloured band holding the rail (the marketplace "special offers" pattern, without invented discounts) */
+.root .featured > .container { background: color-mix(in srgb, var(--primary) 92%, black); border-radius: var(--radius-lg); padding: 20px 20px 8px; }
+.root .featured .sectionTitle { color: var(--on-primary); }
+.root .featured .seeAll { color: var(--on-primary); }
+.root .featured .rail { margin-inline: -20px; padding-inline: 20px; scroll-padding-inline: 20px; }
+.root .featured .card { border-color: transparent; }
+.root .featured :focus-visible { outline-color: var(--on-primary); }
+.root .featured .card:has(.cardName:focus-visible) { outline-color: var(--on-primary); }
+
+.root .card { border-radius: 12px; }
+.root .cardBody { padding: 10px 12px 12px; gap: 4px; }
+.root .categoryRow .sectionHead { border-bottom: 2px solid var(--line); padding-bottom: 8px; }
+.root .categoryRow .sectionTitle { position: relative; }
+.root .categoryRow .sectionTitle::after { content: ""; position: absolute; inset-inline-start: 0; bottom: -10px; width: 64px; height: 2px; background: var(--primary); }
 .root .highlightsSection { padding-block: 24px; }
 .root .highlight { background: var(--surface); border-color: transparent; }
-.root .cta { background: color-mix(in srgb, var(--primary) 10%, white); }
-@media (max-width: 760px) { .root .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; } .root .tileName { font-size: .82em; } }
+.root .promo[data-tone="0"] { background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, black)); }
+@media (max-width: 760px) {
+  .root .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px; }
+  .root .tileName { font-size: .8em; }
+  .root .featured > .container { border-radius: 0; }
+}

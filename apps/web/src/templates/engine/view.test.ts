@@ -3,6 +3,9 @@ import { makeStorefront, PRODUCT_A } from "@store-builder/shared/testing/storefr
 import { listRegisteredTemplates, resolveTemplate } from "../registry";
 import { buildView } from "./view";
 import { resolveStorefrontRoute } from "@store-builder/shared/templates/engine/route";
+import { formTarget, listProducts, listUrl, relatedProducts } from "@store-builder/shared/templates/engine/listing";
+import { makeHref } from "@store-builder/shared/templates/engine/links";
+import type { RenderContext } from "../types";
 
 const req = (segments: string[] = [], searchParams?: Record<string, string | string[]>) => ({ basePath: "/preview/s1", segments, searchParams });
 
@@ -89,5 +92,59 @@ describe("resolveStorefrontRoute", () => {
     expect(q({ page: "99999999" })).toEqual({ page: 1 });
     expect(q({ category: "unknown" })).toEqual({ page: 1 });
     expect(q({ category: ["چای", "قهوه"] })).toEqual({ page: 1, category: "چای" });
+  });
+});
+
+describe("listing search, sort and related products (theme kit v2)", () => {
+  const P = (id: string, name: string, price: number, stock: number, cat: string | null, specs: { label: string; value: string }[] = []) => ({ ...PRODUCT_A, id, name, slug: id, price, stockQuantity: stock, categoryId: cat, specs });
+  const data = makeStorefront({
+    products: [
+      P("a", "چای سبز", 300, 0, "cat-tea"),
+      P("b", "قهوه اسپرسو", 100, 5, "cat-coffee", [{ label: "وزن", value: "۲۵۰ گرم" }]),
+      P("c", "چاي سياه", 200, 3, "cat-tea"), // Arabic yeh: still found by a Persian query
+      P("d", "ماگ‌سرامیکی", 50, 1, null),
+    ],
+  });
+  const ctx = (sp: Record<string, string | string[]> = {}, carry = ""): RenderContext => {
+    const r = resolveStorefrontRoute(data, ["products"], sp);
+    if (r.kind !== "page") throw new Error("route");
+    return { data, page: r.page, query: r.query, product: r.product, basePath: "/preview/s1", href: makeHref("/preview/s1", carry), mediaUrl: () => null };
+  };
+  const ids = (sp: Record<string, string>) => listProducts(ctx(sp)).items.map((p) => p.id);
+
+  it("parses q and sort defensively: trimmed, cut to 60 characters, blank and unknown values dropped", () => {
+    expect(ctx({ q: "  چای  ", sort: "cheap" }).query).toEqual({ page: 1, q: "چای", sort: "cheap" });
+    expect(ctx({ q: "   ", sort: "price" }).query).toEqual({ page: 1 });
+    expect(ctx({ q: "‌‌" }).query).toEqual({ page: 1 });
+    expect(ctx({ q: ["الف", "ب"], sort: ["expensive", "cheap"] }).query).toEqual({ page: 1, q: "الف", sort: "expensive" });
+    expect(ctx({ q: "x".repeat(500) }).query.q).toHaveLength(60);
+  });
+  it("search matches every word in the name, category name and spec values; Arabic letters, digits and ZWNJ are normalised", () => {
+    expect(ids({ q: "چای" })).toEqual(["a", "c"]);
+    expect(ids({ q: "چاى سياه" })).toEqual(["c"]);
+    expect(ids({ q: "قهوه" })).toEqual(["b"]); // category name and product name
+    expect(ids({ q: "250" })).toEqual(["b"]); // spec value, Persian digits
+    expect(ids({ q: "ماگ سرامیکی" })).toEqual(["d"]); // ZWNJ in the name
+    expect(ids({ q: "چای", category: "قهوه" })).toEqual([]);
+    expect(ids({ q: "<script>" })).toEqual([]);
+  });
+  it("sorts are stable and keep the store order on ties; sorting combines with search and category", () => {
+    expect(ids({ sort: "cheap" })).toEqual(["d", "b", "c", "a"]);
+    expect(ids({ sort: "expensive" })).toEqual(["a", "c", "b", "d"]);
+    expect(ids({ sort: "available" })).toEqual(["b", "c", "d", "a"]);
+    expect(ids({ sort: "cheap", q: "چای" })).toEqual(["c", "a"]);
+  });
+  it("listUrl keeps q, category and sort (page last) and appends to a carried query", () => {
+    expect(listUrl(ctx(), { q: "چای", category: "چای", sort: "cheap", page: 2 })).toBe(`/preview/s1/products?q=${encodeURIComponent("چای")}&category=${encodeURIComponent("چای")}&sort=cheap&page=2`);
+    expect(listUrl(ctx({}, "theme=bazaar"), { sort: "cheap" })).toBe("/preview/s1/products?theme=bazaar&sort=cheap");
+  });
+  it("a GET form carries the engine query as hidden fields (browsers drop the action query)", () => {
+    expect(formTarget(ctx({}, "theme=bazaar"), "/products")).toEqual({ action: "/preview/s1/products", hidden: [["theme", "bazaar"]] });
+    expect(formTarget(ctx(), "/products")).toEqual({ action: "/preview/s1/products", hidden: [] });
+  });
+  it("related products: same category first, then the rest, never the product itself, bounded", () => {
+    const c = ctx();
+    expect(relatedProducts(c, data.products[0]!, 8).map((p) => p.id)).toEqual(["c", "b", "d"]);
+    expect(relatedProducts(c, data.products[3]!, 2).map((p) => p.id)).toEqual(["a", "b"]);
   });
 });

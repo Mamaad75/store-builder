@@ -136,7 +136,7 @@ describe("page metadata", () => {
       { category: "چای", page: "2abc" },
       { category: "چای", page: "99999999999999999999" },
       { category: "<script>alert(1)</script>", page: "NaN" },
-      { category: "چای", utm_source: "x", sort: "price", q: "tea" } as never,
+      { category: "چای", utm_source: "x", sort: "price", q: "   " } as never, // unknown sort, blank search
     ];
     for (const sp of bad) {
       const ctx = ctxFor(data, ["products"], sp as Record<string, string>);
@@ -148,6 +148,24 @@ describe("page metadata", () => {
     }
     expect(canonicalPath(ctxFor(data, ["products"], { category: "چای", page: "0" }))).toBe(tea);
     expect(canonicalPath(ctxFor(data, ["products"], { category: "no-such", page: "2" }))).toBe("/products?page=2");
+  });
+
+  it("search results are noindex (follow) and canonicalise to the listing they search; a sort never changes the canonical", () => {
+    const data = makeStorefront({ products: manyProducts(25) });
+    const cases: [Record<string, string>, string][] = [
+      [{ q: "چای" }, "/products"],
+      [{ q: "چای", page: "2" }, "/products"],
+      [{ q: "چای", category: "چای" }, `/products?category=${encodeURIComponent("چای")}`],
+    ];
+    for (const [sp, path] of cases) {
+      const ctx = ctxFor(data, ["products"], sp);
+      expect(canonicalPath(ctx), JSON.stringify(sp)).toBe(path);
+      expect(buildMetadata(ctx, BASE).robots, JSON.stringify(sp)).toEqual({ index: false, follow: true });
+    }
+    expect(pageTitle(ctxFor(data, ["products"], { q: "چای" }))).toBe("جستجوی «چای» | فروشگاه نمونه");
+    const sorted = ctxFor(data, ["products"], { sort: "cheap", page: "2" });
+    expect(canonicalPath(sorted)).toBe("/products?page=2");
+    expect(buildMetadata(sorted, BASE).robots).toEqual({ index: true, follow: true });
   });
 
   it("junk parameters never reach the canonical URL (utm, unknown category, garbage page)", () => {

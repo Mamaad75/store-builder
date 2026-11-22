@@ -80,6 +80,43 @@ Eight themes, one per business category, owner-approved from a visual preview (o
 * The four MVP themes are **legacy** (DT-2, `legacy: true`): no longer offered for a new store nor suggested by a category, otherwise
   unchanged (existing stores keep them, they remain switch targets, the API still accepts their keys).
 
+### Kit v2 (2026-11-21, DT-3)
+
+The owner found the first kit "too basic" next to the reference shops, so the shared kit was rebuilt in place (still version 1 of each
+theme: nothing is published outside local development yet, see DT-3). Everything is derived from the storefront data contract; nothing
+that does not exist (discounts, ratings, cart) is invented, and nothing needs client JavaScript.
+
+* **Header:** a top bar (store description, phone, social icons; it scrolls away, the rest of the header stays sticky), the brand, a
+  **search box** (a GET form to `/products?q=`; the carried preview query travels as hidden fields because browsers drop a GET form's
+  action query), call/WhatsApp buttons, and a nav row with a **categories menu** (`<details>`, with product counts) when the theme has
+  `headerCategories`. Phones get a **bottom dock** (the store's pages with icons); on a product page it is replaced by a sticky
+  **order bar** (price + the order route).
+* **Home:** the hero gets a decorative layer and, for marketplace themes (`heroAside`), two category tiles beside it; new kit sections
+  **`<key>.promos`** (2–4 colour tiles, one per line `title | text | category name`: a tile links only to that store category or to
+  all products, so an owner never types a URL) and **`<key>.categoryRows`** (one product rail per category that has products, with
+  "see all"). Featured products and category rows are **rails** (scroll snap, a focusable labelled region) or a grid (`featured: "grid"`
+  for `sofreh` and `golkhaneh`). Category tiles show product counts; highlights get an icon chosen by keyword (delivery, warranty,
+  support, returns…).
+* **Product list:** sort links (store order, cheapest, most expensive, in stock first), result count, a search note with "clear", an
+  empty state for a search without results, chips with counts that keep the search and the sort, and a **numbered pager**.
+* **Product page:** breadcrumbs ending at the product, a three-column layout (photo, details with up to four key specs, a sticky
+  **buy box** with price, stock, the order buttons and the store's own first three highlights), the full spec table, and a
+  **related products** rail (same category first).
+* **Footer:** a service strip (the home page's highlights, on pages that do not already show them), the store with its contact rows,
+  quick links, categories and round social buttons.
+* **Engine (pure, `packages/shared/src/templates/engine`):** `parseQuery` accepts `q` (display-normalised, cut to 60 characters, dropped
+  when nothing searchable is left) and `sort` (`cheap` | `expensive` | `available`; anything else is ignored). `listProducts` searches
+  the product name, category name and spec values with the same normalisation as the catalogue search (`makeSearchKey`: Persian
+  letters, ASCII digits, ZWNJ as a space; every word must match, at most six words) and sorts stably. Helpers `relatedProducts`,
+  `productsInCategory` and `formTarget`.
+* **SEO:** search results are `noindex, follow` and canonicalise to the listing they search; a sort never changes the canonical URL.
+* **Icons:** an original line icon set in `kit/icons.tsx` (aria-hidden, always next to text or inside a named control).
+* **Checked locally** (real Chrome, axe with the E2E rule set): eight themes × five page types × 1280/375 px, with each theme's own
+  colour and with a light brand colour (#ffd84d): no violations, no horizontal scroll at 320 px. Links are now a touch darker than the
+  accent (`--link` = accent mixed 14% with black) because the themes use off-white pages; the accent alone was 4.49:1 on cream.
+* **Existing local databases** keep the seed pages they were created with (a seed never overwrites a template version), so their home
+  pages lack the two new sections until they are added in the editor; a fresh database (`pnpm db:reset`) seeds them.
+
 ## Theme-specific sections (9A)
 
 * `coffee.openingHours` `{ title, body (lines "label: hours"), note }` - dotted-leader rows. Approved on home, about, contact.

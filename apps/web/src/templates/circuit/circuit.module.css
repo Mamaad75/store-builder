@@ -1,19 +1,47 @@
-/* مدار — tech & digital: cool slate page, white product tiles, a graphite hero, key specs as chips, stock as a status dot. */
-.root { --bg: #f2f4f7; --surface: #e9edf2; --card-bg: #ffffff; --header-bg: #ffffff; --ink: #111827; --muted: #556072; --line: #dce1e8; --img-bg: #ffffff; --img-fit: contain; --radius-card: 12px; --radius-btn: 8px; --radius-chip: 6px; --display: "Estedad Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #172131; --footer-ink: #eef2f8; --footer-muted: #a9b4c6; }
-.root .heroInner { background: #172131; color: #eef2f8; border-radius: 18px; padding: 32px; }
-.root .heroSub { color: #a9b4c6; }
-.root .heroArt { background: #22304a; border-radius: 12px; }
+/*
+ * مدار — tech & digital: a graphite header and hero with a glow of the merchant colour, a cool slate page, white product
+ * tiles with the image contained, key specs as chips, stock as a status dot, a dark footer.
+ */
+.root { --bg: #f2f4f7; --surface: #e9edf2; --surface-2: #dfe4eb; --card-bg: #ffffff; --ink: #111827; --muted: #556072; --line: #dce1e8; --img-bg: #ffffff; --img-fit: contain; --radius-card: 14px; --radius-lg: 18px; --radius-btn: 10px; --radius-chip: 8px; --display: "Estedad Variable", "Vazirmatn Variable", Tahoma, sans-serif; --footer-bg: #111a29; --footer-ink: #eef2f8; --footer-muted: #a9b4c6; }
+
+/* dark header: tokens are re-scoped, so every header part (search, menu, nav) follows */
+.root .header { --bg: #111a29; --header-bg: #111a29; --ink: #eef2f8; --muted: #a9b4c6; --line: #24314a; --surface: #1b2740; --surface-2: #24324f; --search-bg: #1b2740; --topbar-bg: #0b121f; --topbar-ink: #a9b4c6; --link: color-mix(in srgb, var(--primary) 50%, #ffffff); border-bottom: 0; color: var(--ink); }
+.root .brandMark { border-radius: 10px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent); }
+.root .navLink[aria-current="page"]::after { background: var(--link); }
+.root .actionPrimary { --btn-bg: var(--primary); }
+
+/* hero: graphite with a glow and a fine grid */
+.root .heroInner { background: #111a29; color: #eef2f8; }
+.root .heroDeco { background:
+  radial-gradient(60% 90% at 85% 40%, color-mix(in srgb, var(--primary) 42%, transparent) 0%, transparent 70%),
+  linear-gradient(color-mix(in srgb, #ffffff 5%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
+  linear-gradient(90deg, color-mix(in srgb, #ffffff 5%, transparent) 1px, transparent 1px) 0 0 / 28px 28px; }
+.root .heroSub { color: #b6c1d4; }
+.root .heroArt { background: #1b2740; box-shadow: 0 20px 50px -20px color-mix(in srgb, var(--primary) 60%, black); }
 .root .hero .placeholder { background: transparent; color: #7f95ba; }
-.root .hero :focus-visible { outline-color: #9db8ff; }
-.root .cardArt { padding: 14px; border-bottom: 1px solid var(--line); }
+.root .heroInner :focus-visible { outline-color: #9db8ff; }
+.root .hero .btn { box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--primary) 70%, black); }
+.root .asideTile { background: #ffffff; border-color: var(--line); }
+
+.root .cardArt { padding: 16px; border-bottom: 1px solid var(--line); }
 .root .cardSpecs { display: flex; flex-wrap: wrap; gap: 4px; }
-.root .cardSpecRow { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; }
+.root .cardSpecRow { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; max-width: 100%; }
 .root .cardSpecTerm { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.root .stock { display: inline-flex; align-items: center; gap: 6px; }
-.root .stock::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); }
-.root .tile { background: var(--card-bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
-.root .tileArt { border-radius: 8px; }
-.root .highlight { border-inline-start: 3px solid var(--primary); border-radius: 8px; }
-.root .cta { background: var(--card-bg); border: 1px solid var(--line); }
+.root .price { color: var(--ink); }
+.root .card:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--line)); }
+
+.root .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); }
+.root .tile { background: var(--card-bg); border: 1px solid var(--line); border-radius: 14px; padding: 12px; transition: border-color .2s; }
+.root .tile:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); }
+.root .tile:hover .tileArt { transform: none; box-shadow: none; }
+.root .tileArt { border-radius: 10px; background: #ffffff; }
+.root .highlight { border-inline-start: 3px solid var(--primary); border-radius: 10px; }
+.root .cta { background: #111a29; color: #eef2f8; }
+.root .ctaDeco { background: radial-gradient(60% 120% at 90% 50%, color-mix(in srgb, var(--primary) 45%, transparent), transparent 70%); }
+.root .cta .btn { background: var(--primary); color: var(--on-primary) !important; border-color: var(--primary); }
+.root .cta :focus-visible { outline-color: #9db8ff; }
 .root .specsList { background: var(--card-bg); }
+.root .promo[data-tone="2"] { background: #111a29; color: #eef2f8; }
+.root .trustIcon { color: color-mix(in srgb, var(--primary) 45%, #ffffff); background: color-mix(in srgb, var(--primary) 22%, transparent); }
+.root .socialBtn:focus-visible, .root .footer :focus-visible { outline-color: #9db8ff; }
+.root .chip[aria-current="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
