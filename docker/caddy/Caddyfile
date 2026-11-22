@@ -43,6 +43,8 @@ import tls.d/*.caddy
 	handle @api {
 		reverse_proxy api:4000 {
 			header_up X-Forwarded-For {remote_host}
+			# Phase 2.6: the request id is chosen here, never by the client (a forged id would mix an attacker's log lines with a victim's).
+			header_up X-Request-Id {http.request.uuid}
 			header_up -X-Forwarded-Host
 			header_up -Forwarded
 			header_up -X-Original-Host

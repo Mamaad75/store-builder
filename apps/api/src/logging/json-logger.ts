@@ -1,4 +1,5 @@
 import type { LoggerService } from "@nestjs/common";
+import { currentRequestId } from "../platform/observability/request-context.js";
 
 /**
  * Structured logging (same contract as the web app's src/lib/log.ts): one JSON object per line, values under sensitive key names
@@ -30,7 +31,10 @@ export function formatLog(level: LogLevel, event: string, fields: Record<string,
   delete rest.ts;
   delete rest.level;
   delete rest.event;
-  return JSON.stringify({ ts: now().toISOString(), level, event, ...(redact(rest) as Record<string, unknown>) });
+  delete rest.requestId;
+  // Inside an HTTP request: the request id (phase 2.6), so all lines of one request can be found together. Never caller-supplied here.
+  const requestId = currentRequestId();
+  return JSON.stringify({ ts: now().toISOString(), level, event, ...(requestId ? { requestId } : {}), ...(redact(rest) as Record<string, unknown>) });
 }
 
 export type LogSink = (level: LogLevel, line: string) => void;

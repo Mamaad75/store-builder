@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { StorageConfigError, getStorageConfig, type StorageConfig } from "../lib/storage/config.js";
+import { DsnError, parseDsn, type Dsn } from "@store-builder/shared/observability/error-report";
 import { parseMasterKeys, type MasterKeys } from "../platform/crypto/envelope.js";
 
 /**
@@ -39,6 +40,19 @@ export interface ApiConfig {
    * secrets feature is off (its endpoints answer "not configured"). Key material never leaves this object and is never logged.
    */
   secrets: MasterKeys | null;
+  /** Metrics endpoint and error tracking of this process (phase 2.6). */
+  observability: ObservabilityConfig;
+}
+
+/**
+ * Phase 2.6 (ADR 0002): both parts are optional and OFF when their variables are empty; a value that is set but invalid refuses to start
+ * (like the secrets keys), so a typo never silently disables monitoring in production. The DSN is an ingest key: never logged.
+ */
+export interface ObservabilityConfig {
+  /** Prometheus endpoint (METRICS_PORT, METRICS_HOST) on its own port, never routed by the reverse proxy. null = off. */
+  metrics: { port: number; host: string } | null;
+  /** Error tracking to a self-hosted GlitchTip (ERROR_TRACKING_DSN, ERROR_TRACKING_ENVIRONMENT, APP_RELEASE). null = off. */
+  errorTracking: { dsn: Dsn; environment: string; release?: string } | null;
 }
 
 export class EnvError extends Error {
@@ -69,6 +83,35 @@ const schema = z.object({
 });
 
 const blank = (v: string | undefined) => (v === undefined || v.trim() === "" ? undefined : v.trim());
+
+/** Reads the phase-2.6 variables; problems are appended (names only). `busyPort` is the API port, which the metrics port may not reuse. */
+export function readObservability(env: Record<string, string | undefined>, dev: boolean, problems: string[], busyPort?: number): ObservabilityConfig {
+  let metrics: ObservabilityConfig["metrics"] = null;
+  const port = blank(env.METRICS_PORT);
+  if (port !== undefined) {
+    const n = /^\d{1,5}$/.test(port) ? Number(port) : NaN;
+    if (!(n >= 1 && n <= 65535) || n === busyPort) problems.push("METRICS_PORT: a free port number (not the API port)");
+    // Inside a container the internal network must reach it; on a development machine only this machine.
+    else metrics = { port: n, host: blank(env.METRICS_HOST) ?? (dev ? "127.0.0.1" : "0.0.0.0") };
+  }
+  let errorTracking: ObservabilityConfig["errorTracking"] = null;
+  const raw = blank(env.ERROR_TRACKING_DSN);
+  if (raw !== undefined) {
+    const environment = blank(env.ERROR_TRACKING_ENVIRONMENT) ?? (dev ? "development" : "production");
+    const release = blank(env.APP_RELEASE);
+    let dsn: Dsn | null = null;
+    try {
+      dsn = parseDsn(raw);
+    } catch (e) {
+      if (!(e instanceof DsnError)) throw e;
+      problems.push(e.message);
+    }
+    if (!/^[a-z0-9_-]{1,32}$/i.test(environment)) problems.push("ERROR_TRACKING_ENVIRONMENT: letters, digits, - and _ (at most 32)");
+    if (release !== undefined && !/^[\w.+-]{1,64}$/.test(release)) problems.push("APP_RELEASE: letters, digits and . + - _ (at most 64)");
+    if (dsn) errorTracking = { dsn, environment, ...(release ? { release } : {}) };
+  }
+  return { metrics, errorTracking };
+}
 const isNonProduction = (nodeEnv: string) => nodeEnv === "development" || nodeEnv === "test";
 const isLoopbackRoot = (root: string) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(root);
 
@@ -82,6 +125,7 @@ export interface WorkerConfig {
   databaseUrl: string;
   /** Valkey/Redis URL of the queue (secret: may carry a password). Never logged. */
   redisUrl: string;
+  observability: ObservabilityConfig;
 }
 
 const workerSchema = z.object({
@@ -98,6 +142,7 @@ export function loadWorkerConfig(env: Record<string, string | undefined>): Worke
     REDIS_URL: blank(env.REDIS_URL) ?? (dev ? "redis://localhost:6379" : undefined),
   });
   const problems = parsed.success ? [] : parsed.error.issues.map((i) => `${String(i.path[0])}: ${i.message}`);
+  const observability = readObservability(env, dev, problems);
   if (parsed.success && !dev) {
     // Defense in depth: even on the internal network the queue must require a password outside development.
     let password = "";
@@ -109,7 +154,7 @@ export function loadWorkerConfig(env: Record<string, string | undefined>): Worke
     if (!password && problems.length === 0) problems.push("REDIS_URL: must carry a password in production (redis://:<password>@host:6379)");
   }
   if (problems.length > 0 || !parsed.success) throw new EnvError(problems);
-  return { nodeEnv, production: !dev, databaseUrl: parsed.data.DATABASE_URL, redisUrl: parsed.data.REDIS_URL };
+  return { nodeEnv, production: !dev, databaseUrl: parsed.data.DATABASE_URL, redisUrl: parsed.data.REDIS_URL, observability };
 }
 
 export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
@@ -149,6 +194,7 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
   if (d && !dev && d.RATE_LIMIT_BACKEND === "memory") problems.push('RATE_LIMIT_BACKEND: "memory" is for single-process development only');
   const secrets = parseMasterKeys(env.SECRETS_MASTER_KEYS, env.SECRETS_ACTIVE_KEY_ID);
   if (secrets && "error" in secrets) problems.push(secrets.error); // half or invalid configuration refuses to start, in every environment
+  const observability = readObservability(env, dev, problems, d?.API_PORT);
   if (problems.length > 0 || !d) throw new EnvError(problems);
 
   const base = `${d.APP_PROTOCOL}://${d.APP_ROOT_DOMAIN}`;
@@ -172,5 +218,6 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     rateLimitBackend: d.RATE_LIMIT_BACKEND,
     secureCookies: d.APP_PROTOCOL === "https",
     secrets: secrets && !("error" in secrets) ? secrets : null,
+    observability,
   };
 }

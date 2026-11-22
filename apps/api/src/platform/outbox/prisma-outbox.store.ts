@@ -47,3 +47,8 @@ export class PrismaOutboxStore implements OutboxStore {
       WHERE "id" = ${id} AND "publishedAt" IS NULL`;
   }
 }
+
+/** Outbox rows not yet handed to the queue (phase 2.6 metric `sb_outbox_pending`; uses the relay's index on publishedAt). */
+export function countPendingOutbox(): Promise<number> {
+  return db.outboxEvent.count({ where: { publishedAt: null } });
+}

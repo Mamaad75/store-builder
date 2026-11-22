@@ -1,0 +1,52 @@
+# OBSERVABILITY OVERLAY (phase 2.6, docs/observability.md). File only: nothing is deployed by this repository (phase 4 does that, with
+# explicit approval). Used together with the production stack:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.observability.yml --env-file .env.production up -d
+#
+# Prometheus scrapes the api and the worker on their metrics port (9464) over its own `metrics` network (internal: no route outside):
+# it is NOT on `backend`, so it cannot reach PostgreSQL, Valkey or the API's public port (security review 2026-11-22). Its own UI is published on the HOST LOOPBACK only (127.0.0.1:9090): reach it through an SSH tunnel, never from the internet.
+# Images come through the Iranian registry mirror configured in the Docker daemon (docker.arvancloud.ir), pinned by digest.
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    user: "65534:65534"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=5GB
+      - --web.listen-address=0.0.0.0:9090
+    volumes:
+      - ./docker/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    # metrics: api/worker on 9464 only (internal); monitoring: a non-internal network only so the loopback port can be published.
+    networks: [metrics, monitoring]
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      api: { condition: service_healthy }
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+  # The api and the worker also join the metrics network (their other networks come from docker-compose.prod.yml).
+  api:
+    networks: [metrics]
+  worker:
+    networks: [metrics]
+
+networks:
+  metrics:
+    internal: true
+  monitoring: {}
+
+volumes:
+  prometheus_data:

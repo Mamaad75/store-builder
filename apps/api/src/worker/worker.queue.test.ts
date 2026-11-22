@@ -137,4 +137,32 @@ describe("worker: maintenance jobs on BullMQ Job Schedulers (phase 2.2b, real Va
       await q.close();
     }
   });
+  it("phase 2.6: the worker serves its metrics, connects the report counter and reports a dead event with its type only", async () => {
+    const captured: { error: unknown; tags: Record<string, string | undefined> }[] = [];
+    const reporter = { capture: (error: unknown, tags: Record<string, string | undefined> = {}) => void captured.push({ error, tags }), flush: async () => undefined };
+    let bound = 0;
+    worker = await startWorker({
+      redisUrl: REDIS_URL,
+      handlers: { "store.published": async () => undefined, "store.broken": async () => { throw new TypeError("handler bug"); } },
+      alert: async () => undefined,
+      idlePollMs: 50,
+      prefix: PREFIX,
+      delivery: FAST,
+      metrics: { port: 19464, host: "127.0.0.1" },
+      reporter,
+      bindReportOutcome: () => void bound++,
+    });
+    expect(bound).toBe(1);
+    await emit("store.published");
+    await emit("store.broken");
+    await until(() => captured.length === 1);
+    expect(captured[0]!.error).toBeInstanceOf(TypeError);
+    expect(captured[0]!.tags).toEqual({ event_type: "store.broken" });
+    const body = await (await fetch("http://127.0.0.1:19464/metrics")).text();
+    expect(body).toContain('sb_events_total{type="store.published",outcome="ok",service="worker"} 1');
+    expect(body).toContain('sb_events_total{type="store.broken",outcome="dead",service="worker"} 1');
+    expect(body).toMatch(/sb_outbox_pending\{service="worker"\} \d+/);
+    expect(body).toContain('sb_queue_jobs{state="failed",service="worker"}');
+    expect(body).not.toMatch(/eventId|s1"/);
+  });
 });

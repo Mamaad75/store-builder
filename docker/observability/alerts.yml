@@ -1,0 +1,53 @@
+# Alert rules (phase 2.6, docs/observability.md). They are evaluated by Prometheus and visible at /alerts. Delivering them to the Bale
+# channel (Alertmanager or a small relay) is a staging task (phase 4): until then the worker's own Bale alerts (D14-3) stay the channel.
+groups:
+  - name: store-builder
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.job }} is not answering on its metrics port"
+
+      - alert: ApiServerErrors
+        # more than 2% of requests answered 5xx over 5 minutes (at least some traffic)
+        expr: |
+          sum(rate(sb_http_requests_total{status="5xx"}[5m])) / clamp_min(sum(rate(sb_http_requests_total[5m])), 0.1) > 0.02
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "API 5xx ratio above 2% for 5 minutes"
+
+      - alert: ApiSlow
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(sb_http_request_duration_seconds_bucket{route!="unmatched"}[5m]))) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "API p95 latency above 1s for 10 minutes"
+
+      - alert: OutboxBacklog
+        expr: sb_outbox_pending > 500
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 500 domain events waiting in the outbox for 10 minutes (relay or queue problem)"
+
+      - alert: DeadEvents
+        expr: increase(sb_events_total{outcome="dead"}[15m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "A domain event used up all its delivery attempts ({{ $labels.type }})"
+
+      - alert: MaintenanceJobFailing
+        expr: increase(sb_maintenance_runs_total{result!="ok"}[1h]) >= 2
+        labels: { severity: warning }
+        annotations:
+          summary: "Maintenance job {{ $labels.job }} failed at least twice in an hour"
+
+      - alert: ErrorReportsFailing
+        expr: increase(sb_error_reports_total{outcome="failed"}[30m]) > 5
+        labels: { severity: warning }
+        annotations:
+          summary: "Error reports cannot reach GlitchTip ({{ $labels.service }})"

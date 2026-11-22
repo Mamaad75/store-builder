@@ -20,6 +20,7 @@ export const testConfig: ApiConfig = {
   // a fixed TEST-ONLY master key (32 bytes); production keys come from SECRETS_MASTER_KEYS
   secrets: { activeId: "test1", keys: new Map([["test1", Buffer.alloc(32, 7)]]) },
   secureCookies: false,
+  observability: { metrics: null, errorTracking: null },
 };
 
 export function fakeDb(ok = true): Database & { pings: number } {
