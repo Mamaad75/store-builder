@@ -47,11 +47,15 @@ export function parseStoreId(storeId: unknown): string {
 export async function listActiveTemplates(): Promise<{ key: string; name: string; description: string }[]> {
   const rows = await db.template.findMany({ where: { isActive: true, versions: { some: { isActive: true } } }, select: { key: true, versions: { where: { isActive: true }, select: { version: true } } } });
   const out: { key: string; name: string; description: string }[] = [];
+  const seen = new Set<string>();
   for (const t of allThemes()) {
     // Legacy themes (DT-2) keep working for the stores that use them but are no longer offered for a new store.
-    if (t.legacy) continue;
+    if (t.legacy || seen.has(t.key)) continue;
+    seen.add(t.key);
     const row = rows.find((r) => r.key === t.key);
-    if (row && row.versions.some((v) => v.version === t.version)) out.push({ key: t.key, name: t.meta.name, description: t.meta.description });
+    const version = Math.max(...(row?.versions.map((v) => v.version) ?? []));
+    const definition = resolveThemeDefinition(t.key, version);
+    if (definition) out.push({ key: t.key, name: definition.meta.name, description: definition.meta.description });
   }
   return out;
 }

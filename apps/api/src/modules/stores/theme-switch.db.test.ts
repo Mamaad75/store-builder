@@ -17,6 +17,7 @@ import { prisma, resetDb } from "../../test/db-helpers.js";
 import { MemoryMediaStorage } from "../../test/memory-storage.js";
 import { ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { listSwitchableThemes, previewThemeSwitch, switchTheme, ThemeSwitchBlockedError } from "./theme-switch.js";
+import { createStore } from "./service.js";
 
 beforeEach(resetDb);
 afterEach(() => {
@@ -98,6 +99,22 @@ describe("the compatibility report is read-only and describes the switch", () =>
 });
 
 describe("switching changes only the draft's theme pointer", () => {
+  it("lets an existing business store preview and apply the next version of the same theme", async () => {
+    const { a } = await twoTenants();
+    const { id } = await createStore(a.id, { name: "فروشگاه بازار", templateKey: "bazaar" });
+    const original = await prisma.templateVersion.findFirstOrThrow({ where: { template: { key: "bazaar" }, version: 1 } });
+    await prisma.store.update({ where: { id }, data: { templateVersionId: original.id } });
+    const before = await everythingButTheme(id);
+
+    const preview = await getDraftPreview(a.id, id, { candidateThemeKey: "bazaar" });
+    expect(preview.data.template).toEqual({ key: "bazaar", version: 2 });
+    const report = await rep(a.id, id, "bazaar");
+    expect(report).toMatchObject({ sameTheme: false, canSwitch: true, current: { version: 1 }, target: { version: 2 } });
+    expect(await go(a.id, id, "bazaar")).toMatchObject({ changed: true, theme: { version: 2 } });
+    expect(await everythingButTheme(id)).toBe(before);
+    expect(await rep(a.id, id, "bazaar")).toMatchObject({ sameTheme: true });
+  });
+
   it("writes ONE column (+ draftRevision): pages, products, categories, media, settings and published data are byte-identical", async () => {
     const { a, a1 } = await twoTenants();
     const hp = await getPageEditor(a.id, a1, "HOME");

@@ -14,7 +14,11 @@ import { resolveProductRedirect } from "@/gateway/public";
 function requireSession(req: NextRequest): NextResponse {
   if (!readSessionCookie((n) => req.cookies.get(n)?.value)) {
     const url = new URL("/login", req.nextUrl.origin);
-    url.searchParams.set("callbackUrl", req.nextUrl.pathname);
+    const theme = req.nextUrl.searchParams.get("theme");
+    const callback = req.nextUrl.pathname === "/dashboard/stores/new" && theme && /^[a-z][a-z0-9-]{0,39}$/.test(theme)
+      ? `/dashboard/stores/new?theme=${theme}`
+      : req.nextUrl.pathname;
+    url.searchParams.set("callbackUrl", callback);
     return NextResponse.redirect(url);
   }
   return NextResponse.next();

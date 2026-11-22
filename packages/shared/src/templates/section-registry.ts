@@ -27,6 +27,8 @@ function buildExtraIndex(themes: readonly ThemeDefinition[]): Map<string, Sectio
   for (const theme of themes) {
     for (const d of theme.sectionDefinitions) {
       if (!EXTRA_SECTION_TYPE_RE.test(d.type) || !d.type.startsWith(`${theme.key}.`)) throw new Error(`invalid theme section type ${d.type}`);
+      // Versions can reuse the exact same permanent section definition.
+      if (m.get(d.type) === d) continue;
       if (CORE[d.type] || m.has(d.type)) throw new Error(`duplicate section type ${d.type}`);
       m.set(d.type, d);
     }

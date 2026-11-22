@@ -11,7 +11,8 @@ export default function ThemePicker({ storeId, current, themes, selected }: { st
   return (
     <Stack spacing={1.5} data-testid="theme-picker">
       {themes.map((t) => {
-        const isCurrent = current?.key === t.key;
+        const isCurrent = current?.key === t.key && current.version === t.version;
+        const isUpdate = current?.key === t.key && current.version < t.version;
         return (
           <Paper key={t.key} variant="outlined" sx={{ p: 2, borderColor: selected === t.key ? "primary.main" : undefined }} data-testid="theme-card" data-theme-key={t.key} data-current={isCurrent ? "yes" : "no"}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { sm: "center" }, justifyContent: "space-between" }}>
@@ -19,6 +20,7 @@ export default function ThemePicker({ storeId, current, themes, selected }: { st
                 <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Typography sx={{ fontWeight: 700 }}>{t.name}</Typography>
                   {isCurrent && <Chip size="small" color="primary" label="قالب فعلی" />}
+                  {isUpdate && <Chip size="small" color="primary" variant="outlined" label="نسخهٔ تازه" />}
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
                   {t.description}

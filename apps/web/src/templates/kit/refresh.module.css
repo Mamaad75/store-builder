@@ -1,0 +1,141 @@
+/* Version 2 overrides. Version 1 templates never receive these classes. */
+.root .heroInner .heroText {
+  min-width: 0;
+}
+
+.root[data-template="bazaar"] .heroInner {
+  border-radius: 26px;
+}
+
+.root[data-template="bazaar"] .heroArt {
+  transform: rotate(-3deg);
+  border: 4px solid color-mix(in srgb, var(--on-primary) 22%, transparent);
+  border-radius: 22px;
+}
+
+.root[data-template="circuit"] .heroInner {
+  border-radius: 12px;
+  background-image: linear-gradient(135deg, #102038, #253b60);
+}
+
+.root[data-template="circuit"] .heroArt {
+  border: 1px solid #7589a6;
+  border-radius: 8px;
+  box-shadow: 12px 12px 0 #101d31;
+}
+
+.root[data-template="sormeh"] .heroInner {
+  background: linear-gradient(130deg, #fff6f2, #f4dcd7);
+  border-radius: 36px 36px 18px 18px;
+}
+
+.root[data-template="sormeh"] .heroArt {
+  border: 6px solid #fff7f4;
+  border-radius: 50% 50% 14px 14px / 36% 36% 14px 14px;
+}
+
+.root[data-template="dookht"] .heroInner {
+  background-color: #e9dfd3;
+}
+
+.root[data-template="dookht"] .heroInner[data-art="image"] .heroArt img {
+  object-position: center 35%;
+}
+
+.root[data-template="dookht"] .heroInner .heroText {
+  border-block-start: 4px solid #c7b59f;
+}
+
+.root[data-template="arcade"] .heroInner {
+  border: 1px solid #695397;
+  background-image: radial-gradient(ellipse at 80% 20%, #3c2268, transparent 65%), linear-gradient(135deg, #1b102e, #251540);
+}
+
+.root[data-template="arcade"] .heroArt {
+  border: 1px solid #9072c8;
+  box-shadow: 0 0 30px #7e42cb59;
+}
+
+.root[data-template="sofreh"] .heroInner {
+  background: #f4e8d7;
+}
+
+.root[data-template="sofreh"] .heroArt {
+  border: 8px solid #fffcf6;
+  box-shadow: 0 0 0 1px #cfb394, 0 18px 35px -17px #735136;
+}
+
+.root[data-template="golkhaneh"] .heroInner {
+  background: #e9efe3;
+  border-radius: 26px;
+}
+
+.root[data-template="golkhaneh"] .heroArt {
+  border: 6px solid #f9fcf6;
+  border-radius: 50% 50% 14px 14px / 48% 48% 14px 14px;
+  box-shadow: 0 0 0 1px #8ca187;
+}
+
+.root[data-template="khaneh"] .heroInner {
+  background: #f1ece4;
+  border-radius: 10px;
+}
+
+.root[data-template="khaneh"] .heroArt {
+  border: 8px solid #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 16px #40352a20;
+}
+
+.root[data-template="circuit"] .featured,
+.root[data-template="khaneh"] .categoryRow {
+  background: var(--surface);
+}
+
+.root[data-template="sormeh"] .tilesSection {
+  background: #fff4f0;
+}
+
+.root[data-template="sormeh"] .tileArt {
+  border-radius: 50% 50% 12px 12px / 42% 42% 12px 12px;
+}
+
+.root[data-template="arcade"] .cardArt {
+  border-block-end: 2px solid #8a70d6;
+}
+
+.root[data-template="sofreh"] .menu {
+  background: #f4e8d7;
+}
+
+.root[data-template="golkhaneh"] .notice {
+  border-radius: 22px;
+}
+
+@media (min-width: 761px) {
+  .root[data-template="dookht"] .heroInner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 0;
+  }
+
+  .root[data-template="dookht"] .heroInner .heroText {
+    grid-column: 1;
+    align-self: stretch;
+    align-content: center;
+    justify-self: stretch;
+    max-width: none;
+    margin: 0;
+    padding: clamp(30px, 5vw, 88px);
+  }
+
+  .root[data-template="dookht"] .heroInner .heroArt {
+    grid-column: 2;
+    aspect-ratio: 5 / 4;
+  }
+}
+
+@media (max-width: 760px) {
+  .root[data-template="bazaar"] .heroArt {
+    transform: none;
+  }
+}

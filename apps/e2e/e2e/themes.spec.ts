@@ -67,6 +67,19 @@ test.describe("creating stores: business category and theme are separate choices
       await expect(page.locator("input[name=templateKey]"), category).toHaveValue(theme);
     }
   });
+
+  test("a sample storefront links back to the preselected theme and business category", async ({ page }) => {
+    await signUpAndIn(page);
+    await page.goto("/dashboard/stores/new");
+    const preview = page.getByRole("link", { name: "پیش‌نمایش قالب آرکید (زبانهٔ جدید)" });
+    const [demo] = await Promise.all([page.waitForEvent("popup"), preview.click()]);
+    await expect(demo.locator("[data-template=arcade] h1")).toBeVisible();
+    await demo.locator("header").getByRole("link", { name: "محصولات", exact: true }).click();
+    await expect(demo.getByRole("heading", { level: 1 })).toHaveText("همه محصولات");
+    await demo.getByRole("link", { name: "ساخت فروشگاه با این قالب" }).click();
+    await expect(demo.locator("input[name=templateKey]")).toHaveValue("arcade");
+    await expect(demo.locator("input[name=businessCategory]")).toHaveValue("digital-goods");
+  });
 });
 
 test.describe("theme-specific sections", () => {

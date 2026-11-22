@@ -109,3 +109,6 @@ export const khanehTheme: ThemeDefinition = kitTheme({
 
 /** In the order offered to merchants (matches the business categories). */
 export const KIT_THEMES: readonly ThemeDefinition[] = [bazaarTheme, circuitTheme, sormehTheme, dookhtTheme, arcadeTheme, sofrehTheme, golkhanehTheme, khanehTheme];
+
+/** The visual refresh shares the original section schemas and editor rules. */
+export const KIT_THEMES_V2: readonly ThemeDefinition[] = KIT_THEMES.map((theme) => ({ ...theme, version: 2 }));

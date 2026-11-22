@@ -8,10 +8,12 @@ import { categoryOf, featuredProducts, formTarget, listProducts, listUrl, produc
 import { SEARCH_MAX } from "@store-builder/shared/templates/engine/route";
 import type { StorefrontCategory, StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { ThemeDefinition } from "@store-builder/shared/templates/theme";
+import { KIT_THEMES_V2 } from "@store-builder/shared/templates/kit/themes";
 import { CardSpecs, ProductSpecs } from "../engine/Specs";
 import { navItems, themeStyleVars } from "../engine/theme-vars";
 import type { ExtraSectionComponent, LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import base from "./base.module.css";
+import refresh from "./refresh.module.css";
 import { CONTACT_ICON, highlightIcon, Icon, type IconName } from "./icons";
 
 /**
@@ -63,8 +65,15 @@ export function pageWindow(page: number, total: number): (number | null)[] {
   return sorted.flatMap((n, i) => (i > 0 && n - sorted[i - 1]! > 1 ? [null, n] : [n]));
 }
 
-export function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: KitOptions): TemplateModule {
-  const s = new Proxy({} as Record<string, string>, { get: (_t, k: string) => [base[k], theme[k]].filter(Boolean).join(" ") });
+export function createKitVariants(definition: ThemeDefinition, theme: Styles, opts: KitOptions): [TemplateModule, TemplateModule] {
+  const next = KIT_THEMES_V2.find((item) => item.key === definition.key);
+  if (!next) throw new Error(`Missing refreshed theme: ${definition.key}`);
+  return [createKitTemplate(definition, theme, opts), createKitTemplate(next, theme, opts)];
+}
+
+function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: KitOptions): TemplateModule {
+  const isRefresh = definition.version === 2;
+  const s = new Proxy({} as Record<string, string>, { get: (_t, k: string) => [base[k], theme[k], isRefresh ? refresh[k] : undefined].filter(Boolean).join(" ") });
   const key = definition.key;
   const asRail = (opts.featured ?? "rail") === "rail";
 
@@ -465,12 +474,13 @@ export function createKitTemplate(definition: ThemeDefinition, theme: Styles, op
 
   const Hero: SectionComponent<"hero"> = ({ section, ctx }) => {
     const { title, subtitle, buttonText, buttonLink } = section.props;
-    const img = sectionImage(ctx, section.props.imageId);
+    const img = sectionImage(ctx, section.props.imageId)
+      ?? (isRefresh ? categoryArt(ctx, undefined) : null);
     const aside = opts.heroAside ? ctx.data.categories.slice(0, 2) : [];
     return (
       <section className={s.hero} aria-labelledby={`${section.id}-title`}>
         <div className={`${s.container} ${aside.length > 0 ? s.heroWithAside : ""}`}>
-          <div className={s.heroInner}>
+          <div className={s.heroInner} data-art={isRefresh && img ? "image" : undefined}>
             <span className={s.heroDeco} aria-hidden="true" />
             <div className={s.heroText}>
               <h1 id={`${section.id}-title`} className={s.heroTitle}>

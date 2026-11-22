@@ -103,9 +103,25 @@ const KIT_DEFINITIONS: TemplateDefinition[] = [
   { key: "khaneh", name: "خانه", version: 1, settings: settings("#0f6e74"), pages: kitPages("khaneh", { heroTitle: "لوازم خانگی مطمئن برای خانهٔ شما", heroSubtitle: "کالاهای اصل با گارانتی و مشخصات روشن", cta: "مشاهده محصولات", aboutTitle: "درباره فروشگاه", aboutBody: "ما لوازم خانگی معتبر را با راهنمایی روشن و پشتیبانی عرضه می‌کنیم. این متن را از بخش ویرایش تغییر دهید." }, "پرفروش‌ها") },
 ];
 
+function refreshedDefinition(definition: TemplateDefinition): TemplateDefinition {
+  const priority = definition.key === "sofreh" ? "home-menu" : definition.key === "golkhaneh" ? "home-delivery" : null;
+  return {
+    ...definition,
+    version: 2,
+    settings: definition.key === "golkhaneh" ? settings("#34604b") : definition.settings,
+    pages: definition.pages.map((page) => {
+      const section = page.sections.find((item) => item.id === priority);
+      if (!section || page.type !== "HOME") return page;
+      const [hero, ...rest] = page.sections;
+      return { ...page, sections: [hero!, section, ...rest.filter((item) => item !== section)] };
+    }),
+  };
+}
+
 /** Every seeded template: the eight business themes, then the MVP themes. Existing versions are immutable; add new versions instead. */
 export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   ...KIT_DEFINITIONS,
+  ...KIT_DEFINITIONS.map(refreshedDefinition),
   {
     key: "coffee",
     name: "قهوه و مواد غذایی",
