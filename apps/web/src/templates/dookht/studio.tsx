@@ -16,7 +16,7 @@ function Layout({ ctx, children }: LayoutProps) {
 }
 
 const Hero: SectionComponent<"hero"> = ({ ctx, section }) => (
-  <section className={s.hero} data-structure="fashion-cover"><figure><Art ctx={ctx} imageId={section.props.imageId} priority /></figure><header className={enter}><h1>{section.props.title}</h1><p>{section.props.subtitle}</p><HeroLink ctx={ctx} text={section.props.buttonText} path={section.props.buttonLink} /></header></section>
+  <section className={s.hero} data-structure="fashion-cover"><figure><Art ctx={ctx} imageId={section.props.imageId} priority fallbackProduct /></figure><header className={enter}><h1>{section.props.title}</h1><p>{section.props.subtitle}</p><HeroLink ctx={ctx} text={section.props.buttonText} path={section.props.buttonLink} /></header></section>
 );
 
 function Cards({ ctx, items, heading: Title = "h3" }: { ctx: RenderContext; items: StorefrontProduct[]; heading?: "h2" | "h3" }) {

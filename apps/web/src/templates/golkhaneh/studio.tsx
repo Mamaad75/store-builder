@@ -18,7 +18,7 @@ function Layout({ ctx, children }: LayoutProps) {
 }
 
 const Hero: SectionComponent<"hero"> = ({ ctx, section }) => (
-  <section className={s.hero} data-structure="occasion-carousel"><div className={enter}><h1>{section.props.title}</h1><p>{section.props.subtitle}</p><HeroLink ctx={ctx} text={section.props.buttonText} path={section.props.buttonLink} /></div><div className={s.slider} tabIndex={0} role="region" aria-label="تصاویر گل‌ها"><figure><Art ctx={ctx} imageId={section.props.imageId} priority /></figure>{ctx.data.products.filter((p) => p.image).slice(0,2).map((p) => <figure key={p.id}><Art ctx={ctx} product={p} alt={p.name} /></figure>)}</div></section>
+  <section className={s.hero} data-structure="occasion-carousel"><div className={enter}><h1>{section.props.title}</h1><p>{section.props.subtitle}</p><HeroLink ctx={ctx} text={section.props.buttonText} path={section.props.buttonLink} /></div><div className={s.slider} tabIndex={0} role="region" aria-label="تصاویر گل‌ها"><figure><Art ctx={ctx} imageId={section.props.imageId} priority fallbackProduct /></figure>{ctx.data.products.filter((p) => p.image).slice(0,2).map((p) => <figure key={p.id}><Art ctx={ctx} product={p} alt={p.name} /></figure>)}</div></section>
 );
 
 function Cards({ ctx, items, heading: Title = "h3" }: { ctx: RenderContext; items: StorefrontProduct[]; heading?: "h2" | "h3" }) {

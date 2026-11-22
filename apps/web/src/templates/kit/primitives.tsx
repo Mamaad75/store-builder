@@ -74,11 +74,12 @@ export function OrderLinks({ ctx, product }: { ctx: RenderContext; product?: Sto
       ? `${link.href}?text=${encodeURIComponent(`سلام، برای سفارش «${product.name}» پیام می‌دهم.`)}` : link.href}>{link.kind === "phone" ? "تماس برای سفارش" : "سفارش در واتساپ"}</a>)}</div>;
 }
 
-export function Art({ ctx, product, imageId, priority = false, alt = "" }: {
-  ctx: RenderContext; product?: StorefrontProduct; imageId?: string | null; priority?: boolean; alt?: string;
+export function Art({ ctx, product, imageId, priority = false, alt = "", fallbackProduct = false }: {
+  ctx: RenderContext; product?: StorefrontProduct; imageId?: string | null; priority?: boolean; alt?: string; fallbackProduct?: boolean;
 }) {
-  const ref = product?.image;
-  const image = ref ? { ...ref, url: ctx.mediaUrl(ref.key) } : imageId ? sectionImage(ctx, imageId) : null;
+  const banner = imageId ? sectionImage(ctx, imageId) : null;
+  const ref = product?.image ?? (!banner && fallbackProduct ? ctx.data.products.find((item) => item.image)?.image : null);
+  const image = banner ?? (ref ? { ...ref, url: ctx.mediaUrl(ref.key) } : null);
   if (!image?.url) return <span className={s.placeholder} aria-hidden="true"><Icon name="bag" size={48} /></span>;
   // eslint-disable-next-line @next/next/no-img-element
   return <img className={s.image} src={image.url} width={image.width} height={image.height} alt={alt} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} decoding="async" />;

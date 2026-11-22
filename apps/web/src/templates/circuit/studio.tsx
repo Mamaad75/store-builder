@@ -18,7 +18,7 @@ function Layout({ ctx, children }: LayoutProps) {
 }
 
 const Hero: SectionComponent<"hero"> = ({ ctx, section }) => (
-  <section className={s.hero} data-structure="spec-hero"><div className={enter}><h1>{section.props.title}</h1><p>{section.props.subtitle}</p><HeroLink ctx={ctx} text={section.props.buttonText} path={section.props.buttonLink} /><dl><div><dt>کالا در فروشگاه</dt><dd>{fa(ctx.data.products.length)}</dd></div><div><dt>دسته‌بندی</dt><dd>{fa(ctx.data.categories.length)}</dd></div></dl></div><figure><Art ctx={ctx} imageId={section.props.imageId} priority /></figure></section>
+  <section className={s.hero} data-structure="spec-hero"><div className={enter}><h1>{section.props.title}</h1><p>{section.props.subtitle}</p><HeroLink ctx={ctx} text={section.props.buttonText} path={section.props.buttonLink} /><dl><div><dt>کالا در فروشگاه</dt><dd>{fa(ctx.data.products.length)}</dd></div><div><dt>دسته‌بندی</dt><dd>{fa(ctx.data.categories.length)}</dd></div></dl></div><figure><Art ctx={ctx} imageId={section.props.imageId} priority fallbackProduct /></figure></section>
 );
 
 function Cards({ ctx, items, heading: Title = "h3" }: { ctx: RenderContext; items: StorefrontProduct[]; heading?: "h2" | "h3" }) {

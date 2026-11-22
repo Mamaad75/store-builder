@@ -19,7 +19,7 @@ function Layout({ ctx, children }: LayoutProps) {
 const Hero: SectionComponent<"hero"> = ({ ctx, section }) => (
   <section className={s.hero} data-structure="homeware-dual-promotion">
     <div className={enter}><h1>{section.props.title}</h1><p>{section.props.subtitle}</p><HeroLink ctx={ctx} text={section.props.buttonText} path={section.props.buttonLink} /></div>
-    <figure><Art ctx={ctx} imageId={section.props.imageId} priority /><figcaption><a href={ctx.href("/products")}>مرور کاتالوگ خانه</a></figcaption></figure>
+    <figure><Art ctx={ctx} imageId={section.props.imageId} priority fallbackProduct /><figcaption><a href={ctx.href("/products")}>مرور کاتالوگ خانه</a></figcaption></figure>
   </section>
 );
 

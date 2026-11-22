@@ -16,9 +16,9 @@ const layouts = [
   ["khaneh", "homeware-dual-promotion", "homeware-sidebar"],
 ] as const;
 
-function render(key: string, segments: string[]) {
+function render(key: string, segments: string[], hideBanner = false) {
   const demo = loadThemeDemo(key)!;
-  const view = buildView(demo.data, { basePath: "/p", segments, mediaUrl: demo.mediaUrl });
+  const view = buildView(hideBanner ? { ...demo.data, images: {} } : demo.data, { basePath: "/p", segments, mediaUrl: demo.mediaUrl });
   if (view.status !== "ok") throw new Error(view.status);
   return { demo, html: renderToStaticMarkup(<StorefrontRenderer template={view.template} ctx={view.ctx} />) };
 }
@@ -49,4 +49,11 @@ describe("independent storefronts", () => {
       expect(new Set(signatures).size).toBe(layouts.length);
     },
   );
+
+  it.each(layouts.slice(1))("%s reuses the first product photo when the merchant has no banner", (key, hero) => {
+    const { html } = render(key, [], true);
+    const start = html.indexOf(`data-structure="${hero}"`);
+    const banner = html.slice(start, html.indexOf("</section>", start));
+    expect(banner).toContain(`src="/theme-demos/${key}-product-1.webp"`);
+  });
 });
