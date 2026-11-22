@@ -10,6 +10,7 @@ import { JsonLogger } from "./logging/json-logger.js";
 import { createErrorReporter, NO_REPORTER } from "@store-builder/shared/observability/error-report";
 import { createApiMetrics, httpMetricsMiddleware } from "./platform/observability/metrics.js";
 import { requestIdMiddleware } from "./platform/observability/request-context.js";
+import { apiVersionMiddleware } from "./http/api-version.js";
 
 export async function createApp(config: ApiConfig, overrides: AppOverrides = {}): Promise<NestExpressApplication> {
   if (config.storage) configureStorage(config.storage);
@@ -24,6 +25,8 @@ export async function createApp(config: ApiConfig, overrides: AppOverrides = {})
   // the body parsers refuse).
   app.use(requestIdMiddleware);
   if (metrics) app.use(httpMetricsMiddleware(metrics));
+  // Phase 2.5: /api/v1/<scope>/... is rewritten to its handler path here, before every other middleware and the router.
+  app.use(apiVersionMiddleware);
   app.setGlobalPrefix("api");
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxyHops);

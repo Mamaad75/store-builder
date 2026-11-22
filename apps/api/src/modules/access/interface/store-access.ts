@@ -9,7 +9,7 @@ import type { JsonLogger } from "../../../logging/json-logger.js";
 import { AccessService } from "../application/access.service.js";
 import type { StoreAccessContext } from "../application/ports.js";
 
-const PERMISSION_KEY = "store-permission";
+export const PERMISSION_KEY = "store-permission";
 const AUDIT_KEY = "store-audit";
 
 export type StoreAccessRequest = AuthedRequest & { storeAccess?: StoreAccessContext };

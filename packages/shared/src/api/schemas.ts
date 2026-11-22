@@ -1,0 +1,172 @@
+import { z } from "zod";
+import type * as D from "../dto/index.js";
+import { STAFF_ROLES, STORE_ROLES } from "../modules/access/permissions.js";
+import type { PageEditorRules } from "../templates/editor.js";
+import type { PageSection, SectionIssue } from "../templates/section-parse.js";
+import { PAGE_TYPES } from "../templates/sections.js";
+import type { StorefrontData } from "../templates/storefront-data.js";
+
+/**
+ * Response schemas of the API contract (phase 2.5). They DESCRIBE the JSON the API already returns: each one is pinned to its wire type
+ * in `dto/index.ts` by a two-way compile-time check at the bottom of this file, and `apps/api/src/dto.check.ts` pins those types to the
+ * real service results. So the OpenAPI document cannot drift from the code without `tsc` failing.
+ * Deeply nested editor/storefront structures are referenced as opaque objects (`z.custom`): they have their own validators elsewhere.
+ */
+const iso = z.string().describe("ISO 8601 date-time");
+const storeStatus = z.enum(["DRAFT", "PUBLISHED", "UNPUBLISHED"]);
+const productStatus = z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]);
+const opaque = <T>(name: string) => z.custom<T>(() => true).describe(name);
+
+export const mediaRefDto = z.object({ id: z.string(), key: z.string(), width: z.number().nullable(), height: z.number().nullable() });
+export const storeDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: storeStatus,
+  settings: z.unknown(),
+  businessCategory: z.string(),
+  draftRevision: z.number(),
+  publishedAt: iso.nullable(),
+  createdAt: iso,
+  updatedAt: iso,
+  logo: mediaRefDto.nullable(),
+  templateVersion: z.object({ version: z.number(), template: z.object({ key: z.string(), name: z.string() }) }),
+});
+export const templateOptionDto = z.object({ key: z.string(), name: z.string(), description: z.string() });
+export const onboardingFactDto = z.object({ id: z.string(), name: z.string(), status: storeStatus, categories: z.number(), products: z.number(), hasSubdomain: z.boolean() });
+export const categoryDto = z.object({ id: z.string(), name: z.string(), slug: z.string(), createdAt: iso, _count: z.object({ products: z.number() }) });
+export const productDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  description: z.string(),
+  price: z.number().describe("Toman"),
+  stockQuantity: z.number(),
+  specs: z.unknown(),
+  status: productStatus,
+  categoryId: z.string().nullable(),
+  category: z.object({ id: z.string(), name: z.string() }).nullable(),
+  image: mediaRefDto.nullable(),
+  createdAt: iso,
+  updatedAt: iso,
+});
+export const productListDto = z.object({ items: z.array(productDto), total: z.number(), page: z.number(), pageSize: z.number(), totalPages: z.number() });
+/** v1 only: keyset pages (phase 2.5). `nextCursor` is opaque; null on the last page. */
+export const productCursorListDto = z.object({ items: z.array(productDto), total: z.number(), limit: z.number(), nextCursor: z.string().nullable() });
+export type ProductCursorListDto = z.infer<typeof productCursorListDto>;
+
+export const editResultDto = z.object({ changed: z.boolean(), revision: z.number() });
+export const pageSummaryDto = z.object({
+  type: z.enum(PAGE_TYPES),
+  title: z.string(),
+  slug: z.string(),
+  isVisible: z.boolean(),
+  canHide: z.boolean(),
+  revision: z.number(),
+  sectionCount: z.number(),
+  invalidCount: z.number(),
+  archivedCount: z.number(),
+});
+export const pageEditorViewDto = pageSummaryDto.extend({
+  storeId: z.string(),
+  sections: z.array(opaque<PageSection>("PageSection")),
+  dormant: z.array(z.object({ id: z.string(), type: z.string(), label: z.string(), preview: z.string() })),
+  issues: z.array(z.object({ index: z.number(), reason: z.enum(["not_an_array", "invalid_envelope", "unsupported_type", "invalid_props", "duplicate_singleton"]), preview: z.string() })),
+  images: z.record(z.string(), z.object({ key: z.string(), width: z.number(), height: z.number() })),
+  rules: opaque<PageEditorRules>("PageEditorRules"),
+  maxSections: z.number(),
+});
+export const publishResultDto = z.object({
+  versionId: z.string(),
+  number: z.number(),
+  draftRevision: z.number(),
+  snapshotBytes: z.number(),
+  contentHash: z.string(),
+  lockHeldMs: z.number(),
+  budgetExceeded: z.boolean(),
+  buildMs: z.number(),
+});
+export const publishStateDto = z.object({
+  status: storeStatus,
+  draftRevision: z.number(),
+  publishedAt: iso.nullable(),
+  live: z.object({ number: z.number(), draftRevision: z.number(), createdAt: iso, snapshotBytes: z.number() }).nullable(),
+  subdomain: z.string().nullable(),
+  mayHaveUnpublishedChanges: z.boolean(),
+});
+export const versionDto = z.object({ id: z.string(), number: z.number(), createdAt: iso, snapshotBytes: z.number(), draftRevision: z.number(), contentHash: z.string() });
+export const subdomainStateDto = z.object({ current: z.string().nullable(), reserved: z.array(z.object({ host: z.string(), until: iso })) });
+const storefrontData = opaque<StorefrontData>("StorefrontData (validated by storefrontDataSchema)");
+export const draftPreviewDto = z.object({
+  data: storefrontData,
+  notes: z.object({
+    settingsFallback: z.boolean(),
+    excludedProductCount: z.number(),
+    skippedSections: z.array(z.object({ pageType: z.string(), issues: z.array(opaque<SectionIssue>("SectionIssue")) })),
+    dormantSectionCount: z.number(),
+    invalidSpecsProductCount: z.number(),
+  }),
+  candidate: z.object({ key: z.string(), name: z.string() }).nullable(),
+});
+export const liveStoreDto = z.object({ storeId: z.string(), versionId: z.string(), liveSince: iso });
+export const publicStoreDto = z.object({ live: liveStoreDto, data: storefrontData });
+
+export const sessionUserDto = z.object({ id: z.string(), username: z.string(), name: z.string() });
+export const memberDto = z.object({ userId: z.string(), username: z.string(), name: z.string(), role: z.enum(STORE_ROLES), since: iso.nullable() });
+export const invitationDto = z.object({ id: z.string(), username: z.string(), name: z.string(), role: z.enum(STAFF_ROLES), createdAt: iso, expiresAt: iso });
+export const teamDto = z.object({ members: z.array(memberDto), invitations: z.array(invitationDto) });
+export const myInvitationDto = z.object({ id: z.string(), storeId: z.string(), storeName: z.string(), role: z.enum(STAFF_ROLES), invitedBy: z.string(), expiresAt: iso });
+export const sharedStoreDto = z.object({ storeId: z.string(), name: z.string(), role: z.enum(STAFF_ROLES) });
+export const auditEventDto = z.object({
+  id: z.string(),
+  action: z.string(),
+  actorId: z.string().nullable(),
+  actorUsername: z.string().nullable(),
+  targetType: z.string().nullable(),
+  targetId: z.string().nullable(),
+  metadata: z.unknown(),
+  createdAt: iso,
+});
+export const secretListDto = z.object({ configured: z.boolean(), secrets: z.array(z.object({ name: z.string(), hint: z.string().nullable(), updatedAt: iso })) });
+
+/** The v1 error body (phase 2.5): a fixed status-level `code`, a fixed Persian `message`, optional details. Never a stack. */
+export const apiErrorV1 = z.object({
+  error: z.object({
+    code: z.string().describe("e.g. NOT_FOUND, VALIDATION_FAILED, RATE_LIMITED"),
+    message: z.string().describe("fixed Persian text per code"),
+    reason: z.string().optional().describe("finer machine-readable cause, e.g. a domain error name"),
+    fieldErrors: z.record(z.string(), z.array(z.string())).optional(),
+    retryAfterSeconds: z.number().optional(),
+    details: z.unknown().optional(),
+  }),
+  requestId: z.string().optional(),
+});
+export type ApiErrorV1 = z.infer<typeof apiErrorV1>;
+
+// ---- compile-time pinning to the wire types (both directions) ----
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type Assert<T extends true> = T;
+type I<S extends z.ZodType> = z.infer<S>;
+export type _Pins = [
+  Assert<Same<I<typeof storeDto>, D.StoreDto>>,
+  Assert<Same<I<typeof templateOptionDto>, D.TemplateOptionDto>>,
+  Assert<Same<I<typeof onboardingFactDto>, D.OnboardingFactDto>>,
+  Assert<Same<I<typeof categoryDto>, D.CategoryDto>>,
+  Assert<Same<I<typeof productDto>, D.ProductDto>>,
+  Assert<Same<I<typeof productListDto>, D.ProductListDto>>,
+  Assert<Same<I<typeof editResultDto>, D.EditResultDto>>,
+  Assert<Same<I<typeof pageSummaryDto>, D.PageSummaryDto>>,
+  Assert<Same<I<typeof pageEditorViewDto>, D.PageEditorViewDto>>,
+  Assert<Same<I<typeof publishResultDto>, D.PublishResultDto>>,
+  Assert<Same<I<typeof publishStateDto>, D.PublishStateDto>>,
+  Assert<Same<I<typeof versionDto>, D.VersionDto>>,
+  Assert<Same<I<typeof subdomainStateDto>, D.SubdomainStateDto>>,
+  Assert<Same<I<typeof draftPreviewDto>, D.DraftPreviewDto>>,
+  Assert<Same<I<typeof liveStoreDto>, D.LiveStoreDto>>,
+  Assert<Same<I<typeof publicStoreDto>, D.PublicStoreDto>>,
+  Assert<Same<I<typeof sessionUserDto>, D.SessionUserDto>>,
+  Assert<Same<I<typeof teamDto>, D.TeamDto>>,
+  Assert<Same<I<typeof myInvitationDto>, D.MyInvitationDto>>,
+  Assert<Same<I<typeof sharedStoreDto>, D.SharedStoreDto>>,
+  Assert<Same<I<typeof auditEventDto>, D.AuditEventDto>>,
+  Assert<Same<I<typeof secretListDto>, D.SecretListDto>>,
+];

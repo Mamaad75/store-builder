@@ -33,6 +33,7 @@ import {
   updateProductSchema,
   type ProductListParams,
 } from "@store-builder/shared/modules/products/schemas";
+import { parseProductListParams } from "@store-builder/shared/modules/products/schemas";
 import { STATUS_LABEL_FA, canTransition, type ProductStatus } from "@store-builder/shared/modules/products/status";
 
 /** `ownerId` always comes from the server session (requireUser()), never from request data. */
@@ -100,6 +101,42 @@ export async function listProducts(ownerId: string, storeId: unknown, params: Pa
     page: Math.max(1, params.page ?? 1),
     pageSize: Math.min(PRODUCT_PAGE_SIZE_MAX, Math.max(1, params.pageSize ?? PRODUCT_PAGE_SIZE_DEFAULT)),
   });
+}
+
+/** v1 product page size (phase 2.5): default and maximum of `limit`. */
+export const PRODUCT_CURSOR_LIMIT_DEFAULT = 20;
+export const PRODUCT_CURSOR_LIMIT_MAX = 100;
+
+/** Opaque keyset cursor: base64url of "<createdAt ISO>|<id>". Never trusted: a malformed one is a validation error. */
+export function encodeProductCursor(k: { createdAt: Date; id: string }): string {
+  return Buffer.from(`${k.createdAt.toISOString()}|${k.id}`, "utf8").toString("base64url");
+}
+export function decodeProductCursor(raw: string): { createdAt: Date; id: string } | null {
+  if (raw.length > 200 || !/^[A-Za-z0-9_-]+$/.test(raw)) return null;
+  const [iso, id, extra] = Buffer.from(raw, "base64url").toString("utf8").split("|");
+  const createdAt = new Date(iso ?? "");
+  if (extra !== undefined || !id || !/^[a-z0-9]{1,64}$/.test(id) || Number.isNaN(createdAt.getTime()) || createdAt.toISOString() !== iso) return null;
+  return { createdAt, id };
+}
+
+/**
+ * v1 product list (phase 2.5): the same filters as `listProducts`, keyset pages instead of page numbers. `limit` 1..100 (default 20);
+ * `cursor` is the previous page's `nextCursor`.
+ */
+export async function listProductsAfter(ownerId: string, storeId: unknown, query: Record<string, string | string[] | undefined>) {
+  const sid = parseStoreId(storeId);
+  await getStore(ownerId, sid);
+  const params = parseProductListParams(query);
+  const first = (k: string) => (Array.isArray(query[k]) ? query[k]?.[0] : query[k]);
+  const rawLimit = first("limit");
+  const limit = rawLimit === undefined ? PRODUCT_CURSOR_LIMIT_DEFAULT : /^\d{1,3}$/.test(rawLimit) ? Number(rawLimit) : NaN;
+  if (!(limit >= 1 && limit <= PRODUCT_CURSOR_LIMIT_MAX)) throw new ValidationError({ limit: [`عددی بین ۱ و ${PRODUCT_CURSOR_LIMIT_MAX.toLocaleString("fa-IR")}`] });
+  const rawCursor = first("cursor");
+  const after = rawCursor ? decodeProductCursor(rawCursor) : null;
+  if (rawCursor && !after) throw new ValidationError({ cursor: ["نشانگر صفحه نامعتبر است"] });
+  const q = params.q ? normalizeSearchQuery(params.q) : undefined;
+  const page = await new ProductRepository(ownerId).listAfter(sid, { q: q || undefined, categoryId: params.category || undefined, status: params.status }, after, limit);
+  return { items: page.items, total: page.total, limit, nextCursor: page.last ? encodeProductCursor(page.last) : null };
 }
 
 export async function getProduct(ownerId: string, storeId: unknown, productId: unknown): Promise<ProductView> {

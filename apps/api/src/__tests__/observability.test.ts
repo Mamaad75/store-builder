@@ -7,7 +7,7 @@ import type { ErrorReporter, Tags } from "@store-builder/shared/observability/er
 import { createApp } from "../app.js";
 import { EnvError, loadConfig, loadWorkerConfig } from "../config/env.js";
 import { createApiMetrics, createWorkerMetrics, startMetricsServer } from "../platform/observability/metrics.js";
-import { capture, fakeDb, testConfig } from "./helpers.js";
+import { capture, fakeDb, FETCH_BLOCKED_PORTS, listenFetchable, testConfig } from "./helpers.js";
 
 @Controller("obs")
 class BoomController {
@@ -40,10 +40,13 @@ async function boot() {
   const cap = capture();
   const metrics = createApiMetrics();
   const rep = fakeReporter();
-  app = await createApp(testConfig, { database: fakeDb(), logger: cap.logger, extraControllers: [BoomController], metrics, errorReporter: rep.reporter });
-  await app.listen(0, "127.0.0.1");
-  const url = (await app.getUrl()).replace("[::1]", "127.0.0.1");
-  server = await startMetricsServer(metrics.registry, 0, "127.0.0.1", { error: () => undefined });
+  const started = await listenFetchable(() => createApp(testConfig, { database: fakeDb(), logger: cap.logger, extraControllers: [BoomController], metrics, errorReporter: rep.reporter }));
+  app = started.app;
+  const url = started.base;
+  do {
+    await new Promise<void>((r) => (server ? server.close(() => r()) : r()));
+    server = await startMetricsServer(metrics.registry, 0, "127.0.0.1", { error: () => undefined });
+  } while (FETCH_BLOCKED_PORTS.has((server.address() as AddressInfo).port));
   const metricsUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/metrics`;
   return { url, metricsUrl, cap, rep };
 }

@@ -35,3 +35,42 @@ export type _29599 = Assert<Same<Resolved<typeof listVersions>, VersionDto[]>>;
 export type _93007 = Assert<Same<Resolved<typeof getSubdomainState>, SubdomainStateDto>>;
 export type _14751 = Assert<Same<Jsonify<LiveStore>, LiveStoreDto>>;
 export type _60727 = Assert<Same<Resolved<typeof getDraftPreview>, DraftPreviewDto>>;
+
+// ---- phase 2.5: the response schemas of the API contract (packages/shared/src/api) are pinned to the same results ----
+import type { AuditEventDto, MyInvitationDto, SecretListDto, SharedStoreDto, TeamDto } from "@store-builder/shared/dto/index";
+import type { ProductCursorListDto } from "@store-builder/shared/api/schemas";
+import type { AccessService } from "./modules/access/access.api.js";
+import type { SecretService } from "./modules/secrets/secrets.api.js";
+import type { changeProductStatus, createProduct, listProductsAfter, updateProduct } from "./modules/products/service.js";
+import type { createStore, listStores, updateBusinessCategory, updateStore } from "./modules/stores/service.js";
+import type { claimSubdomain } from "./modules/publishing/subdomain.js";
+import type { setLiveVersion } from "./modules/publishing/service.js";
+import type { moveSection, recoverPage, removeDormantSection, removeSection, setPageVisibility, setSectionImage, updateSection } from "./modules/pages/service.js";
+
+export type _P25 = [
+  Assert<Same<Resolved<typeof listProductsAfter>, ProductCursorListDto>>,
+  Assert<Same<Resolved<typeof createProduct>, ProductDto>>,
+  Assert<Same<Resolved<typeof updateProduct>, ProductDto>>,
+  Assert<Same<Resolved<typeof changeProductStatus>, ProductDto>>,
+  Assert<Same<Resolved<typeof listStores>, StoreDto[]>>,
+  Assert<Same<Resolved<typeof updateStore>, StoreDto>>,
+  Assert<Same<Resolved<typeof createStore>, { id: string }>>,
+  Assert<Same<Resolved<typeof updateBusinessCategory>, { businessCategory: string; changed: boolean }>>,
+  Assert<Same<Resolved<typeof listPages>, { supported: boolean; pages: PageSummaryDto[] }>>,
+  Assert<Same<Resolved<typeof updateSection>, EditResultDto>>,
+  Assert<Same<Resolved<typeof removeSection>, EditResultDto>>,
+  Assert<Same<Resolved<typeof removeDormantSection>, EditResultDto>>,
+  Assert<Same<Resolved<typeof moveSection>, EditResultDto>>,
+  Assert<Same<Resolved<typeof setSectionImage>, EditResultDto>>,
+  Assert<Same<Resolved<typeof setPageVisibility>, EditResultDto>>,
+  Assert<Same<Resolved<typeof recoverPage>, EditResultDto>>,
+  Assert<Same<Resolved<typeof setLiveVersion>, { number: number }>>,
+  Assert<Same<Resolved<typeof claimSubdomain>, { label: string; changed: boolean }>>,
+  Assert<Same<Resolved<AccessService["team"]>, TeamDto>>,
+  Assert<Same<Resolved<AccessService["myInvitations"]>, MyInvitationDto[]>>,
+  Assert<Same<Resolved<AccessService["sharedStores"]>, SharedStoreDto[]>>,
+  Assert<Same<Resolved<AccessService["auditLog"]>, AuditEventDto[]>>,
+  Assert<Same<Resolved<AccessService["invite"]>, { id: string }>>,
+  Assert<Same<Resolved<AccessService["acceptInvitation"]>, { storeId: string }>>,
+  Assert<Same<Resolved<SecretService["list"]>, SecretListDto>>,
+];

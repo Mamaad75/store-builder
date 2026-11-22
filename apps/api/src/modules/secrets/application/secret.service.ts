@@ -1,12 +1,9 @@
-import { z } from "zod";
 import { SecretLimitError, SecretsUnavailableError } from "@store-builder/shared/modules/secrets/errors";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
-import { MAX_SECRETS_PER_STORE, MAX_SECRET_VALUE, hintOf, isSecretName, secretContext } from "../domain/secret.js";
+import { secretValueSchema as valueSchema } from "@store-builder/shared/modules/secrets/schemas";
+import { MAX_SECRETS_PER_STORE, hintOf, isSecretName, secretContext } from "../domain/secret.js";
 import type { SecretActor, SecretCipher, SecretRepository, SecretSummary } from "./ports.js";
 
-// The value is trimmed of surrounding whitespace (pasted keys often carry a newline) and must not contain control characters.
-// Control (Cc), format (Cf: zero-width, bidi overrides) and lone-surrogate (Cs) characters are refused: they hide inside pasted keys.
-const valueSchema = z.object({ value: z.string().trim().min(1).max(MAX_SECRET_VALUE).regex(/^[^\p{Cc}\p{Cf}\p{Cs}]*$/u, "نویسه‌ی نامعتبر") }).strict();
 
 function nameOrNotFound(name: unknown): string {
   if (typeof name !== "string" || !isSecretName(name)) throw new NotFoundError();
