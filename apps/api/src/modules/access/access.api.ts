@@ -4,5 +4,5 @@
  */
 export { AccessService } from "./application/access.service.js";
 export type { StoreAccessContext } from "./application/ports.js";
-export { Audit, RequirePermission, StoreAccess, StoreAccessGuard } from "./interface/store-access.js";
+export { Audit, PERMISSION_KEY, RequirePermission, StoreAccess, StoreAccessGuard } from "./interface/store-access.js";
 export { PrismaAuditRepository } from "./infrastructure/prisma-access.repository.js";

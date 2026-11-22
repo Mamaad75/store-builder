@@ -3,7 +3,7 @@
 /** "<area>.<provider>.<field>" in lower case, e.g. "payment.zarinpal.merchant_id" (the database checks the same format). */
 export const SECRET_NAME_RE = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
 export const MAX_SECRET_NAME = 80;
-export const MAX_SECRET_VALUE = 4096;
+export { MAX_SECRET_VALUE } from "@store-builder/shared/modules/secrets/schemas";
 export const MAX_SECRETS_PER_STORE = 20;
 
 export const isSecretName = (name: string): boolean => name.length <= MAX_SECRET_NAME && SECRET_NAME_RE.test(name);

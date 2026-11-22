@@ -49,6 +49,12 @@ describe("architecture guards", () => {
     expect(svc.match(/\.open\(/g)).toHaveLength(1);
     expect(svc.slice(svc.indexOf("async reveal(")).match(/\.open\(/g)).toHaveLength(1);
   });
+  it("the metrics library is used only by platform/observability/ (phase 2.6: labels are decided in one place, bounded by construction)", () => {
+    expect(src.filter((f) => /from\s+["']prom-client["']/.test(f.text) && !f.p.startsWith("platform/observability/")).map((f) => f.p)).toEqual([]);
+  });
+  it("no third-party error-tracking SDK: reports go only through the scrubbing reporter of packages/shared (phase 2.6)", () => {
+    expect(src.filter((f) => /from\s+["']@sentry\/|from\s+["']@glitchtip/.test(f.text)).map((f) => f.p)).toEqual([]);
+  });
   it("relative imports carry the .js suffix (native ESM)", () => {
     const bad = src.flatMap((f) => [...f.text.matchAll(/from "(\.[^"]+)"/g)].filter((m) => !m[1]!.endsWith(".js")).map((m) => `${f.p}: ${m[1]}`));
     expect(bad).toEqual([]);

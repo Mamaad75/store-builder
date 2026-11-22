@@ -26,6 +26,10 @@ x-app-env: &app-env
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   MAIL_FROM: ${MAIL_FROM:-}
   S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?set S3_PUBLIC_BASE_URL}
+  # Phase 2.6 (docs/observability.md): error tracking to a SELF-HOSTED GlitchTip. Empty = off; set but invalid = refuses to start.
+  ERROR_TRACKING_DSN: ${ERROR_TRACKING_DSN:-}
+  ERROR_TRACKING_ENVIRONMENT: ${ERROR_TRACKING_ENVIRONMENT:-production}
+  APP_RELEASE: ${APP_RELEASE:-}
 
 # The NestJS API and everything that touches data: database, object storage, the session-signing secret. Also used by the one-shot
 # migrate job and the worker, which run the same code. TRUST_PROXY_HOPS=1: the web app (or Caddy) is the one hop that reports the client address.
@@ -47,6 +51,13 @@ x-api-env: &api-env
   # Store secrets (phase 2.4, D24-1): master keys of the envelope encryption. Empty = feature off; half or invalid = the API refuses to start.
   SECRETS_MASTER_KEYS: ${SECRETS_MASTER_KEYS:-}
   SECRETS_ACTIVE_KEY_ID: ${SECRETS_ACTIVE_KEY_ID:-}
+  # Phase 2.6: the api and the worker serve Prometheus metrics on this port; Caddy never routes it, only the internal networks reach it
+  # (docker-compose.observability.yml). The one-shot migrate job ignores it.
+  METRICS_PORT: "9464"
+  # Phase 2.6 (docs/observability.md): error tracking to a SELF-HOSTED GlitchTip. Empty = off; set but invalid = refuses to start.
+  ERROR_TRACKING_DSN: ${ERROR_TRACKING_DSN:-}
+  ERROR_TRACKING_ENVIRONMENT: ${ERROR_TRACKING_ENVIRONMENT:-production}
+  APP_RELEASE: ${APP_RELEASE:-}
 
 x-hardening: &hardening
   restart: unless-stopped
@@ -124,7 +135,7 @@ services:
     # backend (database) + edge (outbound to the external object store, and Caddy's route for the browser's /api/auth, /api/stores and
     # /api/public calls). It publishes no port.
     networks: [backend, edge]
-    expose: ["4000"]
+    expose: ["4000", "9464"]
     deploy:
       resources:
         limits: { memory: 768m }
@@ -163,6 +174,7 @@ services:
       # Alerts (Bale, D14-3): only the worker sends them. Both empty = alerts off (logged); half or invalid = refuses to start.
       BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}
       BALE_CHAT_ID: ${BALE_CHAT_ID:-}
+    expose: ["9464"]
     depends_on:
       migrate: { condition: service_completed_successfully }
       valkey: { condition: service_healthy }

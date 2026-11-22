@@ -1,6 +1,8 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
+import { isV1 } from "../../http/api-version.js";
 import { SessionGuard } from "../../auth/session.guard.js";
-import { changeProductStatus, createProduct, deleteProduct, getProduct, listProducts, updateProduct } from "../products/service.js";
+import { changeProductStatus, createProduct, deleteProduct, getProduct, listProducts, listProductsAfter, updateProduct } from "../products/service.js";
 import { parseProductListParams } from "@store-builder/shared/modules/products/schemas";
 import { Audit, RequirePermission, StoreAccess, StoreAccessGuard, type StoreAccessContext } from "../access/access.api.js";
 
@@ -10,7 +12,9 @@ import { Audit, RequirePermission, StoreAccess, StoreAccessGuard, type StoreAcce
 export class CatalogController {
   @Get("products")
   @RequirePermission("store.view")
-  products(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Query() query: Record<string, string | string[] | undefined>) {
+  products(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Query() query: Record<string, string | string[] | undefined>, @Res({ passthrough: true }) res: Response) {
+    // v1 (phase 2.5): keyset pages (limit, cursor); the deprecated unversioned path keeps page numbers.
+    if (isV1(res)) return listProductsAfter(a.ownerId, storeId, query);
     return listProducts(a.ownerId, storeId, parseProductListParams(query));
   }
 

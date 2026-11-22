@@ -5,6 +5,7 @@ import { createPrismaClient } from "../src/database/prisma-client.js";
 import { AlertConfigError, createNotifier, readAlertConfig, type AlertConfig } from "../src/lib/alert.js";
 import { useDb } from "../src/lib/db.js";
 import { formatLog } from "../src/lib/log.js";
+import { createErrorReporter, NO_REPORTER } from "@store-builder/shared/observability/error-report";
 import { EVENT_HANDLERS } from "../src/worker/handlers.js";
 import { startWorker } from "../src/worker/worker.js";
 import { JOBS, emptyStatus, runOnce, type LoopDeps, type SchedulerStatus } from "./scheduler-core.js";
@@ -29,6 +30,17 @@ try {
 }
 if (!alertConfig) console.warn(formatLog("warn", "alert.disabled", { reason: "BALE_BOT_TOKEN and BALE_CHAT_ID are not set" }));
 const alert = createNotifier(alertConfig);
+// Phase 2.6: error tracking (ERROR_TRACKING_DSN) and the metrics endpoint (METRICS_PORT); both off when unset.
+const et = config.observability.errorTracking;
+let countReport: (outcome: "sent" | "failed" | "rate_limited" | "duplicate") => void = () => undefined; // connected by startWorker when metrics are on
+const reporter = et ? createErrorReporter({ dsn: et.dsn, service: "worker", environment: et.environment, release: et.release, onOutcome: (x) => countReport(x) }) : NO_REPORTER;
+const crash = (kind: string) => (e: unknown) => {
+  console.error(formatLog("error", `process.${kind}`, { errorClass: e instanceof Error ? e.name : "UnknownError" }));
+  reporter.capture(e, { kind });
+  void reporter.flush(2000).finally(() => process.exit(1));
+};
+process.on("uncaughtException", crash("uncaught_exception"));
+process.on("unhandledRejection", crash("unhandled_rejection"));
 
 let status: SchedulerStatus = emptyStatus(new Date());
 const children = new Set<ChildProcess>();
@@ -55,12 +67,15 @@ const worker = await startWorker({
   redisUrl: config.redisUrl,
   handlers: EVENT_HANDLERS,
   alert,
+  metrics: config.observability.metrics,
+  reporter,
+  bindReportOutcome: (count) => (countReport = count),
   maintenance: {
     jobs: JOBS.map((j) => ({ name: j.name, everyMs: j.intervalMs })),
     run: async (name) => {
       const job = JOBS.find((j) => j.name === name);
       if (!job) throw new Error(`unknown maintenance job ${name}`); // a stale scheduler from an older release: fail it visibly
-      await runOnce(job, deps); // logs, status and alerts happen inside; the next tick is the retry
+      return runOnce(job, deps); // logs, status and alerts happen inside; the next tick is the retry. The result class feeds the metrics.
     },
   },
 });

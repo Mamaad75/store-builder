@@ -3,6 +3,7 @@ import type { InvalidEntry } from "../modules/pages/analyze.js";
 import type { SectionIssue, PageSection } from "../templates/section-parse.js";
 import type { PageType } from "../templates/sections.js";
 import type { StorefrontData } from "../templates/storefront-data.js";
+import type { StaffRole, StoreRole } from "../modules/access/permissions.js";
 
 /**
  * The JSON the API returns (dates are ISO strings). apps/api has a compile-time check (src/dto.check.ts) that every service result
@@ -170,6 +171,59 @@ export interface LiveStoreDto {
 export interface PublicStoreDto {
   live: LiveStoreDto;
   data: StorefrontData;
+}
+
+// ---- session, staff and audit (2.3), secrets (2.4): added with the API contract (phase 2.5)
+export interface SessionUserDto {
+  id: string;
+  username: string;
+  name: string;
+}
+export interface MemberDto {
+  userId: string;
+  username: string;
+  name: string;
+  role: StoreRole;
+  since: string | null;
+}
+export interface InvitationDto {
+  id: string;
+  username: string;
+  name: string;
+  role: StaffRole;
+  createdAt: string;
+  expiresAt: string;
+}
+export interface TeamDto {
+  members: MemberDto[];
+  invitations: InvitationDto[];
+}
+export interface MyInvitationDto {
+  id: string;
+  storeId: string;
+  storeName: string;
+  role: StaffRole;
+  invitedBy: string;
+  expiresAt: string;
+}
+export interface SharedStoreDto {
+  storeId: string;
+  name: string;
+  role: StaffRole;
+}
+export interface AuditEventDto {
+  id: string;
+  action: string;
+  actorId: string | null;
+  actorUsername: string | null;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+export interface SecretListDto {
+  configured: boolean;
+  secrets: { name: string; hint: string | null; updatedAt: string }[];
 }
 
 /** What `JSON.stringify` does to a value: Date becomes a string, `undefined` members vanish. Used by the conformance check. */

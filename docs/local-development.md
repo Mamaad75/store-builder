@@ -99,6 +99,10 @@ Copy-Item apps/web/.env.example apps/web/.env.local
 
 ---
 
+### متریک و ردیابی خطا (اختیاری، فاز ۲.۶)
+اگر `METRICS_PORT=9464` را به env در API یا worker اضافه کنید، متریک‌ها روی `http://127.0.0.1:9464/metrics` در دسترس است.
+`ERROR_TRACKING_DSN` را خالی بگذارید، مگر اینکه یک GlitchTip داشته باشید. جزئیات در `docs/observability.md` است.
+
 ## ۵. بالا آوردن پایگاه‌داده، MinIO و Valkey
 
 ```powershell

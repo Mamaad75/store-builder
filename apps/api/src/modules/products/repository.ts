@@ -64,6 +64,20 @@ export class ProductRepository {
     return { items, total, page, pageSize: f.pageSize, totalPages };
   }
 
+  /**
+   * Keyset page (v1, phase 2.5): rows strictly after `after` in the list order (createdAt desc, id desc). Stable under inserts and
+   * deletes, unlike offsets. One extra row is read to know whether a next page exists.
+   */
+  async listAfter(storeId: string, f: Pick<ProductFilters, "q" | "categoryId" | "status">, after: { createdAt: Date; id: string } | null, limit: number) {
+    const where = this.where(storeId, f);
+    const total = await db.product.count({ where });
+    const keyset: Prisma.ProductWhereInput = after ? { OR: [{ createdAt: { lt: after.createdAt } }, { createdAt: after.createdAt, id: { lt: after.id } }] } : {};
+    const rows = await db.product.findMany({ where: { AND: [where, keyset] }, select: productSelect, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit + 1 });
+    const items = rows.slice(0, limit);
+    const last = items.at(-1);
+    return { items, total, last: rows.length > limit && last ? { createdAt: last.createdAt, id: last.id } : null };
+  }
+
   find(storeId: string, id: string): Promise<ProductView | null> {
     return db.product.findFirst({
       where: { id, storeId, store: { ownerId: this.ownerId } },

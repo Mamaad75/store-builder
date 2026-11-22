@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { InvitationTargetError, PermissionDeniedError, StaffLimitError } from "@store-builder/shared/modules/access/errors";
-import { MAX_STAFF_PER_STORE, STAFF_ROLES, can, type Permission } from "@store-builder/shared/modules/access/permissions";
+import { MAX_STAFF_PER_STORE, can, type Permission } from "@store-builder/shared/modules/access/permissions";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { storeIdSchema } from "@store-builder/shared/modules/stores/schemas";
+import { inviteSchema, roleSchema } from "@store-builder/shared/modules/access/schemas";
 import { invitationExpiry, inviteRefusal, roleOf } from "../domain/access.js";
 import {
   DuplicateInvitationError,
@@ -22,8 +23,6 @@ const idOrNotFound = (v: unknown): string => {
   if (!r.success) throw new NotFoundError();
   return r.data;
 };
-const inviteSchema = z.object({ username: z.string().trim().min(1).max(64), role: z.enum(STAFF_ROLES) }).strict();
-const roleSchema = z.object({ role: z.enum(STAFF_ROLES) }).strict();
 
 function parse<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
   const r = schema.safeParse(input);

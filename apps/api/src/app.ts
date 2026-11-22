@@ -7,12 +7,26 @@ import { AppModule, type AppOverrides } from "./app.module.js";
 import type { ApiConfig } from "./config/env.js";
 import { AllExceptionsFilter } from "./http/all-exceptions.filter.js";
 import { JsonLogger } from "./logging/json-logger.js";
+import { createErrorReporter, NO_REPORTER } from "@store-builder/shared/observability/error-report";
+import { createApiMetrics, httpMetricsMiddleware } from "./platform/observability/metrics.js";
+import { requestIdMiddleware } from "./platform/observability/request-context.js";
+import { apiVersionMiddleware } from "./http/api-version.js";
 
 export async function createApp(config: ApiConfig, overrides: AppOverrides = {}): Promise<NestExpressApplication> {
   if (config.storage) configureStorage(config.storage);
   configureRateLimiter(config.rateLimitBackend);
   const logger = overrides.logger ?? new JsonLogger();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule.register(config, { ...overrides, logger }), { logger, bodyParser: false });
+  // Phase 2.6: metrics only with METRICS_PORT (served by main.ts on that port), error tracking only with ERROR_TRACKING_DSN.
+  const metrics = overrides.metrics !== undefined ? overrides.metrics : config.observability.metrics ? createApiMetrics() : null;
+  const et = config.observability.errorTracking;
+  const errorReporter = overrides.errorReporter ?? (et ? createErrorReporter({ dsn: et.dsn, service: "api", environment: et.environment, release: et.release, onOutcome: metrics?.onReport }) : NO_REPORTER);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule.register(config, { ...overrides, logger, metrics, errorReporter }), { logger, bodyParser: false });
+  // First of all: the request id (logs and error reports of this request carry it) and the request metrics (they also count requests
+  // the body parsers refuse).
+  app.use(requestIdMiddleware);
+  if (metrics) app.use(httpMetricsMiddleware(metrics));
+  // Phase 2.5: /api/v1/<scope>/... is rewritten to its handler path here, before every other middleware and the router.
+  app.use(apiVersionMiddleware);
   app.setGlobalPrefix("api");
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxyHops);

@@ -71,6 +71,9 @@ export interface EventWorkerHooks {
   log: { info(event: string, fields?: Record<string, unknown>): void; error(event: string, fields?: Record<string, unknown>): void };
   /** Called once when a delivery has used up all its attempts. Must never throw. */
   onFinalFailure?: (fields: Record<string, unknown>) => Promise<void>;
+  /** Phase 2.6: every delivery outcome (metrics) and the error of a delivery that used up its attempts (error tracking). Must not throw. */
+  onOutcome?: (type: string, outcome: "ok" | "failed" | "dead") => void;
+  onDeadError?: (err: Error, tags: { event_type: string }) => void;
 }
 
 /** Dispatches each job to the handler registered for its event type. A type without a handler is acknowledged and logged. */
@@ -94,11 +97,17 @@ export function startEventWorker(
     prefix: opts.prefix ?? QUEUE_PREFIX,
     concurrency: opts.concurrency ?? 5,
   });
+  worker.on("completed", (job) => hooks.onOutcome?.(job.name, "ok"));
   worker.on("failed", (job, err) => {
     if (!job) return;
     const fields = { type: job.name, eventId: job.data.id, attemptsMade: job.attemptsMade, errorClass: err.name };
     hooks.log.error("event.handler_failed", fields);
-    if (job.attemptsMade >= (job.opts.attempts ?? 1)) void hooks.onFinalFailure?.(fields);
+    const dead = job.attemptsMade >= (job.opts.attempts ?? 1);
+    hooks.onOutcome?.(job.name, dead ? "dead" : "failed");
+    if (dead) {
+      void hooks.onFinalFailure?.(fields);
+      hooks.onDeadError?.(err, { event_type: job.name });
+    }
   });
   // Connection problems are retried by ioredis; log the class only (messages can carry the host).
   worker.on("error", (err) => hooks.log.error("event.worker_error", { errorClass: err.name }));
