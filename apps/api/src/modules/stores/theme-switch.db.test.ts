@@ -107,10 +107,10 @@ describe("switching changes only the draft's theme pointer", () => {
     const before = await everythingButTheme(id);
 
     const preview = await getDraftPreview(a.id, id, { candidateThemeKey: "bazaar" });
-    expect(preview.data.template).toEqual({ key: "bazaar", version: 2 });
+    expect(preview.data.template).toEqual({ key: "bazaar", version: 3 });
     const report = await rep(a.id, id, "bazaar");
-    expect(report).toMatchObject({ sameTheme: false, canSwitch: true, current: { version: 1 }, target: { version: 2 } });
-    expect(await go(a.id, id, "bazaar")).toMatchObject({ changed: true, theme: { version: 2 } });
+    expect(report).toMatchObject({ sameTheme: false, canSwitch: true, current: { version: 1 }, target: { version: 3 } });
+    expect(await go(a.id, id, "bazaar")).toMatchObject({ changed: true, theme: { version: 3 } });
     expect(await everythingButTheme(id)).toBe(before);
     expect(await rep(a.id, id, "bazaar")).toMatchObject({ sameTheme: true });
   });

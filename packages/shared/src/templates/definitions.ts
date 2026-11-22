@@ -123,6 +123,27 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   ...KIT_DEFINITIONS,
   ...KIT_DEFINITIONS.map(refreshedDefinition),
   {
+    key: "bazaar", name: "بازار", version: 3, settings: settings("#0e7c66"),
+    pages: kitPages("bazaar", {
+      heroTitle: "هر چه لازم دارید، یک‌جا",
+      heroSubtitle: "از کالاهای خانه تا لوازم دیجیتال و وسایل روزمره",
+      cta: "مشاهده محصولات",
+      aboutTitle: "درباره فروشگاه",
+      aboutBody: "مجموعه‌ای از کالاهای مورد نیاز روزمره را در فروشگاه ما پیدا کنید.",
+    }, "منتخب فروشگاه").map((page) => ({
+      ...page,
+      sections: page.sections.map((section) => {
+        if (section.type === "bazaar.promos") {
+          return { ...section, props: { ...section.props, items: "کالاهای خانه | لوازم کاربردی برای فضای زندگی | لوازم خانه\nکالای دیجیتال | ابزارهای کار و سرگرمی | کالای دیجیتال" } };
+        }
+        if (section.type === "bazaar.highlights") {
+          return { ...section, props: { ...section.props, items: "راهنمای خرید: اطلاعات کالا در صفحهٔ محصول\nپشتیبانی: راه‌های تماس در صفحهٔ فروشگاه" } };
+        }
+        return section;
+      }),
+    })),
+  },
+  {
     key: "coffee",
     name: "قهوه و مواد غذایی",
     version: 1,

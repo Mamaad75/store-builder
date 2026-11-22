@@ -112,3 +112,9 @@ export const KIT_THEMES: readonly ThemeDefinition[] = [bazaarTheme, circuitTheme
 
 /** The visual refresh shares the original section schemas and editor rules. */
 export const KIT_THEMES_V2: readonly ThemeDefinition[] = KIT_THEMES.map((theme) => ({ ...theme, version: 2 }));
+
+export const bazaarMarketTheme: ThemeDefinition = {
+  ...bazaarTheme,
+  version: 3,
+  meta: { name: "بازار", description: "فروشگاه چندمنظوره با جست‌وجوی مرکزی، دسته‌های دایره‌ای، قفسه‌های افقی و شبکهٔ فشردهٔ کالا." },
+};

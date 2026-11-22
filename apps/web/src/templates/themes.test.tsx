@@ -26,9 +26,10 @@ describe("theme catalog and module registry stay in sync", () => {
       expect(m?.definition, t.key).toBe(t);
     }
   });
-  it("registers both versions of the business themes and preserves the MVP themes", () => {
+  it("registers the marketplace layout and preserves previous templates", () => {
     const business = ["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh"];
     expect(THEME_CATALOG.map((t) => [t.key, t.version])).toEqual([
+      ["bazaar", 3],
       ...business.map((key) => [key, 2]),
       ...business.map((key) => [key, 1]),
       ["general", 1], ["coffee", 1], ["fashion", 1], ["appliances", 1],
@@ -40,7 +41,7 @@ describe("theme catalog and module registry stay in sync", () => {
       expect(t.meta.description.length).toBeGreaterThan(0);
     }
     expect(THEME_CATALOG.slice(-4).map((t) => t.meta.name)).toEqual(["ساده و همه‌منظوره", "گرم و ادیتوریال", "مینیمال و مدرن", "تمیز و کاتالوگی"]);
-    expect(THEME_CATALOG.slice(0, 8).map((t) => t.meta.name)).toEqual(["بازار", "مدار", "سُرمه", "دوخت", "آرکید", "سفره", "گلخانه", "خانه"]);
+    expect([...new Map(THEME_CATALOG.map((t) => [t.key, t.meta.name])).values()].slice(0, 8)).toEqual(["بازار", "مدار", "سُرمه", "دوخت", "آرکید", "سفره", "گلخانه", "خانه"]);
   });
 });
 

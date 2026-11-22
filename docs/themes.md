@@ -119,6 +119,20 @@ that does not exist (discounts, ratings, cart) is invented, and nothing needs cl
 
 ## Business theme refresh
 
+### Bazaar marketplace layout (version 3)
+
+Bazaar version 3 draws its own header, catalog, product detail and footer from the existing storefront contract. The masthead puts search between the store brand and support, followed by a category/navigation strip. Home uses a compact promotion, circular category links and scroll-snap shelves. The listing has four columns on desktop and two on phones, with category links, sorting and pagination. Product detail uses a gallery beside a summary and order panel, then specifications and related products.
+
+The public demo and the gallery thumbnail use the version 3 storefront. The three demo products each have their own image. Merchant content is rendered from the existing section schema and image references. Versions 1 and 2 retain their original kit renderers. Seed the new version with `pnpm db:seed`.
+
+| Screen | Desktop 1440 px | Mobile 390 px |
+| --- | --- | --- |
+| Home | [Screenshot](theme-previews/bazaar/home-1440.webp) | [Screenshot](theme-previews/bazaar/home-390.webp) |
+| Product listing | [Screenshot](theme-previews/bazaar/catalog-1440.webp) | [Screenshot](theme-previews/bazaar/catalog-390.webp) |
+| Product detail | [Screenshot](theme-previews/bazaar/product-1440.webp) | [Screenshot](theme-previews/bazaar/product-390.webp) |
+
+The product contract has a single price and no sales ranking or product publication date. Cards therefore show price and actual stock. Home shelves use editorial selection and categories.
+
 The eight business themes have version 2 layouts. Run `pnpm db:seed` after deploying the API and web app to register the new versions. New stores then start on the latest active version. Owners can preview and apply an update in **Appearance**. Publishing the draft makes the update visible to customers.
 
 The creation form offers an illustrated gallery. Each link opens a sample storefront at `/themes/<key>`, using the same renderer as a real store. Sample artwork and products only belong to these demos. On a real version 2 storefront the home banner can use the first available product photo when the owner has not selected banner artwork.

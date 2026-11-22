@@ -87,7 +87,7 @@ export function CreateStoreForm({ templates, categories, initialTheme }: { templ
                     <Box component="span" sx={{ display: "block", position: "relative", aspectRatio: "16 / 10", bgcolor: "action.hover" }}>
                       {/* The local, fixed-size artwork is already optimised. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/theme-demos/${t.key}.webp`} alt="" width={440} height={440} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }} />
+                      <img src={t.key === "bazaar" ? "/theme-demos/bazaar-layout.webp" : `/theme-demos/${t.key}.webp`} alt="" width={t.key === "bazaar" ? 640 : 440} height={t.key === "bazaar" ? 400 : 440} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }} />
                       {theme === t.key && <CheckCircleRounded sx={{ position: "absolute", insetInlineStart: 10, top: 10, bgcolor: "background.paper", borderRadius: "50%", color: "primary.main" }} />}
                     </Box>
                     <CardContent component="span" sx={{ display: "block", p: 1.5 }}>
