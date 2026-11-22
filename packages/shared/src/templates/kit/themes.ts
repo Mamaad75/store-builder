@@ -118,3 +118,13 @@ export const bazaarMarketTheme: ThemeDefinition = {
   version: 3,
   meta: { name: "بازار", description: "فروشگاه چندمنظوره با جست‌وجوی مرکزی، دسته‌های دایره‌ای، قفسه‌های افقی و شبکهٔ فشردهٔ کالا." },
 };
+
+export const circuitStudioTheme: ThemeDefinition = { ...circuitTheme, version: 3 };
+export const sormehStudioTheme: ThemeDefinition = { ...sormehTheme, version: 3 };
+export const dookhtStudioTheme: ThemeDefinition = { ...dookhtTheme, version: 3 };
+export const arcadeStudioTheme: ThemeDefinition = { ...arcadeTheme, version: 3 };
+export const sofrehStudioTheme: ThemeDefinition = { ...sofrehTheme, version: 3 };
+export const golkhanehStudioTheme: ThemeDefinition = { ...golkhanehTheme, version: 3 };
+export const khanehStudioTheme: ThemeDefinition = { ...khanehTheme, version: 3 };
+
+export const KIT_THEMES_V3: readonly ThemeDefinition[] = [bazaarMarketTheme, circuitStudioTheme, sormehStudioTheme, dookhtStudioTheme, arcadeStudioTheme, sofrehStudioTheme, golkhanehStudioTheme, khanehStudioTheme];

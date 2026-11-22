@@ -12,16 +12,34 @@ const DEMOS = {
   khaneh: { name: "خانهٔ روشن", products: [["نورپردازی", "آباژور ایستاده", 3850000], ["نشیمن", "مبل تک‌نفره", 8900000], ["دکور", "گلدان سفالی", 620000]] },
 } satisfies Record<string, { name: string; products: [string, string, number][]; specs?: [string, string][] }>;
 
+const descriptions = {
+  bazaar: ["ماگ سنگی لعاب‌دار با دستهٔ راحت، برای چای و قهوهٔ روزانه.", "هدفون دورگوشی با اتصال بی‌سیم و بالشتک‌های نرم.", "کیف پارچه‌ای زیتونی برای خرید روزمره."],
+  circuit: ["لپ‌تاپ سبک با بدنهٔ آلومینیومی برای کار و مطالعه.", "ایرباد سبک با کیس شارژ جمع‌وجور.", "هاب چنددرگاهی برای اتصال نمایشگر و وسایل جانبی."],
+  sormeh: ["رایحه‌ای لطیف با نت‌های گل سفید و چوب صندل.", "رنگ رز ملایم با پوشش مات و بافت سبک.", "کرم سبک برای رطوبت‌رسانی روزانه."],
+  dookht: ["بارانی کرم با کمربند قابل تنظیم و برش آزاد.", "پلیور نرم با یقهٔ گرد و بافت ریز.", "پیراهن سبک کتانی برای پوشش روزمره."],
+  arcade: ["اعتبار خرید برای حساب سازگار با ریجن کارت.", "دسترسی یک‌ماهه برای پلتفرم درج‌شده در مشخصات.", "بستهٔ دیجیتال برای افزودن آیتم‌های بازی."],
+  sofreh: ["اسپرسوی دوبل با شیر بخارداده‌شده.", "لایه‌های خمیری سبک با کره و پوستهٔ ترد.", "دانهٔ تازه‌برشته برای دم‌آوری خانگی."],
+  golkhaneh: ["رزهای هلویی با برگ‌های سبز برای تبریک و هدیه.", "گل‌های فصل در جعبهٔ هدیهٔ رومیزی.", "گیاه برگ‌دار برای نور غیرمستقیم داخل خانه."],
+  khaneh: ["آباژور ایستاده با نور گرم برای گوشهٔ مطالعه.", "مبل تک‌نفرهٔ پارچه‌ای با نشیمن عمیق.", "گلدان دست‌ساز با لعاب مات."],
+};
+
+const extraSpecs: Partial<Record<keyof typeof DEMOS, [string, string][][]>> = {
+  bazaar: [[["جنس", "سرامیک لعاب‌دار"], ["گنجایش", "۳۲۰ میلی‌لیتر"]]],
+  circuit: [[["نمایشگر", "۱۴ اینچ"], ["حافظه", "۵۱۲ گیگابایت"]], [["اتصال", "بلوتوث"], ["شارژ", "کیس USB-C"]], [["درگاه", "USB-C"], ["خروجی", "HDMI"]]],
+  arcade: [[["نوع", "کد دیجیتال"], ["ریجن", "آمریکا"]], [["مدت", "یک ماه"], ["نوع", "اشتراک"]], [["نوع", "محتوای دیجیتال"], ["فعال‌سازی", "با حساب بازی"]]],
+  khaneh: [[["ارتفاع", "۱۵۰ سانتی‌متر"], ["نور", "گرم"]], [["روکش", "پارچه"], ["عرض", "۸۵ سانتی‌متر"]], [["جنس", "سفال"], ["ارتفاع", "۲۸ سانتی‌متر"]]],
+};
+
 export function loadThemeDemo(key: string) {
   if (!Object.hasOwn(DEMOS, key)) return null;
-  const demo: (typeof DEMOS)[keyof typeof DEMOS] = DEMOS[key as keyof typeof DEMOS];
-  const isMarket = key === "bazaar";
+  const demoKey = key as keyof typeof DEMOS;
+  const demo = DEMOS[demoKey];
   const definition = TEMPLATE_DEFINITIONS.findLast((item) => item.key === key);
   if (!definition) return null;
 
-  const image = { key: `stores/demo/${"0".repeat(32)}.webp`, width: 440, height: 440 };
-  const marketImages = [1, 2, 3].map((index) => ({ key: `stores/demo/${String(index).repeat(32)}.webp`, width: 480, height: 480 }));
-  const marketDescriptions = ["ماگ سنگی لعاب‌دار با دستهٔ راحت، برای چای و قهوهٔ روزانه.", "هدفون دورگوشی با اتصال بی‌سیم و بالشتک‌های نرم.", "کیف پارچه‌ای زیتونی با دسته‌های بلند برای خرید روزمره."];
+  const banner = demoKey === "dookht" ? { file: "dookht-cover.webp", width: 1440, height: 960 } : { file: `${key}.webp`, width: 440, height: 440 };
+  const image = { key: `stores/demo/${"0".repeat(32)}.webp`, width: banner.width, height: banner.height };
+  const productImages = [1, 2, 3].map((index) => ({ key: `stores/demo/${String(index).repeat(32)}.webp`, width: 480, height: 480 }));
   const categories = demo.products.map(([name], i) => ({ id: `category-${i + 1}`, slug: `category-${i + 1}`, name }));
   const products = demo.products.map(([, name, price], i) => ({
     id: `product-${i + 1}`,
@@ -30,10 +48,9 @@ export function loadThemeDemo(key: string) {
     price,
     stockQuantity: [12, 3, 0][i],
     categoryId: categories[i]!.id,
-    image: isMarket ? marketImages[i] : i === 0 ? image : null,
-    description: isMarket ? marketDescriptions[i] : "محصول نمونه برای نمایش صفحهٔ جزئیات قالب.",
-    specs: isMarket && i === 0 ? [{ label: "جنس", value: "سرامیک لعاب‌دار" }, { label: "گنجایش", value: "۳۲۰ میلی‌لیتر" }]
-      : i === 0 && "specs" in demo ? demo.specs.map(([label, value]) => ({ label, value })) : [],
+    image: productImages[i],
+    description: descriptions[demoKey][i],
+    specs: (extraSpecs[demoKey]?.[i] ?? []).map(([label, value]) => ({ label, value })),
   }));
   const pages = definition.pages.map((page, position) => ({
     ...page,
@@ -52,9 +69,9 @@ export function loadThemeDemo(key: string) {
         name: demo.name,
         direction: definition.settings.direction,
         primaryColor: definition.settings.primaryColor,
-        contact: isMarket ? { ...definition.settings.contact, address: "تهران، نشانی نمونهٔ فروشگاه" } : definition.settings.contact,
+        contact: { ...definition.settings.contact, address: "تهران، نشانی نمونهٔ فروشگاه" },
         social: definition.settings.social,
-        ...(isMarket ? { description: "کالاهای کاربردی برای خانه، کار و خرید روزمره." } : {}),
+        ...(key === "bazaar" ? { description: "کالاهای کاربردی برای خانه، کار و خرید روزمره." } : {}),
       },
       pages,
       categories,
@@ -62,9 +79,9 @@ export function loadThemeDemo(key: string) {
       images: { "hero-art": image },
     }),
     mediaUrl: (mediaKey: string) => {
-      if (mediaKey === image.key) return `/theme-demos/${key}.webp`;
-      const productIndex = isMarket ? marketImages.findIndex((item) => item.key === mediaKey) : -1;
-      return productIndex >= 0 ? `/theme-demos/bazaar-product-${productIndex + 1}.webp` : null;
+      if (mediaKey === image.key) return `/theme-demos/${banner.file}`;
+      const productIndex = productImages.findIndex((item) => item.key === mediaKey);
+      return productIndex >= 0 ? `/theme-demos/${key}-product-${productIndex + 1}.webp` : null;
     },
   };
 }

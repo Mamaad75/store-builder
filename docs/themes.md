@@ -119,6 +119,25 @@ that does not exist (discounts, ratings, cart) is invented, and nothing needs cl
 
 ## Business theme refresh
 
+### Independent storefronts (version 3)
+
+Each version 3 storefront has its own header, hero, product listing, product detail and footer. The seven themes added after Bazaar own their JSX and CSS in `apps/web/src/templates/<key>/studio.tsx` and `studio.module.css`. Shared primitives render safe media, specifications, filters, pagination, links and other small pieces. The existing section contracts and version 1 and 2 renderers remain registered. Run `pnpm db:seed` to register version 3 in the deployment database.
+
+| قالب | ساختار | دسکتاپ ۱۴۴۰ | موبایل ۳۹۰ |
+| --- | --- | --- | --- |
++| بازار | هدر دو ردیفه، بنر کوتاه، دسته‌های گرد، قفسه‌های افقی، شبکهٔ فشرده و فوتر چندستونه | [خانه](theme-previews/bazaar/home-1440.webp) · [فهرست](theme-previews/bazaar/catalog-1440.webp) · [جزئیات](theme-previews/bazaar/product-1440.webp) | [خانه](theme-previews/bazaar/home-390.webp) · [فهرست](theme-previews/bazaar/catalog-390.webp) · [جزئیات](theme-previews/bazaar/product-390.webp) |
+| مدار | هدر تیره و چسبان، هیروی آماری، ردیف‌های فنی، گالری چسبان و نمایش بازشوندهٔ مشخصات | [خانه](theme-previews/circuit/home-1440.webp) · [فهرست](theme-previews/circuit/catalog-1440.webp) · [جزئیات](theme-previews/circuit/product-1440.webp) | [خانه](theme-previews/circuit/home-390.webp) · [فهرست](theme-previews/circuit/catalog-390.webp) · [جزئیات](theme-previews/circuit/product-390.webp) |
+| سُرمه | لوگوی مرکزی، قاب طاقی، شبکهٔ باز و صفحهٔ محصول تک‌ستونه | [خانه](theme-previews/sormeh/home-1440.webp) · [فهرست](theme-previews/sormeh/catalog-1440.webp) · [جزئیات](theme-previews/sormeh/product-1440.webp) | [خانه](theme-previews/sormeh/home-390.webp) · [فهرست](theme-previews/sormeh/catalog-390.webp) · [جزئیات](theme-previews/sormeh/product-390.webp) |
+| دوخت | هدر روی جلد تصویری، شبکهٔ نامتقارن و گالری عمودی با راهنمای اندازهٔ چسبان | [خانه](theme-previews/dookht/home-1440.webp) · [فهرست](theme-previews/dookht/catalog-1440.webp) · [جزئیات](theme-previews/dookht/product-1440.webp) | [خانه](theme-previews/dookht/home-390.webp) · [فهرست](theme-previews/dookht/catalog-390.webp) · [جزئیات](theme-previews/dookht/product-390.webp) |
+| آرکید | سایدبار پلتفرم‌ها، ردیف‌های افقی، گام‌های شماره‌دار و پنل سفارش چسبان | [خانه](theme-previews/arcade/home-1440.webp) · [فهرست](theme-previews/arcade/catalog-1440.webp) · [جزئیات](theme-previews/arcade/product-1440.webp) | [خانه](theme-previews/arcade/home-390.webp) · [فهرست](theme-previews/arcade/catalog-390.webp) · [جزئیات](theme-previews/arcade/product-390.webp) |
+| سفره | سربرگ کافه، فهرست منو با جداکنندهٔ خط‌چین، ساعات کار و پنل نشانی | [خانه](theme-previews/sofreh/home-1440.webp) · [فهرست](theme-previews/sofreh/catalog-1440.webp) · [جزئیات](theme-previews/sofreh/product-1440.webp) | [خانه](theme-previews/sofreh/home-390.webp) · [فهرست](theme-previews/sofreh/catalog-390.webp) · [جزئیات](theme-previews/sofreh/product-390.webp) |
+| گلخانه | نوار زمان ارسال، اسلایدر دستی CSS، کاشی‌های مناسبت و کارت‌های طاقی | [خانه](theme-previews/golkhaneh/home-1440.webp) · [فهرست](theme-previews/golkhaneh/catalog-1440.webp) · [جزئیات](theme-previews/golkhaneh/product-1440.webp) | [خانه](theme-previews/golkhaneh/home-390.webp) · [فهرست](theme-previews/golkhaneh/catalog-390.webp) · [جزئیات](theme-previews/golkhaneh/product-390.webp) |
+| خانه | منوی بازشونده، دو پنل بنر، سه ستون مقایسه و فیلتر چسبان با کشوی موبایل | [خانه](theme-previews/khaneh/home-1440.webp) · [فهرست](theme-previews/khaneh/catalog-1440.webp) · [جزئیات](theme-previews/khaneh/product-1440.webp) | [خانه](theme-previews/khaneh/home-390.webp) · [فهرست](theme-previews/khaneh/catalog-390.webp) · [جزئیات](theme-previews/khaneh/product-390.webp) |
+
+The eight public demos use dedicated banners and three locally served product photos each. Gallery thumbnails are compressed captures of the storefront itself. Entry animations and optional scroll-driven motion use CSS, respect reduced-motion preferences and require no storefront client runtime. Flower slides use native horizontal scrolling with snap points.
+
+Newsletter signup, storing a gift message at checkout and downloading paid products require backend capabilities beyond the present section contract. Sormeh exposes the store’s contact and social links, and Golkhaneh explains how to pass a gift message through the current ordering channels. Product comparisons use the specifications already stored on each product.
+
 ### Bazaar marketplace layout (version 3)
 
 Bazaar version 3 draws its own header, catalog, product detail and footer from the existing storefront contract. The masthead puts search between the store brand and support, followed by a category/navigation strip. Home uses a compact promotion, circular category links and scroll-snap shelves. The listing has four columns on desktop and two on phones, with category links, sorting and pagination. Product detail uses a gallery beside a summary and order panel, then specifications and related products.
@@ -133,7 +152,7 @@ The public demo and the gallery thumbnail use the version 3 storefront. The thre
 
 The product contract has a single price and no sales ranking or product publication date. Cards therefore show price and actual stock. Home shelves use editorial selection and categories.
 
-The eight business themes have version 2 layouts. Run `pnpm db:seed` after deploying the API and web app to register the new versions. New stores then start on the latest active version. Owners can preview and apply an update in **Appearance**. Publishing the draft makes the update visible to customers.
+The earlier kit refresh remains available as version 2 for each business theme. New stores start on the latest active version. Owners can preview and apply an update in **Appearance**. Publishing the draft makes the update visible to customers.
 
 The creation form offers an illustrated gallery. Each link opens a sample storefront at `/themes/<key>`, using the same renderer as a real store. Sample artwork and products only belong to these demos. On a real version 2 storefront the home banner can use the first available product photo when the owner has not selected banner artwork.
 

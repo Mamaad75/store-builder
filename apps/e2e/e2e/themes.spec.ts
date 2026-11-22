@@ -63,6 +63,7 @@ test.describe("creating stores: business category and theme are separate choices
     expect(offered).toEqual(["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh"]);
     const suggested: Record<string, string> = { general: "bazaar", digital: "circuit", beauty: "sormeh", fashion: "dookht", "digital-goods": "arcade", "coffee-food": "sofreh", flowers: "golkhaneh", "home-appliances": "khaneh" };
     for (const [category, theme] of Object.entries(suggested)) {
+      await expect(page.locator(`[data-theme-key=${theme}] img`)).toHaveAttribute("src", `/theme-demos/${theme}-layout.webp`);
       await page.locator(`[data-category-key=${category}] button`).click();
       await expect(page.locator("input[name=templateKey]"), category).toHaveValue(theme);
     }
@@ -80,6 +81,18 @@ test.describe("creating stores: business category and theme are separate choices
     await expect(demo.locator("input[name=templateKey]")).toHaveValue("arcade");
     await expect(demo.locator("input[name=businessCategory]")).toHaveValue("digital-goods");
   });
+});
+
+test("all business theme demos fit at 360px across the home, catalog and product screens", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const key of ["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh"]) {
+    for (const suffix of ["", "/products", "/products/product-1"]) {
+      await page.goto(`/themes/${key}${suffix}`);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `${key}${suffix}`).toBeLessThanOrEqual(0);
+    }
+  }
 });
 
 test.describe("theme-specific sections", () => {

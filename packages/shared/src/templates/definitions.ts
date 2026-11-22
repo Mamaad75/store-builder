@@ -122,6 +122,7 @@ function refreshedDefinition(definition: TemplateDefinition): TemplateDefinition
 export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   ...KIT_DEFINITIONS,
   ...KIT_DEFINITIONS.map(refreshedDefinition),
+  ...KIT_DEFINITIONS.filter((definition) => definition.key !== "bazaar").map((definition) => ({ ...refreshedDefinition(definition), version: 3 })),
   {
     key: "bazaar", name: "بازار", version: 3, settings: settings("#0e7c66"),
     pages: kitPages("bazaar", {

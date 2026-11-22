@@ -3,6 +3,13 @@ import { appliancesTemplate } from "./appliances";
 import { arcadeTemplate, arcadeTemplateV2 } from "./arcade";
 import { bazaarTemplate, bazaarTemplateV2 } from "./bazaar";
 import { bazaarTemplateV3 } from "./bazaar/market";
+import { circuitTemplateV3 } from "./circuit/studio";
+import { sormehTemplateV3 } from "./sormeh/studio";
+import { dookhtTemplateV3 } from "./dookht/studio";
+import { arcadeTemplateV3 } from "./arcade/studio";
+import { sofrehTemplateV3 } from "./sofreh/studio";
+import { golkhanehTemplateV3 } from "./golkhaneh/studio";
+import { khanehTemplateV3 } from "./khaneh/studio";
 import { circuitTemplate, circuitTemplateV2 } from "./circuit";
 import { dookhtTemplate, dookhtTemplateV2 } from "./dookht";
 import { golkhanehTemplate, golkhanehTemplateV2 } from "./golkhaneh";
@@ -25,7 +32,7 @@ const TEMPLATES: readonly TemplateModule[] = [
   // the eight business themes (2026-11; kit components + own CSS module), then the four MVP themes
   bazaarTemplate, circuitTemplate, sormehTemplate, dookhtTemplate, arcadeTemplate, sofrehTemplate, golkhanehTemplate, khanehTemplate,
   bazaarTemplateV2, circuitTemplateV2, sormehTemplateV2, dookhtTemplateV2, arcadeTemplateV2, sofrehTemplateV2, golkhanehTemplateV2, khanehTemplateV2,
-  bazaarTemplateV3,
+  bazaarTemplateV3, circuitTemplateV3, sormehTemplateV3, dookhtTemplateV3, arcadeTemplateV3, sofrehTemplateV3, golkhanehTemplateV3, khanehTemplateV3,
   generalTemplate, coffeeTemplate, fashionTemplate, appliancesTemplate,
 ];
 
