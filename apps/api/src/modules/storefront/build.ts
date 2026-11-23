@@ -1,5 +1,5 @@
 import { analyzeSpecs } from "@store-builder/shared/lib/product-specs";
-import { STOREFRONT_SCHEMA_VERSION, storefrontDataSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
+import { STOREFRONT_SCHEMA_VERSION, storefrontDataSchema, storefrontVariantSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
 import { parseSections, type SectionIssue } from "@store-builder/shared/templates/section-parse";
 import { DEFAULT_TYPOGRAPHY, templateSettingsSchema, type TemplateSettings } from "@store-builder/shared/templates/sections";
 import { resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
@@ -20,7 +20,7 @@ export interface StorefrontSource {
   template: { key: string; version: number; defaultSettings: unknown };
   pages: { type: string; title: string; slug: string; position: number; sections: unknown }[];
   categories: { id: string; name: string; slug: string }[];
-  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; categoryId: string | null; image?: MediaSource | null; specs?: unknown }[];
+  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; categoryId: string | null; image?: MediaSource | null; specs?: unknown; variants?: { id: string; options: unknown; price: number; stockQuantity: number }[] }[];
   /** READY media of the store that sections may reference, by media id (only ids found here can ever be rendered). */
   images?: Record<string, MediaSource>;
   /** Products that exist but are not storefront-eligible (draft/archived). Only a count: never their data. */
@@ -104,10 +104,15 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
     store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social, logo: toMediaRef(src.store.logo), typography: resolved.typography, ...(resolved.description ? { description: resolved.description } : {}) },
     pages,
     categories: src.categories,
-    products: src.products.map(({ image, specs, ...p }) => {
+    products: src.products.map(({ image, specs, variants, ...p }) => {
       const a = analyzeSpecs(specs ?? []);
+      // Stored JSON is validated, never trusted: a variant whose options are malformed is left out (the API never writes one).
+      const shown = (variants ?? []).flatMap((v) => {
+        const r = storefrontVariantSchema.safeParse(v);
+        return r.success ? [r.data] : [];
+      });
       if (!a.ok) invalidSpecsProductCount += 1; // never rendered, never repaired here
-      return { ...p, image: toMediaRef(image), specs: a.ok ? a.rows : [] };
+      return { ...p, image: toMediaRef(image), specs: a.ok ? a.rows : [], variants: shown };
     }),
     images,
   };

@@ -218,11 +218,15 @@ model Product {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  category ProductCategory? @relation(fields: [storeId, categoryId], references: [storeId, id], onDelete: Restrict)
-  image    Media?           @relation(fields: [storeId, imageId], references: [storeId, id], onDelete: NoAction)
+  store        Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category     ProductCategory?   @relation(fields: [storeId, categoryId], references: [storeId, id], onDelete: Restrict)
+  image        Media?             @relation(fields: [storeId, imageId], references: [storeId, id], onDelete: NoAction)
+  variants     ProductVariant[]
+  reservations StockReservation[]
 
   @@unique([storeId, slug])
+  /// Phase 3.2: lets variants and reservations reference (storeId, id), so a row can never point at a product of another store.
+  @@unique([storeId, id])
   @@index([storeId, status, position])
   @@index([storeId, categoryId])
   @@index([storeId, createdAt(sort: Desc), id])
@@ -471,4 +475,57 @@ model PlatformSecret {
   updatedById String?
 
   @@index([keyId])
+}
+
+/// A purchasable variant of a product (phase 3.2, D32-1): one combination of up to 3 options (e.g. colour = red, size = M) with its own
+/// price and stock. When a product has variants, Product.price is the LOWEST variant price and Product.stockQuantity the SUM of their stock
+/// (kept in the same transaction by the inventory module), so listings and the storefront keep working unchanged.
+model ProductVariant {
+  id            String   @id @default(cuid())
+  storeId       String
+  productId     String
+  /// [{name, value}] in the option order of the product (1..3 entries; validated by the application).
+  options       Json
+  /// Canonical JSON of the options ([["name","value"],...]): one variant per combination.
+  optionsKey    String   @db.VarChar(500)
+  sku           String?  @db.VarChar(64)
+  price         Int
+  stockQuantity Int      @default(0)
+  position      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  product      Product            @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
+  reservations StockReservation[]
+
+  @@unique([productId, optionsKey])
+  @@unique([storeId, id])
+  @@index([storeId, productId, position])
+}
+
+enum ReservationStatus {
+  ACTIVE
+  CONSUMED
+  RELEASED
+}
+
+/// Stock held for a checkout (phase 3.2): the stock is decremented when the reservation is made; an ACTIVE reservation that expires is
+/// released (stock given back) by the db-cleanup job; CONSUMED = turned into an order (3.4). `ref` names the cart or order that holds it.
+model StockReservation {
+  id        String            @id @default(cuid())
+  storeId   String
+  productId String
+  variantId String?
+  quantity  Int
+  ref       String            @db.VarChar(64)
+  status    ReservationStatus @default(ACTIVE)
+  expiresAt DateTime
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  product Product         @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, ref])
+  @@index([status, expiresAt])
 }

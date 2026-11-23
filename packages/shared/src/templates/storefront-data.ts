@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MAX_PRICE_TOMAN } from "../lib/money.js";
 import { MAX_SPEC_ROWS, specRowSchema } from "../lib/product-specs.js";
+import { MAX_OPTIONS, MAX_VARIANTS_PER_PRODUCT } from "../modules/inventory/variants.js";
 import { MEDIA_KEY_RE } from "../lib/storage/keys.js";
 import { isCanonicalSlug } from "../lib/text.js";
 import { pageSectionSchema, type PageSection } from "./section-parse.js";
@@ -60,6 +61,16 @@ export const storefrontPageSchema = z
 
 export const storefrontCategorySchema = z.object({ id, name: z.string().min(1).max(60), slug }).strict();
 
+/** Phase 3.2: a purchasable combination as the storefront shows it (no SKU: internal to the merchant). */
+export const storefrontVariantSchema = z
+  .object({
+    id,
+    options: z.array(z.object({ name: z.string().min(1).max(30), value: z.string().min(1).max(40) }).strict()).min(1).max(MAX_OPTIONS),
+    price: z.number().int().min(0).max(MAX_PRICE_TOMAN),
+    stockQuantity: z.number().int().min(0).max(1_000_000),
+  })
+  .strict();
+
 export const storefrontProductSchema = z
   .object({
     id,
@@ -73,6 +84,9 @@ export const storefrontProductSchema = z
     // Product specifications (product data, independent of theme and category). Optional with an empty default, so
     // schemaVersion-1 data and snapshots written before specs existed stay valid.
     specs: z.array(specRowSchema).max(MAX_SPEC_ROWS).default([]),
+    // Phase 3.2 (D32-1): variants, optional with an empty default for the same reason. With variants, price is the lowest variant
+    // price and stockQuantity their sum.
+    variants: z.array(storefrontVariantSchema).max(MAX_VARIANTS_PER_PRODUCT).default([]),
   })
   .strict();
 
@@ -108,4 +122,5 @@ export type StorefrontStore = z.infer<typeof storefrontStoreSchema>;
 export type StorefrontPage = z.infer<typeof storefrontPageSchema>;
 export type StorefrontCategory = z.infer<typeof storefrontCategorySchema>;
 export type StorefrontProduct = z.infer<typeof storefrontProductSchema>;
+export type StorefrontVariant = z.infer<typeof storefrontVariantSchema>;
 

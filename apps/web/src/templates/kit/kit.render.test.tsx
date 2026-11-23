@@ -207,3 +207,32 @@ describe("kit v2: header, listing, home rails and product page", () => {
     expect(highlightIcon("چیزی دیگر")).toBe("check");
   });
 });
+
+describe.each(KEYS)("kit theme %s: product variants (phase 3.2)", (key) => {
+  const withVariants = {
+    ...PRODUCT_A,
+    price: 90000,
+    stockQuantity: 3,
+    variants: [
+      { id: "v1", options: [{ name: "رنگ", value: "قرمز" }, { name: "سایز", value: "M" }], price: 90000, stockQuantity: 3 },
+      { id: "v2", options: [{ name: "رنگ", value: "<b>آبی</b>" }, { name: "سایز", value: "L" }], price: 120000, stockQuantity: 0 },
+    ],
+  };
+  it("the product page lists every variant with its price and stock in a captioned table; text is escaped", () => {
+    const html = render(storefront(key, { products: [withVariants] }), ["products", PRODUCT_A.slug]);
+    expect(html).toMatch(/<table[^>]*><caption[^>]*>تنوع‌ها<\/caption>/);
+    expect(html).toContain("<th scope=\"col\">رنگ / سایز</th>");
+    expect(html).toContain("<th scope=\"row\">قرمز / M</th>");
+    expect(html).toContain("&lt;b&gt;آبی&lt;/b&gt; / L");
+    expect(html).not.toContain("<b>آبی</b>");
+    expect(html).toContain((120000).toLocaleString("fa-IR"));
+    expect(html).toContain("از "); // the lowest price is a "from" price
+  });
+  it("cards show a from-price only when the variants differ in price; products without variants are unchanged", () => {
+    expect(render(storefront(key, { products: [withVariants] }), ["products"])).toContain("از </span>");
+    const same = { ...withVariants, variants: withVariants.variants.map((v) => ({ ...v, price: 90000 })) };
+    expect(render(storefront(key, { products: [same] }), ["products"])).not.toContain("از </span>");
+    const plain = render(storefront(key, { products: [PRODUCT_A] }), ["products", PRODUCT_A.slug]);
+    expect(plain).not.toContain("تنوع‌ها");
+  });
+});

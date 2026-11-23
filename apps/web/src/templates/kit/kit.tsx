@@ -121,13 +121,21 @@ export function createKitTemplate(definition: ThemeDefinition, theme: Styles, op
     return <span className={s.stock}>موجود</span>;
   }
 
-  /** "۱۲۵٬۰۰۰ تومان" with the unit set smaller (the text content is exactly what formatToman returns). */
-  function Price({ amount, className }: { amount: number; className?: string }) {
+  /**
+   * "۱۲۵٬۰۰۰ تومان" with the unit set smaller (the text content is exactly what formatToman returns). `from`: the product has variants
+   * at different prices and `amount` is the lowest (phase 3.2), so it reads "از ۱۲۵٬۰۰۰ تومان".
+   */
+  function Price({ amount, className, from }: { amount: number; className?: string; from?: boolean }) {
     return (
       <p className={className}>
+        {from && <span className={s.priceFrom}>از </span>}
         <span className={s.priceNum}>{amount.toLocaleString("fa-IR")}</span> <span className={s.priceUnit}>تومان</span>
       </p>
     );
+  }
+
+  function hasPriceRange(p: StorefrontProduct): boolean {
+    return p.variants.some((v) => v.price !== p.price);
   }
 
   function ProductCard({ product, ctx, category }: { product: StorefrontProduct; ctx: RenderContext; category: StorefrontCategory | null }) {
@@ -157,7 +165,7 @@ export function createKitTemplate(definition: ThemeDefinition, theme: Styles, op
             <CardSpecs specs={product.specs} classes={{ list: s.cardSpecs, row: s.cardSpecRow, term: s.cardSpecTerm, def: s.cardSpecDef }} />
             <div className={s.cardFoot}>
               <Stock stock={product.stockQuantity} />
-              <Price amount={product.price} className={s.price} />
+              <Price amount={product.price} className={s.price} from={hasPriceRange(product)} />
             </div>
             {cta && ctaHref && (
               <a className={s.cardCta} href={ctaHref} {...external(ctaHref)} aria-label={`${cta.label}: ${product.name}`}>
@@ -711,8 +719,33 @@ export function createKitTemplate(definition: ThemeDefinition, theme: Styles, op
                 {p.description ? <p className={`${s.prose} ${s.detailText}`}>{p.description}</p> : null}
               </div>
               <aside className={s.buyBox} aria-label="سفارش">
-                <Price amount={p.price} className={s.detailPrice} />
+                <Price amount={p.price} className={s.detailPrice} from={hasPriceRange(p)} />
                 <Stock stock={p.stockQuantity} />
+                {p.variants.length > 0 && (
+                  <table className={s.variants}>
+                    <caption className={s.variantsTitle}>تنوع‌ها</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">{p.variants[0]!.options.map((o) => o.name).join(" / ")}</th>
+                        <th scope="col">قیمت</th>
+                        <th scope="col">وضعیت</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {p.variants.map((v) => (
+                        <tr key={v.id} className={v.stockQuantity <= 0 ? s.variantOut : undefined}>
+                          <th scope="row">{v.options.map((o) => o.value).join(" / ")}</th>
+                          <td>
+                            <Price amount={v.price} className={s.variantPrice} />
+                          </td>
+                          <td>
+                            <Stock stock={v.stockQuantity} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
                 {order.length > 0 && (
                   <div className={s.actions}>
                     {order.map((l) => {

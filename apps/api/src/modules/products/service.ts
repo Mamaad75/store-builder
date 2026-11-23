@@ -6,6 +6,7 @@ import { makeSearchKey, normalizeSearchQuery, slugify, uniqueSlug } from "@store
 import { mapCatalogDbError } from "../catalog-errors.js";
 import { findCategoryInTx } from "../categories/categories.api.js";
 import { releaseMediaBestEffort } from "../media/service.js";
+import { productHasVariantsInTx } from "../inventory/inventory.api.js";
 import { CatalogLimitError, ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { withStoreMutation, type MutationContext } from "../stores/mutation.js";
 import { getStore, parseStoreId } from "../stores/service.js";
@@ -45,6 +46,8 @@ export const slugHistoryLimitMessage = (limit: number) =>
   `این محصول قبلاً با ${(limit + 1).toLocaleString("fa-IR")} آدرس مختلف منتشر شده و بیش از ${limit.toLocaleString("fa-IR")} آدرس قبلی نگه‌داری نمی‌شود. برای تغییر آدرس به یکی از آدرس‌های منتشرشدهٔ قبلی برگردید.`;
 const SLUG_TAKEN = "این آدرس قبلاً برای محصول دیگری استفاده شده است";
 const INVALID_CATEGORY = "دسته انتخاب‌شده معتبر نیست";
+/** Phase 3.2 (D32-1): a product with variants shows the lowest variant price and the summed stock; they are edited per variant. */
+export const VARIANT_OWNED_MESSAGE = "این محصول تنوع دارد؛ قیمت و موجودی را برای هر تنوع جداگانه تعیین کنید.";
 
 function parseOrThrow<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
   const r = schema.safeParse(input);
@@ -221,6 +224,9 @@ export async function updateProduct(
       }
       if (changes.slug !== undefined) await assertSlugAvailable(ctx, pid, changes.slug);
       if (changes.categoryId) await assertCategoryInStore(ctx, changes.categoryId);
+      if ((changes.price !== undefined || changes.stockQuantity !== undefined) && (await productHasVariantsInTx(ctx, pid))) {
+        throw new ValidationError({ [changes.price !== undefined ? "price" : "stockQuantity"]: [VARIANT_OWNED_MESSAGE] });
+      }
       if (!(await updateProductRow(ctx, pid, changes))) throw new NotFoundError();
       const updated = await findInTx(ctx, pid);
       if (!updated) throw new NotFoundError();

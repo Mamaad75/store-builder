@@ -191,6 +191,7 @@
 .price { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; margin-inline-start: auto; }
 .priceNum { font-size: 1.08em; }
 .priceUnit { font-size: .74em; font-weight: 600; color: var(--muted); }
+.priceFrom { font-size: .74em; font-weight: 600; color: var(--muted); }
 .stock { font-size: .78em; color: var(--ok); display: inline-flex; align-items: center; gap: 5px; }
 .stock::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .stockLow { color: var(--warn); }
@@ -296,6 +297,13 @@
 .root .detailText { border-top: 1px solid var(--line); padding-top: 14px; }
 .buyBox { position: sticky; top: 132px; display: grid; gap: 12px; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: var(--shadow-sm); }
 .detailPrice { font-size: 1.5em; font-weight: 800; font-variant-numeric: tabular-nums; }
+.variants { width: 100%; border-collapse: collapse; font-size: .88em; border-top: 1px solid var(--line); }
+.variantsTitle { text-align: start; font-weight: 800; padding-block: 12px 6px; }
+.variants th, .variants td { padding: 7px 4px; text-align: start; vertical-align: middle; border-bottom: 1px solid var(--line); }
+.variants thead th { color: var(--muted); font-weight: 600; font-size: .9em; }
+.variants tbody th { font-weight: 700; }
+.variantPrice { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.variantOut th, .variantOut .variantPrice { color: var(--muted); }
 .actions { display: grid; gap: 10px; margin-top: 4px; }
 .actions .btn { width: 100%; }
 .assure { list-style: none; padding: 12px 0 0; border-top: 1px solid var(--line); display: grid; gap: 8px; font-size: .86em; color: var(--muted); }

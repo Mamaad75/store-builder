@@ -39,6 +39,17 @@ describe("architecture guard: catalog writes go through withStoreMutation", () =
     expect(rel(offenders)).toEqual([]);
   });
 
+  it("raw SQL writes to Product rows exist only in the stock ledger (checkout stock moves, D32-1: not draft edits, no store lock)", () => {
+    const raw = /(UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+"Product(Category)?"/i;
+    const writers = prodFiles().filter((f) => raw.test(read(f)));
+    expect(rel(writers)).toEqual(["src/modules/inventory/infrastructure/prisma-inventory.repository.ts"]);
+    // and there they only move stockQuantity: never price, name, status or anything else the merchant owns
+    const ledger = read("src/modules/inventory/infrastructure/prisma-inventory.repository.ts");
+    const sets = [...ledger.matchAll(/UPDATE "Product" SET ([^`]*?)\s+WHERE/g)].map((m) => m[1]!);
+    expect(sets.length).toBeGreaterThanOrEqual(2); // take out (reserve) and give back (release)
+    for (const set of sets) expect(set).toMatch(/^"stockQuantity" = (LEAST\()?"stockQuantity" [-+] \$\{[\w.]+\}(, \$\{MAX_STOCK\}\))?, "updatedAt" = now\(\)$/);
+  });
+
   it("every exported write function in the catalog repositories requires a MutationContext as first parameter", () => {
     const WRITE_PREFIX = /^(insert|update|rename|delete|detach|set|lock)/;
     let checked = 0;

@@ -95,3 +95,10 @@ export type _P31b = [
   Assert<Same<Resolved<PlatformSettingsService["view"]>, z.infer<typeof S31.platformSettingsViewDto>>>,
   Assert<Same<Resolved<PlatformSettingsService["update"]>, z.infer<typeof S31.platformSettingsDto>>>,
 ];
+
+// ---- phase 3.2 ----
+import type { InventoryService } from "./modules/inventory/inventory.api.js";
+export type _P32 = [
+  Assert<Same<Resolved<InventoryService["listVariants"]>, z.infer<typeof S31.variantDto>[]>>,
+  Assert<Same<Resolved<InventoryService["replaceVariants"]>, z.infer<typeof S31.variantDto>[]>>,
+];

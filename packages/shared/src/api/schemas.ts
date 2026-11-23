@@ -50,6 +50,16 @@ export const productDto = z.object({
   createdAt: iso,
   updatedAt: iso,
 });
+/** Phase 3.2: one purchasable combination of a product. */
+export const variantDto = z.object({
+  id: z.string(),
+  options: z.array(z.object({ name: z.string(), value: z.string() })),
+  optionsKey: z.string(),
+  sku: z.string().nullable(),
+  price: z.number(),
+  stockQuantity: z.number().describe("sellable quantity: active reservations are already taken out"),
+  position: z.number(),
+});
 export const productListDto = z.object({ items: z.array(productDto), total: z.number(), page: z.number(), pageSize: z.number(), totalPages: z.number() });
 /** v1 only: keyset pages (phase 2.5). `nextCursor` is opaque; null on the last page. */
 export const productCursorListDto = z.object({ items: z.array(productDto), total: z.number(), limit: z.number(), nextCursor: z.string().nullable() });

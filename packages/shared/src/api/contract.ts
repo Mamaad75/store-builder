@@ -5,6 +5,7 @@ import { changePasswordSchema, loginSchema, registerSchema } from "../modules/au
 import { createCategorySchema, deleteCategoryOptionsSchema, updateCategorySchema } from "../modules/categories/schemas.js";
 import { createProductSchema, statusSchema, updateProductSchema } from "../modules/products/schemas.js";
 import { secretValueSchema } from "../modules/secrets/schemas.js";
+import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { createStoreSchema, switchThemeSchema, updateBusinessCategorySchema, updateStoreSchema } from "../modules/stores/schemas.js";
 import * as S from "./schemas.js";
 
@@ -115,6 +116,8 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", st("/products/:productId/delete"), "Delete a product", { permission: "catalog.write", status: 204 }),
   r("POST", st("/products/:productId/image"), "Upload the product image (raw image bytes)", { permission: "media.write", status: 200, body: raw, untyped: true }),
   r("POST", st("/products/:productId/image/delete"), "Remove the product image", { permission: "media.write", status: 204 }),
+  r("GET", st("/products/:productId/variants"), "Variants of a product", { permission: "store.view", response: z.array(S.variantDto) }),
+  r("PUT", st("/products/:productId/variants"), "Replace the variant set (price and stock of the product follow it)", { permission: "catalog.write", body: replaceVariantsSchema, response: z.array(S.variantDto) }),
 
   // ---- admin: pages
   r("GET", st("/pages"), "Pages", { permission: "store.view", response: z.object({ supported: z.boolean(), pages: z.array(S.pageSummaryDto) }) }),
