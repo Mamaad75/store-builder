@@ -141,17 +141,23 @@ export class OrdersService {
    * an SMS code (phase 3.3b): a password account alone never proves the phone.
    */
   async listMine(storeId: string, customerId: string, verified = false): Promise<ShopperOrder[]> {
-    return (await this.orders.listForCustomer(storeId, customerId, 50, verified)).map((o) => this.shopperView(o));
+    const all = await this.orders.listForCustomer(storeId, customerId, 50, verified);
+    // Orders attached only by phone are shown read-only: the phone on an order may be a gift recipient's (review 3.3b).
+    const own = verified ? new Set((await this.orders.listForCustomer(storeId, customerId, 50, false)).map((o) => o.id)) : null;
+    return all.map((o) => (own && !own.has(o.id) ? { order: o, canCancel: false } : this.shopperView(o)));
   }
 
   async getMine(storeId: string, customerId: string, id: string, verified = false): Promise<ShopperOrder> {
     const o = ID_RE.test(id) ? await this.orders.getForCustomer(storeId, customerId, id, verified) : null;
     if (!o) throw new NotFoundError();
-    return this.shopperView(o);
+    const own = !verified || (await this.orders.getForCustomer(storeId, customerId, id, false)) !== null;
+    return own ? this.shopperView(o) : { order: o, canCancel: false };
   }
 
-  async cancelMine(storeId: string, customerId: string, id: string, verified = false): Promise<ShopperOrder> {
-    await this.getMine(storeId, customerId, id, verified); // scoped to this customer: anyone else's order is the same 404
+  /** Only orders placed while signed in to this account (phone-attached ones are cancelled with their order link, by whoever placed them). */
+  async cancelMine(storeId: string, customerId: string, id: string): Promise<ShopperOrder> {
+    const own = ID_RE.test(id) ? await this.orders.getForCustomer(storeId, customerId, id, false) : null;
+    if (!own) throw new NotFoundError();
     return this.shopperView(await this.cancelAsCustomer(storeId, id, customerId));
   }
 

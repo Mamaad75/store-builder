@@ -272,6 +272,13 @@ so rotating that secret invalidates links already sent (a key version will be ad
   site only).
 * **Dashboard.** "مشتری‌ها": every customer with order count, spending (not cancelled) and last order
   (`GET /api/stores/:storeId/orders/customer-stats?ids=`, `customers.view`), linking to that customer's orders (`orders?customerId=`).
+* **Security review 3.3b (2026-11-25):** no Critical or High findings. Fixed with regression tests: SMS verification and registration
+  of one phone now decide on the same locked row, created by one atomic insert-if-missing (a password registered during a verification
+  could otherwise survive it, and concurrent first creations collided); orders attached only by phone are read-only in the account (the
+  phone on an order may be a gift recipient's; the buyer cancels with the order link); password attempts are limited per phone and
+  network (10 per 15 minutes) with a looser per-phone ceiling (50), so a stranger cannot lock the owner out; registrations are limited per
+  phone (5 per day per store). Accepted: registering over a guest-only record replaces its name (keeping the old name would show the guest
+  buyer's real name to whoever typed the number); the merchant sees such a customer as not verified.
 * **Error text.** A domain error rebuilt from an API answer carries only its class name; `domainErrorMessage` gives back the class's fixed
   Persian message, so shop and dashboard screens show it.
 

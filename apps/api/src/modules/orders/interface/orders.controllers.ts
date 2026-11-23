@@ -77,7 +77,7 @@ export class CustomerOrdersController {
   @HttpCode(200)
   async cancel(@Param("label") label: string, @Param("orderId") id: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const w = await this.who(label, req, res);
-    return this.orders.cancelMine(w.storeId, w.customerId, id, w.verified);
+    return this.orders.cancelMine(w.storeId, w.customerId, id);
   }
 }
 

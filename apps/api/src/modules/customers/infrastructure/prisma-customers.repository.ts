@@ -7,11 +7,25 @@ import type { ChallengeRow, CustomerRepository, CustomerView, OtpRepository } fr
 
 const customerSelect = { id: true, storeId: true, phone: true, name: true, authVersion: true, phoneVerifiedAt: true, lastLoginAt: true, createdAt: true } as const;
 
+/**
+ * The (store, phone) customer row, created when missing, LOCKED until the transaction ends. One atomic insert-if-missing, so concurrent
+ * first sign-ins, registrations and guest orders of one phone never collide on the unique index.
+ */
+async function lockedCustomer(tx: Prisma.TransactionClient, storeId: string, phone: string) {
+  await tx.$executeRaw`INSERT INTO "Customer" (id, "storeId", phone, "updatedAt") VALUES (${randomBytes(12).toString("hex")}, ${storeId}, ${phone}, now())
+    ON CONFLICT ("storeId", phone) DO NOTHING`;
+  const [row] = await tx.$queryRaw<{ id: string; phoneVerifiedAt: Date | null; passwordHash: string | null }[]>`
+    SELECT id, "phoneVerifiedAt", "passwordHash" FROM "Customer" WHERE "storeId" = ${storeId} AND phone = ${phone} FOR UPDATE`;
+  if (!row) throw new Error("customer row missing under its lock");
+  return row;
+}
+
 export class PrismaCustomerRepository implements CustomerRepository {
   async signIn(storeId: string, phone: string, now: Date): Promise<CustomerView> {
     return db.$transaction(async (tx) => {
       // One row per (store, phone) by the unique index; concurrent first sign-ins converge on it.
-      const row = await tx.customer.upsert({ where: { storeId_phone: { storeId, phone } }, create: { storeId, phone }, update: {}, select: { id: true, phoneVerifiedAt: true, passwordHash: true } });
+      // Review 3.3b: decide on a LOCKED row (register takes the same lock), so a password set concurrently cannot survive verification.
+      const row = await lockedCustomer(tx, storeId, phone);
       const firstVerification = row.phoneVerifiedAt === null;
       return tx.customer.update({
         where: { id: row.id },
@@ -35,12 +49,10 @@ export class PrismaCustomerRepository implements CustomerRepository {
 
   async register(storeId: string, phone: string, name: string, passwordHash: string, now: Date): Promise<CustomerView | "exists"> {
     return db.$transaction(async (tx) => {
-      // Row lock (or the unique index for a new phone) serialises two registrations of one phone.
-      const [row] = await tx.$queryRaw<{ id: string; passwordHash: string | null; phoneVerifiedAt: Date | null }[]>`
-        SELECT id, "passwordHash", "phoneVerifiedAt" FROM "Customer" WHERE "storeId" = ${storeId} AND phone = ${phone} FOR UPDATE`;
-      if (row && (row.passwordHash !== null || row.phoneVerifiedAt !== null)) return "exists" as const;
-      if (row) return tx.customer.update({ where: { id: row.id }, data: { passwordHash, name, lastLoginAt: now }, select: customerSelect });
-      return tx.customer.create({ data: { storeId, phone, name, passwordHash, lastLoginAt: now }, select: customerSelect });
+      // The same locked row as SMS sign-in: two registrations, or a registration and a verification, are serialised (review 3.3b).
+      const row = await lockedCustomer(tx, storeId, phone);
+      if (row.passwordHash !== null || row.phoneVerifiedAt !== null) return "exists" as const;
+      return tx.customer.update({ where: { id: row.id }, data: { passwordHash, name, lastLoginAt: now }, select: customerSelect });
     });
   }
 

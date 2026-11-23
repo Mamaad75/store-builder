@@ -21,8 +21,13 @@ export interface CustomerAuthDeps {
 /** Phase 3.3b: password attempts and new accounts per network and per phone (per store). */
 export const PASSWORD_RULES = {
   loginPerIp: { limit: 30, windowSeconds: 900 },
-  loginPerPhone: { limit: 10, windowSeconds: 900 },
+  /** Per phone AND network: a stranger spamming wrong passwords cannot lock the owner out from their own network (review 3.3b). */
+  loginPerPhoneAndIp: { limit: 10, windowSeconds: 900 },
+  /** Per phone across networks: a looser ceiling against distributed guessing. */
+  loginPerPhone: { limit: 50, windowSeconds: 900 },
   registerPerIp: { limit: 10, windowSeconds: 3600 },
+  /** Per phone per store: probing whether numbers are registered is bounded (review 3.3b). */
+  registerPerPhone: { limit: 5, windowSeconds: 86_400 },
 } as const;
 
 /** The public view of a signed-in customer (no internal counters). */
@@ -116,6 +121,7 @@ export class CustomerAuthService {
     const r = customerRegisterSchema.safeParse(body);
     if (!r.success) throw new ValidationError(r.error.flatten().fieldErrors as Record<string, string[]>);
     await this.limit(`password-register:ip:${ipLimitKey(ip)}`, PASSWORD_RULES.registerPerIp);
+    await this.limit(`password-register:phone:${storeId}:${r.data.phone}`, PASSWORD_RULES.registerPerPhone);
     const created = await this.d.customers.register(storeId, r.data.phone, r.data.name, await this.d.passwords.hash(r.data.password), this.now());
     if (created === "exists") throw new CustomerExistsError();
     return { customer: profile(created), token: await this.d.tokens.issue({ customerId: created.id, storeId, authVersion: created.authVersion }) };
@@ -127,7 +133,10 @@ export class CustomerAuthService {
     const password = r.success ? r.data.password : "";
     const phone = r.success ? normalizeIranMobile(r.data.phone) : null;
     await this.limit(`password-login:ip:${ipLimitKey(ip)}`, PASSWORD_RULES.loginPerIp);
-    if (phone) await this.limit(`password-login:phone:${storeId}:${phone}`, PASSWORD_RULES.loginPerPhone);
+    if (phone) {
+      await this.limit(`password-login:phone-ip:${storeId}:${phone}:${ipLimitKey(ip)}`, PASSWORD_RULES.loginPerPhoneAndIp);
+      await this.limit(`password-login:phone:${storeId}:${phone}`, PASSWORD_RULES.loginPerPhone);
+    }
     const found = phone && password ? await this.d.customers.credentials(storeId, phone) : null;
     const ok = found?.passwordHash ? await this.d.passwords.verify(found.passwordHash, password) : await this.d.passwords.verifyDummy(password);
     if (!ok || !found) throw new CustomerLoginError();

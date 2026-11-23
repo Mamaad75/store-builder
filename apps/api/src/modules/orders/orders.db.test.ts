@@ -352,3 +352,45 @@ describe("customer accounts and guest orders (phase 3.3b)", () => {
     expect(theirs.json.items).toHaveLength(2);
   });
 });
+
+describe("security review 3.3b regressions", () => {
+  it("SMS verification racing a password registration never leaves a password on a verified account", async () => {
+    const { PrismaCustomerRepository } = await import("../customers/infrastructure/prisma-customers.repository.js");
+    const repo = new PrismaCustomerRepository();
+    const s = await liveStore("shop");
+    for (let i = 0; i < 20; i++) {
+      const phone = `+98912${String(1000000 + i)}`;
+      await Promise.all([repo.signIn(s.storeId, phone, new Date()), repo.register(s.storeId, phone, "مهاجم", "$argon2id$v=19$m=19456,t=2,p=1$x$y", new Date())]);
+      const c = await prisma.customer.findUniqueOrThrow({ where: { storeId_phone: { storeId: s.storeId, phone } } });
+      expect(c.phoneVerifiedAt).not.toBeNull();
+      expect(c.passwordHash, phone).toBeNull();
+    }
+  });
+
+  it("an order attached only by phone is shown to the verified owner but cannot be cancelled from the account", async () => {
+    const s = await liveStore("shop");
+    const g = shopper("shop");
+    await g.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const gift = (await g.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "COD" })).json;
+    const c = await prisma.customer.findFirstOrThrow({ where: { storeId: s.storeId, phone: "+989123456789" } });
+    await prisma.customer.update({ where: { id: c.id }, data: { phoneVerifiedAt: new Date() } });
+    const me = shopper("shop");
+    me.jar.set("sb_customer", await customerSessions.issue({ customerId: c.id, storeId: s.storeId, authVersion: 0 }));
+    expect((await me.call("GET", "/customer/orders")).json).toEqual([expect.objectContaining({ canCancel: false })]);
+    expect((await me.call("GET", `/customer/orders/${gift.order.id}`)).json.canCancel).toBe(false);
+    expect((await me.call("POST", `/customer/orders/${gift.order.id}/cancel`)).status).toBe(404);
+    expect((await g.call("POST", `/checkout/orders/${gift.accessToken}/cancel`)).status).toBe(200); // the buyer, with the order link
+  });
+
+  it("wrong passwords from one network do not lock the owner out on another", async () => {
+    await liveStore("shop");
+    const reg = shopper("shop");
+    await reg.call("POST", "/customer/register", { phone: "09121112233", name: "مریم", password: "a-good-password" });
+    const from = (ip: string) => async (password: string) =>
+      (await fetch(`${base}/api/public/stores/shop/customer/login`, { method: "POST", headers: { origin: "http://shop.localhost:3000", "content-type": "application/json", "x-forwarded-for": ip }, body: JSON.stringify({ phone: "09121112233", password }) })).status;
+    const attacker = from("203.0.113.7");
+    for (let i = 0; i < 10; i++) expect(await attacker("wrong-password")).toBe(400);
+    expect(await attacker("wrong-password")).toBe(429);
+    expect(await from("198.51.100.9")("a-good-password")).toBe(200);
+  });
+});

@@ -69,7 +69,7 @@ export class PrismaOrderStore implements OrderStore {
   }
 
   async listForCustomer(storeId: string, customerId: string, limit: number, includePhoneLinked: boolean): Promise<OrderView[]> {
-    const rows = await db.order.findMany({ where: { storeId, customerId, ...(includePhoneLinked ? {} : { linkedByPhone: false }) }, select: orderSelect, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit });
+    const rows = await db.order.findMany({ where: { storeId, customerId, ...(includePhoneLinked ? {} : { linkedByPhone: false }) }, select: orderSelect, orderBy: { number: "desc" }, take: limit });
     return rows.map(toView);
   }
 
@@ -88,12 +88,13 @@ export class PrismaOrderStore implements OrderStore {
   async list(storeId: string, q: { status?: OrderStatus; customerId?: string; before?: string; limit: number }): Promise<OrderListPage> {
     const where: Prisma.OrderWhereInput = { storeId, ...(q.status ? { status: q.status } : {}), ...(q.customerId ? { customerId: q.customerId } : {}) };
     if (q.before) {
-      // Keyset: strictly older than the cursor order (of THIS store; a foreign or unknown cursor is an empty page).
-      const c = await db.order.findFirst({ where: { storeId, id: q.before }, select: { createdAt: true, id: true } });
+      // Keyset on the gap-free per-store number (strictly increasing with time; createdAt can tie within a millisecond). The cursor
+      // must be an order of THIS store; a foreign or unknown cursor is an empty page.
+      const c = await db.order.findFirst({ where: { storeId, id: q.before }, select: { number: true } });
       if (!c) return { items: [], nextCursor: null };
-      where.OR = [{ createdAt: { lt: c.createdAt } }, { createdAt: c.createdAt, id: { lt: c.id } }];
+      where.number = { lt: c.number };
     }
-    const rows = await db.order.findMany({ where, select: orderSelect, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: q.limit + 1 });
+    const rows = await db.order.findMany({ where, select: orderSelect, orderBy: { number: "desc" }, take: q.limit + 1 });
     const page = rows.slice(0, q.limit).map(toView);
     return { items: page, nextCursor: rows.length > q.limit ? page[page.length - 1]!.id : null };
   }
