@@ -1,3 +1,4 @@
+import { storyImage } from "./story-image";
 import type { ReactNode } from "react";
 import { formatNumberFa, formatToman } from "@store-builder/shared/lib/money";
 import { formTarget, listProducts, listUrl, sectionImage } from "@store-builder/shared/templates/engine/listing";
@@ -127,10 +128,16 @@ export const About: SectionComponent<"richText"> = ({ ctx, section }) => {
   const Title = ctx.page.type === "ABOUT" && ctx.page.sections.find((item) => item.type === "richText")?.id === section.id ? "h1" : "h2";
   return <section className={s.copy}><Title>{section.props.title}</Title><p>{section.props.body}</p></section>;
 };
-export const Story: SectionComponent<"imageText"> = ({ ctx, section }) => <section className={s.story}>
-  <div><h2>{section.props.title}</h2><p>{section.props.body}</p></div>
-  {section.props.imageId && <Art ctx={ctx} imageId={section.props.imageId} />}
-</section>;
+export const Story: SectionComponent<"imageText"> = ({ ctx, section }) => {
+  const image = storyImage({ ctx, section });
+  return <section className={s.story}>
+    <div><h2>{section.props.title}</h2><p>{section.props.body}</p></div>
+    {image && (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img className={s.image} src={image.url} width={image.width} height={image.height} alt="" loading="lazy" decoding="async" />
+    )}
+  </section>;
+};
 export const Contact: SectionComponent<"contactInfo"> = ({ ctx, section }) => {
   const Title = ctx.page.type === "CONTACT" ? "h1" : "h2";
   return <section className={s.copy}><Title>{section.props.title}</Title><p>{section.props.body}</p><Contacts ctx={ctx} /></section>;

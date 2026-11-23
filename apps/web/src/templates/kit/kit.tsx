@@ -1,3 +1,4 @@
+import { storyImage } from "./story-image";
 import type { ReactNode } from "react";
 import { formatNumberFa } from "@store-builder/shared/lib/money";
 import { detailSpecs } from "@store-builder/shared/lib/product-specs";
@@ -777,7 +778,7 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
   );
 
   const ImageText: SectionComponent<"imageText"> = ({ section, ctx }) => {
-    const img = sectionImage(ctx, section.props.imageId);
+    const img = storyImage({ ctx, section });
     return (
       <Section id={section.id} alt>
         <div className={s.split}>

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { LANDING_KEYS } from "@store-builder/shared/templates/landing-content";
 import { MAX_SECTIONS_PER_PAGE } from "@store-builder/shared/templates/editor";
 import { getSectionDefinition } from "@store-builder/shared/templates/section-registry";
+import { mediaPublicUrl } from "@/lib/media-url";
 import { loadThemeDemo } from "@/app/themes/demo";
 import StorefrontRenderer from "./engine/StorefrontRenderer";
 import { buildView } from "./engine/view";
@@ -55,4 +56,17 @@ it("filters the in-stock shelf and preserves the editor order", () => {
   expect(shelf).not.toContain("product-3");
   expect(shelf).toContain("product-1");
   expect(html.indexOf('data-landing-section="campaign"')).toBeLessThan(start);
+});
+
+describe.each(LANDING_KEYS)("%s default story on existing stores", (key) => {
+  it.each([1, 2, 3, 4])("renders a sample photo without saved media in version %i", (version) => {
+    const demo = loadThemeDemo(key, version)!;
+    const view = buildView(
+      { ...demo.data, products: [], images: {} },
+      { basePath: "", segments: [], mediaUrl: (mediaKey) => mediaPublicUrl(mediaKey, { S3_PUBLIC_BASE_URL: 'https://media.example.test' }) },
+    );
+    if (view.status !== "ok") throw new Error(view.status);
+    const html = renderToStaticMarkup(<StorefrontRenderer template={view.template} ctx={view.ctx} />);
+    expect(html).toContain('src="/theme-demos/' + key + '-product-3.webp"');
+  });
 });

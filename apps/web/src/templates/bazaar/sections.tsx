@@ -1,3 +1,4 @@
+import { storyImage } from "../kit/story-image";
 import { sectionImage, listUrl } from "@store-builder/shared/templates/engine/listing";
 import { parseLabelLines } from "@store-builder/shared/templates/engine/lines";
 import { buildContactLinks } from "@store-builder/shared/templates/engine/links";
@@ -73,7 +74,7 @@ export const RichText: SectionComponent<"richText"> = ({ ctx, section }) => {
 };
 
 export const ImageText: SectionComponent<"imageText"> = ({ ctx, section }) => {
-  const art = sectionImage(ctx, section.props.imageId);
+  const art = storyImage({ ctx, section });
   return <section className={`${s.panel} ${s.story}`} aria-labelledby={section.id}>
     <div><h2 id={section.id}>{section.props.title}</h2><p className={s.prose}>{section.props.body}</p></div>
     {art && (
