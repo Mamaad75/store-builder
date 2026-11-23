@@ -99,7 +99,7 @@ async function createLegacyStore(page: Page, name: string, templateKey: string, 
  * Creates a store through the UI and returns its id. `templateName` is a legacy label ("فروشگاه عمومی", ...) or a theme key;
  * `category` (optional) is a business category key chosen independently of the theme.
  */
-export async function createStoreViaUi(page: Page, name: string, templateName?: string, category?: string): Promise<string> {
+export async function createStoreViaUi(page: Page, name: string, templateName?: string, category?: string, { useSampleContent = false } = {}): Promise<string> {
   const key = templateName ? (THEME_BY_LABEL[templateName] ?? templateName) : undefined;
   if (key && LEGACY_THEMES.has(key)) return createLegacyStore(page, name, key, category);
   await page.goto("/dashboard/stores/new");
@@ -107,6 +107,7 @@ export async function createStoreViaUi(page: Page, name: string, templateName?: 
   await page.fill("input[name=name]", name);
   if (category) await page.locator(`[data-category-key=${category}] button`).click();
   if (templateName) await page.locator(`[data-theme-key=${THEME_BY_LABEL[templateName] ?? templateName}] button`).click();
+  if (!useSampleContent) await page.getByRole("checkbox", { name: /محصولات نمونهٔ قالب/ }).uncheck();
   await page.getByRole("button", { name: "ساخت فروشگاه" }).click();
   await page.waitForURL(/\/dashboard\/stores\/(?!new$)[^/]+$/);
   return new URL(page.url()).pathname.split("/").pop()!;

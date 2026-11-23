@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+import { loadThemeDemo } from "@store-builder/shared/templates/demo";
 import type { Prisma } from "@prisma/client";
 import { isDeepStrictEqual } from "node:util";
 import { ZodError } from "zod";
@@ -5,6 +7,7 @@ import { db } from "../../lib/db.js";
 import { getBusinessCategory, inferCategoryFromThemeKey } from "@store-builder/shared/lib/business-categories";
 import { pageDefinitionSchema } from "@store-builder/shared/templates/section-parse";
 import { allThemes, resolveThemeDefinition } from "@store-builder/shared/templates/theme-catalog";
+import { prepareSampleContent } from "./sample-content.js";
 import { applyStarterCopy } from "./starter-content.js";
 import { templateSettingsSchema } from "@store-builder/shared/templates/sections";
 import { ConflictError, NotFoundError, StoreLimitError, ValidationError } from "@store-builder/shared/modules/stores/errors";
@@ -47,11 +50,15 @@ export function parseStoreId(storeId: unknown): string {
 export async function listActiveTemplates(): Promise<{ key: string; name: string; description: string }[]> {
   const rows = await db.template.findMany({ where: { isActive: true, versions: { some: { isActive: true } } }, select: { key: true, versions: { where: { isActive: true }, select: { version: true } } } });
   const out: { key: string; name: string; description: string }[] = [];
+  const seen = new Set<string>();
   for (const t of allThemes()) {
     // Legacy themes (DT-2) keep working for the stores that use them but are no longer offered for a new store.
-    if (t.legacy) continue;
+    if (t.legacy || seen.has(t.key)) continue;
+    seen.add(t.key);
     const row = rows.find((r) => r.key === t.key);
-    if (row && row.versions.some((v) => v.version === t.version)) out.push({ key: t.key, name: t.meta.name, description: t.meta.description });
+    const version = Math.max(...(row?.versions.map((v) => v.version) ?? []));
+    const definition = resolveThemeDefinition(t.key, version);
+    if (definition) out.push({ key: t.key, name: definition.meta.name, description: definition.meta.description });
   }
   return out;
 }
@@ -71,7 +78,7 @@ export async function getStore(ownerId: string, storeId: unknown): Promise<Store
 }
 
 export async function createStore(ownerId: string, input: unknown): Promise<{ id: string }> {
-  const { name, templateKey, businessCategory } = parseOrThrow(createStoreSchema, input);
+  const { name, templateKey, businessCategory, withSampleContent } = parseOrThrow(createStoreSchema, input);
   // What the merchant sells (a label + starter text) is chosen independently of the visual theme.
   const category = getBusinessCategory(businessCategory ?? inferCategoryFromThemeKey(templateKey));
   if (!category) throw new ValidationError({ businessCategory: ["دسته‌بندی انتخاب‌شده معتبر نیست"] });
@@ -91,8 +98,11 @@ export async function createStore(ownerId: string, input: unknown): Promise<{ id
     if (!version || !resolveThemeDefinition(templateKey, version.version)) throw new ValidationError({ templateKey: ["قالب انتخاب‌شده معتبر نیست"] });
 
     const settings = templateSettingsSchema.parse(version.defaultSettings);
-    // Category starter text is applied here, once. It is never re-applied when the category is changed later.
-    const pages = applyStarterCopy(z.array(pageDefinitionSchema).parse(version.defaultPages), category.starter);
+    const demo = withSampleContent ? loadThemeDemo(templateKey, version.version) : null;
+    const initialId = demo ? randomBytes(16).toString("hex") : undefined;
+    const sample = demo && initialId ? prepareSampleContent(demo, initialId, ownerId) : null;
+    // Blank stores retain the existing category-specific starter copy.
+    const pages = sample?.pages ?? applyStarterCopy(z.array(pageDefinitionSchema).parse(version.defaultPages), category.starter);
 
     const store = await tx.store.create({
       data: {
@@ -100,7 +110,12 @@ export async function createStore(ownerId: string, input: unknown): Promise<{ id
         templateVersionId: version.id,
         name,
         businessCategory: category.key,
-        settings,
+        settings: sample?.description === undefined ? settings : { ...settings, description: sample.description },
+        ...(sample && {
+          id: initialId,
+          media: { createMany: { data: sample.media } },
+          categories: { createMany: { data: sample.categories } },
+        }),
         pages: {
           create: pages.map((p, i) => ({
             type: p.type,
@@ -113,6 +128,7 @@ export async function createStore(ownerId: string, input: unknown): Promise<{ id
       },
       select: { id: true },
     });
+    if (sample) await repo.createStarterProducts(store.id, sample.products);
     return store;
   });
 }

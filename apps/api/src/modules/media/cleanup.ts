@@ -1,3 +1,4 @@
+import { starterAssetForKey } from "@store-builder/shared/lib/storage/keys";
 import { log as appLog } from "../../lib/log.js";
 import { MEDIA_KEY_PREFIX, getMediaStorage, isValidMediaKey, type MediaStorage } from "../../lib/storage/index.js";
 import { CLEANUP_GRACE_MS } from "./limits.js";
@@ -62,7 +63,7 @@ export async function runMediaCleanup(opts: CleanupOptions = {}): Promise<Cleanu
       try {
         // Claim first: only a row that is still PENDING (not completed meanwhile) becomes a DELETING tombstone.
         if (status === "PENDING" && !(await claimExpiredPending(row.id, cutoff))) continue;
-        await storage.delete(row.key);
+        if (!starterAssetForKey(row.key)) await storage.delete(row.key);
         if (await deleteMediaRowIfStatus(row.id, "DELETING")) onDone();
       } catch (e) {
         report.failures++;

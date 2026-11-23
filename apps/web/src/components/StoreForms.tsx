@@ -7,10 +7,14 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import CheckCircleRounded from "@mui/icons-material/CheckCircleRounded";
+import OpenInNewRounded from "@mui/icons-material/OpenInNewRounded";
 import ColorField from "@/components/ColorField";
 import {
   createStoreAction,
@@ -32,12 +36,15 @@ interface ThemeOption {
  * Two independent choices: what the merchant SELLS (business category: label + starter text) and the VISUAL THEME.
  * Choosing a category only suggests a theme; any combination can be created.
  */
-export function CreateStoreForm({ templates, categories }: { templates: ThemeOption[]; categories: { key: string; name: string; description: string; suggestedThemes: string[] }[] }) {
+export function CreateStoreForm({ templates, categories, initialTheme }: { templates: ThemeOption[]; categories: { key: string; name: string; suggestedThemes: string[] }[]; initialTheme?: string }) {
   const [state, action, pending] = useActionState(createStoreAction, {});
-  const [category, setCategory] = useState(categories[0]?.key ?? "general");
+  const initialCategory = categories.find((c) => c.suggestedThemes[0] === initialTheme) ?? categories[0];
+  const [category, setCategory] = useState(initialCategory?.key ?? "general");
+  const [name, setName] = useState("");
+  const [withSampleContent, setWithSampleContent] = useState(true);
   const [theme, setTheme] = useState(() => {
-    const first = categories[0]?.suggestedThemes.find((k) => templates.some((t) => t.key === k));
-    return first ?? templates[0]?.key ?? "";
+    const first = initialCategory?.suggestedThemes.find((k) => templates.some((t) => t.key === k));
+    return initialTheme ?? first ?? templates[0]?.key ?? "";
   });
   const pickCategory = (key: string) => {
     setCategory(key);
@@ -49,26 +56,17 @@ export function CreateStoreForm({ templates, categories }: { templates: ThemeOpt
     <form action={action}>
       <Stack spacing={3}>
         {state.error && <Alert severity="error">{state.error}</Alert>}
-        <TextField name="name" label="نام فروشگاه" required error={!!fe(state, "name")} helperText={fe(state, "name")} />
-        <Box component="fieldset" sx={{ border: 0, p: 0, m: 0 }}>
+        <Box component="fieldset" sx={{ border: 0, p: 0, m: 0, minInlineSize: 0 }}>
           <Typography component="legend" sx={{ mb: 0.5, fontWeight: 600 }}>
             چه چیزی می‌فروشید؟
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            فقط متن اولیهٔ فروشگاه را تعیین می‌کند و بعداً قابل تغییر است.
           </Typography>
           <input type="hidden" name="businessCategory" value={category} />
           <Grid container spacing={2}>
             {categories.map((c) => (
-              <Grid key={c.key} size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card variant="outlined" sx={choice(category === c.key)} data-category-key={c.key}>
-                  <CardActionArea onClick={() => pickCategory(c.key)} aria-pressed={category === c.key}>
-                    <CardContent>
-                      <Typography sx={{ fontWeight: 700 }}>{c.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {c.description}
-                      </Typography>
-                    </CardContent>
+              <Grid key={c.key} size={{ xs: 6, md: 3 }}>
+                <Card variant="outlined" sx={{ ...choice(category === c.key), height: "100%", borderRadius: 2 }} data-category-key={c.key}>
+                  <CardActionArea type="button" onClick={() => pickCategory(c.key)} aria-pressed={category === c.key} sx={{ height: "100%", px: 1.5, py: 1, textAlign: "start", bgcolor: category === c.key ? "action.selected" : undefined }}>
+                    <Typography component="span" variant="body2" sx={{ fontWeight: 700 }}>{c.name}</Typography>
                   </CardActionArea>
                 </Card>
               </Grid>
@@ -76,33 +74,44 @@ export function CreateStoreForm({ templates, categories }: { templates: ThemeOpt
           </Grid>
           {fe(state, "businessCategory") && <Alert severity="error" sx={{ mt: 1 }}>{fe(state, "businessCategory")}</Alert>}
         </Box>
-        <Box component="fieldset" sx={{ border: 0, p: 0, m: 0 }}>
+        <Box component="fieldset" sx={{ border: 0, p: 0, m: 0, minInlineSize: 0 }}>
           <Typography component="legend" sx={{ mb: 0.5, fontWeight: 600 }}>
-            ظاهر فروشگاه (قالب)
+            قالب فروشگاه
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            هر قالب با هر نوع فروشگاهی کار می‌کند.
+            پیش‌نمایش قالب را باز کنید و چیدمان صفحات فروشگاه را ببینید.
           </Typography>
           <input type="hidden" name="templateKey" value={theme} />
           <Grid container spacing={2}>
             {templates.map((t) => (
-              <Grid key={t.key} size={{ xs: 12, sm: 4 }}>
-                <Card variant="outlined" sx={choice(theme === t.key)} data-theme-key={t.key}>
-                  <CardActionArea onClick={() => setTheme(t.key)} aria-pressed={theme === t.key}>
-                    <CardContent>
-                      <Typography sx={{ fontWeight: 700 }}>{t.name}</Typography>
+              <Grid key={t.key} size={{ xs: 12, sm: 6, md: 3 }}>
+                <Card variant="outlined" sx={{ ...choice(theme === t.key), height: "100%", borderRadius: 3, display: "flex", flexDirection: "column" }} data-theme-key={t.key}>
+                  <CardActionArea type="button" onClick={() => setTheme(t.key)} aria-pressed={theme === t.key} aria-label={`انتخاب قالب ${t.name}`} sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "start" }}>
+                    <Box component="span" sx={{ display: "block", position: "relative", aspectRatio: "16 / 10", bgcolor: "action.hover" }}>
+                      {/* The local, fixed-size artwork is already optimised. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/theme-demos/${t.key}-layout.webp`} alt="" width={640} height={400} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }} />
+                      {theme === t.key && <CheckCircleRounded sx={{ position: "absolute", insetInlineStart: 10, top: 10, bgcolor: "background.paper", borderRadius: "50%", color: "primary.main" }} />}
+                    </Box>
+                    <CardContent component="span" sx={{ display: "block", p: 1.5 }}>
+                      <Typography component="span" sx={{ display: "block", fontWeight: 800 }}>{t.name}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {t.description}
                       </Typography>
                     </CardContent>
                   </CardActionArea>
+                  <Button href={`/themes/${t.key}`} target="_blank" rel="noopener" aria-label={`پیش‌نمایش قالب ${t.name} (زبانهٔ جدید)`} endIcon={<OpenInNewRounded />} sx={{ alignSelf: "start", m: 0.5 }}>
+                    پیش‌نمایش
+                  </Button>
                 </Card>
               </Grid>
             ))}
           </Grid>
           {fe(state, "templateKey") && <Alert severity="error" sx={{ mt: 1 }}>{fe(state, "templateKey")}</Alert>}
         </Box>
-        <Button type="submit" variant="contained" size="large" disabled={pending}>
+        <TextField name="name" label="نام فروشگاه" required value={name} onChange={(event) => setName(event.target.value)} error={!!fe(state, "name")} helperText={fe(state, "name")} />
+        <FormControlLabel control={<Checkbox name="withSampleContent" checked={withSampleContent} onChange={(_, checked) => setWithSampleContent(checked)} />} label="شروع با بنر، دسته‌ها و محصولات نمونهٔ قالب (قابل ویرایش)" />
+        <Button type="submit" variant="contained" size="large" disabled={pending || !theme} sx={{ alignSelf: { sm: "start" } }}>
           ساخت فروشگاه
         </Button>
       </Stack>

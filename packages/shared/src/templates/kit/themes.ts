@@ -1,3 +1,4 @@
+import { landingTheme } from "../landing-content.js";
 import type { ThemeDefinition } from "../theme.js";
 import { kitTheme, linesSection, noticeSection, sizeGuideSection } from "./kit-sections.js";
 
@@ -109,3 +110,24 @@ export const khanehTheme: ThemeDefinition = kitTheme({
 
 /** In the order offered to merchants (matches the business categories). */
 export const KIT_THEMES: readonly ThemeDefinition[] = [bazaarTheme, circuitTheme, sormehTheme, dookhtTheme, arcadeTheme, sofrehTheme, golkhanehTheme, khanehTheme];
+
+/** The visual refresh shares the original section schemas and editor rules. */
+export const KIT_THEMES_V2: readonly ThemeDefinition[] = KIT_THEMES.map((theme) => ({ ...theme, version: 2 }));
+
+export const bazaarMarketTheme: ThemeDefinition = {
+  ...bazaarTheme,
+  version: 3,
+  meta: { name: "بازار", description: "فروشگاه چندمنظوره با جست‌وجوی مرکزی، دسته‌های دایره‌ای، قفسه‌های افقی و شبکهٔ فشردهٔ کالا." },
+};
+
+export const circuitStudioTheme: ThemeDefinition = { ...circuitTheme, version: 3 };
+export const sormehStudioTheme: ThemeDefinition = { ...sormehTheme, version: 3 };
+export const dookhtStudioTheme: ThemeDefinition = { ...dookhtTheme, version: 3 };
+export const arcadeStudioTheme: ThemeDefinition = { ...arcadeTheme, version: 3 };
+export const sofrehStudioTheme: ThemeDefinition = { ...sofrehTheme, version: 3 };
+export const golkhanehStudioTheme: ThemeDefinition = { ...golkhanehTheme, version: 3 };
+export const khanehStudioTheme: ThemeDefinition = { ...khanehTheme, version: 3 };
+
+export const KIT_THEMES_V3: readonly ThemeDefinition[] = [bazaarMarketTheme, circuitStudioTheme, sormehStudioTheme, dookhtStudioTheme, arcadeStudioTheme, sofrehStudioTheme, golkhanehStudioTheme, khanehStudioTheme];
+
+export const KIT_THEMES_V4: readonly ThemeDefinition[] = KIT_THEMES_V3.map(landingTheme);

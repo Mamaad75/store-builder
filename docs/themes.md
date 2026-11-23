@@ -117,6 +117,66 @@ that does not exist (discounts, ratings, cart) is invented, and nothing needs cl
 * **Existing local databases** keep the seed pages they were created with (a seed never overwrites a template version), so their home
   pages lack the two new sections until they are added in the editor; a fresh database (`pnpm db:reset`) seeds them.
 
+## Business theme refresh
+
+### Landing merchandising (version 4)
+
+Version 4 layers category discovery, a campaign with an optional editable image, a spotlight, repeatable product shelves and a buying guide over the eight independent storefronts. Each is registered under its theme key and has separate fields and a title in the page editor. The home seed differs per theme and stays within the existing section limit. Sormeh keeps its version 3 product cards. Versions 1–3 retain their registered layouts and section definitions.
+
+The latest demo uses six original product images per theme. Product shelves read catalog prices and stock and cap the number of entries. Optional category selectors use the store's own name or slug. Campaign images and product art use the existing media pipeline. The landing sections add server-rendered HTML and CSS, bounded native scroll and disclosure controls, and no storefront client script.
+
+| Theme | Desktop home | Mobile home |
+| --- | --- | --- |
+| بازار | [1440 px](theme-previews-v4/bazaar/home-1440.webp) | [390 px](theme-previews-v4/bazaar/home-390.webp) |
+| مدار | [1440 px](theme-previews-v4/circuit/home-1440.webp) | [390 px](theme-previews-v4/circuit/home-390.webp) |
+| سُرمه | [1440 px](theme-previews-v4/sormeh/home-1440.webp) | [390 px](theme-previews-v4/sormeh/home-390.webp) |
+| دوخت | [1440 px](theme-previews-v4/dookht/home-1440.webp) | [390 px](theme-previews-v4/dookht/home-390.webp) |
+| آرکید | [1440 px](theme-previews-v4/arcade/home-1440.webp) | [390 px](theme-previews-v4/arcade/home-390.webp) |
+| سفره | [1440 px](theme-previews-v4/sofreh/home-1440.webp) | [390 px](theme-previews-v4/sofreh/home-390.webp) |
+| گلخانه | [1440 px](theme-previews-v4/golkhaneh/home-1440.webp) | [390 px](theme-previews-v4/golkhaneh/home-390.webp) |
+| خانه | [1440 px](theme-previews-v4/khaneh/home-1440.webp) | [390 px](theme-previews-v4/khaneh/home-390.webp) |
+
+Deploy the web and API together, then run `pnpm db:seed` to offer version 4 for new stores. For existing stores, switch to version 4 in Appearance and add the desired new blocks in the page editor. The switch preserves the current section configuration and uses the existing publishing flow.
+
+Merchandising references included [Digikala](https://www.digikala.com/), [Technolife](https://www.technolife.com/), [Lion Computer](https://www.lioncomputer.com/), [Khanoumi](https://www.khanoumi.com/), [Banimode](https://www.banimode.com/), the [Kiana gallery design](https://www.figma.com/design/OeFdBscM2VDhmLDVNks40z/?node-id=0-1), and [Entekhab Center](https://www.entekhabcenter.com/). Intergame and Noa Life could not be opened directly during this pass. The arcade and cafe content use patterns from the working [Pixevel catalog](https://pixevel.com/products?sort=newest) and [Yousefzadeh Coffee catalog](https://yousefzadehcoffee.com/shop/).
+
+### Independent storefronts (version 3)
+
+Each version 3 storefront has its own header, hero, product listing, product detail and footer. The seven themes added after Bazaar own their JSX and CSS in `apps/web/src/templates/<key>/studio.tsx` and `studio.module.css`. Shared primitives render safe media, specifications, filters, pagination, links and other small pieces. The existing section contracts and version 1 and 2 renderers remain registered. Run `pnpm db:seed` to register version 3 in the deployment database.
+
+| قالب | ساختار | دسکتاپ ۱۴۴۰ | موبایل ۳۹۰ |
+| --- | --- | --- | --- |
++| بازار | هدر دو ردیفه، بنر کوتاه، دسته‌های گرد، قفسه‌های افقی، شبکهٔ فشرده و فوتر چندستونه | [خانه](theme-previews/bazaar/home-1440.webp) · [فهرست](theme-previews/bazaar/catalog-1440.webp) · [جزئیات](theme-previews/bazaar/product-1440.webp) | [خانه](theme-previews/bazaar/home-390.webp) · [فهرست](theme-previews/bazaar/catalog-390.webp) · [جزئیات](theme-previews/bazaar/product-390.webp) |
+| مدار | هدر تیره و چسبان، هیروی آماری، ردیف‌های فنی، گالری چسبان و نمایش بازشوندهٔ مشخصات | [خانه](theme-previews/circuit/home-1440.webp) · [فهرست](theme-previews/circuit/catalog-1440.webp) · [جزئیات](theme-previews/circuit/product-1440.webp) | [خانه](theme-previews/circuit/home-390.webp) · [فهرست](theme-previews/circuit/catalog-390.webp) · [جزئیات](theme-previews/circuit/product-390.webp) |
+| سُرمه | لوگوی مرکزی، قاب طاقی، شبکهٔ باز و صفحهٔ محصول تک‌ستونه | [خانه](theme-previews/sormeh/home-1440.webp) · [فهرست](theme-previews/sormeh/catalog-1440.webp) · [جزئیات](theme-previews/sormeh/product-1440.webp) | [خانه](theme-previews/sormeh/home-390.webp) · [فهرست](theme-previews/sormeh/catalog-390.webp) · [جزئیات](theme-previews/sormeh/product-390.webp) |
+| دوخت | هدر روی جلد تصویری، شبکهٔ نامتقارن و گالری عمودی با راهنمای اندازهٔ چسبان | [خانه](theme-previews/dookht/home-1440.webp) · [فهرست](theme-previews/dookht/catalog-1440.webp) · [جزئیات](theme-previews/dookht/product-1440.webp) | [خانه](theme-previews/dookht/home-390.webp) · [فهرست](theme-previews/dookht/catalog-390.webp) · [جزئیات](theme-previews/dookht/product-390.webp) |
+| آرکید | سایدبار پلتفرم‌ها، ردیف‌های افقی، گام‌های شماره‌دار و پنل سفارش چسبان | [خانه](theme-previews/arcade/home-1440.webp) · [فهرست](theme-previews/arcade/catalog-1440.webp) · [جزئیات](theme-previews/arcade/product-1440.webp) | [خانه](theme-previews/arcade/home-390.webp) · [فهرست](theme-previews/arcade/catalog-390.webp) · [جزئیات](theme-previews/arcade/product-390.webp) |
+| سفره | سربرگ کافه، فهرست منو با جداکنندهٔ خط‌چین، ساعات کار و پنل نشانی | [خانه](theme-previews/sofreh/home-1440.webp) · [فهرست](theme-previews/sofreh/catalog-1440.webp) · [جزئیات](theme-previews/sofreh/product-1440.webp) | [خانه](theme-previews/sofreh/home-390.webp) · [فهرست](theme-previews/sofreh/catalog-390.webp) · [جزئیات](theme-previews/sofreh/product-390.webp) |
+| گلخانه | نوار زمان ارسال، اسلایدر دستی CSS، کاشی‌های مناسبت و کارت‌های طاقی | [خانه](theme-previews/golkhaneh/home-1440.webp) · [فهرست](theme-previews/golkhaneh/catalog-1440.webp) · [جزئیات](theme-previews/golkhaneh/product-1440.webp) | [خانه](theme-previews/golkhaneh/home-390.webp) · [فهرست](theme-previews/golkhaneh/catalog-390.webp) · [جزئیات](theme-previews/golkhaneh/product-390.webp) |
+| خانه | منوی بازشونده، دو پنل بنر، سه ستون مقایسه و فیلتر چسبان با کشوی موبایل | [خانه](theme-previews/khaneh/home-1440.webp) · [فهرست](theme-previews/khaneh/catalog-1440.webp) · [جزئیات](theme-previews/khaneh/product-1440.webp) | [خانه](theme-previews/khaneh/home-390.webp) · [فهرست](theme-previews/khaneh/catalog-390.webp) · [جزئیات](theme-previews/khaneh/product-390.webp) |
+
+The eight public demos use dedicated banners and three locally served product photos each. Gallery thumbnails are compressed captures of the storefront itself. Entry animations and optional scroll-driven motion use CSS, respect reduced-motion preferences and require no storefront client runtime. Flower slides use native horizontal scrolling with snap points.
+
+Newsletter signup, storing a gift message at checkout and downloading paid products require backend capabilities beyond the present section contract. Sormeh exposes the store’s contact and social links, and Golkhaneh explains how to pass a gift message through the current ordering channels. Product comparisons use the specifications already stored on each product.
+
+### Bazaar marketplace layout (version 3)
+
+Bazaar version 3 draws its own header, catalog, product detail and footer from the existing storefront contract. The masthead puts search between the store brand and support, followed by a category/navigation strip. Home uses a compact promotion, circular category links and scroll-snap shelves. The listing has four columns on desktop and two on phones, with category links, sorting and pagination. Product detail uses a gallery beside a summary and order panel, then specifications and related products.
+
+The public demo and the gallery thumbnail use the version 3 storefront. The three demo products each have their own image. Merchant content is rendered from the existing section schema and image references. Versions 1 and 2 retain their original kit renderers. Seed the new version with `pnpm db:seed`.
+
+| Screen | Desktop 1440 px | Mobile 390 px |
+| --- | --- | --- |
+| Home | [Screenshot](theme-previews/bazaar/home-1440.webp) | [Screenshot](theme-previews/bazaar/home-390.webp) |
+| Product listing | [Screenshot](theme-previews/bazaar/catalog-1440.webp) | [Screenshot](theme-previews/bazaar/catalog-390.webp) |
+| Product detail | [Screenshot](theme-previews/bazaar/product-1440.webp) | [Screenshot](theme-previews/bazaar/product-390.webp) |
+
+The product contract has a single price and no sales ranking or product publication date. Cards therefore show price and actual stock. Home shelves use editorial selection and categories.
+
+The earlier kit refresh remains available as version 2 for each business theme. New stores start on the latest active version. Owners can preview and apply an update in **Appearance**. Publishing the draft makes the update visible to customers.
+
+The creation form offers an illustrated gallery. Each link opens a sample storefront at `/themes/<key>`, using the same renderer as a real store. Sample artwork and products only belong to these demos. On a real version 2 storefront the home banner can use the first available product photo when the owner has not selected banner artwork.
+
 ## Theme-specific sections (9A)
 
 * `coffee.openingHours` `{ title, body (lines "label: hours"), note }` - dotted-leader rows. Approved on home, about, contact.
@@ -130,7 +190,7 @@ A switch changes **one column**: `Store.templateVersionId` (and bumps `draftRevi
 * **Compatibility report** (`src/modules/pages/compat.ts`, pure): for every stored entry of every page (hidden pages included) the state under the current and under the target theme is computed with the editor's own `analyzePage`, so the report cannot disagree with what the editor will show. Labels: `stays_active`, `becomes_dormant`, `becomes_active`, `stays_dormant`, `stays_invalid` (**pre-existing**, never blocks), `becomes_invalid` (**new**, blocks), `invalid_becomes_active/dormant`. Required-section violations are listed per page (`missingRequired`, with `alsoMissingNow`) and block.
 * **Blocking rule:** the switch is refused (`ThemeSwitchBlockedError`, full report) when it would introduce a new invalid entry (e.g. an extra copy of a type the target treats as a singleton) or leave a page without a type the target requires. Nothing is repaired automatically: the owner fixes the page under the current theme first. Pre-existing invalid data never blocks and is left exactly as stored (the Phase 8 recovery stays an explicit action).
 * **Concurrency:** the report carries the `draftRevision` it was computed from. `switchTheme` runs inside `withStoreMutation` (ownership in SQL, store lock, revision bump), checks that the revision is exactly one behind, **re-computes the report under the lock** and only then writes the pointer (conditional on the previous pointer). A stale report or concurrent draft edit is a `ConflictError`; a switch to the current theme writes nothing and does not bump the revision.
-* **Targets:** only the latest *active* version of an active theme key that also exists in the code catalog. A newer DB version without code is "unavailable" (never silently replaced by the old one); version upgrades are out of scope.
+* **Targets:** only the latest *active* version of an active theme key that also exists in the code catalog. When a store uses an older version of the same theme, the latest active version is a switch target. A newer DB version without code is unavailable.
 * **Candidate-theme preview:** `/preview/<storeId>?theme=<key>` renders the draft with another theme. Owner-only (same ownership-in-SQL read and identical 404), read-only (no write call on that path, enforced by an architecture test), never reads published data, `noindex`/no-store like every preview, shows a banner "not applied", and carries `theme=` on its internal links. An unknown/inactive/malformed key shows a neutral notice.
 * **Published storefront:** nothing a switch or a candidate preview does can reach it. The published storefront reads only the immutable `StoreVersion.snapshot` named by the published pointer, which carries its own `template {key, version}`. (There is no snapshot writer until phase 10; the tests publish by hand and compare output before/after.)
 * **Media:** a switch touches no media row. Active, dormant and invalid sections all live in `Page.sections` and are matched by `isMediaReferenced`; **archived** sections (`Page.legacySections`, where the Phase 8 recovery moves invalid entries) are now matched too (a phase 8 gap closed in 9B). Nothing in the application removes archived entries, so their media stay protected indefinitely; a dormant section's media is released only by explicitly removing that dormant section.

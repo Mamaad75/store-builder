@@ -44,6 +44,58 @@ async function activateProduct(page: Page, storeId: string, name: string) {
 }
 
 test.describe("publishing and host routing", () => {
+  test("a selected theme starts with the demo and its images survive publishing", async ({ page }) => {
+    await signUpAndIn(page);
+    const storeId = await createStoreViaUi(page, "بازار من", "bazaar", undefined, { useSampleContent: true });
+    const dashboard = `/dashboard/stores/${storeId}`;
+    await page.goto(`${dashboard}/products`);
+    await expect(page.getByTestId("product-row")).toHaveCount(6);
+
+    await page.goto(dashboard);
+    await page.getByRole("link", { name: "ویرایش بخش‌های صفحهٔ خانه" }).click();
+    const section = page.locator('[data-section-type="hero"]');
+    await expect(section).toHaveCount(1);
+    await waitForHydration(page, '[data-section-type="hero"] button[aria-expanded]');
+    await section.locator("button[aria-expanded]").first().click();
+    await section.getByLabel("عنوان", { exact: true }).fill("خرید از بازار من");
+    await section.getByRole("button", { name: "ذخیرهٔ بخش" }).click();
+    await expect(page.getByText("بخش ذخیره شد.")).toBeVisible();
+
+    await page.reload();
+    await waitForHydration(page, '[data-section-type="bazaar.campaign"] button[aria-expanded]');
+    const campaign = page.locator('[data-section-type="bazaar.campaign"]');
+    await campaign.locator("button[aria-expanded]").first().click();
+    await campaign.getByRole("button", { name: "حذف بخش" }).click();
+    await expect(page.getByText("بخش حذف شد.")).toBeVisible({ timeout: 15_000 });
+    await expect(campaign).toHaveCount(0);
+
+    await page.goto(`/preview/${storeId}`);
+    await expect(page.getByText("خرید از بازار من", { exact: true })).toBeVisible();
+    const banner = 'img[src="/theme-demos/bazaar.webp"]';
+    await expect.poll(() => page.locator(banner).first().evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+
+    const l = label();
+    await claim(page, storeId, l);
+    await publish(page, storeId);
+    await page.goto(storeUrl(l));
+    await expect(page.getByText("خرید از بازار من", { exact: true })).toBeVisible();
+    await expect.poll(() => page.locator(banner).first().evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+
+    await page.goto(storeUrl(l, "/products/product-1"));
+    await expect(page.getByRole("heading", { name: "ماگ سرامیکی", exact: true })).toBeVisible();
+    await expect.poll(() => page.locator('img[src="/theme-demos/bazaar-product-1.webp"]').first().evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    expect((await asHost(page, "unknown.invalid", "/theme-demos/bazaar.webp")).status()).toBe(404);
+
+    await page.goto(`${dashboard}/products`);
+    const mug = page.getByTestId("product-row").filter({ hasText: "ماگ سرامیکی" });
+    await mug.getByRole("button", { name: "حذف", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "حذف محصول" }).click();
+    await expect(page.getByTestId("product-row")).toHaveCount(5);
+    await page.goto(`/preview/${storeId}/products/product-1`);
+    await expect(page.getByRole("heading", { level: 1, name: "صفحه پیدا نشد" })).toBeVisible();
+    expect((await page.goto(storeUrl(l, "/products/product-1")))?.status()).toBe(200);
+  });
+
   test("claim, publish, public site shows only the snapshot, draft edits stay private until the next publish", async ({ page, browser }) => {
     await signUpAndIn(page);
     const storeId = await createStoreViaUi(page, "فروشگاه زنده", "فروشگاه عمومی");

@@ -1,6 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { makeUser, prisma, resetDb } from "../../test/db-helpers.js";
 import { NotFoundError, StoreLimitError, ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { starterAssetForKey } from "@store-builder/shared/lib/storage/keys";
+import { loadThemeDemo } from "@store-builder/shared/templates/demo";
+import { getDraftPreview } from "../storefront/service.js";
 import { StoreRepository } from "./repository.js";
 import { coffeeTheme } from "@store-builder/shared/templates/coffee/definition";
 import { setExtraThemesForTests } from "@store-builder/shared/templates/theme-catalog";
@@ -32,6 +35,54 @@ describe("createStore", () => {
     expect(s).toMatchObject({ ownerId: u.id, name: "My Shop", status: "DRAFT", publishedVersionId: null, draftRevision: 1 });
     expect(s.templateVersion.template.key).toBe("coffee");
     expect(s.pages.map((p) => p.type).sort()).toEqual(["ABOUT", "CONTACT", "HOME", "PRODUCTS", "PRODUCT_DETAIL"]);
+  });
+  it("creates an editable draft equivalent to the demo for all eight themes", async () => {
+    const owner = await makeUser();
+    const themes = ["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh"];
+    for (const key of themes) {
+      const demo = loadThemeDemo(key)!;
+      const { id } = await createStore(owner.id, { name: "فروشگاه من", templateKey: key, withSampleContent: true });
+      const draft = await getDraftPreview(owner.id, id);
+      expect(draft.data.store).toEqual({ ...demo.data.store, name: "فروشگاه من" });
+      expect(draft.data.template).toEqual(demo.data.template);
+      expect(draft.data.categories.map(({ name, slug }) => ({ name, slug }))).toEqual(
+        demo.data.categories.map(({ name, slug }) => ({ name, slug })),
+      );
+      expect(draft.data.products).toHaveLength(6);
+      for (const [position, product] of draft.data.products.entries()) {
+        const sample = demo.data.products[position]!;
+        expect(product).toEqual({
+          ...sample,
+          id: product.id,
+          categoryId: draft.data.categories[position]!.id,
+          image: { ...sample.image, key: product.image!.key },
+        });
+        expect(starterAssetForKey(product.image!.key)?.path).toBe(demo.mediaUrl(sample.image!.key));
+      }
+      const imageIdsByPath = new Map(Object.entries(draft.data.images).map(([imageId, image]) =>
+        [starterAssetForKey(image.key)?.path ?? null, imageId],
+      ));
+      expect(imageIdsByPath.size).toBe(3);
+      expect(draft.data.pages).toEqual(demo.data.pages.map((page) => ({
+        ...page,
+        sections: page.sections.map((section) => {
+          const { props } = section;
+          if (!("imageId" in props) || typeof props.imageId !== "string") return section;
+          const ref = demo.data.images[props.imageId]!;
+          const imageId = imageIdsByPath.get(demo.mediaUrl(ref.key));
+          expect(imageId).toBeDefined();
+          return { ...section, props: { ...props, imageId } };
+        }),
+      })));
+      const rows = await prisma.media.findMany({ where: { storeId: id } });
+      expect(rows).toHaveLength(7);
+      expect(rows.every((row) => row.uploadedById === owner.id && row.status === "READY" && row.sizeBytes > 0)).toBe(true);
+    }
+    const { id } = await createStore(owner.id, { name: "خالی", templateKey: "bazaar", withSampleContent: false });
+    const blank = await getDraftPreview(owner.id, id);
+    expect(blank.data.products).toEqual([]);
+    expect(blank.data.categories).toEqual([]);
+    expect(blank.data.images).toEqual({});
   });
   it("uses the newest active template version and ignores inactive ones", async () => {
     const u = await makeUser();

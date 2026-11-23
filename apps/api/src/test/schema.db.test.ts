@@ -1,21 +1,26 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { makeMedia, makeStore, makeUser, prisma, publishStore, resetDb } from "./db-helpers.js";
 import { seedTemplates } from "../../prisma/seed.js";
+import { TEMPLATE_DEFINITIONS } from "@store-builder/shared/templates/definitions";
 
 beforeEach(resetDb);
 afterAll(() => prisma.$disconnect());
 
 describe("template seed", () => {
-  it("creates exactly the agreed templates at version 1 (the four MVP themes and the eight business themes of 2026-11)", async () => {
-    const t = await prisma.template.findMany({ include: { versions: true }, orderBy: { key: "asc" } });
+  it("creates exactly the agreed templates: the four MVP themes at version 1, the eight business themes at versions 1-4 (immutable history)", async () => {
+    const t = await prisma.template.findMany({ include: { versions: { orderBy: { version: "asc" } } }, orderBy: { key: "asc" } });
     expect(t.map((x) => x.key)).toEqual(["appliances", "arcade", "bazaar", "circuit", "coffee", "dookht", "fashion", "general", "golkhaneh", "khaneh", "sofreh", "sormeh"]);
-    expect(t.every((x) => x.versions.length === 1 && x.versions[0]!.version === 1)).toBe(true);
+    const mvp = new Set(["appliances", "coffee", "fashion", "general"]);
+    for (const x of t) {
+      expect(x.versions.map((v) => v.version), x.key).toEqual(mvp.has(x.key) ? [1] : [1, 2, 3, 4]);
+    }
   });
   it("is idempotent and never overwrites an existing version", async () => {
     const v = await prisma.templateVersion.findFirstOrThrow({ where: { template: { key: "coffee" } } });
     await prisma.templateVersion.update({ where: { id: v.id }, data: { defaultSettings: { custom: true } } });
     await seedTemplates(prisma);
-    expect(await prisma.templateVersion.count()).toBe(12);
+    expect(await prisma.templateVersion.count()).toBe(TEMPLATE_DEFINITIONS.length);
+    expect(TEMPLATE_DEFINITIONS.length).toBe(4 + 8 * 4);
     const after = await prisma.templateVersion.findUniqueOrThrow({ where: { id: v.id } });
     expect(after.defaultSettings).toEqual({ custom: true });
   });

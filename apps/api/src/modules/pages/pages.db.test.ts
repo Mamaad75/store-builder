@@ -7,11 +7,11 @@ import { attachProductImage } from "../media/service.js";
 import { readPublishedStorefront } from "../storefront/published.js";
 import { getDraftPreview } from "../storefront/service.js";
 import { ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
-import { getStore, updateStore } from "../stores/service.js";
+import { createStore, getStore, updateStore } from "../stores/service.js";
 import { MAX_SECTIONS_PER_PAGE, type EditorSpec } from "@store-builder/shared/templates/editor";
 import { setExtraThemesForTests } from "@store-builder/shared/templates/theme-catalog";
 import { openingHoursSection } from "@store-builder/shared/templates/coffee/definition";
-import { makeMedia, makeUnregisteredThemeStore, prisma, resetDb } from "../../test/db-helpers.js";
+import { makeMedia, makeUnregisteredThemeStore, makeUser, prisma, resetDb } from "../../test/db-helpers.js";
 import { revision, twoTenants, validProduct } from "../../test/catalog-helpers.js";
 import { MemoryMediaStorage } from "../../test/memory-storage.js";
 import sharp from "sharp";
@@ -728,5 +728,28 @@ describe("template-aware editing", () => {
     expect(openingHoursSection.type).toBe("coffee.openingHours");
     const v = await getPageEditor(a.id, a1, "CONTACT");
     await expect(addSection(a.id, a1, "CONTACT", { type: "coffee.openingHours" }, v.revision)).rejects.toBeInstanceOf(ValidationError); // general does not approve it
+  });
+});
+
+describe("v4 landing blocks", () => {
+  it("edits, reorders and attaches a campaign image independently", async () => {
+    const owner = await makeUser();
+    const { id } = await createStore(owner.id, { name: "فروشگاه بازار", templateKey: "bazaar" });
+    const home = await getPageEditor(owner.id, id, "HOME");
+    expect(home.issues).toEqual([]);
+    expect(home.sections.filter((section) => section.type === "bazaar.shelf")).toHaveLength(2);
+    const campaign = home.sections.find((section) => section.type === "bazaar.campaign")!;
+    const media = await makeMedia(id, owner.id);
+    await setSectionImage(owner.id, id, "HOME", campaign.id, media.id, home.revision);
+    const next = await getPageEditor(owner.id, id, "HOME");
+    await updateSection(owner.id, id, "HOME", campaign.id, { title: "پیشنهاد این هفته" }, next.revision);
+    const before = await ids(id, "HOME");
+    const edited = await getPageEditor(owner.id, id, "HOME");
+    await moveSection(owner.id, id, "HOME", campaign.id, "up", edited.revision);
+    expect((await ids(id, "HOME")).indexOf(campaign.id)).toBe(before.indexOf(campaign.id) - 1);
+    const preview = await getDraftPreview(owner.id, id);
+    const section = preview.data.pages.find((page) => page.type === "HOME")!.sections.find((item) => item.id === campaign.id);
+    expect(section?.props).toMatchObject({ title: "پیشنهاد این هفته", imageId: media.id });
+    expect(preview.data.images[media.id]?.key).toBe(media.key);
   });
 });

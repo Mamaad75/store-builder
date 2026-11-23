@@ -18,7 +18,7 @@ const homeHero = async (id: string) => {
 };
 
 describe("creation: business category and theme are independent choices", () => {
-  const THEMES = allThemes().map((t) => t.key);
+  const THEMES = [...new Set(allThemes().map((t) => t.key))];
 
   it.each(BUSINESS_CATEGORIES.flatMap((c) => THEMES.map((t) => [c.key, t] as const)))("category %s with theme %s: stored separately, starter text from the CATEGORY, structure from the THEME", async (category, theme) => {
     const u = await makeUser();

@@ -55,6 +55,7 @@ ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 # The standalone bundle mirrors the workspace: /app/apps/web/server.js plus the traced /app/node_modules.
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=node:node /app/apps/web/public ./apps/web/public
 WORKDIR /app/apps/web
 USER node
 EXPOSE 3000

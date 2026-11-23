@@ -14,7 +14,7 @@ import { parseLabelLines, parseTable } from "@store-builder/shared/templates/eng
 import { makeStorefront } from "@store-builder/shared/testing/storefront-fixtures";
 import { buildView } from "./engine/view";
 
-// Every registered module goes through the same contract (the 8 kit themes and the 4 MVP themes).
+// Every registered version goes through the same contract.
 const MODULES = listRegisteredTemplates().map((t) => resolveTemplate(t.key, t.version)!);
 void [generalTemplate, coffeeTemplate, fashionTemplate];
 
@@ -26,9 +26,13 @@ describe("theme catalog and module registry stay in sync", () => {
       expect(m?.definition, t.key).toBe(t);
     }
   });
-  it("the four MVP themes keep their identity (immutable) after the eight business themes of 2026-11", () => {
+  it("registers the marketplace layout and preserves previous templates", () => {
+    const business = ["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh"];
     expect(THEME_CATALOG.map((t) => [t.key, t.version])).toEqual([
-      ["bazaar", 1], ["circuit", 1], ["sormeh", 1], ["dookht", 1], ["arcade", 1], ["sofreh", 1], ["golkhaneh", 1], ["khaneh", 1],
+      ...business.map((key) => [key, 4]),
+      ...business.map((key) => [key, 3]),
+      ...business.map((key) => [key, 2]),
+      ...business.map((key) => [key, 1]),
       ["general", 1], ["coffee", 1], ["fashion", 1], ["appliances", 1],
     ]);
   });
@@ -37,8 +41,8 @@ describe("theme catalog and module registry stay in sync", () => {
       expect(t.meta.name.length).toBeGreaterThan(0);
       expect(t.meta.description.length).toBeGreaterThan(0);
     }
-    expect(THEME_CATALOG.slice(8).map((t) => t.meta.name)).toEqual(["ساده و همه‌منظوره", "گرم و ادیتوریال", "مینیمال و مدرن", "تمیز و کاتالوگی"]);
-    expect(THEME_CATALOG.slice(0, 8).map((t) => t.meta.name)).toEqual(["بازار", "مدار", "سُرمه", "دوخت", "آرکید", "سفره", "گلخانه", "خانه"]);
+    expect(THEME_CATALOG.slice(-4).map((t) => t.meta.name)).toEqual(["ساده و همه‌منظوره", "گرم و ادیتوریال", "مینیمال و مدرن", "تمیز و کاتالوگی"]);
+    expect([...new Map(THEME_CATALOG.map((t) => [t.key, t.meta.name])).values()].slice(0, 8)).toEqual(["بازار", "مدار", "سُرمه", "دوخت", "آرکید", "سفره", "گلخانه", "خانه"]);
   });
 });
 

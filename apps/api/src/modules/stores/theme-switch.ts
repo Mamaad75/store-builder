@@ -20,7 +20,7 @@ import { parseStoreId } from "./service.js";
  *  - It is refused (with the full report) when it would introduce a NEW invalid section or leave a page without a
  *    section type the target requires. Pre-existing invalid data never blocks it. Nothing is repaired automatically:
  *    the owner fixes the page under the current theme first.
- *  - Only the LATEST ACTIVE version of a theme key is a valid target (upgrades are out of scope).
+ *  - Only the LATEST ACTIVE version of a theme key is a valid target.
  *  - The report carries the draft revision it was computed from; any edit since then makes the switch a ConflictError.
  */
 
@@ -69,9 +69,9 @@ export async function previewThemeSwitch(ownerId: string, storeId: unknown, targ
   if (!ctx) throw new NotFoundError();
   const from = currentOf(ctx);
   if (!from) throw new ValidationError({ targetKey: ["قالب فعلی فروشگاه پشتیبانی نمی‌شود"] });
-  const { definition: to } = await resolveTarget(undefined, parsed.data.targetKey);
-  const sameTheme = ctx.templateVersion.template.key === to.key;
-  const result = computeCompatibility(toInputs(ctx.pages), from, sameTheme ? from : to);
+  const { definition: to, versionId } = await resolveTarget(undefined, parsed.data.targetKey);
+  const sameTheme = ctx.templateVersion.id === versionId;
+  const result = computeCompatibility(toInputs(ctx.pages), from, to);
   return { ...result, storeId: id, draftRevision: ctx.draftRevision, current: ref(from), target: ref(to), sameTheme };
 }
 
@@ -91,7 +91,7 @@ export async function switchTheme(ownerId: string, storeId: unknown, input: unkn
       const from = currentOf(ctx);
       if (!from) throw new ValidationError({ targetKey: ["قالب فعلی فروشگاه پشتیبانی نمی‌شود"] });
       const target = await resolveTarget(m.tx, targetKey);
-      if (ctx.templateVersion.template.key === target.definition.key) throw new Unchanged(); // same theme: nothing to write
+      if (ctx.templateVersion.id === target.versionId) throw new Unchanged();
       const result = computeCompatibility(toInputs(ctx.pages), from, target.definition);
       if (!result.canSwitch) throw new ThemeSwitchBlockedError(result); // re-evaluated under the lock: never trusts the earlier report
       if (!(await setTemplateVersionInTx(m, ctx.templateVersion.id, target.versionId))) throw new ConflictError();

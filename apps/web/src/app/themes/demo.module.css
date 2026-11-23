@@ -1,0 +1,25 @@
+.bar {
+  align-items: center;
+  background: #181d31;
+  color: #f4f5fb;
+  display: flex;
+  flex-wrap: wrap;
+  font: 500 .875rem/1.7 "Vazirmatn Variable", sans-serif;
+  gap: .5rem 1.25rem;
+  justify-content: space-between;
+  padding: .65rem clamp(1rem, 4vw, 4rem);
+}
+
+.bar a {
+  background: #fff;
+  border-radius: .5rem;
+  color: #181d31;
+  font-weight: 800;
+  padding: .4rem .8rem;
+  text-decoration: none;
+}
+
+.bar a:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}

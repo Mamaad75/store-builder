@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_PRICE_TOMAN } from "../lib/money.js";
+import { formatToman, MAX_PRICE_TOMAN } from "../lib/money.js";
 import { MAX_SPEC_ROWS, specRowSchema } from "../lib/product-specs.js";
 import { MAX_OPTIONS, MAX_VARIANTS_PER_PRODUCT } from "../modules/inventory/variants.js";
 import { MEDIA_KEY_RE } from "../lib/storage/keys.js";
@@ -123,4 +123,14 @@ export type StorefrontPage = z.infer<typeof storefrontPageSchema>;
 export type StorefrontCategory = z.infer<typeof storefrontCategorySchema>;
 export type StorefrontProduct = z.infer<typeof storefrontProductSchema>;
 export type StorefrontVariant = z.infer<typeof storefrontVariantSchema>;
+
+/** Phase 3.2: the product has variants at different prices, so `price` is the lowest and reads "from" ("از"). */
+export function hasPriceRange(product: Pick<StorefrontProduct, "price" | "variants">): boolean {
+  return product.variants.some((v) => v.price !== product.price);
+}
+
+/** The price as every theme prints it: "۱۲۵٬۰۰۰ تومان", or "از ۱۲۵٬۰۰۰ تومان" for a price range. */
+export function productPriceLabel(product: Pick<StorefrontProduct, "price" | "variants">): string {
+  return (hasPriceRange(product) ? "از " : "") + formatToman(product.price);
+}
 

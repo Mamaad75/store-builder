@@ -5,6 +5,7 @@ import { securityHeaders } from "@/lib/security-headers";
 import { getHostPolicy } from "@/lib/host-policy";
 import { normalizeHostHeader } from "@store-builder/shared/lib/hostname";
 import { STORE_ROUTE_PREFIX, decideRoute } from "@store-builder/shared/lib/store-routing";
+import { isStarterAssetPath } from "@store-builder/shared/lib/storage/starter-assets";
 import { resolveProductRedirect } from "@/gateway/public";
 
 /**
@@ -14,7 +15,11 @@ import { resolveProductRedirect } from "@/gateway/public";
 function requireSession(req: NextRequest): NextResponse {
   if (!readSessionCookie((n) => req.cookies.get(n)?.value)) {
     const url = new URL("/login", req.nextUrl.origin);
-    url.searchParams.set("callbackUrl", req.nextUrl.pathname);
+    const theme = req.nextUrl.searchParams.get("theme");
+    const callback = req.nextUrl.pathname === "/dashboard/stores/new" && theme && /^[a-z][a-z0-9-]{0,39}$/.test(theme)
+      ? `/dashboard/stores/new?theme=${theme}`
+      : req.nextUrl.pathname;
+    url.searchParams.set("callbackUrl", callback);
     return NextResponse.redirect(url);
   }
   return NextResponse.next();
@@ -33,6 +38,8 @@ async function route(req: NextRequest): Promise<Response> {
   const decision = decideRoute(req.headers.get("host"), req.nextUrl.pathname, policy.rootDomain, policy.aliases);
 
   if (decision.kind === "not_found") return neutralNotFound(req);
+
+  if (decision.kind === "store" && isStarterAssetPath(req.nextUrl.pathname)) return NextResponse.next();
 
   if (decision.kind === "store") {
     if (decision.productSlug !== null) {

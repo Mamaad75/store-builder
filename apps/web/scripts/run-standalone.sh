@@ -19,6 +19,7 @@ node -e 'const fs=require("fs");const d=process.argv[1];fs.rmSync(d,{recursive:t
 cp -r "${APP}/.next/standalone/." "${DEST}/"
 mkdir -p "${SERVER_DIR}/.next"
 cp -r "${APP}/.next/static" "${SERVER_DIR}/.next/static"
+cp -r "${APP}/public" "${SERVER_DIR}/public"
 
 cd "${SERVER_DIR}"
 exec env PORT="${PORT}" HOSTNAME="${HOSTNAME_BIND:-0.0.0.0}" node server.js

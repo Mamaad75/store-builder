@@ -5,17 +5,26 @@ import { TEMPLATE_DEFINITIONS, templateDefinitionSchema } from "@store-builder/s
 export async function seedTemplates(db: PrismaClient) {
   for (const def of TEMPLATE_DEFINITIONS) {
     templateDefinitionSchema.parse({ settings: def.settings, pages: def.pages });
-    const template = await db.template.upsert({
-      where: { key: def.key },
-      create: { key: def.key, name: def.name },
-      update: {},
-    });
-    await db.templateVersion.upsert({
-      where: { templateId_version: { templateId: template.id, version: def.version } },
-      create: { templateId: template.id, version: def.version, defaultSettings: def.settings, defaultPages: def.pages as unknown as Prisma.InputJsonValue },
-      update: {},
-    });
   }
+
+  const templates = [...new Map(TEMPLATE_DEFINITIONS.map(({ key, name }) => [key, { key, name }])).values()];
+  await db.$transaction(async (tx) => {
+    await tx.template.createMany({ data: templates, skipDuplicates: true });
+    const rows = await tx.template.findMany({
+      where: { key: { in: templates.map(({ key }) => key) } },
+      select: { id: true, key: true },
+    });
+    const ids = new Map(rows.map(({ key, id }) => [key, id]));
+    await tx.templateVersion.createMany({
+      data: TEMPLATE_DEFINITIONS.map((def) => ({
+        templateId: ids.get(def.key)!,
+        version: def.version,
+        defaultSettings: def.settings,
+        defaultPages: def.pages as unknown as Prisma.InputJsonValue,
+      })),
+      skipDuplicates: true,
+    });
+  });
 }
 
 async function main() {

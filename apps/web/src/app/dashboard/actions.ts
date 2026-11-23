@@ -42,7 +42,7 @@ function toState(e: unknown, storeId = ""): StoreFormState {
 export async function createStoreAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
   let id: string;
   try {
-    ({ id } = await api.createStore({ name: str(fd, "name"), templateKey: str(fd, "templateKey"), businessCategory: str(fd, "businessCategory") || undefined }));
+    ({ id } = await api.createStore({ name: str(fd, "name"), templateKey: str(fd, "templateKey"), businessCategory: str(fd, "businessCategory") || undefined, withSampleContent: fd.get("withSampleContent") === "on" }));
   } catch (e) {
     return toState(e);
   }

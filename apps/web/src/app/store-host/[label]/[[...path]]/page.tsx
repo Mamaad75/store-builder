@@ -23,12 +23,19 @@ async function resolve(params: Params, searchParams: SearchParams) {
   return view.status === "ok" ? { store, view } : null;
 }
 
+function seoMediaUrl(baseUrl: string) {
+  return (key: string) => {
+    const url = safeMediaUrl(key);
+    return url?.startsWith("/") ? new URL(url, baseUrl).href : url;
+  };
+}
+
 /** Titles, description, canonical, Open Graph and Twitter cards from the PUBLISHED snapshot only (never a draft table). */
 export async function generateMetadata({ params, searchParams }: { params: Params; searchParams: SearchParams }): Promise<Metadata> {
   const r = await resolve(params, searchParams);
   if (!r) return {}; // the page itself answers notFound(); Next marks that response noindex
   const { data } = r.store;
-  return buildMetadata({ data, page: r.view.ctx.page, query: r.view.ctx.query, product: r.view.ctx.product, mediaUrl: safeMediaUrl }, r.store.baseUrl);
+  return buildMetadata({ data, page: r.view.ctx.page, query: r.view.ctx.query, product: r.view.ctx.product, mediaUrl: seoMediaUrl(r.store.baseUrl) }, r.store.baseUrl);
 }
 
 /**
@@ -40,7 +47,7 @@ export default async function StorePage({ params, searchParams }: { params: Para
   const r = await resolve(params, searchParams);
   if (!r) notFound();
   const { ctx } = r.view;
-  const jsonLd = buildJsonLd({ data: ctx.data, page: ctx.page, query: ctx.query, product: ctx.product, mediaUrl: safeMediaUrl }, r.store.baseUrl);
+  const jsonLd = buildJsonLd({ data: ctx.data, page: ctx.page, query: ctx.query, product: ctx.product, mediaUrl: seoMediaUrl(r.store.baseUrl) }, r.store.baseUrl);
   return (
     <>
       <StorefrontRenderer template={r.view.template} ctx={ctx} />
