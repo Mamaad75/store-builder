@@ -119,6 +119,27 @@ that does not exist (discounts, ratings, cart) is invented, and nothing needs cl
 
 ## Business theme refresh
 
+### Landing merchandising (version 4)
+
+Version 4 layers category discovery, a campaign with an optional editable image, a spotlight, repeatable product shelves and a buying guide over the eight independent storefronts. Each is registered under its theme key and has separate fields and a title in the page editor. The home seed differs per theme and stays within the existing section limit. Sormeh keeps its version 3 product cards. Versions 1–3 retain their registered layouts and section definitions.
+
+The latest demo uses six original product images per theme. Product shelves read catalog prices and stock and cap the number of entries. Optional category selectors use the store's own name or slug. Campaign images and product art use the existing media pipeline. The landing sections add server-rendered HTML and CSS, bounded native scroll and disclosure controls, and no storefront client script.
+
+| Theme | Desktop home | Mobile home |
+| --- | --- | --- |
+| بازار | [1440 px](theme-previews-v4/bazaar/home-1440.webp) | [390 px](theme-previews-v4/bazaar/home-390.webp) |
+| مدار | [1440 px](theme-previews-v4/circuit/home-1440.webp) | [390 px](theme-previews-v4/circuit/home-390.webp) |
+| سُرمه | [1440 px](theme-previews-v4/sormeh/home-1440.webp) | [390 px](theme-previews-v4/sormeh/home-390.webp) |
+| دوخت | [1440 px](theme-previews-v4/dookht/home-1440.webp) | [390 px](theme-previews-v4/dookht/home-390.webp) |
+| آرکید | [1440 px](theme-previews-v4/arcade/home-1440.webp) | [390 px](theme-previews-v4/arcade/home-390.webp) |
+| سفره | [1440 px](theme-previews-v4/sofreh/home-1440.webp) | [390 px](theme-previews-v4/sofreh/home-390.webp) |
+| گلخانه | [1440 px](theme-previews-v4/golkhaneh/home-1440.webp) | [390 px](theme-previews-v4/golkhaneh/home-390.webp) |
+| خانه | [1440 px](theme-previews-v4/khaneh/home-1440.webp) | [390 px](theme-previews-v4/khaneh/home-390.webp) |
+
+Deploy the web and API together, then run `pnpm db:seed` to offer version 4 for new stores. For existing stores, switch to version 4 in Appearance and add the desired new blocks in the page editor. The switch preserves the current section configuration and uses the existing publishing flow.
+
+Merchandising references included [Digikala](https://www.digikala.com/), [Technolife](https://www.technolife.com/), [Lion Computer](https://www.lioncomputer.com/), [Khanoumi](https://www.khanoumi.com/), [Banimode](https://www.banimode.com/), the [Kiana gallery design](https://www.figma.com/design/OeFdBscM2VDhmLDVNks40z/?node-id=0-1), and [Entekhab Center](https://www.entekhabcenter.com/). Intergame and Noa Life could not be opened directly during this pass. The arcade and cafe content use patterns from the working [Pixevel catalog](https://pixevel.com/products?sort=newest) and [Yousefzadeh Coffee catalog](https://yousefzadehcoffee.com/shop/).
+
 ### Independent storefronts (version 3)
 
 Each version 3 storefront has its own header, hero, product listing, product detail and footer. The seven themes added after Bazaar own their JSX and CSS in `apps/web/src/templates/<key>/studio.tsx` and `studio.module.css`. Shared primitives render safe media, specifications, filters, pagination, links and other small pieces. The existing section contracts and version 1 and 2 renderers remain registered. Run `pnpm db:seed` to register version 3 in the deployment database.

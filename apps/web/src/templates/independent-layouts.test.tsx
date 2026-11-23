@@ -17,7 +17,7 @@ const layouts = [
 ] as const;
 
 function render(key: string, segments: string[], hideBanner = false) {
-  const demo = loadThemeDemo(key)!;
+  const demo = loadThemeDemo(key, 3)!;
   const view = buildView(hideBanner ? { ...demo.data, images: {} } : demo.data, { basePath: "/p", segments, mediaUrl: demo.mediaUrl });
   if (view.status !== "ok") throw new Error(view.status);
   return { demo, html: renderToStaticMarkup(<StorefrontRenderer template={view.template} ctx={view.ctx} />) };

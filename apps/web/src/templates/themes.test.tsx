@@ -29,6 +29,7 @@ describe("theme catalog and module registry stay in sync", () => {
   it("registers the marketplace layout and preserves previous templates", () => {
     const business = ["bazaar", "circuit", "sormeh", "dookht", "arcade", "sofreh", "golkhaneh", "khaneh"];
     expect(THEME_CATALOG.map((t) => [t.key, t.version])).toEqual([
+      ...business.map((key) => [key, 4]),
       ...business.map((key) => [key, 3]),
       ...business.map((key) => [key, 2]),
       ...business.map((key) => [key, 1]),

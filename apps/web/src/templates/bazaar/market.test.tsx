@@ -5,7 +5,7 @@ import StorefrontRenderer from "../engine/StorefrontRenderer";
 import { buildView } from "../engine/view";
 import { resolveTemplate } from "../registry";
 
-const demo = loadThemeDemo("bazaar")!;
+const demo = loadThemeDemo("bazaar", 3)!;
 
 function render(version: number, segments: string[]) {
   const view = buildView({ ...demo.data, template: { key: "bazaar", version } }, { basePath: "/demo", segments, mediaUrl: demo.mediaUrl });

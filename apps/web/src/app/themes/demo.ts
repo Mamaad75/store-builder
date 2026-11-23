@@ -30,26 +30,190 @@ const extraSpecs: Partial<Record<keyof typeof DEMOS, [string, string][][]>> = {
   khaneh: [[["ارتفاع", "۱۵۰ سانتی‌متر"], ["نور", "گرم"]], [["روکش", "پارچه"], ["عرض", "۸۵ سانتی‌متر"]], [["جنس", "سفال"], ["ارتفاع", "۲۸ سانتی‌متر"]]],
 };
 
-export function loadThemeDemo(key: string) {
+const extendedProducts = {
+  "bazaar": [
+    [
+      "آشپزخانه",
+      "کاسهٔ سرامیکی",
+      360000,
+      "کاسهٔ لعاب‌دار برای سرو روزمره."
+    ],
+    [
+      "نوشت‌افزار",
+      "دفتر جلدسخت",
+      190000,
+      "دفتر خط‌دار با جلد مقاوم برای یادداشت."
+    ],
+    [
+      "دکور",
+      "ساعت رومیزی",
+      590000,
+      "ساعت جمع‌وجور برای میز کار."
+    ]
+  ],
+  "circuit": [
+    [
+      "موبایل",
+      "گوشی هوشمند آبی",
+      16800000,
+      "گوشی با بدنهٔ مات و نمایشگر بزرگ."
+    ],
+    [
+      "قطعات و تجهیزات",
+      "کیبورد مکانیکی",
+      3200000,
+      "کیبورد مکانیکی برای تایپ و بازی."
+    ],
+    [
+      "گیمینگ",
+      "ماوس گیمینگ سبک",
+      1420000,
+      "ماوس خوش‌دست با حسگر دقیق."
+    ]
+  ],
+  "sormeh": [
+    [
+      "سرم و مراقبت",
+      "سرم صورت",
+      740000,
+      "سرم سبک برای استفاده در روتین روزانه."
+    ],
+    [
+      "آرایش چشم",
+      "ریمل حجم‌دهنده",
+      380000,
+      "برس متراکم برای پوشش مژه‌ها."
+    ],
+    [
+      "آرایش صورت",
+      "پالت رژگونه",
+      575000,
+      "پالت رنگ‌های ملایم با بافت پودری."
+    ]
+  ],
+  "dookht": [
+    [
+      "شلوار",
+      "جین راسته",
+      1950000,
+      "شلوار جین با برش راسته."
+    ],
+    [
+      "کیف و اکسسوری",
+      "کیف دوشی چرمی",
+      2490000,
+      "کیف دوشی با بند قابل تنظیم."
+    ],
+    [
+      "کفش",
+      "کتانی جیر روشن",
+      2750000,
+      "کتانی سبک برای استایل روزمره."
+    ]
+  ],
+  "arcade": [
+    [
+      "بازی",
+      "نسخهٔ دانلودی بازی",
+      935000,
+      "نسخهٔ نمونه برای نمایش اطلاعات دانلود."
+    ],
+    [
+      "عضویت",
+      "اشتراک پلتفرم بازی",
+      670000,
+      "اشتراک نمونه با جزئیات مدت استفاده."
+    ],
+    [
+      "اعتبار حساب",
+      "کارت اعتبار دیجیتال",
+      1250000,
+      "اعتبار حساب برای پلتفرم درج‌شده."
+    ]
+  ],
+  "sofreh": [
+    [
+      "سردنوش",
+      "قهوه سرد",
+      132000,
+      "نوشیدنی قهوه خنک با یخ."
+    ],
+    [
+      "کیک",
+      "کیک شکلاتی",
+      149000,
+      "برش کیک شکلاتی برای سرو کنار قهوه."
+    ],
+    [
+      "دم‌آوری",
+      "دریپر شیشه‌ای",
+      490000,
+      "دریپر شیشه‌ای برای دم‌آوری دستی."
+    ]
+  ],
+  "golkhaneh": [
+    [
+      "تولد",
+      "دسته‌گل لاله صورتی",
+      1150000,
+      "لاله‌های صورتی برای هدیهٔ تولد."
+    ],
+    [
+      "گل آپارتمانی",
+      "ارکیدهٔ سفید",
+      1970000,
+      "ارکیدهٔ گل‌دار در گلدان رومیزی."
+    ],
+    [
+      "قدردانی",
+      "دسته‌گل ادریسی",
+      1570000,
+      "ادریسی آبی برای هدیه و قدردانی."
+    ]
+  ],
+  "khaneh": [
+    [
+      "آشپزخانه",
+      "کتری استیل",
+      1840000,
+      "کتری فلزی برای دم‌نوش و چای."
+    ],
+    [
+      "میز و مبلمان",
+      "میز کنارمبلی",
+      3820000,
+      "میز کنارمبلی با پرداخت چوب گردویی."
+    ],
+    [
+      "پارچه و دکور",
+      "کوسن لینن",
+      375000,
+      "کوسن با رویهٔ پارچه‌ای روشن."
+    ]
+  ]
+} satisfies Record<keyof typeof DEMOS, [string, string, number, string][]>;
+
+export function loadThemeDemo(key: string, version?: number) {
   if (!Object.hasOwn(DEMOS, key)) return null;
   const demoKey = key as keyof typeof DEMOS;
   const demo = DEMOS[demoKey];
-  const definition = TEMPLATE_DEFINITIONS.findLast((item) => item.key === key);
+  const definition = TEMPLATE_DEFINITIONS.findLast((item) => item.key === key && (version === undefined || item.version === version));
   if (!definition) return null;
 
   const banner = demoKey === "dookht" ? { file: "dookht-cover.webp", width: 1440, height: 960 } : { file: `${key}.webp`, width: 440, height: 440 };
   const image = { key: `stores/demo/${"0".repeat(32)}.webp`, width: banner.width, height: banner.height };
-  const productImages = [1, 2, 3].map((index) => ({ key: `stores/demo/${String(index).repeat(32)}.webp`, width: 480, height: 480 }));
-  const categories = demo.products.map(([name], i) => ({ id: `category-${i + 1}`, slug: `category-${i + 1}`, name }));
-  const products = demo.products.map(([, name, price], i) => ({
+  const entries = demo.products.map(([category, name, price], i) => ({ category, name, price, description: descriptions[demoKey][i] ?? "" })).concat(definition.version === 4 ? extendedProducts[demoKey].map(([category, name, price, description]) => ({ category, name, price, description })) : []);
+  const productImages = entries.map((_, i) => i + 1).map((index) => ({ key: `stores/demo/${String(index).repeat(32)}.webp`, width: 480, height: 480 }));
+  const categories = entries.map(({ category: name }, i) => ({ id: `category-${i + 1}`, slug: `category-${i + 1}`, name }));
+  const products = entries.map(({ name, price, description }, i) => ({
     id: `product-${i + 1}`,
     slug: `product-${i + 1}`,
     name,
     price,
-    stockQuantity: [12, 3, 0][i],
+    stockQuantity: [12, 3, 0, 6, 2, 8][i],
     categoryId: categories[i]!.id,
     image: productImages[i],
-    description: descriptions[demoKey][i],
+    description,
     specs: (extraSpecs[demoKey]?.[i] ?? []).map(([label, value]) => ({ label, value })),
   }));
   const pages = definition.pages.map((page, position) => ({

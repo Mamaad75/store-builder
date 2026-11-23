@@ -1,3 +1,4 @@
+import { editorialLanding } from "./landing";
 import type { TemplateModule } from "./types";
 import { appliancesTemplate } from "./appliances";
 import { arcadeTemplate, arcadeTemplateV2 } from "./arcade";
@@ -33,6 +34,7 @@ const TEMPLATES: readonly TemplateModule[] = [
   bazaarTemplate, circuitTemplate, sormehTemplate, dookhtTemplate, arcadeTemplate, sofrehTemplate, golkhanehTemplate, khanehTemplate,
   bazaarTemplateV2, circuitTemplateV2, sormehTemplateV2, dookhtTemplateV2, arcadeTemplateV2, sofrehTemplateV2, golkhanehTemplateV2, khanehTemplateV2,
   bazaarTemplateV3, circuitTemplateV3, sormehTemplateV3, dookhtTemplateV3, arcadeTemplateV3, sofrehTemplateV3, golkhanehTemplateV3, khanehTemplateV3,
+  ...[bazaarTemplateV3, circuitTemplateV3, sormehTemplateV3, dookhtTemplateV3, arcadeTemplateV3, sofrehTemplateV3, golkhanehTemplateV3, khanehTemplateV3].map(editorialLanding),
   generalTemplate, coffeeTemplate, fashionTemplate, appliancesTemplate,
 ];
 

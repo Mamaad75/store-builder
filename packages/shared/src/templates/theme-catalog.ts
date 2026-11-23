@@ -2,7 +2,7 @@ import { appliancesTheme } from "./appliances/definition.js";
 import { coffeeTheme } from "./coffee/definition.js";
 import { fashionTheme } from "./fashion/definition.js";
 import { generalTheme } from "./general/definition.js";
-import { KIT_THEMES, KIT_THEMES_V2, KIT_THEMES_V3 } from "./kit/themes.js";
+import { KIT_THEMES, KIT_THEMES_V2, KIT_THEMES_V3, KIT_THEMES_V4 } from "./kit/themes.js";
 import type { ThemeDefinition } from "./theme.js";
 
 /**
@@ -12,7 +12,7 @@ import type { ThemeDefinition } from "./theme.js";
  * Order = the order offered to merchants: the eight business themes (2026-11) first, then the four MVP themes, which stay
  * available unchanged (existing stores keep rendering exactly as before).
  */
-export const THEME_CATALOG: readonly ThemeDefinition[] = [...KIT_THEMES_V3, ...KIT_THEMES_V2, ...KIT_THEMES, generalTheme, coffeeTheme, fashionTheme, appliancesTheme];
+export const THEME_CATALOG: readonly ThemeDefinition[] = [...KIT_THEMES_V4, ...KIT_THEMES_V3, ...KIT_THEMES_V2, ...KIT_THEMES, generalTheme, coffeeTheme, fashionTheme, appliancesTheme];
 
 let extra: readonly ThemeDefinition[] = [];
 let all: readonly ThemeDefinition[] = THEME_CATALOG;

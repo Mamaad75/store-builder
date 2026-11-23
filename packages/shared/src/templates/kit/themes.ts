@@ -1,3 +1,4 @@
+import { landingTheme } from "../landing-content.js";
 import type { ThemeDefinition } from "../theme.js";
 import { kitTheme, linesSection, noticeSection, sizeGuideSection } from "./kit-sections.js";
 
@@ -128,3 +129,5 @@ export const golkhanehStudioTheme: ThemeDefinition = { ...golkhanehTheme, versio
 export const khanehStudioTheme: ThemeDefinition = { ...khanehTheme, version: 3 };
 
 export const KIT_THEMES_V3: readonly ThemeDefinition[] = [bazaarMarketTheme, circuitStudioTheme, sormehStudioTheme, dookhtStudioTheme, arcadeStudioTheme, sofrehStudioTheme, golkhanehStudioTheme, khanehStudioTheme];
+
+export const KIT_THEMES_V4: readonly ThemeDefinition[] = KIT_THEMES_V3.map(landingTheme);
