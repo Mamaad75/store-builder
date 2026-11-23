@@ -87,6 +87,8 @@ export const storefrontProductSchema = z
     // Phase 3.2 (D32-1): variants, optional with an empty default for the same reason. With variants, price is the lowest variant
     // price and stockQuantity their sum.
     variants: z.array(storefrontVariantSchema).max(MAX_VARIANTS_PER_PRODUCT).default([]),
+    // Phase 3.3 (D33-1): shipping weight in grams, null = unknown. Optional with a null default, so older snapshots stay valid.
+    weightGrams: z.number().int().min(0).max(1_000_000).nullable().default(null),
   })
   .strict();
 

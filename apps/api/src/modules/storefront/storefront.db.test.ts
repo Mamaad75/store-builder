@@ -305,3 +305,17 @@ describe("published reader: draft/published isolation", () => {
     expect(await readPublishedStorefront(a1)).toBeNull();
   });
 });
+
+describe("phase 3.3: product weight", () => {
+  it("is set and changed through the product API, bounded, and reaches the storefront data (for weight-based shipping)", async () => {
+    const { a, a1 } = await twoTenants();
+    const p = await activeProduct(a.id, a1, { weightGrams: 750 });
+    expect(p.weightGrams).toBe(750);
+    expect((await getDraftPreview(a.id, a1)).data.products[0]!.weightGrams).toBe(750);
+    expect((await updateProduct(a.id, a1, p.id, { weightGrams: null })).weightGrams).toBeNull();
+    expect((await updateProduct(a.id, a1, p.id, { name: "تازه" })).weightGrams).toBeNull(); // an unrelated edit leaves it alone
+    await expect(updateProduct(a.id, a1, p.id, { weightGrams: 1_000_001 })).rejects.toThrow();
+    await expect(updateProduct(a.id, a1, p.id, { weightGrams: 1.5 })).rejects.toThrow();
+    await expect(prisma.product.update({ where: { id: p.id }, data: { weightGrams: -1 } })).rejects.toThrow(); // DB CHECK
+  });
+});

@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
 import type { RateLimiter } from "../../auth/ports.js";
 import type { ApiConfig } from "../../config/env.js";
 import { CONFIG, RATE_LIMITER } from "../../config/tokens.js";
@@ -8,6 +8,8 @@ import { createCustomerAuthService, createCustomersService } from "./infrastruct
 import { PlatformSettingsService, otpSenderSource } from "../platform/platform.api.js";
 import { CustomerAuthController, StoreCustomersController } from "./interface/customers.controllers.js";
 
+/** Global (like PlatformModule): checkout (phase 3.3) reads the shopper's session through the exported CustomerAuthService. */
+@Global()
 @Module({
   controllers: [CustomerAuthController, StoreCustomersController],
   providers: [

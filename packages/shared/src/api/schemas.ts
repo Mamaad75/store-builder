@@ -42,6 +42,7 @@ export const productDto = z.object({
   description: z.string(),
   price: z.number().describe("Toman"),
   stockQuantity: z.number(),
+  weightGrams: z.number().nullable().describe("grams; null = unknown (weight-based shipping counts the method's default)"),
   specs: z.unknown(),
   status: productStatus,
   categoryId: z.string().nullable(),
@@ -143,6 +144,68 @@ export const secretListDto = z.object({ configured: z.boolean(), secrets: z.arra
 export const customerProfileDto = z.object({ id: z.string(), phone: z.string().describe("+989xxxxxxxxx"), name: z.string().nullable() });
 export const customerListItemDto = customerProfileDto.extend({ phoneVerifiedAt: iso.nullable(), lastLoginAt: iso.nullable(), createdAt: iso });
 export const otpRequestedDto = z.object({ resendAfterSeconds: z.number(), expiresInSeconds: z.number() });
+
+// ---- phase 3.3: cart, shipping, addresses, checkout summary (all money in toman, integers)
+const lineProblem = z.enum(["unavailable", "choose_variant", "out_of_stock", "not_enough_stock"]);
+export const pricedLineDto = z.object({
+  productId: z.string(),
+  variantId: z.string().nullable(),
+  quantity: z.number(),
+  name: z.string(),
+  slug: z.string().nullable(),
+  variantLabel: z.string(),
+  imageKey: z.string().nullable(),
+  unitPrice: z.number().describe("current price: the published price with live gold/dollar prices applied"),
+  lineTotal: z.number().describe("0 when the line has a problem"),
+  problem: lineProblem.nullable().describe("null = can be bought as is"),
+  available: z.number().nullable().describe("what is left, when less than asked for"),
+});
+export const cartViewDto = z.object({ lines: z.array(pricedLineDto), subtotal: z.number(), count: z.number().describe("units in the cart") });
+const shippingKind = z.enum(["FLAT", "WEIGHT", "PICKUP"]);
+export const shippingOptionDto = z.object({
+  methodId: z.string(),
+  name: z.string(),
+  kind: shippingKind,
+  description: z.string(),
+  cost: z.number(),
+  freeByThreshold: z.boolean(),
+  cashOnDelivery: z.object({ available: z.boolean(), fee: z.number() }),
+});
+export const checkoutSummaryDto = z.object({
+  lines: z.array(pricedLineDto),
+  subtotal: z.number(),
+  shippingOptions: z.array(shippingOptionDto).describe("methods offered for the address's province"),
+  shippingMethodId: z.string().nullable(),
+  shippingCost: z.number(),
+  cashOnDelivery: z.boolean(),
+  codFee: z.number(),
+  total: z.number(),
+  ready: z.boolean().describe("an order could be placed now (phase 3.4)"),
+  blockers: z.array(z.enum(["empty_cart", "line_problems", "no_address", "no_shipping_for_province", "choose_shipping", "shipping_unavailable", "cod_unavailable"])),
+});
+export const savedAddressDto = z.object({
+  id: z.string(),
+  recipientName: z.string(),
+  phone: z.string().describe("+989xxxxxxxxx"),
+  province: z.string().describe("province code (packages/shared/src/modules/checkout/provinces.ts)"),
+  city: z.string(),
+  line: z.string(),
+  postalCode: z.string(),
+});
+export const shippingMethodDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: shippingKind,
+  enabled: z.boolean(),
+  description: z.string(),
+  price: z.number(),
+  perKg: z.number(),
+  defaultItemGrams: z.number(),
+  provinces: z.array(z.string()),
+  provincePrices: z.array(z.object({ province: z.string(), price: z.number() })),
+  freeAbove: z.number().nullable(),
+  cashOnDelivery: z.object({ enabled: z.boolean(), provinces: z.array(z.string()), fee: z.number() }),
+});
 export const platformOverviewDto = z.object({ users: z.number(), stores: z.number(), publishedStores: z.number(), products: z.number(), customers: z.number() });
 export const platformStoreDto = z.object({
   id: z.string(),

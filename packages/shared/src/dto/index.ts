@@ -64,6 +64,8 @@ export interface ProductDto {
   description: string;
   price: number;
   stockQuantity: number;
+  /** Phase 3.3: grams, null = unknown. */
+  weightGrams: number | null;
   specs: unknown;
   status: ProductStatus;
   categoryId: string | null;

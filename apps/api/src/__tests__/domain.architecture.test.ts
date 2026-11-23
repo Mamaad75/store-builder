@@ -28,6 +28,19 @@ describe("architecture guard: tenant data is only reachable through the owner-sc
     expect(rel(files("src/modules/categories").filter(touchesDb))).toEqual(["src/modules/categories/infrastructure/prisma-category.repository.ts"]);
   });
 
+  it("phase 3.3: checkout reads Product and ProductVariant rows for status and sellable stock only (prices come from the published snapshot)", () => {
+    expect(rel(files("src/modules/checkout").filter(touchesDb))).toEqual(["src/modules/checkout/infrastructure/prisma-checkout.repository.ts"]);
+    const repo = read("src/modules/checkout/infrastructure/prisma-checkout.repository.ts");
+    const productReads = [...repo.matchAll(/SELECT ([^`]*?) FROM "(Product|ProductVariant)"/g)].map((m) => `${m[2]}: ${m[1]!.replace(/\s+/g, " ")}`);
+    expect(productReads.sort()).toEqual([
+      'Product: id, status::text AS status, "stockQuantity"',
+      'ProductVariant: DISTINCT "productId"',
+      'ProductVariant: id, "productId", "stockQuantity"',
+    ]);
+    expect(repo).not.toMatch(/\b(db|tx)\.(product|productVariant)\./); // no Prisma model access to catalog rows (it would read every column)
+    expect(repo).not.toMatch(/(UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+"(Product|ProductVariant)"/i);
+  });
+
 });
 
 describe("architecture guard: catalog writes go through withStoreMutation", () => {

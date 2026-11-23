@@ -4803,6 +4803,13 @@
                           "stockQuantity": {
                             "type": "number"
                           },
+                          "weightGrams": {
+                            "description": "grams; null = unknown (weight-based shipping counts the method's default)",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
                           "specs": {},
                           "status": {
                             "type": "string",
@@ -4894,6 +4901,7 @@
                           "description",
                           "price",
                           "stockQuantity",
+                          "weightGrams",
                           "specs",
                           "status",
                           "categoryId",
@@ -5056,6 +5064,18 @@
                     "minimum": 0,
                     "maximum": 1000000
                   },
+                  "weightGrams": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "categoryId": {
                     "anyOf": [
                       {
@@ -5126,6 +5146,13 @@
                     },
                     "stockQuantity": {
                       "type": "number"
+                    },
+                    "weightGrams": {
+                      "description": "grams; null = unknown (weight-based shipping counts the method's default)",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "specs": {},
                     "status": {
@@ -5218,6 +5245,7 @@
                     "description",
                     "price",
                     "stockQuantity",
+                    "weightGrams",
                     "specs",
                     "status",
                     "categoryId",
@@ -5372,6 +5400,13 @@
                     "stockQuantity": {
                       "type": "number"
                     },
+                    "weightGrams": {
+                      "description": "grams; null = unknown (weight-based shipping counts the method's default)",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "specs": {},
                     "status": {
                       "type": "string",
@@ -5463,6 +5498,7 @@
                     "description",
                     "price",
                     "stockQuantity",
+                    "weightGrams",
                     "specs",
                     "status",
                     "categoryId",
@@ -5611,6 +5647,18 @@
                     "minimum": 0,
                     "maximum": 1000000
                   },
+                  "weightGrams": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "categoryId": {
                     "anyOf": [
                       {
@@ -5680,6 +5728,13 @@
                     },
                     "stockQuantity": {
                       "type": "number"
+                    },
+                    "weightGrams": {
+                      "description": "grams; null = unknown (weight-based shipping counts the method's default)",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "specs": {},
                     "status": {
@@ -5772,6 +5827,7 @@
                     "description",
                     "price",
                     "stockQuantity",
+                    "weightGrams",
                     "specs",
                     "status",
                     "categoryId",
@@ -7026,6 +7082,13 @@
                     "stockQuantity": {
                       "type": "number"
                     },
+                    "weightGrams": {
+                      "description": "grams; null = unknown (weight-based shipping counts the method's default)",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "specs": {},
                     "status": {
                       "type": "string",
@@ -7117,6 +7180,7 @@
                     "description",
                     "price",
                     "stockQuantity",
+                    "weightGrams",
                     "specs",
                     "status",
                     "categoryId",
@@ -8504,6 +8568,571 @@
         "responses": {
           "204": {
             "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/shipping-methods": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdShippingMethods",
+        "summary": "The store's shipping methods",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "store.view",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "FLAT",
+                          "WEIGHT",
+                          "PICKUP"
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "price": {
+                        "type": "number"
+                      },
+                      "perKg": {
+                        "type": "number"
+                      },
+                      "defaultItemGrams": {
+                        "type": "number"
+                      },
+                      "provinces": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "provincePrices": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "province": {
+                              "type": "string"
+                            },
+                            "price": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "province",
+                            "price"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "freeAbove": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "cashOnDelivery": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "provinces": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "fee": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "enabled",
+                          "provinces",
+                          "fee"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "kind",
+                      "enabled",
+                      "description",
+                      "price",
+                      "perKg",
+                      "defaultItemGrams",
+                      "provinces",
+                      "provincePrices",
+                      "freeAbove",
+                      "cashOnDelivery"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putApiV1AdminStoresStoreIdShippingMethods",
+        "summary": "Replace the shipping methods (applies to checkout at once, no publish)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "store.settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "methods": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "FLAT",
+                            "WEIGHT",
+                            "PICKUP"
+                          ]
+                        },
+                        "enabled": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "default": 0,
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "perKg": {
+                          "default": 0,
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "defaultItemGrams": {
+                          "default": 500,
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000
+                        },
+                        "provinces": {
+                          "maxItems": 31,
+                          "type": "array",
+                          "items": {}
+                        },
+                        "provincePrices": {
+                          "maxItems": 31,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "province": {},
+                              "price": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "required": [
+                              "province",
+                              "price"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "freeAbove": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cashOnDelivery": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "provinces": {
+                              "maxItems": 31,
+                              "type": "array",
+                              "items": {}
+                            },
+                            "fee": {
+                              "default": 0,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "methods"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "FLAT",
+                          "WEIGHT",
+                          "PICKUP"
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "price": {
+                        "type": "number"
+                      },
+                      "perKg": {
+                        "type": "number"
+                      },
+                      "defaultItemGrams": {
+                        "type": "number"
+                      },
+                      "provinces": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "provincePrices": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "province": {
+                              "type": "string"
+                            },
+                            "price": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "province",
+                            "price"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "freeAbove": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "cashOnDelivery": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "provinces": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "fee": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "enabled",
+                          "provinces",
+                          "fee"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "kind",
+                      "enabled",
+                      "description",
+                      "price",
+                      "perKg",
+                      "defaultItemGrams",
+                      "provinces",
+                      "provincePrices",
+                      "freeAbove",
+                      "cashOnDelivery"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid request",
@@ -14552,6 +15181,1778 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/cart": {
+      "get": {
+        "operationId": "getApiV1StoreStoresLabelCart",
+        "summary": "The shopper's cart with current prices and stock problems (cart cookie; a signed-in customer's guest cart is folded in)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "type": "string"
+                          },
+                          "variantId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "variantLabel": {
+                            "type": "string"
+                          },
+                          "imageKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unitPrice": {
+                            "type": "number",
+                            "description": "current price: the published price with live gold/dollar prices applied"
+                          },
+                          "lineTotal": {
+                            "type": "number",
+                            "description": "0 when the line has a problem"
+                          },
+                          "problem": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "unavailable",
+                                  "choose_variant",
+                                  "out_of_stock",
+                                  "not_enough_stock"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "null = can be bought as is"
+                          },
+                          "available": {
+                            "description": "what is left, when less than asked for",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "productId",
+                          "variantId",
+                          "quantity",
+                          "name",
+                          "slug",
+                          "variantLabel",
+                          "imageKey",
+                          "unitPrice",
+                          "lineTotal",
+                          "problem",
+                          "available"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "subtotal": {
+                      "type": "number"
+                    },
+                    "count": {
+                      "type": "number",
+                      "description": "units in the cart"
+                    }
+                  },
+                  "required": [
+                    "lines",
+                    "subtotal",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteApiV1StoreStoresLabelCart",
+        "summary": "Empty the cart",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/cart/items": {
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCartItems",
+        "summary": "Add to a cart line (creates the cart and its cookie on the first add; rate limited per network)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "productId": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]{1,64}$"
+                  },
+                  "variantId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z0-9]{1,64}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000
+                  }
+                },
+                "required": [
+                  "productId",
+                  "quantity"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "type": "string"
+                          },
+                          "variantId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "variantLabel": {
+                            "type": "string"
+                          },
+                          "imageKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unitPrice": {
+                            "type": "number",
+                            "description": "current price: the published price with live gold/dollar prices applied"
+                          },
+                          "lineTotal": {
+                            "type": "number",
+                            "description": "0 when the line has a problem"
+                          },
+                          "problem": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "unavailable",
+                                  "choose_variant",
+                                  "out_of_stock",
+                                  "not_enough_stock"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "null = can be bought as is"
+                          },
+                          "available": {
+                            "description": "what is left, when less than asked for",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "productId",
+                          "variantId",
+                          "quantity",
+                          "name",
+                          "slug",
+                          "variantLabel",
+                          "imageKey",
+                          "unitPrice",
+                          "lineTotal",
+                          "problem",
+                          "available"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "subtotal": {
+                      "type": "number"
+                    },
+                    "count": {
+                      "type": "number",
+                      "description": "units in the cart"
+                    }
+                  },
+                  "required": [
+                    "lines",
+                    "subtotal",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putApiV1StoreStoresLabelCartItems",
+        "summary": "Set a cart line's quantity (0 removes it)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "productId": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]{1,64}$"
+                  },
+                  "variantId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z0-9]{1,64}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000
+                  }
+                },
+                "required": [
+                  "productId",
+                  "quantity"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "type": "string"
+                          },
+                          "variantId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "variantLabel": {
+                            "type": "string"
+                          },
+                          "imageKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unitPrice": {
+                            "type": "number",
+                            "description": "current price: the published price with live gold/dollar prices applied"
+                          },
+                          "lineTotal": {
+                            "type": "number",
+                            "description": "0 when the line has a problem"
+                          },
+                          "problem": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "unavailable",
+                                  "choose_variant",
+                                  "out_of_stock",
+                                  "not_enough_stock"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "null = can be bought as is"
+                          },
+                          "available": {
+                            "description": "what is left, when less than asked for",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "productId",
+                          "variantId",
+                          "quantity",
+                          "name",
+                          "slug",
+                          "variantLabel",
+                          "imageKey",
+                          "unitPrice",
+                          "lineTotal",
+                          "problem",
+                          "available"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "subtotal": {
+                      "type": "number"
+                    },
+                    "count": {
+                      "type": "number",
+                      "description": "units in the cart"
+                    }
+                  },
+                  "required": [
+                    "lines",
+                    "subtotal",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/checkout/quote": {
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCheckoutQuote",
+        "summary": "Checkout summary for an address (typed or saved) and a shipping choice; read-only",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "address": {},
+                  "addressId": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]{1,64}$"
+                  },
+                  "shippingMethodId": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]{1,64}$"
+                  },
+                  "cashOnDelivery": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "type": "string"
+                          },
+                          "variantId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "variantLabel": {
+                            "type": "string"
+                          },
+                          "imageKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "unitPrice": {
+                            "type": "number",
+                            "description": "current price: the published price with live gold/dollar prices applied"
+                          },
+                          "lineTotal": {
+                            "type": "number",
+                            "description": "0 when the line has a problem"
+                          },
+                          "problem": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "unavailable",
+                                  "choose_variant",
+                                  "out_of_stock",
+                                  "not_enough_stock"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "null = can be bought as is"
+                          },
+                          "available": {
+                            "description": "what is left, when less than asked for",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "productId",
+                          "variantId",
+                          "quantity",
+                          "name",
+                          "slug",
+                          "variantLabel",
+                          "imageKey",
+                          "unitPrice",
+                          "lineTotal",
+                          "problem",
+                          "available"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "subtotal": {
+                      "type": "number"
+                    },
+                    "shippingOptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "methodId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "FLAT",
+                              "WEIGHT",
+                              "PICKUP"
+                            ]
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "cost": {
+                            "type": "number"
+                          },
+                          "freeByThreshold": {
+                            "type": "boolean"
+                          },
+                          "cashOnDelivery": {
+                            "type": "object",
+                            "properties": {
+                              "available": {
+                                "type": "boolean"
+                              },
+                              "fee": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "available",
+                              "fee"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "methodId",
+                          "name",
+                          "kind",
+                          "description",
+                          "cost",
+                          "freeByThreshold",
+                          "cashOnDelivery"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "methods offered for the address's province"
+                    },
+                    "shippingMethodId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "shippingCost": {
+                      "type": "number"
+                    },
+                    "cashOnDelivery": {
+                      "type": "boolean"
+                    },
+                    "codFee": {
+                      "type": "number"
+                    },
+                    "total": {
+                      "type": "number"
+                    },
+                    "ready": {
+                      "type": "boolean",
+                      "description": "an order could be placed now (phase 3.4)"
+                    },
+                    "blockers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "empty_cart",
+                          "line_problems",
+                          "no_address",
+                          "no_shipping_for_province",
+                          "choose_shipping",
+                          "shipping_unavailable",
+                          "cod_unavailable"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "lines",
+                    "subtotal",
+                    "shippingOptions",
+                    "shippingMethodId",
+                    "shippingCost",
+                    "cashOnDelivery",
+                    "codFee",
+                    "total",
+                    "ready",
+                    "blockers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/customer/addresses": {
+      "get": {
+        "operationId": "getApiV1StoreStoresLabelCustomerAddresses",
+        "summary": "The signed-in customer's saved addresses (customer cookie; 401 without)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "recipientName": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string",
+                        "description": "+989xxxxxxxxx"
+                      },
+                      "province": {
+                        "type": "string",
+                        "description": "province code (packages/shared/src/modules/checkout/provinces.ts)"
+                      },
+                      "city": {
+                        "type": "string"
+                      },
+                      "line": {
+                        "type": "string"
+                      },
+                      "postalCode": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "recipientName",
+                      "phone",
+                      "province",
+                      "city",
+                      "line",
+                      "postalCode"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCustomerAddresses",
+        "summary": "Save an address (at most 10)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipientName": {
+                    "type": "string"
+                  },
+                  "phone": {},
+                  "province": {},
+                  "city": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": "string"
+                  },
+                  "postalCode": {}
+                },
+                "required": [
+                  "recipientName",
+                  "phone",
+                  "province",
+                  "city",
+                  "line",
+                  "postalCode"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "recipientName": {
+                      "type": "string"
+                    },
+                    "phone": {
+                      "type": "string",
+                      "description": "+989xxxxxxxxx"
+                    },
+                    "province": {
+                      "type": "string",
+                      "description": "province code (packages/shared/src/modules/checkout/provinces.ts)"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "string"
+                    },
+                    "postalCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "recipientName",
+                    "phone",
+                    "province",
+                    "city",
+                    "line",
+                    "postalCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/customer/addresses/{addressId}": {
+      "put": {
+        "operationId": "putApiV1StoreStoresLabelCustomerAddressesAddressId",
+        "summary": "Change a saved address",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "addressId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipientName": {
+                    "type": "string"
+                  },
+                  "phone": {},
+                  "province": {},
+                  "city": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": "string"
+                  },
+                  "postalCode": {}
+                },
+                "required": [
+                  "recipientName",
+                  "phone",
+                  "province",
+                  "city",
+                  "line",
+                  "postalCode"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "recipientName": {
+                      "type": "string"
+                    },
+                    "phone": {
+                      "type": "string",
+                      "description": "+989xxxxxxxxx"
+                    },
+                    "province": {
+                      "type": "string",
+                      "description": "province code (packages/shared/src/modules/checkout/provinces.ts)"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "string"
+                    },
+                    "postalCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "recipientName",
+                    "phone",
+                    "province",
+                    "city",
+                    "line",
+                    "postalCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteApiV1StoreStoresLabelCustomerAddressesAddressId",
+        "summary": "Delete a saved address",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "addressId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Success"
           },
           "400": {
             "description": "Invalid request",

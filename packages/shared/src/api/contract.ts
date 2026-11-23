@@ -6,6 +6,7 @@ import { createCategorySchema, deleteCategoryOptionsSchema, updateCategorySchema
 import { createProductSchema, statusSchema, updateProductSchema } from "../modules/products/schemas.js";
 import { secretValueSchema } from "../modules/secrets/schemas.js";
 import { replaceVariantsSchema } from "../modules/inventory/variants.js";
+import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
 import { RATE_CODES, priceLinkInputSchema } from "../modules/pricing/pricing.js";
 import { createStoreSchema, switchThemeSchema, updateBusinessCategorySchema, updateStoreSchema } from "../modules/stores/schemas.js";
 import * as S from "./schemas.js";
@@ -165,6 +166,18 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", "/api/public/stores/:label/customer/me", "The signed-in customer of this store (customer cookie)", { auth: "public", response: z.object({ customer: S.customerProfileDto }) }),
   r("POST", "/api/public/stores/:label/customer/logout", "Sign out on this device", { auth: "public", status: 204 }),
   r("POST", "/api/public/stores/:label/customer/logout-all", "Sign out on every device", { auth: "public", status: 204 }),
+  // ---- phase 3.3: cart, saved addresses, checkout summary (shopper side, on the store's own host) and shipping methods (merchant)
+  r("GET", "/api/public/stores/:label/cart", "The shopper's cart with current prices and stock problems (cart cookie; a signed-in customer's guest cart is folded in)", { auth: "public", response: S.cartViewDto }),
+  r("POST", "/api/public/stores/:label/cart/items", "Add to a cart line (creates the cart and its cookie on the first add; rate limited per network)", { auth: "public", status: 200, body: cartLineInputSchema, response: S.cartViewDto }),
+  r("PUT", "/api/public/stores/:label/cart/items", "Set a cart line's quantity (0 removes it)", { auth: "public", body: cartLineInputSchema, response: S.cartViewDto }),
+  r("DELETE", "/api/public/stores/:label/cart", "Empty the cart", { auth: "public", status: 204 }),
+  r("POST", "/api/public/stores/:label/checkout/quote", "Checkout summary for an address (typed or saved) and a shipping choice; read-only", { auth: "public", status: 200, body: checkoutQuoteSchema, response: S.checkoutSummaryDto }),
+  r("GET", "/api/public/stores/:label/customer/addresses", "The signed-in customer's saved addresses (customer cookie; 401 without)", { auth: "public", response: z.array(S.savedAddressDto) }),
+  r("POST", "/api/public/stores/:label/customer/addresses", "Save an address (at most 10)", { auth: "public", body: addressInputSchema, response: S.savedAddressDto }),
+  r("PUT", "/api/public/stores/:label/customer/addresses/:addressId", "Change a saved address", { auth: "public", body: addressInputSchema, response: S.savedAddressDto }),
+  r("DELETE", "/api/public/stores/:label/customer/addresses/:addressId", "Delete a saved address", { auth: "public", status: 204 }),
+  r("GET", st("/shipping-methods"), "The store's shipping methods", { permission: "store.view", response: z.array(S.shippingMethodDto) }),
+  r("PUT", st("/shipping-methods"), "Replace the shipping methods (applies to checkout at once, no publish)", { permission: "store.settings", body: replaceShippingMethodsSchema, response: z.array(S.shippingMethodDto) }),
   r("GET", st("/customers"), "The store's customers, newest first", { permission: "customers.view", query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.customerListItemDto) }),
 
   // ---- phase 3.1: platform operators (super admins; the role is checked in the database on every request)

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_WEIGHT_GRAMS } from "../checkout/checkout.js";
 import { MAX_PRICE_TOMAN, parseIntegerInput } from "@store-builder/shared/lib/money";
 import { specsInputSchema } from "@store-builder/shared/lib/product-specs";
 import { SLUG_MAX, normalizeFa, normalizeFaText, slugify } from "@store-builder/shared/lib/text";
@@ -27,6 +28,8 @@ const description = z
 
 const price = intField(0, MAX_PRICE_TOMAN, "قیمت باید عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد");
 const stockQuantity = intField(0, MAX_STOCK_QUANTITY, "موجودی باید عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰ باشد");
+/** Phase 3.3: shipping weight in grams (null = unknown; weight-based shipping then counts the method's default). */
+const weightGrams = z.union([intField(0, MAX_WEIGHT_GRAMS, "وزن باید عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰ گرم باشد"), z.null()]);
 
 /** Blank => no value (auto-generate / keep current). Otherwise sanitised to the canonical slug. */
 const slug = z
@@ -48,6 +51,7 @@ export const createProductSchema = z
     description: description.optional().default(""),
     price,
     stockQuantity: stockQuantity.optional().default(0),
+    weightGrams: weightGrams.optional().default(null),
     categoryId: categoryId.optional().default(null),
     slug: slug.optional(),
     specs: specsInputSchema.optional().default([]),
@@ -61,6 +65,7 @@ export const updateProductSchema = z
     description: description.optional(),
     price: price.optional(),
     stockQuantity: stockQuantity.optional(),
+    weightGrams: weightGrams.optional(),
     categoryId: categoryId.optional(),
     slug: slug.optional(),
     // Absent = leave the stored specs exactly as they are (even if invalid). Present = an explicit replacement ([] = clear).

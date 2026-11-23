@@ -135,6 +135,8 @@ model Store {
   publishedSlugs   PublishedSlug[]
   customers        Customer[]
   otpChallenges    OtpChallenge[]
+  shippingMethods  ShippingMethod[]
+  carts            Cart[]
 
   @@index([ownerId, createdAt])
   @@index([status])
@@ -208,6 +210,8 @@ model Product {
   description   String        @default("")
   price         Int
   stockQuantity Int           @default(0)
+  /// Phase 3.3: shipping weight in grams (0..1,000,000; CHECK), null = unknown.
+  weightGrams   Int?
   searchKey     String        @default("")
   // Ordered [{label, value}] text rows owned by the product (independent of theme and business category).
   // Empty by default; the database only guarantees "an array of at most 30 elements" (see the phase9c migration):
@@ -225,6 +229,7 @@ model Product {
   reservations StockReservation[]
   priceLinks   PriceLink[]
   livePrices   LivePrice[]
+  cartItems    CartItem[]
 
   @@unique([storeId, slug])
   /// Phase 3.2: lets variants and reservations reference (storeId, id), so a row can never point at a product of another store.
@@ -423,19 +428,23 @@ model PlatformAdmin {
 /// A shopper of ONE store (phase 3.1): unknown to every other store. `phone` is an Iranian mobile in the form +989xxxxxxxxx (CHECK).
 /// Customers have their own session (separate cookie and token audience), never a merchant session. Deleted with the store.
 model Customer {
-  id              String    @id @default(cuid())
+  id              String            @id @default(cuid())
   storeId         String
-  phone           String    @db.VarChar(16)
-  name            String?   @db.VarChar(80)
+  phone           String            @db.VarChar(16)
+  name            String?           @db.VarChar(80)
   /// Bumped to end every session of this customer.
-  authVersion     Int       @default(0)
+  authVersion     Int               @default(0)
   phoneVerifiedAt DateTime?
   lastLoginAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  store           Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  carts           Cart[]
+  addresses       CustomerAddress[]
 
   @@unique([storeId, phone])
+  /// Phase 3.3: lets carts and addresses reference (storeId, id), so they can never point at a customer of another store.
+  @@unique([storeId, id])
   @@index([storeId, createdAt])
 }
 
@@ -500,6 +509,7 @@ model ProductVariant {
   product      Product            @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
   reservations StockReservation[]
   priceLinks   PriceLink[]
+  cartItems    CartItem[]
 
   @@unique([productId, optionsKey])
   @@unique([storeId, id])
@@ -616,4 +626,102 @@ model LivePrice {
 
   @@id([productId, target])
   @@index([storeId])
+}
+
+// ---------- Phase 3.3 (D33-1): cart, shipping methods, addresses ----------
+
+enum ShippingKind {
+  FLAT
+  WEIGHT
+  PICKUP
+}
+
+/// A store's shipping method. Operational setting, not draft content: a change applies to checkout at once (no publish).
+/// Read by the public checkout (allowlisted with LivePrice). Province codes are checked for shape here and for membership by the application.
+model ShippingMethod {
+  id               String       @id @default(cuid())
+  storeId          String
+  name             String       @db.VarChar(60)
+  kind             ShippingKind
+  enabled          Boolean      @default(true)
+  description      String       @default("") @db.VarChar(200)
+  price            Int          @default(0)
+  perKg            Int          @default(0)
+  defaultItemGrams Int          @default(500)
+  /// [] = all of Iran.
+  provinces        String[]     @default([])
+  /// [{province, price}] (validated by the application; CHECK: a JSON array of at most 31 elements).
+  provincePrices   Json         @default("[]")
+  freeAbove        Int?
+  codEnabled       Boolean      @default(false)
+  codProvinces     String[]     @default([])
+  codFee           Int          @default(0)
+  position         Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, position])
+}
+
+/// A shopper's cart in one store. A guest holds a random token in a cookie; only its SHA-256 is stored. A signed-in customer's cart
+/// carries the customer id. Deleted by db-cleanup after CART_TTL_DAYS without a change.
+model Cart {
+  id         String   @id @default(cuid())
+  storeId    String
+  tokenHash  String   @db.Char(64)
+  customerId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  store    Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer?  @relation(fields: [storeId, customerId], references: [storeId, id], onDelete: Cascade)
+  items    CartItem[]
+
+  @@unique([tokenHash])
+  @@unique([storeId, id])
+  @@index([storeId, customerId])
+  @@index([updatedAt])
+}
+
+/// One line: a product, or one variant of it. No price is stored: checkout always reads the current one.
+model CartItem {
+  id        String   @id @default(cuid())
+  storeId   String
+  cartId    String
+  productId String
+  variantId String?
+  /// "<productId>|<variantId or ->": one line per product/variant (a NULL variant would not be unique in a plain index).
+  lineKey   String   @db.VarChar(130)
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart            @relation(fields: [storeId, cartId], references: [storeId, id], onDelete: Cascade)
+  product Product         @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [storeId, variantId], references: [storeId, id], onDelete: Cascade)
+
+  @@unique([cartId, lineKey])
+  @@index([storeId, productId])
+}
+
+/// A signed-in customer's saved delivery address (guests type theirs at checkout).
+model CustomerAddress {
+  id            String   @id @default(cuid())
+  storeId       String
+  customerId    String
+  recipientName String   @db.VarChar(80)
+  phone         String   @db.VarChar(16)
+  province      String   @db.VarChar(32)
+  city          String   @db.VarChar(40)
+  line          String   @db.VarChar(250)
+  postalCode    String   @db.Char(10)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customer Customer @relation(fields: [storeId, customerId], references: [storeId, id], onDelete: Cascade)
+
+  @@unique([storeId, id])
+  @@index([storeId, customerId, createdAt])
 }

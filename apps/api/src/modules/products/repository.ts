@@ -11,6 +11,7 @@ export const productSelect = {
   description: true,
   price: true,
   stockQuantity: true,
+  weightGrams: true,
   specs: true, // raw stored JSON: analysed (never rewritten) by lib/product-specs
   status: true,
   categoryId: true,
@@ -127,6 +128,7 @@ export interface NewProductRow {
   description: string;
   price: number;
   stockQuantity: number;
+  weightGrams: number | null;
   categoryId: string | null;
   searchKey: string;
   specs: Prisma.InputJsonValue;

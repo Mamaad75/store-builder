@@ -11,7 +11,7 @@ ships the API, the storefront side and the tests; dashboard screens follow from 
 | 3.1 | Platform super-admins (role table, server command for the first one, `/api/v1/platform` API and the `/platform` pages, audited); platform settings for SMS, payment and AI with write-only encrypted keys; customer accounts per store; OTP sign-in (code, limits, session) through Kavenegar, **off** until switched on in the settings | done |
 | 3.2 | Product variants (options such as colour/size, price and stock per variant); atomic stock decrement; temporary reservations | done |
 | 3.2b | Prices linked to the dollar or 18k gold (owner request 2026-11-23): merchant links in toman or by the jewellery formula, hourly rates (Navasan or manual), held jumps confirmed by a super admin, live prices on the published storefront | done |
-| 3.3 | Cart (guest and signed-in), shipping methods (flat, weight-based, free above an amount, pickup), addresses, checkout summary | planned |
+| 3.3 | Cart (guest and signed-in), shipping methods (flat, weight-based, free above an amount, pickup; owner 2026-11-24: per-province prices and cash on delivery), addresses (province list + postal code), checkout summary | done |
 | 3.4 | Orders and invoices: state machine with history, item snapshots, gap-free invoice numbers per store | planned |
 | 3.5 | Zarinpal: payment state machine, server-side verify, idempotent callback, reconciliation job, per-store merchant id in the encrypted secrets (2.4) | planned |
 | 3.6 | Order SMS (shopper and merchant) through the outbox and the worker; turns on with the SMS account | planned |
@@ -142,6 +142,50 @@ jump is applied only after a super admin confirms it.
 
 Accepted for now: a super admin's manual entry or confirmation reprices inside the request (stores are isolated; the hourly run catches
 up).
+
+## 3.3 design (D33-1): cart, shipping, addresses, checkout summary
+
+Owner decisions of 2026-11-24: guests can check out (the mobile is verified by OTP once SMS is on); shipping gets per-province prices and
+cash on delivery; the cart lives in the database; addresses use a province list and a postal-code check.
+
+* **Cart.** `Cart(storeId, tokenHash, customerId?)` and `CartItem(cartId, productId, variantId?, quantity)`; one line per product/variant
+  (`lineKey`, CHECKed against the ids), 1..1000 units, at most 50 lines (`MAX_CART_LINES`, the same as one stock hold).
+  * A guest gets a random 256-bit token in an httpOnly, SameSite=Lax cookie (`__Host-sb_cart` over https, 30 days); only its SHA-256 is
+    stored. A malformed token is never looked up.
+  * Signed in (customer cookie of THIS store): the customer's cart is used and the device's guest cart is folded into it (quantities add up,
+    capped; both carts locked in id order). Without a session only guest carts are visible, so after signing out the next person on the
+    device does not see the customer's cart.
+  * Only products and variants of the PUBLISHED version can be added; a product with variants needs one. Removing is always allowed.
+    Every change runs in one transaction with the cart row locked.
+  * New carts are rate limited per client network (30 per hour, IPv6 by /64); adding to an existing cart is not. Carts untouched for
+    30 days are deleted by `db-cleanup` (lines cascade; a product or variant deleted from the catalog leaves every cart the same way).
+  * No stock is held by a cart. The order step (3.4) reserves stock with the 3.2 ledger; until then the cart shows shortages.
+* **Prices.** No price is stored in a cart and none is accepted from a page (unknown fields are refused). Every view prices from the
+  published snapshot with live gold/dollar prices applied (the same numbers the storefront shows) and reads two facts from the stock rows:
+  status and sellable quantity (an architecture test pins those columns). A line that cannot be bought keeps its reason
+  (`unavailable`, `choose_variant`, `out_of_stock`, `not_enough_stock`) and counts in no total.
+* **Shipping methods** (`ShippingMethod`, at most 20 per store, `GET`/`PUT /api/stores/:storeId/shipping-methods`; `store.settings`,
+  audited `store.shipping_methods_replaced`). An operational setting like stock: it applies to checkout at once, without a publish.
+  * FLAT: the province price, else the base price. WEIGHT: the (province) price covers the first kilogram, `perKg` each further started
+    kilogram; units without a weight count `defaultItemGrams`. PICKUP: always free (CHECK).
+  * `provinces` ([] = all of Iran), `freeAbove` (on the subtotal of buyable lines), cash on delivery (on/off, provinces, fee).
+  * Stored rows are re-validated when read; a row the rules no longer accept is left out of checkout and logged.
+* **Product weight.** `Product.weightGrams` (nullable, 0..1,000,000, CHECK), set through the product API and published in the snapshot
+  (older snapshots read as null). Variants share their product's weight.
+* **Addresses.** Iran's 31 provinces (`packages/shared/src/modules/checkout/provinces.ts`, stable codes; the database checks the shape). City
+  suggestions per province, but the city is free text (a town that is not listed must still be deliverable). Postal code: 10 digits,
+  Persian/Arabic digits accepted, ten identical digits refused (deliberately lenient: a stricter rule that rejected one real code would cost
+  a sale). Mobile in E.164 (CHECK). Signed-in customers save up to 10 (`/customer/addresses`, 401 without a session of this store);
+  guests type theirs at checkout.
+* **Checkout summary** (`POST /api/public/stores/:label/checkout/quote`; a POST so the address never appears in a URL). Read-only. Takes a
+  typed address or a saved one (`addressId`, the signed-in owner only), a shipping method and cash on delivery; returns the priced lines, the
+  methods offered for the province with their cost, the total and `ready` plus the `blockers` in the order the shopper should fix them.
+* **Routes and origins.** Public routes under `/api/public/stores/:label/` (`cart`, `cart/items`, `checkout/quote`,
+  `customer/addresses`); a store that is not live is the same 404 as a missing one; responses are `no-store`. Posts are accepted from the
+  platform's origins and from that store's own origin only (the 3.1 rule, widened to these routes).
+
+For 3.4 (orders): reserve stock with the ledger when the order is placed, re-price at that moment (the live-price cache is 60 s), and store
+the item and address snapshot in the order; the cart is emptied only after the order exists.
 
 ## 3.1 security review (2026-11-23) and what it leaves for later
 

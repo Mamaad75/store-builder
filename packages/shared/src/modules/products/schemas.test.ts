@@ -5,7 +5,7 @@ import { activationSchema, createProductSchema, parseProductListParams, updatePr
 describe("createProductSchema", () => {
   it("normalises and applies defaults (blank slug => undefined, blank category => null)", () => {
     const r = createProductSchema.parse({ name: " چاي  سبز ", price: "۱٬۲۰۰", slug: "  ", categoryId: "" });
-    expect(r).toEqual({ name: "چای سبز", description: "", price: 1200, stockQuantity: 0, categoryId: null, slug: undefined, specs: [] });
+    expect(r).toEqual({ name: "چای سبز", description: "", price: 1200, stockQuantity: 0, weightGrams: null, categoryId: null, slug: undefined, specs: [] });
   });
   it("accepts the numeric boundaries exactly", () => {
     expect(createProductSchema.safeParse({ name: "a", price: 0, stockQuantity: 0 }).success).toBe(true);
@@ -14,6 +14,7 @@ describe("createProductSchema", () => {
   it.each([
     { price: 1_000_000_001 }, { price: -1 }, { price: 1.5 }, { price: "1.5" }, { price: "" }, { price: "abc" }, { price: "۱۲ تومان" },
     { stockQuantity: 1_000_001 }, { stockQuantity: -1 }, { stockQuantity: "x" },
+    { weightGrams: 1_000_001 }, { weightGrams: -1 }, { weightGrams: 1.5 }, { weightGrams: "x" },
     { name: "" }, { name: "x".repeat(121) }, { name: 5 }, { description: "x".repeat(5001) }, { slug: "x".repeat(300) },
   ])("rejects %j", (bad) => {
     expect(createProductSchema.safeParse({ name: "a", price: 1, ...bad }).success).toBe(false);

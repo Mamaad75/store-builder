@@ -20,7 +20,7 @@ export interface StorefrontSource {
   template: { key: string; version: number; defaultSettings: unknown };
   pages: { type: string; title: string; slug: string; position: number; sections: unknown }[];
   categories: { id: string; name: string; slug: string }[];
-  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; categoryId: string | null; image?: MediaSource | null; specs?: unknown; variants?: { id: string; options: unknown; price: number; stockQuantity: number }[] }[];
+  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; weightGrams?: number | null; categoryId: string | null; image?: MediaSource | null; specs?: unknown; variants?: { id: string; options: unknown; price: number; stockQuantity: number }[] }[];
   /** READY media of the store that sections may reference, by media id (only ids found here can ever be rendered). */
   images?: Record<string, MediaSource>;
   /** Products that exist but are not storefront-eligible (draft/archived). Only a count: never their data. */

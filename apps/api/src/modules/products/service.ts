@@ -169,6 +169,7 @@ export async function createProduct(ownerId: string, storeId: unknown, input: un
         description: data.description,
         price: data.price,
         stockQuantity: data.stockQuantity,
+        weightGrams: data.weightGrams,
         categoryId: data.categoryId,
         searchKey: makeSearchKey(data.name),
         specs: data.specs,
@@ -205,6 +206,7 @@ export async function updateProduct(
     if (patch.description !== undefined && patch.description !== cur.description) c.description = patch.description;
     if (patch.price !== undefined && patch.price !== cur.price) c.price = patch.price;
     if (patch.stockQuantity !== undefined && patch.stockQuantity !== cur.stockQuantity) c.stockQuantity = patch.stockQuantity;
+    if (patch.weightGrams !== undefined && patch.weightGrams !== cur.weightGrams) c.weightGrams = patch.weightGrams;
     if (patch.categoryId !== undefined && patch.categoryId !== cur.categoryId) c.categoryId = patch.categoryId;
     if (patch.slug !== undefined && patch.slug !== cur.slug) c.slug = patch.slug;
     // Specs are written ONLY when explicitly supplied and different. Editing any other field never touches them, so
