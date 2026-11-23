@@ -216,12 +216,24 @@ export function loadThemeDemo(key: string, version?: number) {
     description,
     specs: (extraSpecs[demoKey]?.[i] ?? []).map(([label, value]) => ({ label, value })),
   }));
+  // Use a dedicated section reference even when the photo is also used by a sample product.
+  const images = {
+    "hero-art": image,
+    ...(definition.version >= 4 && {
+      "campaign-art": productImages[1]!,
+      "story-art": productImages[2]!,
+    }),
+  };
   const pages = definition.pages.map((page, position) => ({
     ...page,
     position,
-    sections: page.sections.map((section) =>
-      section.type === "hero" ? { ...section, props: { ...section.props, imageId: "hero-art" } } : section,
-    ),
+    sections: page.sections.map((section) => {
+      if (section.type === "hero") return { ...section, props: { ...section.props, imageId: "hero-art" } };
+      if (definition.version < 4) return section;
+      if (section.type === demoKey + ".campaign") return { ...section, props: { ...section.props, imageId: "campaign-art" } };
+      if (section.type === "imageText") return { ...section, props: { ...section.props, imageId: "story-art" } };
+      return section;
+    }),
   }));
 
   return {
@@ -241,7 +253,7 @@ export function loadThemeDemo(key: string, version?: number) {
       pages,
       categories,
       products,
-      images: { "hero-art": image },
+      images,
     }),
     mediaUrl: (mediaKey: string) => {
       if (mediaKey === image.key) return `/theme-demos/${banner.file}`;

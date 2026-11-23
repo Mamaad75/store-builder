@@ -31,6 +31,18 @@ describe.each(LANDING_KEYS)("%s landing edition", (key) => {
     }
     expect(html.match(/<h1[ >]/g)).toHaveLength(1);
   });
+
+  it("renders the campaign and story photos even with an empty catalog", () => {
+    const demo = loadThemeDemo(key)!;
+    const view = buildView({ ...demo.data, products: [] }, { basePath: "/theme", segments: [], mediaUrl: demo.mediaUrl });
+    if (view.status !== "ok") throw new Error(view.status);
+    const html = renderToStaticMarkup(<StorefrontRenderer template={view.template} ctx={view.ctx} />);
+    const campaignStart = html.indexOf('data-landing-section="campaign"');
+    expect(campaignStart).toBeGreaterThan(-1);
+    const campaign = html.slice(campaignStart, html.indexOf("</section>", campaignStart));
+    expect(campaign).toContain('src="/theme-demos/' + key + '-product-2.webp"');
+    expect(html).toContain('src="/theme-demos/' + key + '-product-3.webp"');
+  });
 });
 
 it("filters the in-stock shelf and preserves the editor order", () => {

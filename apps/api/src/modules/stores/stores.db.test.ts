@@ -59,13 +59,20 @@ describe("createStore", () => {
         });
         expect(starterAssetForKey(product.image!.key)?.path).toBe(demo.mediaUrl(sample.image!.key));
       }
-      const bannerId = Object.keys(draft.data.images)[0]!;
-      expect(starterAssetForKey(draft.data.images[bannerId]!.key)?.path).toBe(demo.mediaUrl(demo.data.images["hero-art"]!.key));
+      const imageIdsByPath = new Map(Object.entries(draft.data.images).map(([imageId, image]) =>
+        [starterAssetForKey(image.key)?.path ?? null, imageId],
+      ));
+      expect(imageIdsByPath.size).toBe(3);
       expect(draft.data.pages).toEqual(demo.data.pages.map((page) => ({
         ...page,
-        sections: page.sections.map((section) => section.type === "hero"
-          ? { ...section, props: { ...section.props, imageId: bannerId } }
-          : section),
+        sections: page.sections.map((section) => {
+          const { props } = section;
+          if (!("imageId" in props) || typeof props.imageId !== "string") return section;
+          const ref = demo.data.images[props.imageId]!;
+          const imageId = imageIdsByPath.get(demo.mediaUrl(ref.key));
+          expect(imageId).toBeDefined();
+          return { ...section, props: { ...props, imageId } };
+        }),
       })));
       const rows = await prisma.media.findMany({ where: { storeId: id } });
       expect(rows).toHaveLength(7);
