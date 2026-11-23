@@ -11,4 +11,11 @@ export const EVENT_HANDLERS: Readonly<Record<string, EventHandler>> = {
   "store.published": async (event) => {
     log.info("store.published.received", { eventId: event.id, storeId: event.storeId, occurredAt: event.occurredAt });
   },
+  // Phase 3.4: the order SMS to shopper and merchant (3.6) consume these; until then one structured line proves delivery.
+  "order.placed": async (event) => {
+    log.info("order.placed.received", { eventId: event.id, storeId: event.storeId, occurredAt: event.occurredAt });
+  },
+  "order.status_changed": async (event) => {
+    log.info("order.status_changed.received", { eventId: event.id, storeId: event.storeId, occurredAt: event.occurredAt });
+  },
 };

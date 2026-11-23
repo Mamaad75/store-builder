@@ -137,6 +137,8 @@ model Store {
   otpChallenges    OtpChallenge[]
   shippingMethods  ShippingMethod[]
   carts            Cart[]
+  orders           Order[]
+  counter          StoreCounter?
 
   @@index([ownerId, createdAt])
   @@index([status])
@@ -728,4 +730,115 @@ model CustomerAddress {
 
   @@unique([storeId, id])
   @@index([storeId, customerId, createdAt])
+}
+
+// ---------- Phase 3.4 (D34-1): orders and invoices ----------
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderPaymentMethod {
+  COD
+}
+
+enum OrderActor {
+  CUSTOMER
+  MERCHANT
+  SYSTEM
+}
+
+/// Per-store sequences. The row is locked and incremented in the order's own transaction, so numbers are gap-free (a rollback
+/// rolls the counter back too) and two orders never share one.
+model StoreCounter {
+  storeId         String @id
+  lastOrderNumber Int    @default(0)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+/// An order: a SNAPSHOT of what was bought, for how much, delivered where (never re-read from the catalog). Money in toman as BigInt
+/// (a cart can exceed a 32-bit integer). `customerId` has no foreign key on purpose: the order outlives any change to the customer.
+model Order {
+  id               String             @id @default(cuid())
+  storeId          String
+  /// Gap-free per store; also the invoice number.
+  number           Int
+  status           OrderStatus        @default(PLACED)
+  customerId       String?
+  /// Client-made key of the checkout attempt: the same key returns the same order (no double orders).
+  requestKey       String             @db.VarChar(64)
+  /// SHA-256 of the access token handed to the shopper once (a guest follows and cancels the order with it).
+  accessTokenHash  String             @unique @db.Char(64)
+  recipientName    String             @db.VarChar(80)
+  phone            String             @db.VarChar(16)
+  province         String             @db.VarChar(32)
+  city             String             @db.VarChar(40)
+  addressLine      String             @db.VarChar(250)
+  postalCode       String             @db.Char(10)
+  shippingMethodId String?
+  shippingName     String             @db.VarChar(60)
+  shippingKind     ShippingKind
+  shippingCost     BigInt
+  paymentMethod    OrderPaymentMethod
+  codFee           BigInt             @default(0)
+  subtotal         BigInt
+  total            BigInt
+  itemCount        Int
+  note             String             @default("") @db.VarChar(500)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  store  Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items  OrderItem[]
+  events OrderEvent[]
+
+  @@unique([storeId, number])
+  @@unique([storeId, requestKey])
+  @@unique([storeId, id])
+  @@index([storeId, createdAt(sort: Desc), id])
+  @@index([storeId, status, createdAt(sort: Desc)])
+  @@index([storeId, customerId, createdAt(sort: Desc)])
+}
+
+/// One bought line as it was at checkout (name, option text, unit price). The product may change or disappear later.
+model OrderItem {
+  id           String  @id @default(cuid())
+  storeId      String
+  orderId      String
+  productId    String
+  variantId    String?
+  name         String  @db.VarChar(120)
+  variantLabel String  @default("") @db.VarChar(300)
+  unitPrice    Int
+  quantity     Int
+  lineTotal    BigInt
+  weightGrams  Int?
+  position     Int
+
+  order Order @relation(fields: [storeId, orderId], references: [storeId, id], onDelete: Cascade)
+
+  @@index([storeId, orderId, position])
+}
+
+/// Append-only history: every status an order has had, who moved it and when.
+model OrderEvent {
+  id         String       @id @default(cuid())
+  storeId    String
+  orderId    String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  actor      OrderActor
+  /// The merchant user (MERCHANT) or the customer id (CUSTOMER, when signed in); null for guests and the system.
+  actorId    String?
+  note       String       @default("") @db.VarChar(500)
+  createdAt  DateTime     @default(now())
+
+  order Order @relation(fields: [storeId, orderId], references: [storeId, id], onDelete: Cascade)
+
+  @@index([storeId, orderId, createdAt])
 }

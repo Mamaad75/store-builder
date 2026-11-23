@@ -202,3 +202,44 @@ export class PrismaStockLedger implements StockLedger {
 export async function productHasVariantsInTx(ctx: MutationContext, productId: string): Promise<boolean> {
   return (await ctx.tx.productVariant.count({ where: { storeId: ctx.storeId, productId }, take: 1 })) > 0;
 }
+
+/** Anything that proves an open transaction (MutationContext and the orders module's transaction both qualify). */
+interface TxScope {
+  readonly tx: Prisma.TransactionClient;
+}
+
+/**
+ * Phase 3.4: `consume` INSIDE the caller's transaction, so an order exists if and only if its stock left the shelf. Same rule as
+ * PrismaStockLedger.consume: all `expectedLines` ACTIVE and unexpired, or nothing changes (false).
+ */
+export async function consumeReservationInTx(scope: TxScope, storeId: string, ref: string, now: Date, expectedLines: number): Promise<boolean> {
+  const { tx } = scope;
+  const held = await tx.$queryRaw<{ id: string; expiresAt: Date }[]>`
+    SELECT id, "expiresAt" FROM "StockReservation" WHERE "storeId" = ${storeId} AND ref = ${ref} AND status = 'ACTIVE' ORDER BY id FOR UPDATE`;
+  if (held.length !== expectedLines || held.some((h) => h.expiresAt <= now)) return false;
+  const r = await tx.stockReservation.updateMany({ where: { id: { in: held.map((h) => h.id) } }, data: { status: "CONSUMED" } });
+  return r.count === expectedLines;
+}
+
+/**
+ * Phase 3.4: a cancelled order's stock goes back on sale, inside the caller's transaction. CONSUMED reservations of `ref` become RELEASED
+ * and their quantities are given back (lock order: products first, then the reservation rows). A line whose variant was deleted since,
+ * or whose product now sells only by variant, has nowhere to go and is released without stock (the product's stock is the sum of its
+ * variants, D32-1). Returns how many lines got stock back.
+ */
+export async function restockReservationInTx(scope: TxScope, storeId: string, ref: string): Promise<number> {
+  const { tx } = scope;
+  const consumed = await tx.stockReservation.findMany({ where: { storeId, ref, status: "CONSUMED" }, select: { productId: true } });
+  if (!consumed.length) return 0;
+  const productIds = [...new Set(consumed.map((c) => c.productId))];
+  await lockProducts(tx, storeId, productIds);
+  const rows = await tx.$queryRaw<{ productId: string; variantId: string | null; quantity: number }[]>`
+    UPDATE "StockReservation" SET status = 'RELEASED', "updatedAt" = now()
+    WHERE "storeId" = ${storeId} AND ref = ${ref} AND status = 'CONSUMED' RETURNING "productId", "variantId", quantity`;
+  const withVariants = new Set(
+    (await tx.$queryRaw<{ productId: string }[]>`SELECT DISTINCT "productId" FROM "ProductVariant" WHERE "storeId" = ${storeId} AND "productId" = ANY(${productIds})`).map((r) => r.productId),
+  );
+  const back = rows.filter((r) => (r.variantId === null ? !withVariants.has(r.productId) : true));
+  await giveBack(tx, storeId, back);
+  return back.length;
+}

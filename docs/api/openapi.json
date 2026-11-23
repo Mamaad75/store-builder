@@ -2531,6 +2531,1152 @@
         }
       }
     },
+    "/api/v1/admin/stores/{storeId}/orders": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdOrders",
+        "summary": "The store's orders, newest first (keyset: pass nextCursor as before)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PLACED",
+                "CONFIRMED",
+                "SHIPPED",
+                "DELIVERED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]{1,64}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "orders.view",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "number",
+                            "description": "gap-free per store; also the invoice number"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "PLACED",
+                              "CONFIRMED",
+                              "SHIPPED",
+                              "DELIVERED",
+                              "CANCELLED"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          },
+                          "customerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": "object",
+                            "properties": {
+                              "recipientName": {
+                                "type": "string"
+                              },
+                              "phone": {
+                                "type": "string"
+                              },
+                              "province": {
+                                "type": "string"
+                              },
+                              "city": {
+                                "type": "string"
+                              },
+                              "line": {
+                                "type": "string"
+                              },
+                              "postalCode": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "recipientName",
+                              "phone",
+                              "province",
+                              "city",
+                              "line",
+                              "postalCode"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "shipping": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "FLAT",
+                                  "WEIGHT",
+                                  "PICKUP"
+                                ]
+                              },
+                              "cost": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "kind",
+                              "cost"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "paymentMethod": {
+                            "type": "string",
+                            "enum": [
+                              "COD"
+                            ]
+                          },
+                          "subtotal": {
+                            "type": "number"
+                          },
+                          "codFee": {
+                            "type": "number"
+                          },
+                          "total": {
+                            "type": "number"
+                          },
+                          "itemCount": {
+                            "type": "number"
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "productId": {
+                                  "type": "string"
+                                },
+                                "variantId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "variantLabel": {
+                                  "type": "string"
+                                },
+                                "unitPrice": {
+                                  "type": "number"
+                                },
+                                "quantity": {
+                                  "type": "number"
+                                },
+                                "lineTotal": {
+                                  "type": "number"
+                                },
+                                "weightGrams": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "productId",
+                                "variantId",
+                                "name",
+                                "variantLabel",
+                                "unitPrice",
+                                "quantity",
+                                "lineTotal",
+                                "weightGrams"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "history": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "from": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "PLACED",
+                                        "CONFIRMED",
+                                        "SHIPPED",
+                                        "DELIVERED",
+                                        "CANCELLED"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "enum": [
+                                    "PLACED",
+                                    "CONFIRMED",
+                                    "SHIPPED",
+                                    "DELIVERED",
+                                    "CANCELLED"
+                                  ]
+                                },
+                                "actor": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CUSTOMER",
+                                    "MERCHANT",
+                                    "SYSTEM"
+                                  ]
+                                },
+                                "note": {
+                                  "type": "string"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to",
+                                "actor",
+                                "note",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "number",
+                          "status",
+                          "createdAt",
+                          "customerId",
+                          "address",
+                          "shipping",
+                          "paymentMethod",
+                          "subtotal",
+                          "codFee",
+                          "total",
+                          "itemCount",
+                          "note",
+                          "items",
+                          "history"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/orders/{orderId}": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdOrdersOrderId",
+        "summary": "One order with its items and history",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "orders.view",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "number",
+                      "description": "gap-free per store; also the invoice number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PLACED",
+                        "CONFIRMED",
+                        "SHIPPED",
+                        "DELIVERED",
+                        "CANCELLED"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "description": "ISO 8601 date-time"
+                    },
+                    "customerId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "address": {
+                      "type": "object",
+                      "properties": {
+                        "recipientName": {
+                          "type": "string"
+                        },
+                        "phone": {
+                          "type": "string"
+                        },
+                        "province": {
+                          "type": "string"
+                        },
+                        "city": {
+                          "type": "string"
+                        },
+                        "line": {
+                          "type": "string"
+                        },
+                        "postalCode": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "recipientName",
+                        "phone",
+                        "province",
+                        "city",
+                        "line",
+                        "postalCode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "shipping": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "FLAT",
+                            "WEIGHT",
+                            "PICKUP"
+                          ]
+                        },
+                        "cost": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "kind",
+                        "cost"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "paymentMethod": {
+                      "type": "string",
+                      "enum": [
+                        "COD"
+                      ]
+                    },
+                    "subtotal": {
+                      "type": "number"
+                    },
+                    "codFee": {
+                      "type": "number"
+                    },
+                    "total": {
+                      "type": "number"
+                    },
+                    "itemCount": {
+                      "type": "number"
+                    },
+                    "note": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "type": "string"
+                          },
+                          "variantId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "variantLabel": {
+                            "type": "string"
+                          },
+                          "unitPrice": {
+                            "type": "number"
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "lineTotal": {
+                            "type": "number"
+                          },
+                          "weightGrams": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "productId",
+                          "variantId",
+                          "name",
+                          "variantLabel",
+                          "unitPrice",
+                          "quantity",
+                          "lineTotal",
+                          "weightGrams"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "PLACED",
+                                  "CONFIRMED",
+                                  "SHIPPED",
+                                  "DELIVERED",
+                                  "CANCELLED"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "PLACED",
+                              "CONFIRMED",
+                              "SHIPPED",
+                              "DELIVERED",
+                              "CANCELLED"
+                            ]
+                          },
+                          "actor": {
+                            "type": "string",
+                            "enum": [
+                              "CUSTOMER",
+                              "MERCHANT",
+                              "SYSTEM"
+                            ]
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          }
+                        },
+                        "required": [
+                          "from",
+                          "to",
+                          "actor",
+                          "note",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "number",
+                    "status",
+                    "createdAt",
+                    "customerId",
+                    "address",
+                    "shipping",
+                    "paymentMethod",
+                    "subtotal",
+                    "codFee",
+                    "total",
+                    "itemCount",
+                    "note",
+                    "items",
+                    "history"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/orders/{orderId}/status": {
+      "post": {
+        "operationId": "postApiV1AdminStoresStoreIdOrdersOrderIdStatus",
+        "summary": "Confirm, ship, deliver or cancel an order (cancelling gives the stock back)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "orders.manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "enum": [
+                      "PLACED",
+                      "CONFIRMED",
+                      "SHIPPED",
+                      "DELIVERED",
+                      "CANCELLED"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "to"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "number",
+                      "description": "gap-free per store; also the invoice number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "PLACED",
+                        "CONFIRMED",
+                        "SHIPPED",
+                        "DELIVERED",
+                        "CANCELLED"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "description": "ISO 8601 date-time"
+                    },
+                    "customerId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "address": {
+                      "type": "object",
+                      "properties": {
+                        "recipientName": {
+                          "type": "string"
+                        },
+                        "phone": {
+                          "type": "string"
+                        },
+                        "province": {
+                          "type": "string"
+                        },
+                        "city": {
+                          "type": "string"
+                        },
+                        "line": {
+                          "type": "string"
+                        },
+                        "postalCode": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "recipientName",
+                        "phone",
+                        "province",
+                        "city",
+                        "line",
+                        "postalCode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "shipping": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "FLAT",
+                            "WEIGHT",
+                            "PICKUP"
+                          ]
+                        },
+                        "cost": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "kind",
+                        "cost"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "paymentMethod": {
+                      "type": "string",
+                      "enum": [
+                        "COD"
+                      ]
+                    },
+                    "subtotal": {
+                      "type": "number"
+                    },
+                    "codFee": {
+                      "type": "number"
+                    },
+                    "total": {
+                      "type": "number"
+                    },
+                    "itemCount": {
+                      "type": "number"
+                    },
+                    "note": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "type": "string"
+                          },
+                          "variantId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "variantLabel": {
+                            "type": "string"
+                          },
+                          "unitPrice": {
+                            "type": "number"
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "lineTotal": {
+                            "type": "number"
+                          },
+                          "weightGrams": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "productId",
+                          "variantId",
+                          "name",
+                          "variantLabel",
+                          "unitPrice",
+                          "quantity",
+                          "lineTotal",
+                          "weightGrams"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "PLACED",
+                                  "CONFIRMED",
+                                  "SHIPPED",
+                                  "DELIVERED",
+                                  "CANCELLED"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "PLACED",
+                              "CONFIRMED",
+                              "SHIPPED",
+                              "DELIVERED",
+                              "CANCELLED"
+                            ]
+                          },
+                          "actor": {
+                            "type": "string",
+                            "enum": [
+                              "CUSTOMER",
+                              "MERCHANT",
+                              "SYSTEM"
+                            ]
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          }
+                        },
+                        "required": [
+                          "from",
+                          "to",
+                          "actor",
+                          "note",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "number",
+                    "status",
+                    "createdAt",
+                    "customerId",
+                    "address",
+                    "shipping",
+                    "paymentMethod",
+                    "subtotal",
+                    "codFee",
+                    "total",
+                    "itemCount",
+                    "note",
+                    "items",
+                    "history"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stores/{storeId}/pages": {
       "get": {
         "operationId": "getApiV1AdminStoresStoreIdPages",
@@ -16075,6 +17221,1138 @@
         }
       }
     },
+    "/api/v1/store/stores/{label}/checkout/orders": {
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCheckoutOrders",
+        "summary": "Place the order from the cart (cash on delivery for now; the same requestKey returns the same order)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requestKey": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{16,64}$"
+                  },
+                  "address": {},
+                  "addressId": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]{1,64}$"
+                  },
+                  "shippingMethodId": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]{1,64}$"
+                  },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": [
+                      "COD"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "requestKey",
+                  "shippingMethodId",
+                  "paymentMethod"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": "number",
+                          "description": "gap-free per store; also the invoice number"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "PLACED",
+                            "CONFIRMED",
+                            "SHIPPED",
+                            "DELIVERED",
+                            "CANCELLED"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        "customerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "recipientName": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            },
+                            "province": {
+                              "type": "string"
+                            },
+                            "city": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "string"
+                            },
+                            "postalCode": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "recipientName",
+                            "phone",
+                            "province",
+                            "city",
+                            "line",
+                            "postalCode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "shipping": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "FLAT",
+                                "WEIGHT",
+                                "PICKUP"
+                              ]
+                            },
+                            "cost": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "kind",
+                            "cost"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "paymentMethod": {
+                          "type": "string",
+                          "enum": [
+                            "COD"
+                          ]
+                        },
+                        "subtotal": {
+                          "type": "number"
+                        },
+                        "codFee": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "itemCount": {
+                          "type": "number"
+                        },
+                        "note": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "type": "string"
+                              },
+                              "variantId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "variantLabel": {
+                                "type": "string"
+                              },
+                              "unitPrice": {
+                                "type": "number"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "lineTotal": {
+                                "type": "number"
+                              },
+                              "weightGrams": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "productId",
+                              "variantId",
+                              "name",
+                              "variantLabel",
+                              "unitPrice",
+                              "quantity",
+                              "lineTotal",
+                              "weightGrams"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "history": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "PLACED",
+                                      "CONFIRMED",
+                                      "SHIPPED",
+                                      "DELIVERED",
+                                      "CANCELLED"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "PLACED",
+                                  "CONFIRMED",
+                                  "SHIPPED",
+                                  "DELIVERED",
+                                  "CANCELLED"
+                                ]
+                              },
+                              "actor": {
+                                "type": "string",
+                                "enum": [
+                                  "CUSTOMER",
+                                  "MERCHANT",
+                                  "SYSTEM"
+                                ]
+                              },
+                              "note": {
+                                "type": "string"
+                              },
+                              "at": {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to",
+                              "actor",
+                              "note",
+                              "at"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "status",
+                        "createdAt",
+                        "customerId",
+                        "address",
+                        "shipping",
+                        "paymentMethod",
+                        "subtotal",
+                        "codFee",
+                        "total",
+                        "itemCount",
+                        "note",
+                        "items",
+                        "history"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "canCancel": {
+                      "type": "boolean"
+                    },
+                    "accessToken": {
+                      "type": "string",
+                      "description": "follow or cancel the order with it (keep it secret: it is the order link)"
+                    }
+                  },
+                  "required": [
+                    "order",
+                    "canCancel",
+                    "accessToken"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/checkout/orders/{token}": {
+      "get": {
+        "operationId": "getApiV1StoreStoresLabelCheckoutOrdersToken",
+        "summary": "Follow an order with its access token (guests)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": "number",
+                          "description": "gap-free per store; also the invoice number"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "PLACED",
+                            "CONFIRMED",
+                            "SHIPPED",
+                            "DELIVERED",
+                            "CANCELLED"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        "customerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "recipientName": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            },
+                            "province": {
+                              "type": "string"
+                            },
+                            "city": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "string"
+                            },
+                            "postalCode": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "recipientName",
+                            "phone",
+                            "province",
+                            "city",
+                            "line",
+                            "postalCode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "shipping": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "FLAT",
+                                "WEIGHT",
+                                "PICKUP"
+                              ]
+                            },
+                            "cost": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "kind",
+                            "cost"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "paymentMethod": {
+                          "type": "string",
+                          "enum": [
+                            "COD"
+                          ]
+                        },
+                        "subtotal": {
+                          "type": "number"
+                        },
+                        "codFee": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "itemCount": {
+                          "type": "number"
+                        },
+                        "note": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "type": "string"
+                              },
+                              "variantId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "variantLabel": {
+                                "type": "string"
+                              },
+                              "unitPrice": {
+                                "type": "number"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "lineTotal": {
+                                "type": "number"
+                              },
+                              "weightGrams": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "productId",
+                              "variantId",
+                              "name",
+                              "variantLabel",
+                              "unitPrice",
+                              "quantity",
+                              "lineTotal",
+                              "weightGrams"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "history": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "PLACED",
+                                      "CONFIRMED",
+                                      "SHIPPED",
+                                      "DELIVERED",
+                                      "CANCELLED"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "PLACED",
+                                  "CONFIRMED",
+                                  "SHIPPED",
+                                  "DELIVERED",
+                                  "CANCELLED"
+                                ]
+                              },
+                              "actor": {
+                                "type": "string",
+                                "enum": [
+                                  "CUSTOMER",
+                                  "MERCHANT",
+                                  "SYSTEM"
+                                ]
+                              },
+                              "note": {
+                                "type": "string"
+                              },
+                              "at": {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to",
+                              "actor",
+                              "note",
+                              "at"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "status",
+                        "createdAt",
+                        "customerId",
+                        "address",
+                        "shipping",
+                        "paymentMethod",
+                        "subtotal",
+                        "codFee",
+                        "total",
+                        "itemCount",
+                        "note",
+                        "items",
+                        "history"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "canCancel": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "order",
+                    "canCancel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/checkout/orders/{token}/cancel": {
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCheckoutOrdersTokenCancel",
+        "summary": "Cancel an order with its access token, until the store confirms it",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": "number",
+                          "description": "gap-free per store; also the invoice number"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "PLACED",
+                            "CONFIRMED",
+                            "SHIPPED",
+                            "DELIVERED",
+                            "CANCELLED"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        "customerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "recipientName": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            },
+                            "province": {
+                              "type": "string"
+                            },
+                            "city": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "string"
+                            },
+                            "postalCode": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "recipientName",
+                            "phone",
+                            "province",
+                            "city",
+                            "line",
+                            "postalCode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "shipping": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "FLAT",
+                                "WEIGHT",
+                                "PICKUP"
+                              ]
+                            },
+                            "cost": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "kind",
+                            "cost"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "paymentMethod": {
+                          "type": "string",
+                          "enum": [
+                            "COD"
+                          ]
+                        },
+                        "subtotal": {
+                          "type": "number"
+                        },
+                        "codFee": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "itemCount": {
+                          "type": "number"
+                        },
+                        "note": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "type": "string"
+                              },
+                              "variantId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "variantLabel": {
+                                "type": "string"
+                              },
+                              "unitPrice": {
+                                "type": "number"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "lineTotal": {
+                                "type": "number"
+                              },
+                              "weightGrams": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "productId",
+                              "variantId",
+                              "name",
+                              "variantLabel",
+                              "unitPrice",
+                              "quantity",
+                              "lineTotal",
+                              "weightGrams"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "history": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "PLACED",
+                                      "CONFIRMED",
+                                      "SHIPPED",
+                                      "DELIVERED",
+                                      "CANCELLED"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "PLACED",
+                                  "CONFIRMED",
+                                  "SHIPPED",
+                                  "DELIVERED",
+                                  "CANCELLED"
+                                ]
+                              },
+                              "actor": {
+                                "type": "string",
+                                "enum": [
+                                  "CUSTOMER",
+                                  "MERCHANT",
+                                  "SYSTEM"
+                                ]
+                              },
+                              "note": {
+                                "type": "string"
+                              },
+                              "at": {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to",
+                              "actor",
+                              "note",
+                              "at"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "status",
+                        "createdAt",
+                        "customerId",
+                        "address",
+                        "shipping",
+                        "paymentMethod",
+                        "subtotal",
+                        "codFee",
+                        "total",
+                        "itemCount",
+                        "note",
+                        "items",
+                        "history"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "canCancel": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "order",
+                    "canCancel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/store/stores/{label}/checkout/quote": {
       "post": {
         "operationId": "postApiV1StoreStoresLabelCheckoutQuote",
@@ -17300,6 +19578,1096 @@
                   },
                   "required": [
                     "customer"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/customer/orders": {
+      "get": {
+        "operationId": "getApiV1StoreStoresLabelCustomerOrders",
+        "summary": "The signed-in customer's orders in this store, newest first (customer cookie; 401 without)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "order": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "number",
+                            "description": "gap-free per store; also the invoice number"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "PLACED",
+                              "CONFIRMED",
+                              "SHIPPED",
+                              "DELIVERED",
+                              "CANCELLED"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          },
+                          "customerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": "object",
+                            "properties": {
+                              "recipientName": {
+                                "type": "string"
+                              },
+                              "phone": {
+                                "type": "string"
+                              },
+                              "province": {
+                                "type": "string"
+                              },
+                              "city": {
+                                "type": "string"
+                              },
+                              "line": {
+                                "type": "string"
+                              },
+                              "postalCode": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "recipientName",
+                              "phone",
+                              "province",
+                              "city",
+                              "line",
+                              "postalCode"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "shipping": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "FLAT",
+                                  "WEIGHT",
+                                  "PICKUP"
+                                ]
+                              },
+                              "cost": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "kind",
+                              "cost"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "paymentMethod": {
+                            "type": "string",
+                            "enum": [
+                              "COD"
+                            ]
+                          },
+                          "subtotal": {
+                            "type": "number"
+                          },
+                          "codFee": {
+                            "type": "number"
+                          },
+                          "total": {
+                            "type": "number"
+                          },
+                          "itemCount": {
+                            "type": "number"
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "productId": {
+                                  "type": "string"
+                                },
+                                "variantId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "variantLabel": {
+                                  "type": "string"
+                                },
+                                "unitPrice": {
+                                  "type": "number"
+                                },
+                                "quantity": {
+                                  "type": "number"
+                                },
+                                "lineTotal": {
+                                  "type": "number"
+                                },
+                                "weightGrams": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "productId",
+                                "variantId",
+                                "name",
+                                "variantLabel",
+                                "unitPrice",
+                                "quantity",
+                                "lineTotal",
+                                "weightGrams"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "history": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "from": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "PLACED",
+                                        "CONFIRMED",
+                                        "SHIPPED",
+                                        "DELIVERED",
+                                        "CANCELLED"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "enum": [
+                                    "PLACED",
+                                    "CONFIRMED",
+                                    "SHIPPED",
+                                    "DELIVERED",
+                                    "CANCELLED"
+                                  ]
+                                },
+                                "actor": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CUSTOMER",
+                                    "MERCHANT",
+                                    "SYSTEM"
+                                  ]
+                                },
+                                "note": {
+                                  "type": "string"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to",
+                                "actor",
+                                "note",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "number",
+                          "status",
+                          "createdAt",
+                          "customerId",
+                          "address",
+                          "shipping",
+                          "paymentMethod",
+                          "subtotal",
+                          "codFee",
+                          "total",
+                          "itemCount",
+                          "note",
+                          "items",
+                          "history"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "canCancel": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "order",
+                      "canCancel"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/customer/orders/{orderId}": {
+      "get": {
+        "operationId": "getApiV1StoreStoresLabelCustomerOrdersOrderId",
+        "summary": "One of the signed-in customer's orders",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": "number",
+                          "description": "gap-free per store; also the invoice number"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "PLACED",
+                            "CONFIRMED",
+                            "SHIPPED",
+                            "DELIVERED",
+                            "CANCELLED"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        "customerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "recipientName": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            },
+                            "province": {
+                              "type": "string"
+                            },
+                            "city": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "string"
+                            },
+                            "postalCode": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "recipientName",
+                            "phone",
+                            "province",
+                            "city",
+                            "line",
+                            "postalCode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "shipping": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "FLAT",
+                                "WEIGHT",
+                                "PICKUP"
+                              ]
+                            },
+                            "cost": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "kind",
+                            "cost"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "paymentMethod": {
+                          "type": "string",
+                          "enum": [
+                            "COD"
+                          ]
+                        },
+                        "subtotal": {
+                          "type": "number"
+                        },
+                        "codFee": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "itemCount": {
+                          "type": "number"
+                        },
+                        "note": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "type": "string"
+                              },
+                              "variantId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "variantLabel": {
+                                "type": "string"
+                              },
+                              "unitPrice": {
+                                "type": "number"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "lineTotal": {
+                                "type": "number"
+                              },
+                              "weightGrams": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "productId",
+                              "variantId",
+                              "name",
+                              "variantLabel",
+                              "unitPrice",
+                              "quantity",
+                              "lineTotal",
+                              "weightGrams"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "history": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "PLACED",
+                                      "CONFIRMED",
+                                      "SHIPPED",
+                                      "DELIVERED",
+                                      "CANCELLED"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "PLACED",
+                                  "CONFIRMED",
+                                  "SHIPPED",
+                                  "DELIVERED",
+                                  "CANCELLED"
+                                ]
+                              },
+                              "actor": {
+                                "type": "string",
+                                "enum": [
+                                  "CUSTOMER",
+                                  "MERCHANT",
+                                  "SYSTEM"
+                                ]
+                              },
+                              "note": {
+                                "type": "string"
+                              },
+                              "at": {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to",
+                              "actor",
+                              "note",
+                              "at"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "status",
+                        "createdAt",
+                        "customerId",
+                        "address",
+                        "shipping",
+                        "paymentMethod",
+                        "subtotal",
+                        "codFee",
+                        "total",
+                        "itemCount",
+                        "note",
+                        "items",
+                        "history"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "canCancel": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "order",
+                    "canCancel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/customer/orders/{orderId}/cancel": {
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCustomerOrdersOrderIdCancel",
+        "summary": "Cancel one of the signed-in customer's orders, until the store confirms it",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "number": {
+                          "type": "number",
+                          "description": "gap-free per store; also the invoice number"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "PLACED",
+                            "CONFIRMED",
+                            "SHIPPED",
+                            "DELIVERED",
+                            "CANCELLED"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        "customerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "recipientName": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            },
+                            "province": {
+                              "type": "string"
+                            },
+                            "city": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "string"
+                            },
+                            "postalCode": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "recipientName",
+                            "phone",
+                            "province",
+                            "city",
+                            "line",
+                            "postalCode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "shipping": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "FLAT",
+                                "WEIGHT",
+                                "PICKUP"
+                              ]
+                            },
+                            "cost": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "kind",
+                            "cost"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "paymentMethod": {
+                          "type": "string",
+                          "enum": [
+                            "COD"
+                          ]
+                        },
+                        "subtotal": {
+                          "type": "number"
+                        },
+                        "codFee": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "itemCount": {
+                          "type": "number"
+                        },
+                        "note": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "type": "string"
+                              },
+                              "variantId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "variantLabel": {
+                                "type": "string"
+                              },
+                              "unitPrice": {
+                                "type": "number"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "lineTotal": {
+                                "type": "number"
+                              },
+                              "weightGrams": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "productId",
+                              "variantId",
+                              "name",
+                              "variantLabel",
+                              "unitPrice",
+                              "quantity",
+                              "lineTotal",
+                              "weightGrams"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "history": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "PLACED",
+                                      "CONFIRMED",
+                                      "SHIPPED",
+                                      "DELIVERED",
+                                      "CANCELLED"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "PLACED",
+                                  "CONFIRMED",
+                                  "SHIPPED",
+                                  "DELIVERED",
+                                  "CANCELLED"
+                                ]
+                              },
+                              "actor": {
+                                "type": "string",
+                                "enum": [
+                                  "CUSTOMER",
+                                  "MERCHANT",
+                                  "SYSTEM"
+                                ]
+                              },
+                              "note": {
+                                "type": "string"
+                              },
+                              "at": {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to",
+                              "actor",
+                              "note",
+                              "at"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "number",
+                        "status",
+                        "createdAt",
+                        "customerId",
+                        "address",
+                        "shipping",
+                        "paymentMethod",
+                        "subtotal",
+                        "codFee",
+                        "total",
+                        "itemCount",
+                        "note",
+                        "items",
+                        "history"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "canCancel": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "order",
+                    "canCancel"
                   ],
                   "additionalProperties": false
                 }

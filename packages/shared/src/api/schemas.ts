@@ -192,6 +192,28 @@ export const savedAddressDto = z.object({
   line: z.string(),
   postalCode: z.string(),
 });
+// ---- phase 3.4: orders (money in toman; the snapshot taken at checkout)
+const orderStatus = z.enum(["PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"]);
+export const orderDto = z.object({
+  id: z.string(),
+  number: z.number().describe("gap-free per store; also the invoice number"),
+  status: orderStatus,
+  createdAt: iso,
+  customerId: z.string().nullable(),
+  address: z.object({ recipientName: z.string(), phone: z.string(), province: z.string(), city: z.string(), line: z.string(), postalCode: z.string() }),
+  shipping: z.object({ name: z.string(), kind: z.enum(["FLAT", "WEIGHT", "PICKUP"]), cost: z.number() }),
+  paymentMethod: z.enum(["COD"]),
+  subtotal: z.number(),
+  codFee: z.number(),
+  total: z.number(),
+  itemCount: z.number(),
+  note: z.string(),
+  items: z.array(z.object({ productId: z.string(), variantId: z.string().nullable(), name: z.string(), variantLabel: z.string(), unitPrice: z.number(), quantity: z.number(), lineTotal: z.number(), weightGrams: z.number().nullable() })),
+  history: z.array(z.object({ from: orderStatus.nullable(), to: orderStatus, actor: z.enum(["CUSTOMER", "MERCHANT", "SYSTEM"]), note: z.string(), at: iso })),
+});
+export const shopperOrderDto = z.object({ order: orderDto, canCancel: z.boolean() });
+export const placedOrderDto = shopperOrderDto.extend({ accessToken: z.string().describe("follow or cancel the order with it (keep it secret: it is the order link)") });
+export const orderListDto = z.object({ items: z.array(orderDto), nextCursor: z.string().nullable() });
 export const shippingMethodDto = z.object({
   id: z.string(),
   name: z.string(),

@@ -7,6 +7,7 @@ import { createProductSchema, statusSchema, updateProductSchema } from "../modul
 import { secretValueSchema } from "../modules/secrets/schemas.js";
 import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
+import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema } from "../modules/orders/orders.js";
 import { RATE_CODES, priceLinkInputSchema } from "../modules/pricing/pricing.js";
 import { createStoreSchema, switchThemeSchema, updateBusinessCategorySchema, updateStoreSchema } from "../modules/stores/schemas.js";
 import * as S from "./schemas.js";
@@ -178,6 +179,16 @@ export const ROUTES: readonly RouteSpec[] = [
   r("DELETE", "/api/public/stores/:label/customer/addresses/:addressId", "Delete a saved address", { auth: "public", status: 204 }),
   r("GET", st("/shipping-methods"), "The store's shipping methods", { permission: "store.view", response: z.array(S.shippingMethodDto) }),
   r("PUT", st("/shipping-methods"), "Replace the shipping methods (applies to checkout at once, no publish)", { permission: "store.settings", body: replaceShippingMethodsSchema, response: z.array(S.shippingMethodDto) }),
+  // ---- phase 3.4: orders (shoppers place and follow them on the store's own host; merchants manage them)
+  r("POST", "/api/public/stores/:label/checkout/orders", "Place the order from the cart (cash on delivery for now; the same requestKey returns the same order)", { auth: "public", body: placeOrderSchema, response: S.placedOrderDto }),
+  r("GET", "/api/public/stores/:label/checkout/orders/:token", "Follow an order with its access token (guests)", { auth: "public", response: S.shopperOrderDto }),
+  r("POST", "/api/public/stores/:label/checkout/orders/:token/cancel", "Cancel an order with its access token, until the store confirms it", { auth: "public", status: 200, response: S.shopperOrderDto }),
+  r("GET", "/api/public/stores/:label/customer/orders", "The signed-in customer's orders in this store, newest first (customer cookie; 401 without)", { auth: "public", response: z.array(S.shopperOrderDto) }),
+  r("GET", "/api/public/stores/:label/customer/orders/:orderId", "One of the signed-in customer's orders", { auth: "public", response: S.shopperOrderDto }),
+  r("POST", "/api/public/stores/:label/customer/orders/:orderId/cancel", "Cancel one of the signed-in customer's orders, until the store confirms it", { auth: "public", status: 200, response: S.shopperOrderDto }),
+  r("GET", st("/orders"), "The store's orders, newest first (keyset: pass nextCursor as before)", { permission: "orders.view", query: orderListQuerySchema, response: S.orderListDto }),
+  r("GET", st("/orders/:orderId"), "One order with its items and history", { permission: "orders.view", response: S.orderDto }),
+  r("POST", st("/orders/:orderId/status"), "Confirm, ship, deliver or cancel an order (cancelling gives the stock back)", { permission: "orders.manage", status: 200, body: orderTransitionSchema, response: S.orderDto }),
   r("GET", st("/customers"), "The store's customers, newest first", { permission: "customers.view", query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.customerListItemDto) }),
 
   // ---- phase 3.1: platform operators (super admins; the role is checked in the database on every request)

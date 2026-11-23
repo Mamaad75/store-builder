@@ -185,22 +185,39 @@ export class CheckoutService {
    * Read-only: nothing is held or ordered. `ready` says whether an order could be placed now (phase 3.4).
    */
   async quote(label: string, s: Shopper, body: unknown): Promise<CheckoutSummary> {
+    return (await this.resolve(label, s, parse(checkoutQuoteSchema, body ?? {}))).summary;
+  }
+
+  /**
+   * Phase 3.4: everything the orders module needs to place an order, computed exactly like the summary (same prices, same rules): the
+   * store, the summary, the FULL delivery address, the cart and the published weight per product (for the item snapshot).
+   */
+  async prepareOrder(
+    label: string,
+    s: Shopper,
+    q: { address?: unknown; addressId?: string; shippingMethodId: string; cashOnDelivery: boolean },
+  ): Promise<{ storeId: string; summary: CheckoutSummary; address: AddressInput | null; cartId: string | null; weights: Map<string, number | null> }> {
+    const r = await this.resolve(label, s, q);
+    return { storeId: r.storeId, summary: r.summary, address: r.address, cartId: r.cartId, weights: new Map(r.products.map((p) => [p.id, p.weightGrams])) };
+  }
+
+  private async resolve(label: string, s: Shopper, q: { address?: unknown; addressId?: string; shippingMethodId?: string; cashOnDelivery: boolean }) {
     const { storeId, products } = await this.live(label);
-    const q = parse(checkoutQuoteSchema, body ?? {});
     if (q.address !== undefined && q.addressId !== undefined) throw new ValidationError({ address: ["یا نشانی را وارد کنید یا یکی از نشانی‌های ذخیره‌شده را انتخاب کنید"] });
-    let province: string | null = null;
+    let address: AddressInput | null = null;
     if (q.addressId !== undefined) {
       if (!s.customerId) throw new NotFoundError();
       const a = await this.addresses.get(storeId, s.customerId, q.addressId);
       if (!a) throw new NotFoundError();
-      province = a.province;
+      address = { recipientName: a.recipientName, phone: a.phone, province: a.province, city: a.city, line: a.line, postalCode: a.postalCode };
     } else if (q.address !== undefined) {
-      province = parse(addressInputSchema, q.address).province;
+      address = parse(addressInputSchema, q.address) as AddressInput;
     }
     const cart = await this.findCart(storeId, s);
     const lines = await this.price(storeId, products, cart?.lines ?? []);
     const methods = await this.reads.enabledShippingMethods(storeId);
-    return summarize({ lines, published: products, methods, province, shippingMethodId: q.shippingMethodId ?? null, cashOnDelivery: q.cashOnDelivery });
+    const summary = summarize({ lines, published: products, methods, province: address?.province ?? null, shippingMethodId: q.shippingMethodId ?? null, cashOnDelivery: q.cashOnDelivery });
+    return { storeId, products, summary, address, cartId: cart?.id ?? null };
   }
 
   // ---------- saved addresses (signed-in customers of this store) ----------

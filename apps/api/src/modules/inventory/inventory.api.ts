@@ -7,3 +7,5 @@ export type { VariantView } from "./application/ports.js";
 export { createInventoryService } from "./infrastructure/compose.js";
 /** For the products module, inside its own store mutation: a product with variants takes its price and stock from them. */
 export { productHasVariantsInTx } from "./infrastructure/prisma-inventory.repository.js";
+/** For the orders module (phase 3.4), inside its own transaction: an order consumes its stock hold; a cancelled order gives it back. */
+export { consumeReservationInTx, restockReservationInTx } from "./infrastructure/prisma-inventory.repository.js";

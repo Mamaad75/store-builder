@@ -254,3 +254,9 @@ export class PrismaAddressStore implements AddressStore {
 export async function purgeExpiredCarts(now: Date, days: number, limit = 5_000): Promise<number> {
   return new PrismaCartStore().purgeExpired(new Date(now.getTime() - days * 86_400_000), limit);
 }
+
+/** Phase 3.4: the order empties the cart in ITS transaction (an order is placed if and only if its cart is emptied). */
+export async function clearCartInTx(scope: { readonly tx: Prisma.TransactionClient }, storeId: string, cartId: string): Promise<void> {
+  await scope.tx.cartItem.deleteMany({ where: { storeId, cartId } });
+  await scope.tx.cart.updateMany({ where: { id: cartId, storeId }, data: { updatedAt: new Date() } });
+}

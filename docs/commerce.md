@@ -12,7 +12,7 @@ ships the API, the storefront side and the tests; dashboard screens follow from 
 | 3.2 | Product variants (options such as colour/size, price and stock per variant); atomic stock decrement; temporary reservations | done |
 | 3.2b | Prices linked to the dollar or 18k gold (owner request 2026-11-23): merchant links in toman or by the jewellery formula, hourly rates (Navasan or manual), held jumps confirmed by a super admin, live prices on the published storefront | done |
 | 3.3 | Cart (guest and signed-in), shipping methods (flat, weight-based, free above an amount, pickup; owner 2026-11-24: per-province prices and cash on delivery), addresses (province list + postal code), checkout summary | done |
-| 3.4 | Orders and invoices: state machine with history, item snapshots, gap-free invoice numbers per store | planned |
+| 3.4 | Orders and invoices: state machine with history, item snapshots, gap-free invoice numbers per store (cash on delivery until 3.5) | done |
 | 3.5 | Zarinpal: payment state machine, server-side verify, idempotent callback, reconciliation job, per-store merchant id in the encrypted secrets (2.4) | planned |
 | 3.6 | Order SMS (shopper and merchant) through the outbox and the worker; turns on with the SMS account | planned |
 
@@ -195,6 +195,34 @@ subtotal can reach 50 x 1000 x 1,000,000,000 toman, beyond a 32-bit Int (shippin
 the platform (shoppers behind a shared carrier-NAT address could be blocked everywhere) and now applies per store, to guests only;
 concurrent first adds could give a customer two carts (now one, by a partial unique index); weight shipping at extreme values lost integer
 precision (now capped); two CHECKs were tightened (NULL province entries, a line's variant tied to its product).
+
+## 3.4 design (D34-1): orders and invoices
+
+* **Placing** (`POST /api/public/stores/:label/checkout/orders`; body: `requestKey`, a typed address or a saved `addressId`,
+  `shippingMethodId`, `paymentMethod: "COD"`, optional `note`). Prices, shipping and totals are recomputed by the checkout module exactly
+  like the summary (3.3); a summary that is not `ready` orders nothing (422 with the blockers).
+  1. The stock is held with the 3.2 ledger under the new order id (10 minutes; all lines or none: 409 with the short lines).
+  2. ONE transaction: the hold is consumed (all lines, unexpired, or nothing), the per-store counter row (`StoreCounter`) gives the next
+     number, the order, its items, its first history entry and the `order.placed` outbox event are written, the cart is emptied.
+  3. Any failure releases the hold; a process that dies between 1 and 2 leaves a hold that `db-cleanup` releases when it expires.
+  * The order number is gap-free per store (the counter row is locked until commit; a rollback leaves no gap) and is the invoice number.
+  * `requestKey` (16..64 characters, made once per checkout page by the client) makes placing idempotent: the same key returns the same
+    order and token; two simultaneous submits produce one order (unique per store) and the loser's hold is released.
+  * Rate limits per store: 20 orders per hour per client network, 10 per day per phone (fake cash-on-delivery orders tie up stock).
+* **The snapshot.** Items keep the name, option text, unit price, quantity, line total and weight as they were; the address, the shipping
+  method's name, kind and cost, the cash-on-delivery fee, subtotal and total are stored with the order. Money is BigInt (CHECKs: line total
+  = unit price x quantity, total = subtotal + shipping + fee). The customer id has no foreign key: the order outlives changes to it.
+* **Life cycle.** PLACED -> CONFIRMED -> SHIPPED -> DELIVERED; CANCELLED from PLACED or CONFIRMED by the merchant, from PLACED by the
+  shopper. Every change locks the order row, appends to `OrderEvent` (who, when, note) and records `order.status_changed`; a
+  cancellation gives the stock back in the same transaction (consumed reservations become released; a line whose variant is gone, or
+  whose product now sells only by variant, gets no stock back). The order SMS of 3.6 consumes the two events.
+* **Following.** Guests get an access token when placing (HMAC-SHA256 of the order id under a key derived from the server secret; only
+  its SHA-256 is stored): `GET/POST .../checkout/orders/:token[/cancel]`. Signed-in customers: `.../customer/orders[/:id[/cancel]]`.
+  Responses are `no-store`.
+* **Merchants.** `GET /api/stores/:storeId/orders` (newest first, `status` filter, keyset `before`), `GET .../orders/:orderId`,
+  `POST .../orders/:orderId/status` (audited `order.status_changed`). New permissions `orders.view` and `orders.manage`: owner and
+  manager (orders carry name, phone and address).
+* **Payment.** Cash on delivery only (`paymentMethod: "COD"`); online payment (Zarinpal) adds its states in 3.5.
 
 ## 3.1 security review (2026-11-23) and what it leaves for later
 

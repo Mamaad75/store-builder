@@ -22,6 +22,8 @@ export const PERMISSIONS = [
   "audit.view",
   "secrets.manage", // payment gateway keys and other store secrets (phase 2.4): owner only
   "customers.view", // the store's customers and their phone numbers (phase 3.1): personal data, owner and manager only
+  "orders.view", // orders with the shopper's name, phone and address (phase 3.4): personal data, owner and manager only
+  "orders.manage", // confirm, ship, deliver, cancel orders (phase 3.4)
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
