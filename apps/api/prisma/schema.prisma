@@ -513,6 +513,8 @@ model ProductVariant {
 
   @@unique([productId, optionsKey])
   @@unique([storeId, id])
+  /// Phase 3.3: lets a cart line reference (storeId, productId, id), so its variant always belongs to its product.
+  @@unique([storeId, productId, id])
   @@index([storeId, productId, position])
 }
 
@@ -681,6 +683,7 @@ model Cart {
 
   @@unique([tokenHash])
   @@unique([storeId, id])
+  /// At most one cart per customer: a partial UNIQUE index in the migration ("Cart_storeId_customerId_one", WHERE "customerId" IS NOT NULL).
   @@index([storeId, customerId])
   @@index([updatedAt])
 }
@@ -700,7 +703,8 @@ model CartItem {
 
   cart    Cart            @relation(fields: [storeId, cartId], references: [storeId, id], onDelete: Cascade)
   product Product         @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
-  variant ProductVariant? @relation(fields: [storeId, variantId], references: [storeId, id], onDelete: Cascade)
+  /// (storeId, productId, variantId): the variant must belong to THIS line's product (review 3.3).
+  variant ProductVariant? @relation(fields: [storeId, productId, variantId], references: [storeId, productId, id], onDelete: Cascade)
 
   @@unique([cartId, lineKey])
   @@index([storeId, productId])

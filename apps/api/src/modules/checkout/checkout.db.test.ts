@@ -267,3 +267,39 @@ describe("cleanup (phase 3.3)", () => {
     expect(await prisma.cartItem.count()).toBe(0);
   });
 });
+
+describe("security review 3.3 regressions", () => {
+  it("one cart per customer, even when two requests create it at the same time", async () => {
+    const s = await liveStore("shop");
+    const c = await prisma.customer.create({ data: { storeId: s.storeId, phone: "+989121112233" } });
+    const token = await customerSessions.issue({ customerId: c.id, storeId: s.storeId, authVersion: 0 });
+    const devices = [shopper("shop"), shopper("shop"), shopper("shop")];
+    devices.forEach((d) => d.jar.set("sb_customer", token));
+    const results = await Promise.all(devices.map((d) => d.call("POST", "/cart/items", { productId: s.tea, quantity: 1 })));
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(await prisma.cart.count({ where: { customerId: c.id } })).toBe(1);
+    expect((await devices[0]!.call("GET", "/cart")).json.count).toBe(3);
+    await expect(prisma.cart.create({ data: { storeId: s.storeId, tokenHash: "e".repeat(64), customerId: c.id } })).rejects.toThrow();
+  });
+
+  it("the database ties a line's variant to the line's own product, and refuses NULL province entries", async () => {
+    const s = await liveStore("shop");
+    const cart = await prisma.cart.create({ data: { storeId: s.storeId, tokenHash: "f".repeat(64) } });
+    await expect(prisma.cartItem.create({ data: { storeId: s.storeId, cartId: cart.id, productId: s.tea, variantId: s.variant, lineKey: `${s.tea}|${s.variant}`, quantity: 1 } })).rejects.toThrow();
+    await expect(prisma.$executeRaw`INSERT INTO "ShippingMethod" (id, "storeId", name, kind, provinces, "updatedAt") VALUES ('m-null', ${s.storeId}, 'x', 'FLAT', ARRAY['tehran', NULL]::text[], now())`).rejects.toThrow();
+  });
+
+  it("the new-cart limit is per store and does not apply to signed-in customers", async () => {
+    const a = await liveStore("shop");
+    const b = await liveStore("other");
+    // exhaust store A's per-network budget for guests
+    const rule = 120;
+    for (let i = 0; i < rule; i++) expect((await shopper("shop").call("POST", "/cart/items", { productId: a.tea, quantity: 1 })).status).toBe(200);
+    expect((await shopper("shop").call("POST", "/cart/items", { productId: a.tea, quantity: 1 })).status).toBe(429);
+    expect((await shopper("other").call("POST", "/cart/items", { productId: b.tea, quantity: 1 })).status).toBe(200);
+    const c = await prisma.customer.create({ data: { storeId: a.storeId, phone: "+989121112233" } });
+    const me = shopper("shop");
+    me.jar.set("sb_customer", await customerSessions.issue({ customerId: c.id, storeId: a.storeId, authVersion: 0 }));
+    expect((await me.call("POST", "/cart/items", { productId: a.tea, quantity: 1 })).status).toBe(200);
+  }, 120_000);
+});

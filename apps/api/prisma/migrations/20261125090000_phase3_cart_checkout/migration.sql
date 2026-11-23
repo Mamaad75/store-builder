@@ -105,6 +105,12 @@ CREATE UNIQUE INDEX "CustomerAddress_storeId_id_key" ON "CustomerAddress"("store
 -- CreateIndex
 CREATE UNIQUE INDEX "Customer_storeId_id_key" ON "Customer"("storeId", "id");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "ProductVariant_storeId_productId_id_key" ON "ProductVariant"("storeId", "productId", "id");
+
+-- At most one cart per signed-in customer (a partial index: Prisma cannot express it; guest carts have no customer).
+CREATE UNIQUE INDEX "Cart_storeId_customerId_one" ON "Cart"("storeId", "customerId") WHERE "customerId" IS NOT NULL;
+
 -- AddForeignKey
 ALTER TABLE "ShippingMethod" ADD CONSTRAINT "ShippingMethod_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -121,7 +127,7 @@ ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_storeId_cartId_fkey" FOREIGN KEY
 ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_storeId_productId_fkey" FOREIGN KEY ("storeId", "productId") REFERENCES "Product"("storeId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_storeId_variantId_fkey" FOREIGN KEY ("storeId", "variantId") REFERENCES "ProductVariant"("storeId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_storeId_productId_variantId_fkey" FOREIGN KEY ("storeId", "productId", "variantId") REFERENCES "ProductVariant"("storeId", "productId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CustomerAddress" ADD CONSTRAINT "CustomerAddress_storeId_customerId_fkey" FOREIGN KEY ("storeId", "customerId") REFERENCES "Customer"("storeId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -141,10 +147,10 @@ ALTER TABLE "ShippingMethod"
   ADD CONSTRAINT "ShippingMethod_pickup_free" CHECK ("kind" <> 'PICKUP' OR ("price" = 0 AND "perKg" = 0)),
   ADD CONSTRAINT "ShippingMethod_perkg_weight_only" CHECK ("kind" = 'WEIGHT' OR "perKg" = 0),
   ADD CONSTRAINT "ShippingMethod_provinces_shape" CHECK (
-    "provinces" IS NOT NULL AND cardinality("provinces") <= 31
+    "provinces" IS NOT NULL AND array_position("provinces", NULL) IS NULL AND cardinality("provinces") <= 31
     AND array_to_string("provinces", ',') ~ '^([a-z]+(-[a-z]+)?(,[a-z]+(-[a-z]+)?)*)?$'),
   ADD CONSTRAINT "ShippingMethod_cod_provinces_shape" CHECK (
-    "codProvinces" IS NOT NULL AND cardinality("codProvinces") <= 31
+    "codProvinces" IS NOT NULL AND array_position("codProvinces", NULL) IS NULL AND cardinality("codProvinces") <= 31
     AND array_to_string("codProvinces", ',') ~ '^([a-z]+(-[a-z]+)?(,[a-z]+(-[a-z]+)?)*)?$'),
   ADD CONSTRAINT "ShippingMethod_province_prices_shape" CHECK (jsonb_typeof("provincePrices") = 'array' AND jsonb_array_length("provincePrices") <= 31);
 

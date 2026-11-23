@@ -166,7 +166,9 @@ export function quoteShipping(method: ShippingMethod, c: ShippingContext): Shipp
   else if (method.kind === "WEIGHT") {
     const grams = c.knownGrams + c.unknownWeightUnits * method.defaultItemGrams;
     const extraKg = Math.max(0, Math.ceil(grams / 1000) - 1);
-    cost = base + extraKg * method.perKg;
+    // Capped at MAX_PRICE_TOMAN without ever forming a product beyond it (review 3.3: extreme weights x perKg lost integer precision).
+    const room = MAX_PRICE_TOMAN - base;
+    cost = method.perKg > 0 && extraKg > Math.floor(room / method.perKg) ? MAX_PRICE_TOMAN : base + extraKg * method.perKg;
   }
   const freeByThreshold = method.freeAbove !== null && c.subtotal >= method.freeAbove && cost > 0;
   if (freeByThreshold) cost = 0;

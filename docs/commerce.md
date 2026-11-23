@@ -149,7 +149,8 @@ Owner decisions of 2026-11-24: guests can check out (the mobile is verified by O
 cash on delivery; the cart lives in the database; addresses use a province list and a postal-code check.
 
 * **Cart.** `Cart(storeId, tokenHash, customerId?)` and `CartItem(cartId, productId, variantId?, quantity)`; one line per product/variant
-  (`lineKey`, CHECKed against the ids), 1..1000 units, at most 50 lines (`MAX_CART_LINES`, the same as one stock hold).
+  (`lineKey`, CHECKed against the ids), 1..1000 units, at most 50 lines (`MAX_CART_LINES`, the same as one stock hold). A line's variant is
+  tied to the line's own product by a composite foreign key.
   * A guest gets a random 256-bit token in an httpOnly, SameSite=Lax cookie (`__Host-sb_cart` over https, 30 days); only its SHA-256 is
     stored. A malformed token is never looked up.
   * Signed in (customer cookie of THIS store): the customer's cart is used and the device's guest cart is folded into it (quantities add up,
@@ -157,7 +158,9 @@ cash on delivery; the cart lives in the database; addresses use a province list 
     device does not see the customer's cart.
   * Only products and variants of the PUBLISHED version can be added; a product with variants needs one. Removing is always allowed.
     Every change runs in one transaction with the cart row locked.
-  * New carts are rate limited per client network (30 per hour, IPv6 by /64); adding to an existing cart is not. Carts untouched for
+  * New GUEST carts are rate limited per client network (IPv6 by /64): 120 per hour per store and 1000 per hour across the platform,
+    generous because many shoppers share one IPv4 address behind mobile carrier NAT. Adding to an existing cart is not limited, and a
+    signed-in customer has at most one cart (a partial unique index; concurrent first adds land in the same cart). Carts untouched for
     30 days are deleted by `db-cleanup` (lines cascade; a product or variant deleted from the catalog leaves every cart the same way).
   * No stock is held by a cart. The order step (3.4) reserves stock with the 3.2 ledger; until then the cart shows shortages.
 * **Prices.** No price is stored in a cart and none is accepted from a page (unknown fields are refused). Every view prices from the
@@ -185,7 +188,13 @@ cash on delivery; the cart lives in the database; addresses use a province list 
   platform's origins and from that store's own origin only (the 3.1 rule, widened to these routes).
 
 For 3.4 (orders): reserve stock with the ledger when the order is placed, re-price at that moment (the live-price cache is 60 s), and store
-the item and address snapshot in the order; the cart is emptied only after the order exists.
+the item and address snapshot in the order; the cart is emptied only after the order exists. Order money must be stored as BigInt: a cart
+subtotal can reach 50 x 1000 x 1,000,000,000 toman, beyond a 32-bit Int (shipping is capped at MAX_PRICE_TOMAN).
+
+**Security review 3.3 (2026-11-24):** no Critical or High findings. Fixed with regression tests: the new-cart limit was per network across
+the platform (shoppers behind a shared carrier-NAT address could be blocked everywhere) and now applies per store, to guests only;
+concurrent first adds could give a customer two carts (now one, by a partial unique index); weight shipping at extreme values lost integer
+precision (now capped); two CHECKs were tightened (NULL province entries, a line's variant tied to its product).
 
 ## 3.1 security review (2026-11-23) and what it leaves for later
 

@@ -17,8 +17,12 @@ import type { AddressStore, CartRow, CartStore, CartTokens, CheckoutReads, Limit
 const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ID_RE = /^[a-z0-9]{1,64}$/;
 
-/** New carts per client network per hour (anonymous writes are bounded; adding to an existing cart is not limited). */
-export const CART_CREATE_RULE = { limit: 30, windowSeconds: 3600 } as const;
+/**
+ * New GUEST carts per client network per hour (adding to an existing cart is not limited; a customer has at most one cart). Per store, and
+ * generous, because many shoppers share one IPv4 address behind mobile carrier NAT (review 3.3); plus a platform-wide ceiling per network.
+ */
+export const CART_CREATE_RULE = { limit: 120, windowSeconds: 3600 } as const;
+export const CART_CREATE_PLATFORM_RULE = { limit: 1000, windowSeconds: 3600 } as const;
 
 /** Who is shopping: the cart cookie (if any) and the signed-in customer of THIS store (resolved by the caller from the customer cookie). */
 export interface Shopper {
@@ -91,13 +95,19 @@ export class CheckoutService {
     const mine = await this.carts.findByCustomer(storeId, s.customerId);
     if (device && device.customerId === null) {
       if (!mine) {
-        await this.carts.attachCustomer(storeId, device.id, s.customerId);
-        return { ...device, customerId: s.customerId };
+        if (await this.carts.attachCustomer(storeId, device.id, s.customerId)) return { ...device, customerId: s.customerId };
+        // Another request gave the customer a cart meanwhile (one cart per customer, unique index): fold into that one.
+        const theirs = await this.carts.findByCustomer(storeId, s.customerId);
+        return theirs ? this.merge(storeId, device.id, theirs.id, s.customerId) : null;
       }
-      await this.carts.mergeInto(storeId, device.id, mine.id, (into, from) => mergeLines(into, from, MAX_CART_LINES, MAX_CART_LINE_QUANTITY));
-      return this.carts.findByCustomer(storeId, s.customerId);
+      return this.merge(storeId, device.id, mine.id, s.customerId);
     }
     return mine;
+  }
+
+  private async merge(storeId: string, guestId: string, customerCartId: string, customerId: string): Promise<CartRow | null> {
+    await this.carts.mergeInto(storeId, guestId, customerCartId, (into, from) => mergeLines(into, from, MAX_CART_LINES, MAX_CART_LINE_QUANTITY));
+    return this.carts.findByCustomer(storeId, customerId);
   }
 
   private async price(storeId: string, products: StorefrontProduct[], lines: CartLine[]): Promise<PricedLine[]> {
@@ -139,8 +149,12 @@ export class CheckoutService {
     let newCartToken: string | null = null;
     if (!cart) {
       if (line.quantity === 0) return { result: this.view([]), newCartToken: null };
-      const rl = await this.limiter.consume(`cart-create:ip:${s.ipKey}`, CART_CREATE_RULE);
-      if (!rl.allowed) throw new CartRateLimitedError(rl.retryAfterSeconds);
+      if (!s.customerId) {
+        for (const [key, rule] of [[`cart-create:${storeId}:ip:${s.ipKey}`, CART_CREATE_RULE], [`cart-create:all:ip:${s.ipKey}`, CART_CREATE_PLATFORM_RULE]] as const) {
+          const rl = await this.limiter.consume(key, rule);
+          if (!rl.allowed) throw new CartRateLimitedError(rl.retryAfterSeconds);
+        }
+      }
       const t = this.tokens.create();
       cart = await this.carts.create(storeId, t.hash, s.customerId);
       newCartToken = t.token;

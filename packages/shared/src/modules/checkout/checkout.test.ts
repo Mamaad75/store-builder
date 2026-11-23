@@ -79,6 +79,12 @@ describe("shipping quote", () => {
     expect(quoteShipping(m, { ...ctx, knownGrams: 0 })!.cost).toBe(40_000);
   });
 
+  it("weight shipping never exceeds the price cap and stays an exact integer at extreme weights (review 3.3)", () => {
+    const m = method({ kind: "WEIGHT", price: 10, perKg: 1_000_000_000 });
+    expect(quoteShipping(m, { ...ctx, knownGrams: 50 * 1000 * 1_000_000 })!.cost).toBe(1_000_000_000);
+    expect(quoteShipping(m, { ...ctx, knownGrams: 1000 })!.cost).toBe(10);
+  });
+
   it("free above an amount: exactly at the threshold is free and says why", () => {
     const m = method({ freeAbove: 300_000 });
     expect(quoteShipping(m, ctx)).toMatchObject({ cost: 0, freeByThreshold: true });

@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS "CustomerAddress";
 DROP TABLE IF EXISTS "ShippingMethod";
 DROP TYPE IF EXISTS "ShippingKind";
 DROP INDEX IF EXISTS "Customer_storeId_id_key";
+DROP INDEX IF EXISTS "ProductVariant_storeId_productId_id_key";
 ALTER TABLE "Product" DROP CONSTRAINT IF EXISTS "Product_weightGrams_range";
 ALTER TABLE "Product" DROP COLUMN IF EXISTS "weightGrams";
 COMMIT;

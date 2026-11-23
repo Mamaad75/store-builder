@@ -12,14 +12,15 @@ export interface CartRow {
 export interface CartStore {
   findByTokenHash(storeId: string, tokenHash: string): Promise<CartRow | null>;
   findByCustomer(storeId: string, customerId: string): Promise<CartRow | null>;
+  /** With a customer: if that customer already has a cart (a concurrent request made it), that cart is returned instead. */
   create(storeId: string, tokenHash: string, customerId: string | null): Promise<CartRow>;
   /**
    * One transaction with the cart row locked: `change` gets the current lines and returns the new ones (it may throw, e.g. a limit, and
    * then nothing changes). null = the cart is gone. A line pointing at a product or variant that no longer exists is NotFoundError.
    */
   update(storeId: string, cartId: string, change: (lines: CartLine[]) => CartLine[]): Promise<CartLine[] | null>;
-  /** The guest cart becomes the customer's (it had no customer). */
-  attachCustomer(storeId: string, cartId: string, customerId: string): Promise<void>;
+  /** The guest cart becomes the customer's (it had no customer). false = the customer already has a cart (one per customer). */
+  attachCustomer(storeId: string, cartId: string, customerId: string): Promise<boolean>;
   /** One transaction, both carts locked in id order: the customer's cart gets `merge(itsLines, guestLines)`, the guest cart is deleted. */
   mergeInto(storeId: string, guestCartId: string, customerCartId: string, merge: (into: CartLine[], from: CartLine[]) => CartLine[]): Promise<void>;
   /** Carts untouched since `before`, any store, at most `limit`. */

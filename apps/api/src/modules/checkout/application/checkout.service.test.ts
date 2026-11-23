@@ -34,8 +34,10 @@ class MemoryCarts implements CartStore {
     return c.lines;
   }
   async attachCustomer(storeId: string, id: string, customerId: string) {
+    if (this.carts.some((x) => x.storeId === storeId && x.customerId === customerId)) return false;
     const c = this.carts.find((x) => x.id === id && x.storeId === storeId && x.customerId === null);
     if (c) c.customerId = customerId;
+    return true;
   }
   async mergeInto(storeId: string, guestId: string, intoId: string, merge: (a: CartLine[], b: CartLine[]) => CartLine[]) {
     const g = this.carts.find((x) => x.id === guestId)!;

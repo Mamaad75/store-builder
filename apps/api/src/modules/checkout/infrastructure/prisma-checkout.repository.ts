@@ -14,7 +14,10 @@ import { stockKey, type CartLine, type StockFact } from "../domain/quote.js";
 // prices and everything else shown to the shopper come from the published snapshot. Guarded in domain.architecture.test.ts.
 
 const TX = { timeout: 10_000, maxWait: 5_000 } as const;
-const isFkViolation = (e: unknown) => typeof e === "object" && e !== null && (e as { code?: unknown }).code === "P2003";
+const prismaCode = (e: unknown) => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined);
+const isFkViolation = (e: unknown) => prismaCode(e) === "P2003";
+/** The partial unique index "one cart per customer" (raw SQL in the migration; Prisma reports it as P2002, or as a raw 23505). */
+const isUniqueViolation = (e: unknown) => prismaCode(e) === "P2002" || (e as { meta?: { code?: unknown } } | null)?.meta?.code === "23505";
 
 type Tx = Prisma.TransactionClient;
 type ItemRow = { id: string; lineKey: string; productId: string; variantId: string | null; quantity: number };
@@ -57,8 +60,16 @@ export class PrismaCartStore implements CartStore {
   }
 
   async create(storeId: string, tokenHash: string, customerId: string | null): Promise<CartRow> {
-    const c = await db.cart.create({ data: { storeId, tokenHash, customerId }, select: { id: true, customerId: true } });
-    return { id: c.id, customerId: c.customerId, lines: [] };
+    try {
+      const c = await db.cart.create({ data: { storeId, tokenHash, customerId }, select: { id: true, customerId: true } });
+      return { id: c.id, customerId: c.customerId, lines: [] };
+    } catch (e) {
+      if (customerId && isUniqueViolation(e)) {
+        const theirs = await this.findByCustomer(storeId, customerId);
+        if (theirs) return theirs;
+      }
+      throw e;
+    }
   }
 
   async update(storeId: string, cartId: string, change: (lines: CartLine[]) => CartLine[]): Promise<CartLine[] | null> {
@@ -78,8 +89,14 @@ export class PrismaCartStore implements CartStore {
     }
   }
 
-  async attachCustomer(storeId: string, cartId: string, customerId: string): Promise<void> {
-    await db.cart.updateMany({ where: { id: cartId, storeId, customerId: null }, data: { customerId } });
+  async attachCustomer(storeId: string, cartId: string, customerId: string): Promise<boolean> {
+    try {
+      await db.cart.updateMany({ where: { id: cartId, storeId, customerId: null }, data: { customerId } });
+      return true;
+    } catch (e) {
+      if (isUniqueViolation(e)) return false;
+      throw e;
+    }
   }
 
   async mergeInto(storeId: string, guestCartId: string, customerCartId: string, merge: (into: CartLine[], from: CartLine[]) => CartLine[]): Promise<void> {
