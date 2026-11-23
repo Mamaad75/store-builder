@@ -1,6 +1,7 @@
 import {
   ORDER_HOLD_SECONDS,
   ORDER_PHONE_RULE,
+  ORDER_STORE_RULE,
   ORDER_PLACE_RULE,
   canTransition,
   orderListQuerySchema,
@@ -70,22 +71,34 @@ export class OrdersService {
   async place(label: string, s: Shopper, body: unknown): Promise<ShopperOrder & { accessToken: string }> {
     const q = parse(placeOrderSchema, body);
     const storeId = await this.checkout.liveStoreId(label);
-    const existing = await this.orders.findByRequestKey(storeId, q.requestKey);
+    // Only the same shopper (customer, else the same cart cookie) can get an order back by its requestKey.
+    const owner = s.customerId ? `customer:${s.customerId}` : s.cartToken ? `cart:${s.cartToken}` : null;
+    if (!owner) throw new OrderNotReadyError(["empty_cart"]);
+    const requestKey = this.tokens.requestKeyFor(q.requestKey, owner);
+    const existing = await this.orders.findByRequestKey(storeId, requestKey);
     if (existing) return { ...this.shopperView(existing), accessToken: this.tokens.tokenFor(existing.id) };
 
     const prep = await this.checkout.prepareOrder(label, s, { address: q.address, addressId: q.addressId, shippingMethodId: q.shippingMethodId, cashOnDelivery: q.paymentMethod === "COD" });
     if (!prep.summary.ready || !prep.address) throw new OrderNotReadyError(prep.summary.blockers.length ? prep.summary.blockers : ["no_address"]);
     await this.limit(`order-place:${storeId}:ip:${s.ipKey}`, ORDER_PLACE_RULE);
     await this.limit(`order-place:${storeId}:phone:${prep.address.phone}`, ORDER_PHONE_RULE);
+    await this.limit(`order-place:${storeId}:all`, ORDER_STORE_RULE);
 
     const id = this.newId();
     const token = this.tokens.tokenFor(id);
     const order = draftOrder({
-      id, storeId, customerId: s.customerId, requestKey: q.requestKey, accessTokenHash: this.tokens.hash(token)!,
+      id, storeId, customerId: s.customerId, requestKey, accessTokenHash: this.tokens.hash(token)!,
       summary: prep.summary, address: prep.address, weights: prep.weights, paymentMethod: q.paymentMethod, note: q.note,
     });
     const lines = order.items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity }));
-    await this.stock.reserve(storeId, id, lines, ORDER_HOLD_SECONDS); // OutOfStockError: nothing held, nothing ordered
+    try {
+      await this.stock.reserve(storeId, id, lines, ORDER_HOLD_SECONDS); // OutOfStockError: nothing held, nothing ordered
+    } catch (e) {
+      // review 3.4: the same checkout sent twice at once; the first one took the stock and placed the order
+      const winner = await this.orders.findByRequestKey(storeId, requestKey);
+      if (winner) return { ...this.shopperView(winner), accessToken: this.tokens.tokenFor(winner.id) };
+      throw e;
+    }
 
     let created: OrderView | "hold_lost" | "duplicate";
     try {
@@ -97,7 +110,7 @@ export class OrdersService {
     if (created === "hold_lost" || created === "duplicate") {
       await this.stock.release(storeId, id).catch(() => 0);
       if (created === "hold_lost") throw new ReservationLostError();
-      const winner = await this.orders.findByRequestKey(storeId, q.requestKey); // the same checkout, sent twice at once
+      const winner = await this.orders.findByRequestKey(storeId, requestKey); // the same checkout, sent twice at once
       if (!winner) throw new ReservationLostError();
       return { ...this.shopperView(winner), accessToken: this.tokens.tokenFor(winner.id) };
     }

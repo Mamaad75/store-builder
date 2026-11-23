@@ -63,6 +63,11 @@ export interface OrderTokens {
   tokenFor(orderId: string): string;
   /** null = not a token this system could have issued (never looked up). */
   hash(token: string): string | null;
+  /**
+   * The stored idempotency key: the client's requestKey bound to WHO is checking out (the customer, else the cart cookie), so the same
+   * requestKey from anyone else is simply a different key (review 3.4: it never returns someone else's order). 64 hex characters.
+   */
+  requestKeyFor(requestKey: string, owner: string): string;
 }
 
 export interface Limiter {

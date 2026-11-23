@@ -47,6 +47,11 @@ export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = { 
 /** Placing orders per client network per store per hour, and per phone per store per day (fake cash-on-delivery orders hold stock). */
 export const ORDER_PLACE_RULE = { limit: 20, windowSeconds: 3600 } as const;
 export const ORDER_PHONE_RULE = { limit: 10, windowSeconds: 86_400 } as const;
+/**
+ * And all orders of one store per hour (review 3.4): guest phones are not verified until SMS is on, so rotating numbers and networks
+ * could otherwise tie up a store's whole stock with fake cash-on-delivery orders. Generous for a small shop; raise per plan later.
+ */
+export const ORDER_STORE_RULE = { limit: 200, windowSeconds: 3600 } as const;
 /** How long the stock taken for an order being placed is held if the process dies half-way (released by db-cleanup). */
 export const ORDER_HOLD_SECONDS = 10 * 60;
 

@@ -224,6 +224,19 @@ precision (now capped); two CHECKs were tightened (NULL province entries, a line
   manager (orders carry name, phone and address).
 * **Payment.** Cash on delivery only (`paymentMethod: "COD"`); online payment (Zarinpal) adds its states in 3.5.
 
+**Security review 3.4 (2026-11-25):** no Critical or High findings. Fixed with regression tests:
+* the `requestKey` is now bound to the shopper (the customer, else the cart cookie) with a server key, so the same key from anyone else
+  never returns someone else's order or token;
+* a store-wide ceiling of 200 orders per hour on top of the per-network and per-phone limits (guest phones are not verified while SMS is
+  off, so rotating numbers could otherwise tie up a store's stock with fake cash-on-delivery orders);
+* a cancellation gives stock back only to variants that still exist for that product (locked after the products);
+* a double submit that loses the stock race returns the order the first submit placed instead of "out of stock".
+
+Accepted for now, with a plan: guest cash-on-delivery orders are not phone-verified until SMS is on (3.6 can require an OTP for guest
+COD orders, and a merchant setting can cap units per order); PLACED orders do not expire (the merchant cancels by hand; an automatic
+cancel of unconfirmed orders after N days is a merchant setting for later); order links are HMACs of the order id under the server secret,
+so rotating that secret invalidates links already sent (a key version will be added before the first rotation).
+
 ## 3.1 security review (2026-11-23) and what it leaves for later
 
 No path to super admin escalation was found. Fixed with tests: a global per-phone cap across stores (10/h, 20/day) and a platform-wide SMS

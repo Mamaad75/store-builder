@@ -239,7 +239,16 @@ export async function restockReservationInTx(scope: TxScope, storeId: string, re
   const withVariants = new Set(
     (await tx.$queryRaw<{ productId: string }[]>`SELECT DISTINCT "productId" FROM "ProductVariant" WHERE "storeId" = ${storeId} AND "productId" = ANY(${productIds})`).map((r) => r.productId),
   );
-  const back = rows.filter((r) => (r.variantId === null ? !withVariants.has(r.productId) : true));
+  const variantIds = [...new Set(rows.flatMap((r) => (r.variantId ? [r.variantId] : [])))].sort();
+  const liveVariants = new Map(
+    (variantIds.length
+      ? await tx.$queryRaw<{ id: string; productId: string }[]>`
+          SELECT id, "productId" FROM "ProductVariant" WHERE "storeId" = ${storeId} AND id = ANY(${variantIds}) ORDER BY id FOR UPDATE`
+      : []
+    ).map((v) => [v.id, v.productId]),
+  );
+  // review 3.4: a variant line goes back only onto its variant (and product) when that variant still exists for that product
+  const back = rows.filter((r) => (r.variantId === null ? !withVariants.has(r.productId) : liveVariants.get(r.variantId) === r.productId));
   await giveBack(tx, storeId, back);
   return back.length;
 }

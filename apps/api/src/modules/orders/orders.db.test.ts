@@ -249,3 +249,36 @@ describe("managing orders (merchant)", () => {
     await expect(prisma.orderItem.update({ where: { id: item.id }, data: { lineTotal: 1n } })).rejects.toThrow();
   });
 });
+
+describe("security review 3.4 regressions", () => {
+  it("cancelling after the ordered variant was deleted gives no phantom stock to the product", async () => {
+    const s = await liveStore("shop");
+    const l = await prisma.productVariant.create({ data: { storeId: s.storeId, productId: s.shirt, options: [{ name: "سایز", value: "L" }], optionsKey: '[["سایز","L"]]', price: 1, stockQuantity: 4 } });
+    await prisma.product.update({ where: { id: s.shirt }, data: { stockQuantity: 6 } }); // 2 (M) + 4 (L)
+    const me = shopper("shop");
+    await me.call("POST", "/cart/items", { productId: s.shirt, variantId: s.variant, quantity: 2 });
+    const placed = (await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "COD" })).json;
+    // the merchant removes M: the product now has only L (product stock = sum of variants = 4)
+    await prisma.productVariant.delete({ where: { id: s.variant } });
+    await prisma.product.update({ where: { id: s.shirt }, data: { stockQuantity: 4 } });
+    expect((await me.call("POST", `/checkout/orders/${placed.accessToken}/cancel`)).json.order.status).toBe("CANCELLED");
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: s.shirt } })).stockQuantity).toBe(4);
+    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: l.id } })).stockQuantity).toBe(4);
+  });
+
+  it("another shopper sending the same requestKey gets their own checkout, never the first order or its token", async () => {
+    const s = await liveStore("shop");
+    const key = requestKey();
+    const a = shopper("shop");
+    await a.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const first = (await a.call("POST", "/checkout/orders", { requestKey: key, address, shippingMethodId: s.method, paymentMethod: "COD" })).json;
+    const b = shopper("shop");
+    const replay = await b.call("POST", "/checkout/orders", { requestKey: key, address, shippingMethodId: s.method, paymentMethod: "COD" });
+    expect(replay.status).toBe(422); // b has no cart: nothing to order, and nothing of a's is returned
+    expect(JSON.stringify(replay.json)).not.toContain(first.accessToken);
+    await b.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const own = (await b.call("POST", "/checkout/orders", { requestKey: key, address, shippingMethodId: s.method, paymentMethod: "COD" })).json;
+    expect(own.order.id).not.toBe(first.order.id);
+    expect(own.accessToken).not.toBe(first.accessToken);
+  });
+});

@@ -13,5 +13,6 @@ export function orderTokens(secret: string): OrderTokens {
   return {
     tokenFor: (orderId) => createHmac("sha256", key).update(orderId).digest("base64url"),
     hash: (token) => (TOKEN_RE.test(token) ? createHash("sha256").update(token).digest("hex") : null),
+    requestKeyFor: (requestKey, owner) => createHmac("sha256", key).update(`request|${owner}|${requestKey}`).digest("hex"),
   };
 }

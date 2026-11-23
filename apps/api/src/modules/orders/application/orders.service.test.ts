@@ -63,7 +63,7 @@ function setup(o: { summary?: ReadySummary; allow?: boolean } = {}) {
   let n = 0;
   const svc = new OrdersService(
     orders, checkout, stock,
-    { tokenFor: (id) => `t${id}`.padEnd(43, "x"), hash: (t) => (t.length === 43 ? `h:${t}` : null) },
+    { tokenFor: (id) => `t${id}`.padEnd(43, "x"), hash: (t) => (t.length === 43 ? `h:${t}` : null), requestKeyFor: (k, owner) => `${owner}|${k}` },
     { consume: async () => ({ allowed: o.allow ?? true, retryAfterSeconds: 9 }) },
     () => `o${++n}`,
   );
@@ -113,6 +113,17 @@ describe("placing an order", () => {
     await expect(svc.place("shop", guest, { ...body, paymentMethod: "ONLINE" })).rejects.toBeInstanceOf(ValidationError);
     await expect(svc.place("shop", guest, { ...body, total: 1 })).rejects.toBeInstanceOf(ValidationError);
     await expect(svc.place("nope", guest, body)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("review 3.4 regressions", () => {
+  it("the same requestKey from another shopper is a different checkout: never someone else's order or token", async () => {
+    const { svc, orders } = setup();
+    const a = await svc.place("shop", guest, body);
+    const b = await svc.place("shop", { ...guest, cartToken: "other-cart" }, body);
+    expect(b.order.id).not.toBe(a.order.id);
+    expect(orders.rows).toHaveLength(2);
+    await expect(svc.place("shop", { ...guest, cartToken: null }, body)).rejects.toBeInstanceOf(OrderNotReadyError);
   });
 });
 
