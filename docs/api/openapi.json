@@ -6235,6 +6235,711 @@
         }
       }
     },
+    "/api/v1/admin/stores/{storeId}/products/{productId}/price-link": {
+      "put": {
+        "operationId": "putApiV1AdminStoresStoreIdProductsProductIdPriceLink",
+        "summary": "Link the price of a product (or one variant) to the dollar or gold (changes the live price: needs publish)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "publish",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "variantId": {
+                    "description": "the variant, for a product with variants",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "link": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "USD"
+                          },
+                          "fromToman": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000000
+                          },
+                          "usdCents": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100000000
+                          },
+                          "roundingToman": {
+                            "default": 1000,
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "const": 1
+                              },
+                              {
+                                "type": "number",
+                                "const": 100
+                              },
+                              {
+                                "type": "number",
+                                "const": 1000
+                              },
+                              {
+                                "type": "number",
+                                "const": 10000
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "GOLD"
+                          },
+                          "fromToman": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000000
+                          },
+                          "weightMg": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10000000
+                          },
+                          "wageBp": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          "profitBp": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          "taxBp": {
+                            "default": 900,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 3000
+                          },
+                          "stoneToman": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "roundingToman": {
+                            "default": 1000,
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "const": 1
+                              },
+                              {
+                                "type": "number",
+                                "const": 100
+                              },
+                              {
+                                "type": "number",
+                                "const": 1000
+                              },
+                              {
+                                "type": "number",
+                                "const": 10000
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "link"
+                ]
+              }
+            }
+          },
+          "description": "Fields are validated one by one by the service."
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "productId": {
+                      "type": "string"
+                    },
+                    "variantId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "USD",
+                        "GOLD"
+                      ]
+                    },
+                    "usdCents": {
+                      "description": "dollar amount in cents (kind USD)",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "weightMg": {
+                      "description": "gold weight in milligrams (kind GOLD)",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "wageBp": {
+                      "type": "number",
+                      "description": "labour, basis points (900 = 9%)"
+                    },
+                    "profitBp": {
+                      "type": "number"
+                    },
+                    "taxBp": {
+                      "type": "number"
+                    },
+                    "stoneToman": {
+                      "type": "number"
+                    },
+                    "roundingToman": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OK",
+                        "OUT_OF_RANGE"
+                      ]
+                    },
+                    "lastPriceToman": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "lastRateAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "productId",
+                    "variantId",
+                    "kind",
+                    "usdCents",
+                    "weightMg",
+                    "wageBp",
+                    "profitBp",
+                    "taxBp",
+                    "stoneToman",
+                    "roundingToman",
+                    "status",
+                    "lastPriceToman",
+                    "lastRateAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/products/{productId}/price-link/delete": {
+      "post": {
+        "operationId": "postApiV1AdminStoresStoreIdProductsProductIdPriceLinkDelete",
+        "summary": "Remove a price link (the price stays at its last value)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "publish",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "variantId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "description": "Fields are validated one by one by the service."
+        },
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/products/{productId}/price-links": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdProductsProductIdPriceLinks",
+        "summary": "Price links of a product and its variants",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "store.view",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "productId": {
+                        "type": "string"
+                      },
+                      "variantId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "USD",
+                          "GOLD"
+                        ]
+                      },
+                      "usdCents": {
+                        "description": "dollar amount in cents (kind USD)",
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "weightMg": {
+                        "description": "gold weight in milligrams (kind GOLD)",
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "wageBp": {
+                        "type": "number",
+                        "description": "labour, basis points (900 = 9%)"
+                      },
+                      "profitBp": {
+                        "type": "number"
+                      },
+                      "taxBp": {
+                        "type": "number"
+                      },
+                      "stoneToman": {
+                        "type": "number"
+                      },
+                      "roundingToman": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "OK",
+                          "OUT_OF_RANGE"
+                        ]
+                      },
+                      "lastPriceToman": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "lastRateAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "productId",
+                      "variantId",
+                      "kind",
+                      "usdCents",
+                      "weightMg",
+                      "wageBp",
+                      "profitBp",
+                      "taxBp",
+                      "stoneToman",
+                      "roundingToman",
+                      "status",
+                      "lastPriceToman",
+                      "lastRateAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stores/{storeId}/products/{productId}/status": {
       "post": {
         "operationId": "postApiV1AdminStoresStoreIdProductsProductIdStatus",
@@ -7206,6 +7911,178 @@
                     "lockHeldMs",
                     "budgetExceeded",
                     "buildMs"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/rates": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdRates",
+        "summary": "Current dollar and 18k gold rates (toman)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "store.view",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "USD": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "rateToman": {
+                              "type": "number"
+                            },
+                            "appliedAt": {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            }
+                          },
+                          "required": [
+                            "rateToman",
+                            "appliedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "GOLD18": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "rateToman": {
+                              "type": "number"
+                            },
+                            "appliedAt": {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            }
+                          },
+                          "required": [
+                            "rateToman",
+                            "appliedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "USD",
+                    "GOLD18"
                   ],
                   "additionalProperties": false
                 }
@@ -11820,6 +12697,751 @@
         }
       }
     },
+    "/api/v1/platform/rates": {
+      "get": {
+        "operationId": "getApiV1PlatformRates",
+        "summary": "Current rates, rates waiting for confirmation, recent history",
+        "tags": [
+          "platform"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-platform-role": "SUPER_ADMIN",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "manual",
+                        "navasan"
+                      ]
+                    },
+                    "current": {
+                      "type": "object",
+                      "properties": {
+                        "USD": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "rateToman": {
+                                  "type": "number"
+                                },
+                                "appliedAt": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                },
+                                "stale": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "rateToman",
+                                "appliedAt",
+                                "stale"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "GOLD18": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "rateToman": {
+                                  "type": "number"
+                                },
+                                "appliedAt": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                },
+                                "stale": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "rateToman",
+                                "appliedAt",
+                                "stale"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "USD",
+                        "GOLD18"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "pending": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string",
+                            "enum": [
+                              "USD",
+                              "GOLD18"
+                            ]
+                          },
+                          "rateToman": {
+                            "type": "number"
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "observedAt": {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "APPLIED",
+                              "PENDING",
+                              "REJECTED"
+                            ]
+                          },
+                          "decidedById": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "code",
+                          "rateToman",
+                          "source",
+                          "observedAt",
+                          "status",
+                          "decidedById",
+                          "decidedAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string",
+                            "enum": [
+                              "USD",
+                              "GOLD18"
+                            ]
+                          },
+                          "rateToman": {
+                            "type": "number"
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "observedAt": {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "APPLIED",
+                              "PENDING",
+                              "REJECTED"
+                            ]
+                          },
+                          "decidedById": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "code",
+                          "rateToman",
+                          "source",
+                          "observedAt",
+                          "status",
+                          "decidedById",
+                          "decidedAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "current",
+                    "pending",
+                    "history"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postApiV1PlatformRates",
+        "summary": "Enter a rate by hand (applied at once; linked prices follow)",
+        "tags": [
+          "platform"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-platform-role": "SUPER_ADMIN",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "enum": [
+                      "USD",
+                      "GOLD18"
+                    ]
+                  },
+                  "rateToman": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "code",
+                  "rateToman"
+                ]
+              }
+            }
+          },
+          "description": "Fields are validated one by one by the service."
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "USD",
+                        "GOLD18"
+                      ]
+                    },
+                    "rateToman": {
+                      "type": "number"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "observedAt": {
+                      "type": "string",
+                      "description": "ISO 8601 date-time"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "APPLIED",
+                        "PENDING",
+                        "REJECTED"
+                      ]
+                    },
+                    "decidedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decidedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "description": "ISO 8601 date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "rateToman",
+                    "source",
+                    "observedAt",
+                    "status",
+                    "decidedById",
+                    "decidedAt",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/rates/{rateId}/confirm": {
+      "post": {
+        "operationId": "postApiV1PlatformRatesRateIdConfirm",
+        "summary": "Apply a held rate",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "rateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-platform-role": "SUPER_ADMIN",
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/rates/{rateId}/reject": {
+      "post": {
+        "operationId": "postApiV1PlatformRatesRateIdReject",
+        "summary": "Reject a held rate",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "rateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-platform-role": "SUPER_ADMIN",
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/secrets/{name}": {
       "post": {
         "operationId": "postApiV1PlatformSecretsName",
@@ -12155,12 +13777,54 @@
                             "model"
                           ],
                           "additionalProperties": false
+                        },
+                        "rates": {
+                          "type": "object",
+                          "properties": {
+                            "provider": {
+                              "type": "string",
+                              "enum": [
+                                "off",
+                                "manual",
+                                "navasan"
+                              ]
+                            },
+                            "maxAgeHours": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 48
+                            },
+                            "jumpPercent": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 50
+                            },
+                            "providerUnit": {
+                              "type": "string",
+                              "enum": [
+                                "toman",
+                                "rial"
+                              ]
+                            },
+                            "allowInsecureHttp": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "provider",
+                            "maxAgeHours",
+                            "jumpPercent",
+                            "providerUnit",
+                            "allowInsecureHttp"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "sms",
                         "payment",
-                        "ai"
+                        "ai",
+                        "rates"
                       ],
                       "additionalProperties": false
                     },
@@ -12259,12 +13923,44 @@
                             "updatedAt"
                           ],
                           "additionalProperties": false
+                        },
+                        "rates.navasan.api_key": {
+                          "type": "object",
+                          "properties": {
+                            "configured": {
+                              "type": "boolean"
+                            },
+                            "hint": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "updatedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "configured",
+                            "hint",
+                            "updatedAt"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "sms.kavenegar.api_key",
                         "payment.zarinpal.merchant_id",
-                        "ai.api_key"
+                        "ai.api_key",
+                        "rates.navasan.api_key"
                       ],
                       "additionalProperties": false
                     },
@@ -12368,7 +14064,7 @@
     "/api/v1/platform/settings/{group}": {
       "patch": {
         "operationId": "patchApiV1PlatformSettingsGroup",
-        "summary": "Update one settings group (sms, payment, ai)",
+        "summary": "Update one settings group (sms, payment, ai, rates)",
         "tags": [
           "platform"
         ],
@@ -12396,7 +14092,7 @@
                 "type": "object",
                 "properties": {
                   "...": {
-                    "description": "the group's fields (smsSettingsSchema, paymentSettingsSchema, aiSettingsSchema)"
+                    "description": "the group's fields (smsSettingsSchema, paymentSettingsSchema, aiSettingsSchema, ratesSettingsSchema)"
                   }
                 },
                 "required": [
@@ -12484,12 +14180,54 @@
                         "model"
                       ],
                       "additionalProperties": false
+                    },
+                    "rates": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "manual",
+                            "navasan"
+                          ]
+                        },
+                        "maxAgeHours": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 48
+                        },
+                        "jumpPercent": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 50
+                        },
+                        "providerUnit": {
+                          "type": "string",
+                          "enum": [
+                            "toman",
+                            "rial"
+                          ]
+                        },
+                        "allowInsecureHttp": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "provider",
+                        "maxAgeHours",
+                        "jumpPercent",
+                        "providerUnit",
+                        "allowInsecureHttp"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "sms",
                     "payment",
-                    "ai"
+                    "ai",
+                    "rates"
                   ],
                   "additionalProperties": false
                 }

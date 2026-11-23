@@ -223,6 +223,8 @@ model Product {
   image        Media?             @relation(fields: [storeId, imageId], references: [storeId, id], onDelete: NoAction)
   variants     ProductVariant[]
   reservations StockReservation[]
+  priceLinks   PriceLink[]
+  livePrices   LivePrice[]
 
   @@unique([storeId, slug])
   /// Phase 3.2: lets variants and reservations reference (storeId, id), so a row can never point at a product of another store.
@@ -497,6 +499,7 @@ model ProductVariant {
 
   product      Product            @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
   reservations StockReservation[]
+  priceLinks   PriceLink[]
 
   @@unique([productId, optionsKey])
   @@unique([storeId, id])
@@ -528,4 +531,89 @@ model StockReservation {
 
   @@index([storeId, ref])
   @@index([status, expiresAt])
+}
+
+enum RateCode {
+  USD
+  GOLD18
+}
+
+enum RateStatus {
+  APPLIED
+  PENDING
+  REJECTED
+}
+
+/// A dollar or 18k-gold rate in toman (phase 3.2b, D32b-1). Append-only history: the current rate of a code is its latest APPLIED row.
+/// PENDING = a jump above the configured threshold waiting for a super admin; REJECTED = refused by one (or implausible).
+model ExchangeRate {
+  id          String     @id @default(cuid())
+  code        RateCode
+  rateToman   Int
+  /// "manual" or the provider's name.
+  source      String     @db.VarChar(20)
+  observedAt  DateTime
+  status      RateStatus
+  /// The super admin who entered, confirmed or rejected it (null for an automatic apply).
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@index([code, status, createdAt])
+  @@index([status, createdAt])
+}
+
+enum PriceLinkKind {
+  USD
+  GOLD
+}
+
+enum PriceLinkStatus {
+  OK
+  OUT_OF_RANGE
+}
+
+/// A product's (or one variant's) price that follows the dollar or gold (phase 3.2b). `target` is the variant id, or "-" for the product
+/// itself, so (productId, target) is unique for both. The price columns of Product / ProductVariant hold the last computed price.
+model PriceLink {
+  id             String          @id @default(cuid())
+  storeId        String
+  productId      String
+  variantId      String?
+  target         String          @db.VarChar(64)
+  kind           PriceLinkKind
+  usdCents       Int?
+  weightMg       Int?
+  wageBp         Int             @default(0)
+  profitBp       Int             @default(0)
+  taxBp          Int             @default(0)
+  stoneToman     Int             @default(0)
+  roundingToman  Int             @default(1000)
+  status         PriceLinkStatus @default(OK)
+  lastPriceToman Int?
+  lastRateAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  product Product         @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, target])
+  @@index([storeId])
+}
+
+/// The PUBLIC projection of linked prices (phase 3.2b): written only by repricing, read by the published storefront to show the current
+/// price of a linked product on top of its published snapshot. Not a draft table: it never holds anything the merchant has not linked.
+model LivePrice {
+  storeId    String
+  productId  String
+  /// Variant id, or "-" for the product's own (or lowest variant) price.
+  target     String   @db.VarChar(64)
+  priceToman Int
+  updatedAt  DateTime
+
+  product Product @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
+
+  @@id([productId, target])
+  @@index([storeId])
 }

@@ -6,6 +6,7 @@ import { createCategorySchema, deleteCategoryOptionsSchema, updateCategorySchema
 import { createProductSchema, statusSchema, updateProductSchema } from "../modules/products/schemas.js";
 import { secretValueSchema } from "../modules/secrets/schemas.js";
 import { replaceVariantsSchema } from "../modules/inventory/variants.js";
+import { RATE_CODES, priceLinkInputSchema } from "../modules/pricing/pricing.js";
 import { createStoreSchema, switchThemeSchema, updateBusinessCategorySchema, updateStoreSchema } from "../modules/stores/schemas.js";
 import * as S from "./schemas.js";
 
@@ -117,6 +118,11 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", st("/products/:productId/image"), "Upload the product image (raw image bytes)", { permission: "media.write", status: 200, body: raw, untyped: true }),
   r("POST", st("/products/:productId/image/delete"), "Remove the product image", { permission: "media.write", status: 204 }),
   r("GET", st("/products/:productId/variants"), "Variants of a product", { permission: "store.view", response: z.array(S.variantDto) }),
+  // ---- phase 3.2b: prices linked to the dollar or gold
+  r("GET", st("/rates"), "Current dollar and 18k gold rates (toman)", { permission: "store.view", response: S.currentRatesDto }),
+  r("GET", st("/products/:productId/price-links"), "Price links of a product and its variants", { permission: "store.view", response: z.array(S.priceLinkDto) }),
+  r("PUT", st("/products/:productId/price-link"), "Link the price of a product (or one variant) to the dollar or gold (changes the live price: needs publish)", { permission: "publish", body: doc({ variantId: z.string().nullable().optional().describe("the variant, for a product with variants"), link: priceLinkInputSchema }), bodyDoc: true, response: S.priceLinkDto }),
+  r("POST", st("/products/:productId/price-link/delete"), "Remove a price link (the price stays at its last value)", { permission: "publish", status: 204, body: doc({ variantId: z.string().nullable().optional() }), bodyDoc: true }),
   r("PUT", st("/products/:productId/variants"), "Replace the variant set (price and stock of the product follow it)", { permission: "catalog.write", body: replaceVariantsSchema, response: z.array(S.variantDto) }),
 
   // ---- admin: pages
@@ -169,8 +175,14 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", "/api/platform/admins", "Make an existing account a super admin", { platform: true, status: 201, body: doc({ username: z.string().max(64) }), bodyDoc: true, response: z.object({ userId: z.string() }) }),
   r("POST", "/api/platform/admins/:userId/revoke", "Revoke a super admin (never oneself or the last one)", { platform: true, status: 204 }),
   r("GET", "/api/platform/settings", "SMS, payment and AI settings, and which platform secrets are set (never their values)", { platform: true, response: S.platformSettingsViewDto }),
-  r("PATCH", "/api/platform/settings/:group", "Update one settings group (sms, payment, ai)", { platform: true, body: doc({ "...": z.unknown().describe("the group's fields (smsSettingsSchema, paymentSettingsSchema, aiSettingsSchema)") }), bodyDoc: true, response: S.platformSettingsDto }),
+  r("PATCH", "/api/platform/settings/:group", "Update one settings group (sms, payment, ai, rates)", { platform: true, body: doc({ "...": z.unknown().describe("the group's fields (smsSettingsSchema, paymentSettingsSchema, aiSettingsSchema, ratesSettingsSchema)") }), bodyDoc: true, response: S.platformSettingsDto }),
   r("POST", "/api/platform/secrets/:name", "Set a platform secret (write-only; allowlisted names)", { platform: true, status: 204, body: secretValueSchema }),
   r("POST", "/api/platform/secrets/:name/delete", "Delete a platform secret", { platform: true, status: 204 }),
+
+  // ---- phase 3.2b: rates (super admins)
+  r("GET", "/api/platform/rates", "Current rates, rates waiting for confirmation, recent history", { platform: true, response: S.platformRatesDto }),
+  r("POST", "/api/platform/rates", "Enter a rate by hand (applied at once; linked prices follow)", { platform: true, status: 201, body: doc({ code: z.enum(RATE_CODES), rateToman: z.number().int() }), bodyDoc: true, response: S.rateRowDto }),
+  r("POST", "/api/platform/rates/:rateId/confirm", "Apply a held rate", { platform: true, status: 204 }),
+  r("POST", "/api/platform/rates/:rateId/reject", "Reject a held rate", { platform: true, status: 204 }),
 ];
 

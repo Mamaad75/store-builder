@@ -2,5 +2,7 @@
 export { PlatformService } from "./application/platform.service.js";
 export { PrismaPlatformRepository } from "./infrastructure/prisma-platform.repository.js";
 export { PlatformSettingsService } from "./application/settings.service.js";
-export { otpSenderSource } from "./infrastructure/compose.js";
+export { createPlatformSettingsService, otpSenderSource } from "./infrastructure/compose.js";
+/** For other modules' super-admin routes (phase 3.2b: rates). */
+export { PlatformAdminGuard } from "./interface/platform.controllers.js";
 export { rotatePlatformSecrets } from "./infrastructure/rotation.js";

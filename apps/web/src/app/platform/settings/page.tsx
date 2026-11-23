@@ -1,7 +1,7 @@
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { AiSettingsForm, PaymentSettingsForm, SmsSettingsForm } from "@/components/platform/PlatformForms";
+import { AiSettingsForm, PaymentSettingsForm, RatesSettingsForm, SmsSettingsForm } from "@/components/platform/PlatformForms";
 import { getPlatformSettings } from "@/gateway/platform";
 
 export default async function PlatformSettingsPage() {
@@ -20,6 +20,7 @@ export default async function PlatformSettingsPage() {
       <Stack spacing={3}>
         <SmsSettingsForm initial={v.settings.sms} secrets={v.secrets} encryptionReady={v.encryptionReady} />
         <PaymentSettingsForm initial={v.settings.payment} secrets={v.secrets} encryptionReady={v.encryptionReady} />
+        <RatesSettingsForm initial={v.settings.rates} secrets={v.secrets} encryptionReady={v.encryptionReady} />
         <AiSettingsForm initial={v.settings.ai} secrets={v.secrets} encryptionReady={v.encryptionReady} />
       </Stack>
     </>

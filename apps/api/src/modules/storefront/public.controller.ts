@@ -1,5 +1,5 @@
 import { Controller, Get, NotFoundException, Param, Query } from "@nestjs/common";
-import { loadPublishedSnapshot, resolveLiveStore, resolveProductRedirect } from "../publishing/public-read.js";
+import { livePricesOf, loadPublishedSnapshot, resolveLiveStore, resolveProductRedirect, withLivePrices } from "../publishing/public-read.js";
 
 const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
@@ -16,7 +16,8 @@ export class PublicStoresController {
     if (!live) throw new NotFoundException();
     const data = await loadPublishedSnapshot(live.versionId);
     if (!data) throw new NotFoundException();
-    return { live, data };
+    // Phase 3.2b: products linked to the dollar or gold show their current price on top of the published snapshot.
+    return { live, data: withLivePrices(data, await livePricesOf(live.storeId)) };
   }
 
   @Get(":label/product-redirect")

@@ -39,10 +39,15 @@ describe("architecture guard: catalog writes go through withStoreMutation", () =
     expect(rel(offenders)).toEqual([]);
   });
 
-  it("raw SQL writes to Product rows exist only in the stock ledger (checkout stock moves, D32-1: not draft edits, no store lock)", () => {
+  it("raw SQL writes to Product rows exist only in the stock ledger and the price writer (D32-1, D32b-1: not draft edits, no store lock)", () => {
     const raw = /(UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+"Product(Category)?"/i;
     const writers = prodFiles().filter((f) => raw.test(read(f)));
-    expect(rel(writers)).toEqual(["src/modules/inventory/infrastructure/prisma-inventory.repository.ts"]);
+    expect(rel(writers)).toEqual(["src/modules/inventory/infrastructure/prisma-inventory.repository.ts", "src/modules/pricing/infrastructure/prisma-pricing.repository.ts"]);
+    // the price writer only ever sets the price column
+    const pricing = read("src/modules/pricing/infrastructure/prisma-pricing.repository.ts");
+    const priceSets = [...pricing.matchAll(/UPDATE "Product" SET ([^`]*?)\s+WHERE/g)].map((m) => m[1]!);
+    expect(priceSets.length).toBeGreaterThanOrEqual(2); // a linked product's price, and the lowest-variant summary
+    for (const set of priceSets) expect(set).toMatch(/^"price" = \$\{[\w.]+\}, "updatedAt" = now\(\)$/);
     // and there they only move stockQuantity: never price, name, status or anything else the merchant owns
     const ledger = read("src/modules/inventory/infrastructure/prisma-inventory.repository.ts");
     const sets = [...ledger.matchAll(/UPDATE "Product" SET ([^`]*?)\s+WHERE/g)].map((m) => m[1]!);
@@ -337,13 +342,14 @@ describe("architecture guard: the public (store host) path never reads draft dat
   // Every table name that appears in a FROM/JOIN of the public read module.
   const tables = (src: string) => [...src.matchAll(/(?:FROM|JOIN)\s+"(\w+)"/gi)].map((m) => m[1]!);
 
-  it("public-read.ts reads only Domain, Store, StoreVersion, StoreVersionProduct and PublishedSlug", () => {
+  it("public-read.ts reads only Domain, Store, StoreVersion, StoreVersionProduct, PublishedSlug and LivePrice", () => {
     const used = new Set(tables(publicSrc()));
     expect(used.size).toBeGreaterThan(0);
-    const allowed = new Set(["Domain", "Store", "StoreVersion", "StoreVersionProduct", "PublishedSlug"]);
+    // LivePrice (phase 3.2b): the public projection of linked prices, written only by repricing; never a draft table.
+    const allowed = new Set(["Domain", "Store", "StoreVersion", "StoreVersionProduct", "PublishedSlug", "LivePrice"]);
     for (const t of used) expect(allowed.has(t), `public path reads table ${t}`).toBe(true);
     // none of the draft tables, by name
-    for (const draft of ["Product", "Category", "Page", "PageSection", "Media", "ProductMedia", "StoreSettings", "Theme"]) {
+    for (const draft of ["Product", "ProductVariant", "PriceLink", "Category", "Page", "PageSection", "Media", "ProductMedia", "StoreSettings", "Theme"]) {
       expect(used.has(draft), draft).toBe(false);
     }
   });

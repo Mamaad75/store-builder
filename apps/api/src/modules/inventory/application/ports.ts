@@ -31,6 +31,10 @@ export interface VariantWrites {
   lockProduct(productId: string): Promise<boolean>;
   list(productId: string): Promise<VariantView[]>;
   countInStore(): Promise<number>;
+  /** Price links of the product (phase 3.2b): a linked variant keeps its computed price; a product-level link excludes variants. */
+  linkedPrices(productId: string): Promise<{ productLinked: boolean; variantIds: string[] }>;
+  /** After variants were removed: the live prices of their (cascaded) links go too (phase 3.2b). */
+  syncLivePrices(productId: string): Promise<void>;
   update(id: string, data: VariantData): Promise<void>;
   insert(productId: string, data: VariantData): Promise<void>;
   /**

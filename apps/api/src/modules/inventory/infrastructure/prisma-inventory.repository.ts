@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "../../../lib/db.js";
 import { withStoreMutation, type MutationContext } from "../../stores/stores.api.js";
 import { updateProductRow } from "../../products/products.api.js";
+import { linkedVariantIdsInTx, syncLiveInTx } from "../../pricing/pricing.api.js";
 import type { ReservationLine, StockFacts } from "../domain/inventory.js";
 import type { StockLedger, VariantData, VariantReader, VariantUnitOfWork, VariantView, VariantWrites } from "../application/ports.js";
 import { MAX_STOCK, type VariantOption } from "@store-builder/shared/modules/inventory/variants";
@@ -39,6 +40,8 @@ function writesFor(ctx: MutationContext): VariantWrites {
       return rows.map(toView);
     },
     countInStore: () => tx.productVariant.count({ where: { storeId } }),
+    linkedPrices: (productId) => linkedVariantIdsInTx(ctx, productId),
+    syncLivePrices: (productId) => syncLiveInTx(ctx, productId),
     async update(id, d) {
       const r = await tx.productVariant.updateMany({ where: { id, storeId }, data: data(d) });
       if (r.count !== 1) throw new Error("variant vanished under the product lock");

@@ -16,8 +16,8 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { PlatformAdminConflictError } from "@store-builder/shared/modules/platform/errors";
 import { SecretsUnavailableError } from "@store-builder/shared/modules/secrets/errors";
-import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
-import { grantPlatformAdmin, removePlatformSecret, revokePlatformAdmin, setPlatformSecret, updatePlatformSettings } from "@/client/platform-api";
+import { ConflictError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { decideRate, enterRate, grantPlatformAdmin, removePlatformSecret, revokePlatformAdmin, setPlatformSecret, updatePlatformSettings } from "@/client/platform-api";
 import { transportState } from "@/client/guard";
 
 type Feedback = { ok?: string; error?: string; fieldErrors?: Record<string, string[]> };
@@ -31,6 +31,7 @@ function feedbackOf(e: unknown): Feedback {
   if (e instanceof SecretsUnavailableError) return { error: "کلید اصلی رمزنگاری روی سرور تنظیم نشده است (SECRETS_MASTER_KEYS)؛ ذخیره‌ی کلیدها ممکن نیست." };
   if (e instanceof PlatformAdminConflictError) return { error: e.message };
   if (e instanceof NotFoundError) return { error: "پیدا نشد." };
+  if (e instanceof ConflictError) return { error: "این مورد قبلاً بررسی شده است؛ صفحه را تازه کنید." };
   return { error: "ذخیره ممکن نشد. دوباره امتحان کنید." };
 }
 
@@ -226,6 +227,114 @@ export function AiSettingsForm({ initial, secrets, encryptionReady }: { initial:
       </Box>
       <SecretField name="ai.api_key" label="کلید API هوش مصنوعی" state={secrets["ai.api_key"]!} disabled={!encryptionReady} />
     </Section>
+  );
+}
+
+type RatesSettings = { provider: "off" | "manual" | "navasan"; maxAgeHours: number; jumpPercent: number; providerUnit: "toman" | "rial"; allowInsecureHttp: boolean };
+
+/** Phase 3.2b: where the dollar and gold rates come from, and the safety thresholds (stale age, jump that needs confirmation). */
+export function RatesSettingsForm({ initial, secrets, encryptionReady }: { initial: RatesSettings; secrets: Secrets; encryptionReady: boolean }) {
+  const { pending, fb, run } = useSubmit();
+  const [v, setV] = useState(initial);
+  const num = (k: "maxAgeHours" | "jumpPercent") => (e: { target: { value: string } }) => setV({ ...v, [k]: Number(e.target.value.replace(/[^\d]/g, "") || 0) });
+  return (
+    <Section
+      title="نرخ طلا و دلار"
+      description="برای محصولاتی که قیمتشان به دلار یا طلا متصل است. هر ساعت نرخ تازه گرفته و قیمت‌ها دوباره حساب می‌شوند. اگر نرخ کهنه شود قیمت‌ها روی آخرین نرخ معتبر می‌مانند؛ جهش بزرگ‌تر از آستانه فقط با تأیید شما اعمال می‌شود."
+      badge={<Chip size="small" color={initial.provider === "off" ? "default" : "success"} label={{ off: "خاموش", manual: "دستی", navasan: "نوسان" }[initial.provider]} />}
+    >
+      <Box
+        component="form"
+        noValidate
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          run(() => updatePlatformSettings("rates", v), "تنظیمات نرخ ذخیره شد.");
+        }}
+      >
+        <Stack spacing={2}>
+          <TextField select label="منبع نرخ" value={v.provider} onChange={(e) => setV({ ...v, provider: e.target.value as RatesSettings["provider"] })}>
+            <MenuItem value="off">خاموش</MenuItem>
+            <MenuItem value="manual">ورود دستی (در صفحه‌ی نرخ‌ها)</MenuItem>
+            <MenuItem value="navasan">نوسان (navasan.tech)، هر ساعت</MenuItem>
+          </TextField>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField label="کهنه شدن نرخ بعد از (ساعت)" value={v.maxAgeHours} onChange={num("maxAgeHours")} error={!!fb.fieldErrors?.maxAgeHours} helperText={fb.fieldErrors?.maxAgeHours?.[0] ?? "۱ تا ۴۸"} slotProps={{ htmlInput: { dir: "ltr", inputMode: "numeric" } }} />
+            <TextField label="آستانه‌ی جهش نیازمند تأیید (٪)" value={v.jumpPercent} onChange={num("jumpPercent")} error={!!fb.fieldErrors?.jumpPercent} helperText={fb.fieldErrors?.jumpPercent?.[0] ?? "۱ تا ۵۰"} slotProps={{ htmlInput: { dir: "ltr", inputMode: "numeric" } }} />
+            <TextField select label="واحد اعداد سرویس" value={v.providerUnit} onChange={(e) => setV({ ...v, providerUnit: e.target.value as RatesSettings["providerUnit"] })} helperText="قبل از روشن کردن، با یک پاسخ واقعی بررسی کنید.">
+              <MenuItem value="toman">تومان</MenuItem>
+              <MenuItem value="rial">ریال</MenuItem>
+            </TextField>
+          </Stack>
+          <FormControlLabel control={<Switch checked={v.allowInsecureHttp} onChange={(e) => setV({ ...v, allowInsecureHttp: e.target.checked })} />} label="اجازه‌ی اتصال بدون رمزنگاری (HTTP)" />
+          {v.allowInsecureHttp && (
+            <Alert severity="warning">
+              با HTTP، کلید API نوسان بدون رمزنگاری روی شبکه فرستاده می‌شود و قابل شنود است. فقط اگر سرویس HTTPS را پشتیبانی نمی‌کند و ریسک را می‌پذیرید روشن کنید.
+            </Alert>
+          )}
+          <Box>
+            <Button type="submit" variant="contained" disabled={pending}>
+              ذخیره
+            </Button>
+          </Box>
+          <Status fb={fb} />
+        </Stack>
+      </Box>
+      <SecretField name="rates.navasan.api_key" label="کلید API نوسان" state={secrets["rates.navasan.api_key"]!} disabled={!encryptionReady} />
+    </Section>
+  );
+}
+
+const CODE_LABEL = { USD: "دلار (هر دلار، تومان)", GOLD18: "طلای ۱۸ عیار (هر گرم، تومان)" } as const;
+
+/** Phase 3.2b: a super admin types a rate; it is applied at once and every linked price follows. */
+export function ManualRateForm() {
+  const { pending, fb, run } = useSubmit();
+  const [code, setCode] = useState<"USD" | "GOLD18">("USD");
+  const [rate, setRate] = useState("");
+  const digits = rate.replace(/[^\d۰-۹]/g, "").replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  return (
+    <Box
+      component="form"
+      noValidate
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault();
+        if (!window.confirm(`نرخ ${CODE_LABEL[code]} = ${Number(digits).toLocaleString("fa-IR")} تومان ثبت و همه‌ی قیمت‌های متصل به‌روز شود؟`)) return;
+        run(async () => {
+          await enterRate(code, Number(digits));
+          setRate("");
+        }, "نرخ ثبت شد و قیمت‌ها به‌روز شدند.");
+      }}
+    >
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: { sm: "flex-start" } }}>
+        <TextField select label="مبنا" value={code} onChange={(e) => setCode(e.target.value as "USD" | "GOLD18")} sx={{ minWidth: 220 }}>
+          <MenuItem value="USD">{CODE_LABEL.USD}</MenuItem>
+          <MenuItem value="GOLD18">{CODE_LABEL.GOLD18}</MenuItem>
+        </TextField>
+        <TextField label="نرخ (تومان)" value={rate} onChange={(e) => setRate(e.target.value)} error={!!fb.fieldErrors?.rateToman} helperText={fb.fieldErrors?.rateToman?.[0] ?? (digits ? `${Number(digits).toLocaleString("fa-IR")} تومان` : " ")} slotProps={{ htmlInput: { dir: "ltr", inputMode: "numeric" } }} />
+        <Button type="submit" variant="contained" disabled={pending || digits === ""} sx={{ minHeight: 56 }}>
+          ثبت نرخ
+        </Button>
+      </Stack>
+      <Box sx={{ mt: 1 }}>
+        <Status fb={fb} />
+      </Box>
+    </Box>
+  );
+}
+
+/** Confirm or reject a rate the hourly job held (a jump above the threshold, or the first automatic rate). */
+export function RateDecision({ id, label }: { id: string; label: string }) {
+  const { pending, fb, run } = useSubmit();
+  return (
+    <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+      <Button size="small" variant="contained" disabled={pending} onClick={() => window.confirm(`${label} اعمال و همه‌ی قیمت‌های متصل به‌روز شود؟`) && run(() => decideRate(id, "confirm"), "اعمال شد.")}>
+        تأیید و اعمال
+      </Button>
+      <Button size="small" color="error" disabled={pending} onClick={() => run(() => decideRate(id, "reject"), "رد شد.")}>
+        رد
+      </Button>
+      {fb.error && <Typography role="alert" sx={{ color: "error.main", fontSize: 13 }}>{fb.error}</Typography>}
+    </Stack>
   );
 }
 

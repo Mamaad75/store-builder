@@ -102,3 +102,13 @@ export type _P32 = [
   Assert<Same<Resolved<InventoryService["listVariants"]>, z.infer<typeof S31.variantDto>[]>>,
   Assert<Same<Resolved<InventoryService["replaceVariants"]>, z.infer<typeof S31.variantDto>[]>>,
 ];
+
+// ---- phase 3.2b ----
+import type { PricingService, RatesService } from "./modules/pricing/pricing.api.js";
+export type _P32b = [
+  Assert<Same<Resolved<PricingService["currentRates"]>, z.infer<typeof S31.currentRatesDto>>>,
+  Assert<Same<Resolved<PricingService["links"]>, z.infer<typeof S31.priceLinkDto>[]>>,
+  Assert<Same<Resolved<PricingService["setLink"]>, z.infer<typeof S31.priceLinkDto>>>,
+  Assert<Same<Resolved<RatesService["overview"]>, z.infer<typeof S31.platformRatesDto>>>,
+  Assert<Same<Resolved<RatesService["enterManual"]>, z.infer<typeof S31.rateRowDto>>>,
+];

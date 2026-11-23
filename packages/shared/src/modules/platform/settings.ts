@@ -61,22 +61,42 @@ export const aiSettingsSchema = z
   })
   .strict();
 
-export const PLATFORM_SETTING_SCHEMAS = { sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema } as const;
+/**
+ * Live gold and dollar rates (phase 3.2b, D32b-1) for linked product prices. "manual": super admins type the rates in /platform; "navasan":
+ * fetched every hour from Navasan (key in the platform secret rates.navasan.api_key). A rate older than maxAgeHours is "stale" (prices
+ * stay, an alert is raised); a move above jumpPercent waits for a super admin's confirmation.
+ */
+export const ratesSettingsSchema = z
+  .object({
+    provider: z.enum(["off", "manual", "navasan"]),
+    maxAgeHours: z.number().int().min(1).max(48),
+    jumpPercent: z.number().int().min(1).max(50),
+    /** Unit of the provider's numbers (Navasan does not document it; check one live answer before switching on). */
+    providerUnit: z.enum(["toman", "rial"]),
+    /** Navasan documents only plain-HTTP endpoints: the key then travels unencrypted. Off = HTTPS only. */
+    allowInsecureHttp: z.boolean(),
+  })
+  .strict();
+
+export const PLATFORM_SETTING_SCHEMAS = { sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema, rates: ratesSettingsSchema } as const;
 export type PlatformSettingGroup = keyof typeof PLATFORM_SETTING_SCHEMAS;
 export const PLATFORM_SETTING_GROUPS = Object.keys(PLATFORM_SETTING_SCHEMAS) as PlatformSettingGroup[];
 export type SmsSettings = z.infer<typeof smsSettingsSchema>;
 export type PaymentSettings = z.infer<typeof paymentSettingsSchema>;
 export type AiSettings = z.infer<typeof aiSettingsSchema>;
+export type RatesSettings = z.infer<typeof ratesSettingsSchema>;
 export interface PlatformSettings {
   sms: SmsSettings;
   payment: PaymentSettings;
   ai: AiSettings;
+  rates: RatesSettings;
 }
 
 export const PLATFORM_SETTING_DEFAULTS: PlatformSettings = {
   sms: { provider: "kavenegar", customerOtpEnabled: false, otpTemplate: "" },
   payment: { zarinpalEnabled: false, sandbox: true },
   ai: { enabled: false, provider: "openai_compatible", baseUrl: "", model: "" },
+  rates: { provider: "off", maxAgeHours: 6, jumpPercent: 10, providerUnit: "toman", allowInsecureHttp: false },
 };
 
 /** The only platform secrets that exist (an allowlist: no free-form names). */
@@ -84,6 +104,7 @@ export const PLATFORM_SECRETS = {
   "sms.kavenegar.api_key": { group: "sms", label: "کلید API کاوه‌نگار" },
   "payment.zarinpal.merchant_id": { group: "payment", label: "مرچنت‌کد زرین‌پال پلتفرم (برای اشتراک فروشنده‌ها)" },
   "ai.api_key": { group: "ai", label: "کلید API هوش مصنوعی" },
+  "rates.navasan.api_key": { group: "rates", label: "کلید API نوسان (نرخ طلا و دلار)" },
 } as const satisfies Record<string, { group: PlatformSettingGroup; label: string }>;
 export type PlatformSecretName = keyof typeof PLATFORM_SECRETS;
 export const isPlatformSecretName = (n: unknown): n is PlatformSecretName => typeof n === "string" && Object.prototype.hasOwnProperty.call(PLATFORM_SECRETS, n);

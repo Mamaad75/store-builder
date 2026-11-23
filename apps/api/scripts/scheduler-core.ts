@@ -27,6 +27,8 @@ export const JOBS: JobSpec[] = [
   // Grace period of unreferenced media is 1 h; every 30 minutes keeps a failed item at most one extra cycle old.
   { name: "media-cleanup", command: [TSX_BIN, "scripts/cleanup-media.ts"], intervalMs: 30 * MINUTE, timeoutMs: 10 * MINUTE },
   { name: "db-cleanup", command: [TSX_BIN, "scripts/cleanup-rate-limits.ts"], intervalMs: 15 * MINUTE, timeoutMs: 5 * MINUTE },
+  // Phase 3.2b (D32b-1): dollar and gold rates, then every linked price. Exit 2 (a stale or held rate) keeps the health red until a person acts.
+  { name: "rates-refresh", command: [TSX_BIN, "scripts/refresh-rates.ts"], intervalMs: 60 * MINUTE, timeoutMs: 10 * MINUTE },
 ];
 
 /** A job counts as healthy while its last SUCCESS is younger than this many intervals. */

@@ -12,6 +12,8 @@ class Memory implements VariantReader, VariantUnitOfWork, StockLedger {
   variants: (VariantView & { productId: string; storeId: string })[] = [];
   dropped: { productId: string; variantIds: string[]; productLevel: boolean }[] = [];
   otherStoreVariants = 0;
+  linked = new Map<string, { productLinked: boolean; variantIds: string[] }>();
+  synced: string[] = [];
   reserveCalls: { lines: ReservationLine[]; expiresAt: Date }[] = [];
   facts: StockFacts[] = [];
   private seq = 0;
@@ -40,6 +42,8 @@ class Memory implements VariantReader, VariantUnitOfWork, StockLedger {
     return {
       lockProduct: async (id) => self.products.get(id)?.storeId === storeId,
       list: async (id) => (await self.list(storeId, id)) ?? [],
+      linkedPrices: async (productId) => self.linked.get(productId) ?? { productLinked: false, variantIds: [] },
+      syncLivePrices: async (productId) => void self.synced.push(productId),
       countInStore: async () => self.variants.filter((v) => v.storeId === storeId).length + self.otherStoreVariants,
       update: async (id, d: VariantData) => {
         const row = self.variants.find((v) => v.id === id)!;
@@ -109,6 +113,21 @@ describe("InventoryService variants", () => {
     await expect(svc.replaceVariants(a, "../p1", body(["قرمز", 1, 1]))).rejects.toBeInstanceOf(NotFoundError);
     await expect(svc.listVariants(a, "px")).rejects.toBeInstanceOf(NotFoundError);
     expect(m.variants).toEqual([]);
+  });
+
+  it("phase 3.2b: a linked variant keeps its computed price on replace; a product-level link excludes variants", async () => {
+    const { m, svc } = setup();
+    const [red] = await svc.replaceVariants(a, "p1", body(["قرمز", 300, 2], ["آبی", 200, 1]));
+    m.linked.set("p1", { productLinked: false, variantIds: [red!.id] });
+    const after = await svc.replaceVariants(a, "p1", body(["قرمز", 1, 5], ["آبی", 250, 1]));
+    expect(after.find((v) => v.id === red!.id)).toMatchObject({ price: 300, stockQuantity: 5 }); // the sent price 1 is ignored
+    expect(m.products.get("p1")).toMatchObject({ price: 250, stockQuantity: 6 });
+    // re-review 3.2b: removing a linked variant needs publish (an operator cannot; the owner can, and its live row is synced)
+    await expect(svc.replaceVariants({ ...a, role: "OPERATOR" }, "p1", body(["آبی", 250, 1]))).rejects.toBeInstanceOf(ValidationError);
+    await svc.replaceVariants({ ...a, role: "OWNER" }, "p1", body(["آبی", 250, 1]));
+    expect(m.synced).toEqual(["p1"]);
+    m.linked.set("p1", { productLinked: true, variantIds: [] });
+    await expect(svc.replaceVariants(a, "p1", body(["سبز", 1, 1]))).rejects.toBeInstanceOf(ValidationError);
   });
 
   it("enforces the per-store cap and rolls the whole change back", async () => {

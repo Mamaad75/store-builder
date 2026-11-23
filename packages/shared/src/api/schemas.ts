@@ -4,7 +4,7 @@ import { STAFF_ROLES, STORE_ROLES } from "../modules/access/permissions.js";
 import type { PageEditorRules } from "../templates/editor.js";
 import type { PageSection, SectionIssue } from "../templates/section-parse.js";
 import { PAGE_TYPES } from "../templates/sections.js";
-import { aiSettingsSchema, paymentSettingsSchema, smsSettingsSchema } from "../modules/platform/settings.js";
+import { aiSettingsSchema, paymentSettingsSchema, ratesSettingsSchema, smsSettingsSchema } from "../modules/platform/settings.js";
 import type { StorefrontData } from "../templates/storefront-data.js";
 
 /**
@@ -155,11 +155,49 @@ export const platformStoreDto = z.object({
 });
 export const platformAdminDto = z.object({ userId: z.string(), username: z.string(), name: z.string(), role: z.enum(["SUPER_ADMIN"]), grantedAt: iso });
 
-export const platformSettingsDto = z.object({ sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema });
+// ---- phase 3.2b: prices linked to the dollar or gold
+const rateCode = z.enum(["USD", "GOLD18"]);
+const appliedRate = z.object({ rateToman: z.number(), appliedAt: iso });
+export const currentRatesDto = z.object({ USD: appliedRate.nullable(), GOLD18: appliedRate.nullable() });
+export const priceLinkDto = z.object({
+  productId: z.string(),
+  variantId: z.string().nullable(),
+  kind: z.enum(["USD", "GOLD"]),
+  usdCents: z.number().nullable().describe("dollar amount in cents (kind USD)"),
+  weightMg: z.number().nullable().describe("gold weight in milligrams (kind GOLD)"),
+  wageBp: z.number().describe("labour, basis points (900 = 9%)"),
+  profitBp: z.number(),
+  taxBp: z.number(),
+  stoneToman: z.number(),
+  roundingToman: z.number(),
+  status: z.enum(["OK", "OUT_OF_RANGE"]),
+  lastPriceToman: z.number().nullable(),
+  lastRateAt: iso.nullable(),
+});
+export const rateRowDto = z.object({
+  id: z.string(),
+  code: rateCode,
+  rateToman: z.number(),
+  source: z.string(),
+  observedAt: iso,
+  status: z.enum(["APPLIED", "PENDING", "REJECTED"]),
+  decidedById: z.string().nullable(),
+  decidedAt: iso.nullable(),
+  createdAt: iso,
+});
+const currentRateWithAge = z.object({ rateToman: z.number(), appliedAt: iso, stale: z.boolean() });
+export const platformRatesDto = z.object({
+  provider: z.enum(["off", "manual", "navasan"]),
+  current: z.object({ USD: currentRateWithAge.nullable(), GOLD18: currentRateWithAge.nullable() }),
+  pending: z.array(rateRowDto),
+  history: z.array(rateRowDto),
+});
+
+export const platformSettingsDto = z.object({ sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema, rates: ratesSettingsSchema });
 const secretStateDto = z.object({ configured: z.boolean(), hint: z.string().nullable(), updatedAt: iso.nullable() });
 export const platformSettingsViewDto = z.object({
   settings: platformSettingsDto,
-  secrets: z.object({ "sms.kavenegar.api_key": secretStateDto, "payment.zarinpal.merchant_id": secretStateDto, "ai.api_key": secretStateDto }),
+  secrets: z.object({ "sms.kavenegar.api_key": secretStateDto, "payment.zarinpal.merchant_id": secretStateDto, "ai.api_key": secretStateDto, "rates.navasan.api_key": secretStateDto }),
   encryptionReady: z.boolean(),
 });
 

@@ -153,7 +153,7 @@ rebuilds the same error classes, so its `instanceof` handling is unchanged. Mess
 
 **Readiness** (`GET /api/ready`) checks the database and the object store (2 s each, cached 2 s) and names the failing one.
 
-**Jobs** (`apps/api/scripts`, run with `tsx`; same names as before at the repository root): `pnpm media:cleanup`, `pnpm db:cleanup`, `pnpm worker`, `pnpm worker:health` (phase 2.2: outbox relay, event consumers, maintenance jobs; docs/async.md), `pnpm alert:test`, `pnpm publish:stats`, `pnpm db:studio`.
+**Jobs** (`apps/api/scripts`, run with `tsx`; same names as before at the repository root): `pnpm media:cleanup`, `pnpm db:cleanup`, `pnpm rates:refresh` (phase 3.2b: dollar and gold rates, hourly in the worker), `pnpm worker`, `pnpm worker:health` (phase 2.2: outbox relay, event consumers, maintenance jobs; docs/async.md), `pnpm alert:test`, `pnpm publish:stats`, `pnpm db:studio`.
 
 **Tests.** Unit and HTTP tests need no database (`pnpm api:test`); `pnpm api:test:db` runs the moved domain tests (≈ 475) and `src/__tests__/domain-http.db.test.ts` (authentication,
 forged requests, ownership on every route, error transport, uploads, public read) on real PostgreSQL; `pnpm test:storage` needs an S3-compatible server. Architecture guards:

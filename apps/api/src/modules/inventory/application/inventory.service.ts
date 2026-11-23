@@ -1,16 +1,24 @@
 import { MAX_VARIANTS_PER_STORE, VARIANT_SET_MESSAGES, replaceVariantsSchema, variantSetProblem, variantSummary } from "@store-builder/shared/modules/inventory/variants";
 import { OutOfStockError, ReservationLostError, VariantLimitError } from "@store-builder/shared/modules/inventory/errors";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { can, type StoreRole } from "@store-builder/shared/modules/access/permissions";
 import { RELEASE_EXPIRED_BATCH, normaliseReservation, planVariantReplace, sellable } from "../domain/inventory.js";
 import type { StockLedger, VariantReader, VariantUnitOfWork, VariantView } from "./ports.js";
 
 const ID_RE = /^[a-z0-9]{1,64}$/;
+/** Phase 3.2b: variants are linked one by one, so a product-level link must go first. */
+export const PRODUCT_LINKED_MESSAGE = "قیمت این محصول به دلار یا طلا متصل است؛ برای افزودن تنوع، اول اتصال قیمت محصول را بردارید و بعد قیمت هر تنوع را متصل کنید.";
 
 /** `a` is the resolved store access (store id + owner); the controller never passes request data as either. */
 interface StoreScope {
   storeId: string;
   ownerId: string;
+  /** The actor's role (from the resolved access); absent for server-side callers. */
+  role?: StoreRole;
 }
+
+/** Removing a variant whose price is linked changes the LIVE price at once (its live row goes), so it is a publish-level act. */
+export const LINKED_VARIANT_REMOVAL_MESSAGE = "قیمت این تنوع به دلار یا طلا متصل است و حذف آن قیمت فروشگاه را همان لحظه تغییر می‌دهد؛ این کار را مالک یا مدیر فروشگاه انجام دهد.";
 
 export class InventoryService {
   constructor(
@@ -41,16 +49,23 @@ export class InventoryService {
 
     return this.uow.run(a.ownerId, a.storeId, async (w) => {
       if (!(await w.lockProduct(productId))) throw new NotFoundError();
+      const linked = await w.linkedPrices(productId);
+      if (linked.productLinked && incoming.length > 0) throw new ValidationError({ variants: [PRODUCT_LINKED_MESSAGE] });
       const existing = await w.list(productId);
       const plan = planVariantReplace(existing, incoming);
+      // A variant whose price follows a link keeps its computed price (the link owns it; the sent value is ignored).
+      const priceOf = (id: string, sent: number) => (linked.variantIds.includes(id) ? (existing.find((e) => e.id === id)?.price ?? sent) : sent);
       const after = (await w.countInStore()) - existing.length + incoming.length;
       if (incoming.length > existing.length && after > MAX_VARIANTS_PER_STORE) throw new VariantLimitError(MAX_VARIANTS_PER_STORE);
       const productLevel = existing.length === 0 && incoming.length > 0;
       if (plan.remove.length || productLevel) await w.dropReservations(productId, plan.remove, productLevel);
+      const removesLinked = plan.remove.some((id) => linked.variantIds.includes(id));
+      if (removesLinked && a.role !== undefined && !can(a.role, "publish")) throw new ValidationError({ variants: [LINKED_VARIANT_REMOVAL_MESSAGE] });
       if (plan.remove.length) await w.delete(plan.remove);
-      for (const u of plan.update) await w.update(u.id, { options: u.input.options, optionsKey: u.optionsKey, sku: u.input.sku || null, price: u.input.price, stockQuantity: u.input.stockQuantity, position: u.position });
+      if (removesLinked) await w.syncLivePrices(productId);
+      for (const u of plan.update) await w.update(u.id, { options: u.input.options, optionsKey: u.optionsKey, sku: u.input.sku || null, price: priceOf(u.id, u.input.price), stockQuantity: u.input.stockQuantity, position: u.position });
       for (const i of plan.insert) await w.insert(productId, { options: i.input.options, optionsKey: i.optionsKey, sku: i.input.sku || null, price: i.input.price, stockQuantity: i.input.stockQuantity, position: i.position });
-      const summary = variantSummary(incoming);
+      const summary = variantSummary([...plan.update.map((u) => ({ price: priceOf(u.id, u.input.price), stockQuantity: u.input.stockQuantity })), ...plan.insert.map((i) => i.input)]);
       if (summary) await w.setProductSummary(productId, summary);
       return w.list(productId);
     });

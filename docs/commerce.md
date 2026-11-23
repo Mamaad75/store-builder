@@ -10,6 +10,7 @@ ships the API, the storefront side and the tests; dashboard screens follow from 
 |---|---|---|
 | 3.1 | Platform super-admins (role table, server command for the first one, `/api/v1/platform` API and the `/platform` pages, audited); platform settings for SMS, payment and AI with write-only encrypted keys; customer accounts per store; OTP sign-in (code, limits, session) through Kavenegar, **off** until switched on in the settings | done |
 | 3.2 | Product variants (options such as colour/size, price and stock per variant); atomic stock decrement; temporary reservations | done |
+| 3.2b | Prices linked to the dollar or 18k gold (owner request 2026-11-23): merchant links in toman or by the jewellery formula, hourly rates (Navasan or manual), held jumps confirmed by a super admin, live prices on the published storefront | done |
 | 3.3 | Cart (guest and signed-in), shipping methods (flat, weight-based, free above an amount, pickup), addresses, checkout summary | planned |
 | 3.4 | Orders and invoices: state machine with history, item snapshots, gap-free invoice numbers per store | planned |
 | 3.5 | Zarinpal: payment state machine, server-side verify, idempotent callback, reconciliation job, per-store merchant id in the encrypted secrets (2.4) | planned |
@@ -76,6 +77,71 @@ nothing (`expectedLines` from `reserve`; a hold that lost a line throws Reservat
 `expectedLines`, treat ReservationLostError as "reserve again", and use a fresh `ref` per attempt. Accepted for now: the reservation's variant FK is `variantId -> ProductVariant(id)` only (Prisma cannot express
 `ON DELETE SET NULL` for one column of a composite key); every ledger query is scoped by store and the variant must belong to the line's
 product. Raw SQL writes to `Product` are confined to the ledger by an architecture test and may only move `stockQuantity`.
+
+## 3.2b design (D32b-1): prices linked to the dollar or gold
+
+Owner choices (2026-11-23): the merchant enters today's price in toman and the system converts it; gold uses the full jewellery formula;
+rates come from an Iranian API (Navasan) or are typed by a super admin; a stale or jumping rate holds the price and raises an alert, and a big
+jump is applied only after a super admin confirms it.
+
+* **Links.** `PriceLink` per product (no variants) or per variant (a product with variants is linked variant by variant; a product-level
+  link and variants exclude each other). Kinds:
+  * **USD:** `usdCents`. Entered as today's toman price (converted once at the current rate) or directly in dollars.
+  * **GOLD:** the Iranian gold-market formula. Its inputs are weight in mg, labour %, profit %, tax % (default 9%), stones in toman and a
+    rounding step. It computes: gold = weight × gram rate; labour = gold × wage%; profit = (gold + labour) × profit%;
+    tax = (labour + profit) × tax%; price = gold + labour + profit + tax + stones. Alternatively a toman price is converted to the
+    equivalent weight, with no labour.
+  * Integer arithmetic only (BigInt), half-up rounding to 1 / 100 / 1,000 / 10,000 toman. A result above the price cap keeps the last price
+    and marks the link `OUT_OF_RANGE`.
+* **Who owns the price.** While linked, `PATCH` of the product price is refused, and variant replacement keeps a linked variant's price. A
+  product with linked variants shows the lowest variant price. Unlinking leaves the last computed price, editable again.
+* **Rates.** `ExchangeRate` is an append-only history; the current rate is the latest APPLIED row.
+  * Sources: `manual` (a super admin types it in `/platform/rates`; applied at once, audited) or `navasan` (hourly job).
+  * An automatic reading is **rejected** outside a plausibility band (USD 10,000..10,000,000; gold 100,000..1,000,000,000 toman per gram),
+    and **held** (PENDING) when it moves more than `jumpPercent` (default 10%) from the applied rate. The very first automatic rate is
+    always held. A slow drift is bounded too: a move of more than twice the threshold against the rate of 24 hours earlier is held.
+    Over plain HTTP the threshold is halved.
+  * A super admin confirms or rejects a held rate in `/platform/rates` (audited). A newer reading supersedes an older held one.
+  * Older than `maxAgeHours` (default 6) is **stale**: prices stay on the last applied rate and sales continue.
+* **Hourly job `rates-refresh`** (worker, `pnpm rates:refresh`): fetch → decide → reprice every link of every store, one transaction per store.
+  * Product rows are locked by id, the same order as the stock ledger. The store lock is never taken and the draft revision never moves:
+    linked prices are not merchant edits.
+  * Exit 2 when a person is needed (stale, held, rejected, provider failure): the worker health turns red and the Bale alert of the worker
+    fires.
+* **Live prices on the storefront.** The published snapshot is immutable, so repricing also writes `LivePrice`, a public projection.
+  * The public read overlays it on a COPY of the snapshot, only for products and variants that are in the published version, cached
+    60 s per store. A product with variants shows the lowest of its PUBLISHED variants (computed at read time); a draft-only variant never
+    counts.
+  * Because a link changes the live price without a publish, creating or removing one needs the `publish` permission (owner and manager;
+    not the operator).
+  * Checkout (3.3) must price from the database, never from the page.
+  * After unlinking, the storefront shows the published price until the next publish.
+* **Navasan.** Documented as plain HTTP with the key in the query string; the free plan (120 requests/month, 2-hour updates) is not enough
+  for hourly runs (Standard plan: 1,000/day). Owner actions: buying the plan and checking the unit (toman or rial) on one real answer.
+  The adapter:
+  * uses HTTPS by default and sends the key over HTTP only if a super admin switches "allow HTTP" on (with a warning);
+  * has a fixed host and refuses redirects;
+  * caps the answer at 256 KiB;
+  * never puts the URL, the key or the provider's error text in an error or a log line.
+* **API.**
+  * Merchant: `GET /stores/:storeId/rates`, `GET …/products/:productId/price-links` (`store.view`);
+    `PUT …/price-link`, `POST …/price-link/delete` (`publish`, audited).
+  * Super admin: `GET/POST /platform/rates`, `POST /platform/rates/:rateId/confirm|reject`, and the settings group `rates` with the
+    secret `rates.navasan.api_key`.
+  * The merchant dashboard screens are not built here (the dashboard belongs to another session).
+
+**3.2b security review (2026-11-24).** No cross-store access, injection or XSS found. Fixed with regression tests:
+* linking needs `publish` (a link changes the live price without a publish);
+* the live lowest-variant price comes from the published variants only;
+* live rows of removed variants go at once, and leftovers go in the next run;
+* a failing store is isolated and reported (exit 2);
+* slow drift is held, and the HTTP threshold is halved;
+* the provider answer is cut while streaming;
+* rates are read under the product locks.
+* a second review added more checks: removing a linked variant needs `publish`; automatic readings stay within 3x the threshold of the last rate a person confirmed; the cleanup of leftover live rows is best effort.
+
+Accepted for now: a super admin's manual entry or confirmation reprices inside the request (stores are isolated; the hourly run catches
+up).
 
 ## 3.1 security review (2026-11-23) and what it leaves for later
 

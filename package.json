@@ -29,6 +29,7 @@
     "test:storage": "pnpm --filter @store-builder/api test:storage",
     "test:mail": "pnpm --filter @store-builder/web test:mail",
     "db:cleanup": "pnpm --filter @store-builder/api db:cleanup",
+    "rates:refresh": "pnpm --filter @store-builder/api rates:refresh",
     "media:cleanup": "pnpm --filter @store-builder/api media:cleanup",
     "publish:stats": "pnpm --filter @store-builder/api publish:stats",
     "test:e2e": "pnpm shared:build && pnpm --filter @store-builder/e2e test",

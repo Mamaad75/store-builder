@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { platformAdminDto, platformOverviewDto, platformSettingsViewDto, platformStoreDto } from "@store-builder/shared/api/schemas";
+import type { platformAdminDto, platformOverviewDto, platformRatesDto, platformSettingsViewDto, platformStoreDto } from "@store-builder/shared/api/schemas";
 import type { Jsonify } from "@store-builder/shared/dto/index";
 import { ApiHttpError, enc, request } from "./core";
 
@@ -8,6 +8,7 @@ export type PlatformOverview = z.infer<typeof platformOverviewDto>;
 export type PlatformStore = Jsonify<z.infer<typeof platformStoreDto>>;
 export type PlatformAdmin = Jsonify<z.infer<typeof platformAdminDto>>;
 export type PlatformSettingsView = Jsonify<z.infer<typeof platformSettingsViewDto>>;
+export type PlatformRates = Jsonify<z.infer<typeof platformRatesDto>>;
 
 const P = "/api/v1/platform";
 
@@ -25,4 +26,5 @@ export const getPlatformOverview = () => request<PlatformOverview>("GET", `${P}/
 export const getPlatformStores = (before?: string) => request<PlatformStore[]>("GET", `${P}/stores`, { query: { limit: "50", before } });
 export const getPlatformAdmins = () => request<PlatformAdmin[]>("GET", `${P}/admins`);
 export const getPlatformSettings = () => request<PlatformSettingsView>("GET", `${P}/settings`);
+export const getPlatformRates = () => request<PlatformRates>("GET", `${P}/rates`);
 export { enc };
