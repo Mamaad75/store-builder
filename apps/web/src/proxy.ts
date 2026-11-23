@@ -50,6 +50,7 @@ async function route(req: NextRequest): Promise<Response> {
 
   const p = req.nextUrl.pathname;
   if (p.startsWith("/dashboard") || p.startsWith("/preview")) return requireSession(req);
+  if (p.startsWith("/platform")) return requireSession(req); // phase 3.1: the super admin pages (the role is checked on the server)
   return NextResponse.next();
 }
 

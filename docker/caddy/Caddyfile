@@ -38,8 +38,9 @@ import tls.d/*.caddy
 	@api {
 		# The Host header as received (port included when the root domain has one, as in the CI smoke stack): the `host` matcher ignores ports.
 		expression {http.request.hostport} in ["{$APP_ROOT_DOMAIN}", "www.{$APP_ROOT_DOMAIN}"]
-		# Phase 2.5 (D25-1): plus the versioned API. /api/v1/platform/* is reserved and not routed; operations stay unversioned.
-		path /api/auth/* /api/stores /api/stores/* /api/public/* /api/v1/auth/* /api/v1/me /api/v1/me/* /api/v1/admin/* /api/v1/store/*
+		# Phase 2.5 (D25-1): plus the versioned API; operations stay unversioned. Phase 3.1: /api/v1/platform/* for the super admin pages
+		# (session + a database role check on every request + the Origin check).
+		path /api/auth/* /api/stores /api/stores/* /api/public/* /api/v1/auth/* /api/v1/me /api/v1/me/* /api/v1/admin/* /api/v1/store/* /api/v1/platform/*
 	}
 	handle @api {
 		reverse_proxy api:4000 {

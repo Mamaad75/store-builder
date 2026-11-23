@@ -21,6 +21,7 @@ export const PERMISSIONS = [
   "members.manage", // invitations, roles, removing staff
   "audit.view",
   "secrets.manage", // payment gateway keys and other store secrets (phase 2.4): owner only
+  "customers.view", // the store's customers and their phone numbers (phase 3.1): personal data, owner and manager only
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

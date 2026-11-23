@@ -99,6 +99,12 @@ Copy-Item apps/web/.env.example apps/web/.env.local
 
 ---
 
+### سوپرادمین و تنظیمات پلتفرم (فاز ۳.۱)
+اولین سوپرادمین فقط از روی سرور یا سیستم خودتان ساخته می‌شود. یک حساب معمولی بسازید (ورود با نام کاربری است) و بعد این دستور را بزنید:
+`pnpm --filter @store-builder/api platform:admin grant <username>`. فهرست مدیرها: `... platform:admin list`.
+صفحه‌ها در `http://localhost:3000/platform` هستند. برای ذخیره‌ی کلیدهای API (پیامک، زرین‌پال و هوش مصنوعی)، API به `SECRETS_MASTER_KEYS` و
+`SECRETS_ACTIVE_KEY_ID` نیاز دارد (راهنمای ساختشان در `docs/security.md` آمده است). بدون آن‌ها تنظیمات ذخیره می‌شود، ولی کلیدها نه.
+
 ### متریک و ردیابی خطا (اختیاری، فاز ۲.۶)
 اگر `METRICS_PORT=9464` را به env در API یا worker اضافه کنید، متریک‌ها روی `http://127.0.0.1:9464/metrics` در دسترس است.
 `ERROR_TRACKING_DSN` را خالی بگذارید، مگر اینکه یک GlitchTip داشته باشید. جزئیات در `docs/observability.md` است.

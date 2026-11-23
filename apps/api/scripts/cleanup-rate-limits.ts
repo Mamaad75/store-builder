@@ -1,6 +1,7 @@
 import { cleanupExpiredBuckets } from "../src/lib/rate-limit.js";
 import { PrismaOutboxStore } from "../src/platform/outbox/prisma-outbox.store.js";
 import { PrismaAuditRepository } from "../src/modules/access/access.api.js";
+import { purgeExpiredChallenges } from "../src/modules/customers/customers.api.js";
 import { bootstrapJob } from "./bootstrap.js";
 import { db } from "../src/lib/db.js";
 
@@ -13,7 +14,8 @@ async function main() {
   const buckets = await cleanupExpiredBuckets(1000);
   const events = await new PrismaOutboxStore().purgePublished();
   const audit = await new PrismaAuditRepository().purgeOlderThan(); // D23-3: one year
-  console.log(`Deleted ${buckets} expired rate-limit buckets, ${events} published outbox events and ${audit} audit events past retention`);
+  const otp = await purgeExpiredChallenges(); // phase 3.1: sign-in codes expired more than a day ago
+  console.log(`Deleted ${buckets} expired rate-limit buckets, ${events} published outbox events, ${audit} audit events past retention and ${otp} expired sign-in codes`);
 }
 main()
   .catch((e) => {

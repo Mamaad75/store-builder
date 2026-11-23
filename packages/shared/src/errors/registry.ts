@@ -6,6 +6,8 @@ import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } f
 import * as publishing from "../modules/publishing/errors.js";
 import { CatalogLimitError, CategoryNotEmptyError, ConflictError, DraftBusyError, NotFoundError, StoreLimitError, ValidationError } from "../modules/stores/errors.js";
 import { ThemeSwitchBlockedError } from "../modules/stores/theme-switch-types.js";
+import { OtpDeliveryError, OtpInvalidError, OtpRateLimitedError, OtpUnavailableError } from "../modules/customers/errors.js";
+import { PlatformAdminConflictError, PlatformForbiddenError } from "../modules/platform/errors.js";
 
 /**
  * Domain errors cross the HTTP boundary as `{ statusCode, error, errorName, payload }` and are rebuilt on the other side as instances of the
@@ -23,6 +25,7 @@ export const DOMAIN_ERRORS: Record<string, ErrorClass> = {
   ThemeSwitchBlockedError, CandidateThemeUnavailableError,
   PermissionDeniedError, InvitationTargetError, StaffLimitError,
   SecretsUnavailableError, SecretLimitError,
+  OtpUnavailableError, OtpRateLimitedError, OtpInvalidError, OtpDeliveryError, PlatformAdminConflictError, PlatformForbiddenError,
   ...publishingErrors,
 };
 
@@ -30,6 +33,7 @@ export const DOMAIN_ERRORS: Record<string, ErrorClass> = {
 const STATUS: Record<string, number> = {
   NotFoundError: 404, ValidationError: 400, ConflictError: 409, DraftBusyError: 409, PublishBusyError: 409, StoreAlreadyLiveError: 409, VersionAlreadyLiveError: 409,
   PermissionDeniedError: 403, InvitationTargetError: 400, StaffLimitError: 409, SecretsUnavailableError: 503, SecretLimitError: 409,
+  OtpUnavailableError: 503, OtpRateLimitedError: 429, OtpInvalidError: 400, OtpDeliveryError: 502, PlatformAdminConflictError: 409, PlatformForbiddenError: 403,
   SubdomainTakenError: 409, SlugReservationConflictError: 409, MediaInUseError: 409, MediaRateLimitError: 429, PublishRateLimitedError: 429, MediaStorageError: 502, PublishTimedOutError: 503,
 };
 

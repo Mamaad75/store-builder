@@ -16,7 +16,7 @@ function schemaOf(s: z.ZodType, io: "input" | "output"): Json {
   return out;
 }
 
-const SCOPE_TAG: Record<string, string> = { auth: "auth", me: "me", admin: "admin", store: "store" };
+const SCOPE_TAG: Record<string, string> = { auth: "auth", me: "me", admin: "admin", store: "store", platform: "platform" };
 const tagOf = (v1: string | null) => (v1 ? (SCOPE_TAG[v1.split("/")[3] ?? ""] ?? "other") : "operations");
 const openApiPath = (p: string) => p.replace(/:(\w+)/g, "{$1}");
 
@@ -44,6 +44,7 @@ function operation(rt: RouteSpec, v1: string | null): Json {
     ...(params.length ? { parameters: params } : {}),
     ...(rt.auth === "session" ? { security: [{ session: [] }] } : { security: [] }),
     ...(rt.permission ? { "x-permission": rt.permission } : {}),
+    ...(rt.platform ? { "x-platform-role": "SUPER_ADMIN" } : {}),
   };
   if (rt.body === "image") {
     op.requestBody = { required: true, content: { "application/octet-stream": { schema: { type: "string", contentMediaType: "image/*", description: "JPEG, PNG or WebP, at most 5 MB" } } } };
@@ -73,7 +74,7 @@ export function buildOpenApi(version = "1.0.0"): Json {
       title: "Store Builder API",
       version,
       description:
-        "Versioned API (v1). Scopes: /api/v1/auth, /api/v1/me, /api/v1/admin (merchant), /api/v1/store (shoppers); /api/v1/platform is reserved. " +
+        "Versioned API (v1). Scopes: /api/v1/auth, /api/v1/me, /api/v1/admin (merchant), /api/v1/store (shoppers), /api/v1/platform (operators). " +
         "State-changing requests must come from the platform origin (Origin check). Errors have one shape (ErrorV1) with a fixed code and a Persian message.",
     },
     servers: [{ url: "/" }],
@@ -81,7 +82,8 @@ export function buildOpenApi(version = "1.0.0"): Json {
       { name: "auth", description: "Sign-in, sign-up, session" },
       { name: "me", description: "The signed-in account" },
       { name: "admin", description: "A merchant's stores (store roles and permissions apply)" },
-      { name: "store", description: "Published storefronts, for shoppers" },
+      { name: "store", description: "Published storefronts and shopper sign-in" },
+      { name: "platform", description: "Platform operators (super admins)" },
       { name: "operations", description: "Health and readiness (unversioned)" },
     ],
     paths: sorted,

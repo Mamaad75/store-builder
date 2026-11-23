@@ -30,11 +30,21 @@ describe("API contract (phase 2.5): documented = served", () => {
     const served = registeredRoutes(app!).map((r) => `${r.method} ${r.path} ${r.permission ?? "-"} ${r.status ?? (r.method === "POST" ? 201 : 200)}`);
     const documented = ROUTES.map((r) => `${r.method} ${r.path} ${r.permission ?? "-"} ${r.status}`);
     expect(served.sort()).toEqual([...documented].sort());
-    expect(served.length).toBeGreaterThanOrEqual(68);
+    expect(served.length).toBeGreaterThanOrEqual(81);
+  });
+
+  it("phase 3.1: every platform route really carries SessionGuard + PlatformAdminGuard, and nothing else does", async () => {
+    await boot();
+    for (const r of registeredRoutes(app!)) {
+      const isPlatform = r.path.startsWith("/api/platform/");
+      expect(r.guards.includes("PlatformAdminGuard"), `${r.method} ${r.path}`).toBe(isPlatform);
+      if (isPlatform) expect(r.guards.indexOf("SessionGuard"), r.path).toBe(0);
+    }
   });
 
   it("store routes are documented as session routes with a permission; only the storefront, sign-in/up and operations are public", () => {
     for (const r of ROUTES) {
+      if (r.path.startsWith("/api/platform/")) expect(r.platform && r.auth === "session", r.path).toBe(true);
       if (r.path.includes(":storeId")) expect(r.permission, r.path).toBeDefined();
       if (r.auth === "public") expect(r.path, `${r.method} ${r.path}`).toMatch(/^\/api\/(public\/|health$|ready$|auth\/(login|register)$)/);
     }
@@ -78,9 +88,10 @@ describe("/api/v1 routing and errors (phase 2.5)", () => {
     expect(Object.keys(body.error.fieldErrors ?? {})).toEqual(expect.arrayContaining(["username", "password"]));
   });
 
-  it("unknown scopes, the reserved platform scope and partial prefixes answer 404 in the v1 shape", async () => {
+  it("unknown scopes and partial prefixes answer 404 in the v1 shape; the platform scope needs a session", async () => {
     const url = await boot();
-    for (const p of ["/api/v1/platform/stores", "/api/v1/nothing", "/api/v1", "/api/v1/admin", "/api/v1/admin/other"]) {
+    expect((await fetch(`${url}/api/v1/platform/overview`)).status).toBe(401);
+    for (const p of ["/api/v1/platform", "/api/v1/nothing", "/api/v1", "/api/v1/admin", "/api/v1/admin/other"]) {
       const r = await fetch(`${url}${p}`);
       expect(r.status, p).toBe(404);
       expect(((await r.json()) as any).error?.code, p).toBe("NOT_FOUND");
@@ -103,7 +114,8 @@ describe("/api/v1 routing and errors (phase 2.5)", () => {
       return { url: (req as { url: string }).url, v1: (res as { locals: { apiVersion?: number } }).locals.apiVersion === 1, headers };
     };
     expect(run("/api/v1/admin/stores/s1/products?limit=5&cursor=abc")).toEqual({ url: "/api/stores/s1/products?limit=5&cursor=abc", v1: true, headers: {} });
-    expect(run("/api/v1/platform/x?y=1")).toEqual({ url: "/api/v1/platform/x?y=1", v1: true, headers: {} });
+    expect(run("/api/v1/nothing/x?y=1")).toEqual({ url: "/api/v1/nothing/x?y=1", v1: true, headers: {} });
+    expect(run("/api/v1/platform/overview").url).toBe("/api/platform/overview");
     expect(run("/api/stores?x=1").headers).toEqual({ Deprecation: "true", Link: '</api/v1/admin/stores>; rel="successor-version"' });
     expect(run("/api/health")).toEqual({ url: "/api/health", v1: false, headers: {} });
     expect(run("/other/api/v1/auth")).toEqual({ url: "/other/api/v1/auth", v1: false, headers: {} });

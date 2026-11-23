@@ -1,5 +1,5 @@
 import { RequestMethod } from "@nestjs/common";
-import { HTTP_CODE_METADATA, METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants.js";
+import { GUARDS_METADATA, HTTP_CODE_METADATA, METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants.js";
 import { PERMISSION_KEY } from "../modules/access/access.api.js";
 import { ModulesContainer } from "@nestjs/core";
 import type { INestApplication } from "@nestjs/common";
@@ -14,6 +14,8 @@ export interface RegisteredRoute {
   permission?: string;
   /** @HttpCode value, or undefined (Nest default: 201 for POST, 200 otherwise). */
   status?: number;
+  /** Names of the guards on the controller class and on the handler. */
+  guards: string[];
 }
 
 const join = (...parts: string[]) => `/${parts.map((p) => p.replace(/^\/+|\/+$/g, "")).filter(Boolean).join("/")}`;
@@ -40,6 +42,7 @@ export function registeredRoutes(app: INestApplication, prefix = "api"): Registe
           handler: name,
           permission: Reflect.getMetadata(PERMISSION_KEY, fn) as string | undefined,
           status: Reflect.getMetadata(HTTP_CODE_METADATA, fn) as number | undefined,
+          guards: [...((Reflect.getMetadata(GUARDS_METADATA, cls) as { name: string }[] | undefined) ?? []), ...((Reflect.getMetadata(GUARDS_METADATA, fn) as { name: string }[] | undefined) ?? [])].map((g) => g.name),
         });
       }
     }

@@ -49,3 +49,8 @@ export async function rotateSecrets(keys: MasterKeys, pageSize = 200): Promise<R
   const remaining = await db.storeSecret.count({ where: { keyId: { not: keys.activeId } } });
   return { rewrapped, failed, remaining };
 }
+
+/** Re-wraps one envelope under the active master key (used by the platform secrets rotation, phase 3.1). */
+export function rewrapSealed(keys: MasterKeys, context: string, e: { keyId: string; wrappedKey: Uint8Array; sealed: Uint8Array }) {
+  return rewrap(keys, context, { keyId: e.keyId, wrappedKey: Buffer.from(e.wrappedKey), sealed: Buffer.from(e.sealed) });
+}

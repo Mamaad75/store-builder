@@ -4,6 +4,7 @@ import { STAFF_ROLES, STORE_ROLES } from "../modules/access/permissions.js";
 import type { PageEditorRules } from "../templates/editor.js";
 import type { PageSection, SectionIssue } from "../templates/section-parse.js";
 import { PAGE_TYPES } from "../templates/sections.js";
+import { aiSettingsSchema, paymentSettingsSchema, smsSettingsSchema } from "../modules/platform/settings.js";
 import type { StorefrontData } from "../templates/storefront-data.js";
 
 /**
@@ -127,6 +128,30 @@ export const auditEventDto = z.object({
   createdAt: iso,
 });
 export const secretListDto = z.object({ configured: z.boolean(), secrets: z.array(z.object({ name: z.string(), hint: z.string().nullable(), updatedAt: iso })) });
+
+// ---- phase 3.1: customers and platform operators (pinned to the service results in apps/api/src/dto.check.ts)
+export const customerProfileDto = z.object({ id: z.string(), phone: z.string().describe("+989xxxxxxxxx"), name: z.string().nullable() });
+export const customerListItemDto = customerProfileDto.extend({ phoneVerifiedAt: iso.nullable(), lastLoginAt: iso.nullable(), createdAt: iso });
+export const otpRequestedDto = z.object({ resendAfterSeconds: z.number(), expiresInSeconds: z.number() });
+export const platformOverviewDto = z.object({ users: z.number(), stores: z.number(), publishedStores: z.number(), products: z.number(), customers: z.number() });
+export const platformStoreDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: storeStatus,
+  ownerUsername: z.string(),
+  subdomain: z.string().nullable(),
+  products: z.number(),
+  createdAt: iso,
+});
+export const platformAdminDto = z.object({ userId: z.string(), username: z.string(), name: z.string(), role: z.enum(["SUPER_ADMIN"]), grantedAt: iso });
+
+export const platformSettingsDto = z.object({ sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema });
+const secretStateDto = z.object({ configured: z.boolean(), hint: z.string().nullable(), updatedAt: iso.nullable() });
+export const platformSettingsViewDto = z.object({
+  settings: platformSettingsDto,
+  secrets: z.object({ "sms.kavenegar.api_key": secretStateDto, "payment.zarinpal.merchant_id": secretStateDto, "ai.api_key": secretStateDto }),
+  encryptionReady: z.boolean(),
+});
 
 /** The v1 error body (phase 2.5): a fixed status-level `code`, a fixed Persian `message`, optional details. Never a stack. */
 export const apiErrorV1 = z.object({

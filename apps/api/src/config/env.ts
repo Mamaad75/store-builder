@@ -44,6 +44,7 @@ export interface ApiConfig {
   observability: ObservabilityConfig;
 }
 
+
 /**
  * Phase 2.6 (ADR 0002): both parts are optional and OFF when their variables are empty; a value that is set but invalid refuses to start
  * (like the secrets keys), so a typo never silently disables monitoring in production. The DSN is an ingest key: never logged.
@@ -112,6 +113,8 @@ export function readObservability(env: Record<string, string | undefined>, dev: 
   }
   return { metrics, errorTracking };
 }
+
+
 const isNonProduction = (nodeEnv: string) => nodeEnv === "development" || nodeEnv === "test";
 const isLoopbackRoot = (root: string) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(root);
 

@@ -24,6 +24,8 @@ export interface RouteSpec {
   auth: "session" | "public";
   /** Store permission required (store routes); the access guard returns 404 to non-members and 403 to members without it. */
   permission?: Permission;
+  /** Platform operators only (SUPER_ADMIN, checked in the database on every request). */
+  platform?: true;
   status: number;
   body?: z.ZodType | "image";
   /** true when the body schema documents fields the service validates one by one (not the very object the API runs). */
@@ -146,5 +148,26 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", st("/secrets"), "Secret names and masked hints (never values)", { permission: "secrets.manage", response: S.secretListDto }),
   r("PUT", st("/secrets/:name"), "Set a secret (write-only)", { permission: "secrets.manage", status: 204, body: secretValueSchema }),
   r("POST", st("/secrets/:name/delete"), "Delete a secret", { permission: "secrets.manage", status: 204 }),
+
+  // ---- phase 3.1: customers (shoppers sign in on the store's own host; SMS sign-in is off until configured)
+  r("GET", "/api/public/stores/:label/customer/status", "Whether SMS sign-in is available", { auth: "public", response: z.object({ otpEnabled: z.boolean() }) }),
+  r("POST", "/api/public/stores/:label/customer/otp/request", "Send a sign-in code by SMS (503 while SMS sign-in is off)", { auth: "public", status: 200, body: doc({ phone: z.string().max(40).describe("Iranian mobile, e.g. 09123456789") }), bodyDoc: true, response: S.otpRequestedDto }),
+  r("POST", "/api/public/stores/:label/customer/otp/verify", "Sign in with the code (sets the customer cookie)", { auth: "public", status: 200, body: doc({ phone: z.string().max(40), code: z.string().max(20) }), bodyDoc: true, response: z.object({ customer: S.customerProfileDto }) }),
+  r("GET", "/api/public/stores/:label/customer/me", "The signed-in customer of this store (customer cookie)", { auth: "public", response: z.object({ customer: S.customerProfileDto }) }),
+  r("POST", "/api/public/stores/:label/customer/logout", "Sign out on this device", { auth: "public", status: 204 }),
+  r("POST", "/api/public/stores/:label/customer/logout-all", "Sign out on every device", { auth: "public", status: 204 }),
+  r("GET", st("/customers"), "The store's customers, newest first", { permission: "customers.view", query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.customerListItemDto) }),
+
+  // ---- phase 3.1: platform operators (super admins; the role is checked in the database on every request)
+  r("GET", "/api/platform/me", "The signed-in operator", { platform: true, response: z.object({ userId: z.string(), username: z.string(), role: z.enum(["SUPER_ADMIN"]) }) }),
+  r("GET", "/api/platform/overview", "Platform counts", { platform: true, response: S.platformOverviewDto }),
+  r("GET", "/api/platform/stores", "Every store, newest first", { platform: true, query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.platformStoreDto) }),
+  r("GET", "/api/platform/admins", "Super admins", { platform: true, response: z.array(S.platformAdminDto) }),
+  r("POST", "/api/platform/admins", "Make an existing account a super admin", { platform: true, status: 201, body: doc({ username: z.string().max(64) }), bodyDoc: true, response: z.object({ userId: z.string() }) }),
+  r("POST", "/api/platform/admins/:userId/revoke", "Revoke a super admin (never oneself or the last one)", { platform: true, status: 204 }),
+  r("GET", "/api/platform/settings", "SMS, payment and AI settings, and which platform secrets are set (never their values)", { platform: true, response: S.platformSettingsViewDto }),
+  r("PATCH", "/api/platform/settings/:group", "Update one settings group (sms, payment, ai)", { platform: true, body: doc({ "...": z.unknown().describe("the group's fields (smsSettingsSchema, paymentSettingsSchema, aiSettingsSchema)") }), bodyDoc: true, response: S.platformSettingsDto }),
+  r("POST", "/api/platform/secrets/:name", "Set a platform secret (write-only; allowlisted names)", { platform: true, status: 204, body: secretValueSchema }),
+  r("POST", "/api/platform/secrets/:name/delete", "Delete a platform secret", { platform: true, status: 204 }),
 ];
 

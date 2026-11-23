@@ -60,6 +60,7 @@ model User {
   resetToken   PasswordResetToken?
   memberships  StoreMember[]
   invitations  StoreInvitation[]   @relation("invitee")
+  platformRole PlatformAdmin?      @relation("platformRole")
 }
 
 /// DEPRECATED (U1, ADR 0001): password reset by e-mail was removed with the e-mail address; nothing reads or writes this table.
@@ -132,6 +133,8 @@ model Store {
   secrets          StoreSecret[]
   invitations      StoreInvitation[]
   publishedSlugs   PublishedSlug[]
+  customers        Customer[]
+  otpChallenges    OtpChallenge[]
 
   @@index([ownerId, createdAt])
   @@index([status])
@@ -392,5 +395,80 @@ model StoreSecret {
   store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@id([storeId, name])
+  @@index([keyId])
+}
+
+/// Platform operators (phase 3.1, D31-1). A platform account is an ordinary user with a row here; the role is read from the database on every
+/// platform request (revoking takes effect at once). The first super admin is granted on the server (pnpm platform:admin); nothing grants
+/// it over HTTP to oneself. Platform actions are written to AuditEvent with storeId = null.
+enum PlatformRole {
+  SUPER_ADMIN
+}
+
+model PlatformAdmin {
+  userId      String       @id
+  role        PlatformRole @default(SUPER_ADMIN)
+  grantedAt   DateTime     @default(now())
+  /// Null when granted by the server-side command.
+  grantedById String?
+  user        User         @relation("platformRole", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A shopper of ONE store (phase 3.1): unknown to every other store. `phone` is an Iranian mobile in the form +989xxxxxxxxx (CHECK).
+/// Customers have their own session (separate cookie and token audience), never a merchant session. Deleted with the store.
+model Customer {
+  id              String    @id @default(cuid())
+  storeId         String
+  phone           String    @db.VarChar(16)
+  name            String?   @db.VarChar(80)
+  /// Bumped to end every session of this customer.
+  authVersion     Int       @default(0)
+  phoneVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, phone])
+  @@index([storeId, createdAt])
+}
+
+/// A one-time sign-in code for a customer (phase 3.1). Only an HMAC of the code is stored; valid 2 minutes, at most 5 attempts, consumed once.
+/// Expired rows are deleted by the db-cleanup job.
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  storeId    String
+  phone      String    @db.VarChar(16)
+  codeHash   String    @db.VarChar(64)
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, phone, createdAt])
+  @@index([expiresAt])
+}
+
+/// Platform-wide settings managed by super admins (phase 3.1): one JSON value per group ("sms", "payment", "ai"), validated by the shared
+/// Zod schemas on every write. Secret values (API keys, merchant ids) are NEVER here: they live in PlatformSecret.
+model PlatformSetting {
+  key         String   @id @db.VarChar(40)
+  value       Json
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}
+
+/// A platform secret (phase 3.1), e.g. the Kavenegar API key: only the envelope (same AES-256-GCM scheme as StoreSecret, D24-1), bound to
+/// "platform|name:<name>". Write-only over HTTP; read on the server by the component that needs it.
+model PlatformSecret {
+  name        String   @id @db.VarChar(80)
+  keyId       String   @db.VarChar(32)
+  wrappedKey  Bytes
+  sealed      Bytes
+  hint        String?  @db.VarChar(4)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
   @@index([keyId])
 }

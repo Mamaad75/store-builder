@@ -74,3 +74,24 @@ export type _P25 = [
   Assert<Same<Resolved<AccessService["acceptInvitation"]>, { storeId: string }>>,
   Assert<Same<Resolved<SecretService["list"]>, SecretListDto>>,
 ];
+
+// ---- phase 3.1: customers and platform operators
+import type * as S31 from "@store-builder/shared/api/schemas";
+import type { z } from "zod";
+import type { CustomerAuthService, CustomersService } from "./modules/customers/customers.api.js";
+import type { PlatformService } from "./modules/platform/platform.api.js";
+
+export type _P31 = [
+  Assert<Same<Resolved<CustomerAuthService["requestCode"]>, z.infer<typeof S31.otpRequestedDto>>>,
+  Assert<Same<Resolved<CustomerAuthService["verifyCode"]>["customer"], z.infer<typeof S31.customerProfileDto>>>,
+  Assert<Same<Resolved<CustomersService["list"]>, z.infer<typeof S31.customerListItemDto>[]>>,
+  Assert<Same<Resolved<PlatformService["overview"]>, z.infer<typeof S31.platformOverviewDto>>>,
+  Assert<Same<Resolved<PlatformService["stores"]>, z.infer<typeof S31.platformStoreDto>[]>>,
+  Assert<Same<Resolved<PlatformService["admins"]>, z.infer<typeof S31.platformAdminDto>[]>>,
+  Assert<Same<Resolved<PlatformService["grant"]>, { userId: string }>>,
+];
+import type { PlatformSettingsService } from "./modules/platform/platform.api.js";
+export type _P31b = [
+  Assert<Same<Resolved<PlatformSettingsService["view"]>, z.infer<typeof S31.platformSettingsViewDto>>>,
+  Assert<Same<Resolved<PlatformSettingsService["update"]>, z.infer<typeof S31.platformSettingsDto>>>,
+];

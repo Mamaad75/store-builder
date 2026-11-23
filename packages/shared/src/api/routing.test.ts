@@ -10,14 +10,15 @@ describe("v1 path mapping (phase 2.5)", () => {
       ["/api/v1/admin/stores", "/api/stores"],
       ["/api/v1/admin/stores/:storeId/products", "/api/stores/:storeId/products"],
       ["/api/v1/store/stores/:label", "/api/public/stores/:label"],
+      ["/api/v1/platform/overview", "/api/platform/overview"],
     ];
     for (const [v1, handler] of pairs) {
       expect(handlerPathOf(v1), v1).toBe(handler);
       expect(v1PathOf(handler), handler).toBe(v1);
     }
   });
-  it("unknown, reserved and partial prefixes map to nothing (they answer 404)", () => {
-    for (const p of ["/api/v1", "/api/v1/", "/api/v1/platform/x", "/api/v1/admin", "/api/v1/admin/other", "/api/v1/authx", "/api/v1/storex/a", "/api/v1/stores/1"]) expect(handlerPathOf(p), p).toBeNull();
+  it("unknown and partial prefixes map to nothing (they answer 404)", () => {
+    for (const p of ["/api/v1", "/api/v1/", "/api/v1/admin", "/api/v1/admin/other", "/api/v1/authx", "/api/v1/storex/a", "/api/v1/stores/1"]) expect(handlerPathOf(p), p).toBeNull();
     for (const p of ["/api/health", "/api/ready", "/api/storesx", "/api/publicx"]) expect(v1PathOf(p), p).toBeNull();
     expect(isV1Path("/api/v1/auth/login")).toBe(true);
     expect(isV1Path("/api/v1x")).toBe(false);

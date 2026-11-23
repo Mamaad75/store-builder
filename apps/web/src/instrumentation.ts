@@ -12,7 +12,7 @@ export async function register(): Promise<void> {
   const problems = initErrorTracking(process.env);
   if (problems.length > 0) {
     console.error(JSON.stringify({ level: "error", event: "startup.refused", reason: "invalid_environment", problems }));
-    process.exit(1);
+    throw new Error("Startup refused: invalid environment");
   }
 }
 
