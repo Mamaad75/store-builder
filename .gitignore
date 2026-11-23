@@ -153,3 +153,6 @@ apps/api/prisma/*.js.map
 
 # This is a pnpm workspace: an npm lockfile is always an accident (e.g. a stray `npm install`).
 package-lock.json
+
+# Local Redis/Valkey snapshot (written when redis-server runs in the repository folder)
+dump.rdb
