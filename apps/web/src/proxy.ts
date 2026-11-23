@@ -7,6 +7,8 @@ import { normalizeHostHeader } from "@store-builder/shared/lib/hostname";
 import { STORE_ROUTE_PREFIX, decideRoute } from "@store-builder/shared/lib/store-routing";
 import { isStarterAssetPath } from "@store-builder/shared/lib/storage/starter-assets";
 import { resolveProductRedirect } from "@/gateway/public";
+import { apiBaseUrl } from "@/lib/api-client";
+import { SHOP_API_PREFIX, shopApiPath } from "@/lib/shop/shop-route";
 
 /**
  * Early redirect for dashboard and draft-preview requests without a session cookie. This is a convenience layer only (it does not
@@ -40,6 +42,14 @@ async function route(req: NextRequest): Promise<Response> {
   if (decision.kind === "not_found") return neutralNotFound(req);
 
   if (decision.kind === "store" && isStarterAssetPath(req.nextUrl.pathname)) return NextResponse.next();
+
+  // Phases 3.3/3.4: the storefront's cart and checkout call /api/shop/* on the store's OWN host; it is forwarded to that store's shopper
+  // routes of the API (the label comes from the host). Headers pass through unchanged (cookies, Origin, the X-Forwarded-For Caddy set).
+  if (decision.kind === "store" && req.nextUrl.pathname.startsWith(SHOP_API_PREFIX)) {
+    const apiPath = shopApiPath(decision.label, req.nextUrl.pathname);
+    if (!apiPath) return neutralNotFound(req);
+    return NextResponse.rewrite(new URL(`${apiPath}${req.nextUrl.search}`, apiBaseUrl()), { headers: NO_STORE });
+  }
 
   if (decision.kind === "store") {
     if (decision.productSlug !== null) {

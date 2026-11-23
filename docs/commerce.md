@@ -237,6 +237,23 @@ COD orders, and a merchant setting can cap units per order); PLACED orders do no
 cancel of unconfirmed orders after N days is a merchant setting for later); order links are HMACs of the order id under the server secret,
 so rotating that secret invalidates links already sent (a key version will be added before the first rotation).
 
+## Storefront and dashboard screens for 3.3/3.4 (2026-11-25)
+
+* **How the store page reaches the API.** The browser on a STORE host calls `/api/shop/<route>` on that same host. The web proxy
+  (`apps/web/src/proxy.ts`, `lib/shop/shop-route.ts`) forwards it to the API's `/api/public/stores/<label>/<route>`, with the label taken
+  from the HOST, never from the path, and only for an allowlist of shopper routes (cart, checkout, order links, customer). Headers pass
+  through unchanged: the cart and customer cookies stay host-only cookies of the store, the API's Origin rule accepts the store's own
+  origin, and the client address Caddy set reaches the API's rate limits. No Caddy change is needed (store hosts already go to the web app).
+* **Buying.** `RenderContext.commerce` is true only on the live store page, so previews and theme demos show no buy controls. Every theme's
+  product page shows "add to cart" (variant choice for products with variants, quantity) through one component (`templates/commerce`);
+  sold-out products show none. A floating "cart (n)" link appears on the live store when the cart is not empty.
+* **Pages on the store host, inside the store's own theme** (its Layout: header, menu, footer), never indexed or cached: `/cart`,
+  `/checkout` (address with the province list and city suggestions, then the shipping methods for that province with their cost, cash on
+  delivery, note, totals from the server, place order with a per-page request key) and `/orders/<token>` (status, items, totals, history,
+  cancel while allowed; no referrer is sent).
+* **Dashboard.** "سفارش‌ها" (orders: status tabs, newest first, older pages; order detail with items, delivery, history and the next steps
+  with an optional note) and "روش‌های ارسال" (shipping methods: every field of 3.3, saved as a whole and applied at once).
+
 ## 3.1 security review (2026-11-23) and what it leaves for later
 
 No path to super admin escalation was found. Fixed with tests: a global per-phone cap across stores (10/h, 20/day) and a platform-wide SMS

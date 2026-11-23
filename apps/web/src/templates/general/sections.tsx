@@ -6,6 +6,7 @@ import type { SectionComponent } from "../types";
 import { ProductSpecs } from "../engine/Specs";
 import ProductCard, { ProductArt, StockBadge, initial } from "./ProductCard";
 import s from "./general.module.css";
+import BuyBox from "../commerce/BuyBox";
 
 function Section({
   title,
@@ -207,12 +208,13 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
             </h1>
             <p className={s.detailPrice}>{formatToman(p.price)}</p>
             <StockBadge stock={p.stockQuantity} />
+            <BuyBox ctx={ctx} product={p} />
             {p.description ? (
               <p className={s.prose} style={{ marginTop: 18 }}>
                 {p.description}
               </p>
             ) : null}
-            <p className={s.note}>برای سفارش با فروشگاه تماس بگیرید. خرید آنلاین در این نسخه فعال نیست.</p>
+            {!ctx.commerce && <p className={s.note}>برای سفارش با فروشگاه تماس بگیرید. خرید آنلاین در این نسخه فعال نیست.</p>}
           </div>
         </div>
         <ProductSpecs specs={p.specs} classes={{ wrap: s.specs, title: s.specsTitle, list: s.specsList, row: s.specsRow, term: s.specsTerm, def: s.specsDef }} />

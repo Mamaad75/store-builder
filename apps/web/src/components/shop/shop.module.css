@@ -1,0 +1,36 @@
+/* Phases 3.3/3.4: cart, checkout and order pages inside a store's theme. Colours come from the theme (--primary, --on-primary). */
+.page { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 20px; }
+.title { margin: 0; font-size: 1.5em; font-weight: 800; }
+.muted { opacity: .72; margin: 0; }
+.card { border: 1px solid color-mix(in srgb, currentColor 16%, transparent); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.line { display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; align-items: center; padding-block: 12px; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+.line:last-child { border-bottom: 0; }
+.lineName { font-weight: 700; margin: 0; }
+.lineMeta { font-size: .9em; opacity: .75; margin: 0; }
+.qtyRow { display: flex; gap: 8px; align-items: center; }
+.qtyBtn, .linkBtn { min-width: 44px; min-height: 44px; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius: 10px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.linkBtn { padding: 0 12px; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.problem { color: #b42318; font-size: .9em; margin: 0; }
+.totals { display: grid; gap: 6px; }
+.totalRow { display: flex; justify-content: space-between; gap: 12px; }
+.grand { font-weight: 800; font-size: 1.15em; }
+.button { min-height: 48px; padding: 0 24px; border: 0; border-radius: 12px; background: var(--primary, #1f2937); color: var(--on-primary, #fff); font: inherit; font-weight: 800; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.button:disabled { opacity: .6; cursor: progress; }
+.ghost { background: transparent; color: inherit; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.field { display: grid; gap: 4px; font-size: .95em; }
+.field input, .field select, .field textarea { min-height: 44px; padding: 8px 10px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 10px; background: transparent; color: inherit; font: inherit; }
+.field textarea { min-height: 80px; resize: vertical; }
+.fieldError { color: #b42318; font-size: .85em; margin: 0; }
+.options { display: grid; gap: 8px; border: 0; padding: 0; margin: 0; }
+.option { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 12px; cursor: pointer; }
+.option input { margin-top: 4px; }
+.alert { padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, #b42318 10%, transparent); color: #b42318; margin: 0; }
+.ok { padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, #067647 10%, transparent); color: #067647; margin: 0; }
+.status { display: inline-block; padding: 4px 12px; border-radius: 999px; background: color-mix(in srgb, var(--primary, #1f2937) 14%, transparent); font-weight: 700; }
+.history { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: .9em; }
+.badge { position: fixed; inset-inline-start: 16px; bottom: 16px; z-index: 50; min-height: 48px; padding: 0 18px; border-radius: 999px; background: var(--primary, #1f2937); color: var(--on-primary, #fff); display: inline-flex; align-items: center; gap: 8px; font-weight: 800; text-decoration: none; box-shadow: 0 6px 20px rgb(0 0 0 / 18%); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.button:focus-visible, .qtyBtn:focus-visible, .linkBtn:focus-visible, .badge:focus-visible, .field :is(input, select, textarea):focus-visible { outline: 3px solid color-mix(in srgb, var(--primary, #1f2937) 50%, transparent); outline-offset: 2px; }

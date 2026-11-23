@@ -27,7 +27,7 @@ export class UnauthenticatedError extends Error {
 
 type Opts = { body?: unknown; raw?: Blob | ArrayBuffer | Uint8Array; query?: Record<string, string | undefined> };
 
-export async function send<T = void>(method: "GET" | "POST" | "PATCH", path: string, opts: Opts = {}): Promise<T> {
+export async function send<T = void>(method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE", path: string, opts: Opts = {}): Promise<T> {
   const qs = opts.query ? new URLSearchParams(Object.entries(opts.query).filter((e): e is [string, string] => e[1] !== undefined)).toString() : "";
   const headers: Record<string, string> = { accept: "application/json" };
   let body: BodyInit | undefined;

@@ -32,4 +32,9 @@ export interface RenderContext {
   href: (path: string) => string;
   /** Public URL of a stored image key, or null when it cannot be built (templates then show a placeholder). */
   mediaUrl: (key: string) => string | null;
+  /**
+   * Phase 3.3/3.4: true only on the LIVE public store (cart and checkout work there). Previews and theme demos leave it unset, so they
+   * show no "add to cart" (nothing to buy in a draft).
+   */
+  commerce?: boolean;
 }

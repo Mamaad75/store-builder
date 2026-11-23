@@ -9,6 +9,7 @@ import { Icon } from "../kit/icons";
 import { Variants } from "../kit/primitives";
 import type { ExtraSectionComponent, RenderContext, SectionComponent } from "../types";
 import s from "./market.module.css";
+import BuyBox from "../commerce/BuyBox";
 
 const sorts: [ProductSort | undefined, string][] = [[undefined, "پیشنهاد فروشگاه"], ["cheap", "ارزان‌ترین"], ["expensive", "گران‌ترین"], ["available", "موجودها اول"]];
 
@@ -115,6 +116,7 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ ctx, section 
           <p className={product.stockQuantity > 0 ? s.inStock : s.muted}>{product.stockQuantity > 0 ? "موجود" : "ناموجود"}</p>
           <strong>{productPriceLabel(product)}</strong>
           <Variants product={product} />
+          <BuyBox ctx={ctx} product={product} />
           {product.stockQuantity > 0 && order.map((link) => <a key={link.kind} className={s.button} href={link.kind === "whatsapp" ? `${link.href}?text=${encodeURIComponent(`سلام، برای سفارش «${product.name}» پیام می‌دهم.`)}` : link.href}>{link.kind === "phone" ? "تماس برای سفارش" : "سفارش در واتساپ"}</a>)}
         </aside>
       </div>

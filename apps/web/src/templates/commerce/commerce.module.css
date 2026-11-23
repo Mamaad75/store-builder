@@ -1,0 +1,10 @@
+/* Phase 3.3/3.4: the storefront's buy controls. Theme colours come from the theme's own variables (--primary, --on-primary). */
+.buy { display: grid; gap: 10px; margin-block: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.field { display: grid; gap: 4px; font-size: .9em; }
+.field select, .field input { min-height: 44px; padding: 0 10px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 8px; background: transparent; color: inherit; font: inherit; }
+.qty { width: 84px; }
+.button { min-height: 44px; padding: 0 22px; border: 0; border-radius: 10px; background: var(--primary, #1f2937); color: var(--on-primary, #fff); font: inherit; font-weight: 700; cursor: pointer; }
+.button:disabled { opacity: .6; cursor: progress; }
+.button:focus-visible, .field select:focus-visible, .field input:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary, #1f2937) 50%, transparent); outline-offset: 2px; }
+.error { color: #b42318; font-size: .9em; margin: 0; }

@@ -16,6 +16,7 @@ import type { ExtraSectionComponent, LayoutProps, RenderContext, SectionComponen
 import base from "./base.module.css";
 import refresh from "./refresh.module.css";
 import { CONTACT_ICON, highlightIcon, Icon, type IconName } from "./icons";
+import BuyBox from "../commerce/BuyBox";
 
 /**
  * The storefront kit, v2 (2026-11): one accessible implementation of every core section and of the kit sections, styled by
@@ -753,6 +754,7 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
                     </tbody>
                   </table>
                 )}
+                <BuyBox ctx={ctx} product={p} />
                 {order.length > 0 && (
                   <div className={s.actions}>
                     {order.map((l) => {
@@ -776,7 +778,7 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
                     ))}
                   </ul>
                 )}
-                <p className={s.note}>برای سفارش با فروشگاه تماس بگیرید. خرید آنلاین در این نسخه فعال نیست.</p>
+                {!ctx.commerce && <p className={s.note}>برای سفارش با فروشگاه تماس بگیرید. خرید آنلاین در این نسخه فعال نیست.</p>}
               </aside>
             </div>
             <ProductSpecs specs={p.specs} classes={{ wrap: s.specs, title: s.specsTitle, list: s.specsList, row: s.specsRow, term: s.specsTerm, def: s.specsDef }} />

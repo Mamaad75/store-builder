@@ -5,6 +5,7 @@ import { buildJsonLd } from "@store-builder/shared/seo/jsonld";
 import StorefrontRenderer from "@/templates/engine/StorefrontRenderer";
 import { buildView } from "@/templates/engine/view";
 import JsonLd from "../JsonLd";
+import CartBadge from "@/components/shop/CartBadge";
 import { hostNamesLabel, loadPublicStore, safeMediaUrl } from "../_public";
 
 // Per request: the live version can change at any moment (publish, rollback, unpublish).
@@ -50,7 +51,9 @@ export default async function StorePage({ params, searchParams }: { params: Para
   const jsonLd = buildJsonLd({ data: ctx.data, page: ctx.page, query: ctx.query, product: ctx.product, mediaUrl: seoMediaUrl(r.store.baseUrl) }, r.store.baseUrl);
   return (
     <>
-      <StorefrontRenderer template={r.view.template} ctx={ctx} />
+      {/* Phase 3.3/3.4: the live store sells (add to cart); previews and theme demos never set this. */}
+      <StorefrontRenderer template={r.view.template} ctx={{ ...ctx, commerce: true }} />
+      <CartBadge />
       <JsonLd items={jsonLd} />
     </>
   );

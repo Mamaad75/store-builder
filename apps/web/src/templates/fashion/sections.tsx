@@ -8,6 +8,7 @@ import type { ExtraSectionComponent, RenderContext, SectionComponent } from "../
 import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import { initial } from "./Layout";
 import s from "./fashion.module.css";
+import BuyBox from "../commerce/BuyBox";
 
 function Section({ title, children, alt, id, level = 2 }: { title?: string; children: ReactNode; alt?: boolean; id: string; level?: 1 | 2 }) {
   const H = `h${level}` as "h1" | "h2";
@@ -219,12 +220,13 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
             </h1>
             <p className={s.detailPrice}>{formatToman(p.price)}</p>
             <StockText stock={p.stockQuantity} />
+            <BuyBox ctx={ctx} product={p} />
             {p.description ? (
               <p className={s.prose} style={{ marginTop: 20 }}>
                 {p.description}
               </p>
             ) : null}
-            <p className={s.note}>برای سفارش با فروشگاه تماس بگیرید. خرید آنلاین در این نسخه فعال نیست.</p>
+            {!ctx.commerce && <p className={s.note}>برای سفارش با فروشگاه تماس بگیرید. خرید آنلاین در این نسخه فعال نیست.</p>}
           </div>
         </div>
         <ProductSpecs specs={p.specs} classes={{ wrap: s.specs, title: s.specsTitle, list: s.specsList, row: s.specsRow, term: s.specsTerm, def: s.specsDef }} />

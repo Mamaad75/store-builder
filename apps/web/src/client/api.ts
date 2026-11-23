@@ -2,6 +2,8 @@ import type { ProductDto } from "@store-builder/shared/dto/index";
 import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-builder/shared/dto/index";
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
+import type { z } from "zod";
+import type { orderDto, orderListDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
 const store = (id: string) => `/api/stores/${enc(id)}`;
@@ -55,3 +57,13 @@ export const publishStore = (storeId: string, input: unknown) => send<PublishRes
 export const unpublishStore = (storeId: string) => send("POST", `${store(storeId)}/unpublish`);
 export const setLiveVersion = (storeId: string, input: { versionNumber: unknown; mode: "rollback" | "republish" }) => send<{ number: number }>("POST", `${store(storeId)}/versions/live`, { body: input });
 export const claimSubdomain = (storeId: string, input: { label: unknown; confirmChange?: unknown }) => send<{ label: string; changed: boolean }>("POST", `${store(storeId)}/subdomain`, { body: input });
+
+// ---- phase 3.4: orders; phase 3.3: shipping methods (the merchant side of checkout)
+export type OrderDto = z.infer<typeof orderDto>;
+export type OrderListDto = z.infer<typeof orderListDto>;
+export type ShippingMethodDto = z.infer<typeof shippingMethodDto>;
+export const listOrders = (storeId: string, query: { status?: string; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
+export const getOrder = (storeId: string, orderId: string) => send<OrderDto>("GET", `${store(storeId)}/orders/${enc(orderId)}`);
+export const changeOrderStatus = (storeId: string, orderId: string, to: string, note: string) => send<OrderDto>("POST", `${store(storeId)}/orders/${enc(orderId)}/status`, { body: { to, note } });
+export const listShippingMethods = (storeId: string) => send<ShippingMethodDto[]>("GET", `${store(storeId)}/shipping-methods`);
+export const replaceShippingMethods = (storeId: string, methods: unknown[]) => send<ShippingMethodDto[]>("PUT", `${store(storeId)}/shipping-methods`, { body: { methods } });

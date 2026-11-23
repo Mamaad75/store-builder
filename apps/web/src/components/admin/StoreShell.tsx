@@ -6,6 +6,8 @@ import { useState, type ReactNode } from "react";
 import AddBoxOutlined from "@mui/icons-material/AddBoxOutlined";
 import ArticleOutlined from "@mui/icons-material/ArticleOutlined";
 import CategoryOutlined from "@mui/icons-material/CategoryOutlined";
+import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
+import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
@@ -58,6 +60,7 @@ type Item = { label: string; href: string; icon: ReactNode; match?: (p: string) 
 
 function buildNav(base: string): Item[] {
   return [
+    { label: "سفارش‌ها", href: `${base}/orders`, icon: <ReceiptLongOutlined />, match: (p) => p.startsWith(`${base}/orders`) },
     {
       label: "محصولات",
       href: `${base}/products`,
@@ -69,6 +72,7 @@ function buildNav(base: string): Item[] {
       ],
     },
     { label: "دسته‌بندی‌ها", href: `${base}/categories`, icon: <CategoryOutlined />, match: (p) => p.startsWith(`${base}/categories`) },
+    { label: "روش‌های ارسال", href: `${base}/shipping`, icon: <LocalShippingOutlined />, match: (p) => p.startsWith(`${base}/shipping`) },
     { label: "صفحه‌ها", href: `${base}/pages`, icon: <ArticleOutlined />, match: (p) => p.startsWith(`${base}/pages`) },
     { label: "ظاهر", href: `${base}/appearance`, icon: <PaletteOutlined />, match: (p) => p.startsWith(`${base}/appearance`) },
     { label: "انتشار", href: `${base}/publish`, icon: <RocketLaunchOutlined />, match: (p) => p.startsWith(`${base}/publish`) },

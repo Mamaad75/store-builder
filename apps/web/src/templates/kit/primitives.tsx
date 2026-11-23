@@ -12,6 +12,7 @@ import type { ExtraSectionComponent, RenderContext, SectionComponent } from "../
 import { pageWindow } from "./kit";
 import { Icon } from "./icons";
 import s from "./primitives.module.css";
+import BuyBox from "../commerce/BuyBox";
 
 export const frame = s.frame!;
 export const enter = s.enter!;
@@ -69,10 +70,10 @@ export function Contacts({ ctx }: { ctx: RenderContext }) {
 
 export function OrderLinks({ ctx, product }: { ctx: RenderContext; product?: StorefrontProduct }) {
   if (product && product.stockQuantity <= 0) return null;
-  return <div className={s.links}>{buildContactLinks(ctx.data.store.contact, ctx.data.store.social)
+  return <>{product && <BuyBox ctx={ctx} product={product} />}<div className={s.links}>{buildContactLinks(ctx.data.store.contact, ctx.data.store.social)
     .filter((link) => link.kind === "phone" || link.kind === "whatsapp")
     .map((link) => <a className={s.action} key={link.kind} href={link.kind === "whatsapp" && product
-      ? `${link.href}?text=${encodeURIComponent(`سلام، برای سفارش «${product.name}» پیام می‌دهم.`)}` : link.href}>{link.kind === "phone" ? "تماس برای سفارش" : "سفارش در واتساپ"}</a>)}</div>;
+      ? `${link.href}?text=${encodeURIComponent(`سلام، برای سفارش «${product.name}» پیام می‌دهم.`)}` : link.href}>{link.kind === "phone" ? "تماس برای سفارش" : "سفارش در واتساپ"}</a>)}</div></>;
 }
 
 export function Art({ ctx, product, imageId, priority = false, alt = "", fallbackProduct = false }: {
