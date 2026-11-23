@@ -57,6 +57,29 @@ export class CustomerAuthController {
     return { customer };
   }
 
+  private signedIn(res: Response, token: string) {
+    res.cookie(customerCookieName(this.config), token, { httpOnly: true, sameSite: "lax", secure: this.config.secureCookies, path: "/", maxAge: CUSTOMER_SESSION_SECONDS * 1000 });
+    res.setHeader("Cache-Control", "no-store");
+  }
+
+  /** Phase 3.3b: a password account (the phone is not verified by this). */
+  @Post("register")
+  @HttpCode(200)
+  async register(@Param("label") label: string, @Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const { customer, token } = await this.auth.register(await this.storeId(label), body, req.ip ?? "unknown");
+    this.signedIn(res, token);
+    return { customer };
+  }
+
+  /** Phase 3.3b: sign-in with phone and password. */
+  @Post("login")
+  @HttpCode(200)
+  async login(@Param("label") label: string, @Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const { customer, token } = await this.auth.login(await this.storeId(label), body, req.ip ?? "unknown");
+    this.signedIn(res, token);
+    return { customer };
+  }
+
   @Get("me")
   async me(@Param("label") label: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     res.setHeader("Cache-Control", "no-store");

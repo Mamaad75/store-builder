@@ -38,3 +38,5 @@
  .detail > aside { position:static; }
 }
 .cards h2 { font-size: 1em; }
+/* Phones: brand and the account/cart icons share the first row; menu and search wrap below them. */
+@media(max-width:620px) { .header > * { order:2; } .header > a:first-of-type { order:0; } .header > nav[aria-label="حساب و سبد خرید"] { order:1; margin-inline-start:auto; } }

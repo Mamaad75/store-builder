@@ -58,26 +58,26 @@ export class CustomerOrdersController {
     const storeId = await this.orders.liveStoreId(label);
     const s = await shopperOf(req, this.config, this.auth, storeId);
     if (!s.customerId) throw new UnauthorizedException();
-    return { storeId, customerId: s.customerId };
+    return { storeId, customerId: s.customerId, verified: s.customerVerified === true };
   }
 
   @Get()
   async list(@Param("label") label: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const w = await this.who(label, req, res);
-    return this.orders.listMine(w.storeId, w.customerId);
+    return this.orders.listMine(w.storeId, w.customerId, w.verified);
   }
 
   @Get(":orderId")
   async get(@Param("label") label: string, @Param("orderId") id: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const w = await this.who(label, req, res);
-    return this.orders.getMine(w.storeId, w.customerId, id);
+    return this.orders.getMine(w.storeId, w.customerId, id, w.verified);
   }
 
   @Post(":orderId/cancel")
   @HttpCode(200)
   async cancel(@Param("label") label: string, @Param("orderId") id: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const w = await this.who(label, req, res);
-    return this.orders.cancelMine(w.storeId, w.customerId, id);
+    return this.orders.cancelMine(w.storeId, w.customerId, id, w.verified);
   }
 }
 
@@ -91,6 +91,13 @@ export class StoreOrdersController {
   @RequirePermission("orders.view")
   list(@StoreAccess() a: StoreAccessContext, @Query() query: Record<string, string>) {
     return this.orders.list(a, query);
+  }
+
+  /** Phase 3.3b: order count, spending and last order of up to 100 customers (`?ids=a,b`). */
+  @Get("customer-stats")
+  @RequirePermission("customers.view")
+  customerStats(@StoreAccess() a: StoreAccessContext, @Query("ids") ids?: string) {
+    return this.orders.customerStats(a, ids);
   }
 
   @Get(":orderId")

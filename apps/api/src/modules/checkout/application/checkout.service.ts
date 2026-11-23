@@ -28,6 +28,8 @@ export const CART_CREATE_PLATFORM_RULE = { limit: 1000, windowSeconds: 3600 } as
 export interface Shopper {
   cartToken: string | null;
   customerId: string | null;
+  /** Phase 3.3b: the signed-in customer's phone is proven by an SMS code (orders attached to the phone from guest checkouts are theirs). */
+  customerVerified?: boolean;
   /** Rate-limit key of the client network (ipLimitKey). */
   ipKey: string;
 }

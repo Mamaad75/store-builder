@@ -4,12 +4,13 @@ import type { StorefrontProduct } from "@store-builder/shared/templates/storefro
 import { frame, frameProps, Skip, MissingHeading, Tiles, Promos, Highlights, About, Story, Contact, Call, Empty, enter, Brand, SiteSearch, Pages, Contacts, HeroLink, Art, Stock, Price, Variants, Specs, productHref, ListingTitle, Sort, Pager, Filter, OrderLinks } from "../kit/primitives";
 import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import s from "./studio.module.css";
+import ShopNav from "../commerce/ShopNav";
 
 function Layout({ ctx, children }: LayoutProps) {
 
   return <div {...frameProps(ctx)} className={`${frame} ${s.root}`} data-storefront-layout="sormeh">
     <Skip />
-    <header className={s.header}><SiteSearch ctx={ctx} /><Brand ctx={ctx} /><Pages ctx={ctx} /></header>
+    <header className={s.header}><div className={s.headTools}><SiteSearch ctx={ctx} /><ShopNav ctx={ctx} /></div><Brand ctx={ctx} /><Pages ctx={ctx} /></header>
     <main id="main" tabIndex={-1} className={s.main}><MissingHeading ctx={ctx} />{children}</main>
     <footer className={s.footer}><div><Brand ctx={ctx} /><p>راه‌های ارتباط و دنبال‌کردن فروشگاه</p><Contacts ctx={ctx} /></div><Pages ctx={ctx} label="پیوندهای پایانی" /></footer>
   </div>;

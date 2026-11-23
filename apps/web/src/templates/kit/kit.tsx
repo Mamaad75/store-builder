@@ -17,6 +17,7 @@ import base from "./base.module.css";
 import refresh from "./refresh.module.css";
 import { CONTACT_ICON, highlightIcon, Icon, type IconName } from "./icons";
 import BuyBox from "../commerce/BuyBox";
+import ShopNav from "../commerce/ShopNav";
 
 /**
  * The storefront kit, v2 (2026-11): one accessible implementation of every core section and of the kit sections, styled by
@@ -319,6 +320,7 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
               </button>
             </form>
             <div className={s.headerActions}>
+              <ShopNav ctx={ctx} />
               {wa?.href && (
                 <a className={s.actionBtn} href={wa.href} {...external(wa.href)}>
                   <Icon name="chat" />

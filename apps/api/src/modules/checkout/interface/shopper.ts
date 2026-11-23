@@ -12,6 +12,6 @@ const customerCookieName = (c: Pick<ApiConfig, "secureCookies">) => (c.secureCoo
 export async function shopperOf(req: Request, config: ApiConfig, auth: CustomerAuthService, storeId: string | null): Promise<Shopper> {
   const customerToken = readCookie(req.headers.cookie, customerCookieName(config)) ?? undefined;
   const customer = storeId && customerToken ? await auth.current(storeId, customerToken) : null;
-  return { cartToken: readCookie(req.headers.cookie, cartCookieName(config)), customerId: customer?.id ?? null, ipKey: ipLimitKey(req.ip ?? "unknown") };
+  return { cartToken: readCookie(req.headers.cookie, cartCookieName(config)), customerId: customer?.id ?? null, customerVerified: customer?.phoneVerified ?? false, ipKey: ipLimitKey(req.ip ?? "unknown") };
 }
 

@@ -12,8 +12,20 @@ export interface CustomerView {
 }
 
 export interface CustomerRepository {
-  /** The customer with this phone in this store, created when missing; marks the phone verified and records the sign-in. */
+  /**
+   * SMS-code sign-in: the customer with this phone in this store, created when missing; marks the phone verified and records the sign-in.
+   * The first verification drops a password set before the phone was proven (and ends its sessions): whoever set it never showed they own
+   * the phone (phase 3.3b).
+   */
   signIn(storeId: string, phone: string, now: Date): Promise<CustomerView>;
+  /** Phase 3.3b: the customer with this phone and their password hash (null = no password), or null. */
+  credentials(storeId: string, phone: string): Promise<{ customer: CustomerView; passwordHash: string | null } | null>;
+  /**
+   * Phase 3.3b: a password account for this phone. A guest-only record (no password, phone never verified) is taken over; a phone that
+   * already has a password or was verified by SMS code is "exists" (nothing changes).
+   */
+  register(storeId: string, phone: string, name: string, passwordHash: string, now: Date): Promise<CustomerView | "exists">;
+  recordLogin(storeId: string, id: string, now: Date): Promise<void>;
   find(storeId: string, id: string): Promise<CustomerView | null>;
   /** Newest first; `before` = createdAt of the last row seen (keyset). */
   list(storeId: string, o: { before?: Date; limit: number }): Promise<CustomerView[]>;
@@ -53,6 +65,13 @@ export interface OtpCodec {
 export interface OtpSender {
   /** Throws on any delivery failure (the message is never shown or logged). */
   sendOtp(phoneE164: string, code: string): Promise<void>;
+}
+
+/** Argon2id (the merchant sign-in's parameters); `verifyDummy` costs the same as a real check (unknown phones are not faster). */
+export interface PasswordHasher {
+  hash(password: string): Promise<string>;
+  verify(hash: string, password: string): Promise<boolean>;
+  verifyDummy(password: string): Promise<false>;
 }
 
 export interface Limiter {

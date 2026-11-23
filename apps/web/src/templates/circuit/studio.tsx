@@ -6,12 +6,13 @@ import { frame, frameProps, Skip, MissingHeading, Tiles, Promos, Highlights, Abo
 import { Icon } from "../kit/icons";
 import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import s from "./studio.module.css";
+import ShopNav from "../commerce/ShopNav";
 
 function Layout({ ctx, children }: LayoutProps) {
 
   return <div {...frameProps(ctx)} className={`${frame} ${s.root}`} data-storefront-layout="circuit">
     <Skip />
-    <header className={s.header}><div><Brand ctx={ctx} /><Search ctx={ctx} /></div><Pages ctx={ctx} /></header>
+    <header className={s.header}><div><Brand ctx={ctx} /><Search ctx={ctx} /><ShopNav ctx={ctx} /></div><Pages ctx={ctx} /></header>
     <main id="main" tabIndex={-1} className={s.main}><MissingHeading ctx={ctx} />{children}</main>
     <footer className={s.footer}><div><Icon name="shield" /> <Brand ctx={ctx} /><Contacts ctx={ctx} /></div><Pages ctx={ctx} label="پیوندهای پایانی" /></footer>
   </div>;

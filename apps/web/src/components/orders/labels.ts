@@ -1,3 +1,4 @@
+import { domainErrorMessage } from "@store-builder/shared/errors/registry";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@store-builder/shared/modules/orders/orders";
 
 export const STATUS_COLOR: Record<OrderStatus, "default" | "info" | "warning" | "success" | "error"> = {
@@ -26,6 +27,8 @@ export function failText(e: unknown): string {
     const fe = (e as Error & { fieldErrors?: Record<string, string[]> }).fieldErrors ?? {};
     return Object.values(fe).flat()[0] ?? "اطلاعات واردشده را بررسی کنید.";
   }
+  const known = e instanceof Error ? domainErrorMessage(e.name) : null;
+  if (known) return known;
   if (e instanceof Error && /[؀-ۿ]/.test(e.message)) return e.message;
   return "ارتباط با سرور برقرار نشد؛ دوباره تلاش کنید.";
 }

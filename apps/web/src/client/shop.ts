@@ -1,4 +1,5 @@
 import { ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { domainErrorMessage } from "@store-builder/shared/errors/registry";
 import { send } from "./http";
 import type { z } from "zod";
 import type { cartViewDto, checkoutSummaryDto, placedOrderDto, shopperOrderDto } from "@store-builder/shared/api/schemas";
@@ -23,6 +24,35 @@ export const cancelOrder = (token: string) => send<ShopperOrder>("POST", `/api/s
 /** A Persian sentence for any failure of a shop call (domain errors carry their own Persian message). */
 export function problemText(e: unknown): string {
   if (e instanceof ValidationError) return Object.values(e.fieldErrors).flat()[0] ?? "اطلاعات واردشده را بررسی کنید.";
+  const known = e instanceof Error ? domainErrorMessage(e.name) : null;
+  if (known) return known;
   if (e instanceof Error && /[\u0600-\u06FF]/.test(e.message)) return e.message;
   return "ارتباط با فروشگاه برقرار نشد؛ دوباره تلاش کنید.";
 }
+
+// ---- phase 3.3b: the shopper's account in this store (password or SMS code), their orders and saved addresses
+export type CustomerProfile = { id: string; phone: string; name: string | null; phoneVerified: boolean };
+export type SavedAddress = { id: string; recipientName: string; phone: string; province: string; city: string; line: string; postalCode: string };
+export const customerStatus = () => send<{ otpEnabled: boolean }>("GET", "/api/shop/customer/status");
+/** null when nobody is signed in to this store on this device. */
+export async function me(): Promise<CustomerProfile | null> {
+  try {
+    return (await send<{ customer: CustomerProfile }>("GET", "/api/shop/customer/me")).customer;
+  } catch {
+    return null;
+  }
+}
+export const login = (phone: string, password: string) => send<{ customer: CustomerProfile }>("POST", "/api/shop/customer/login", { body: { phone, password } });
+export const register = (body: { phone: string; name: string; password: string }) => send<{ customer: CustomerProfile }>("POST", "/api/shop/customer/register", { body });
+export const requestCode = (phone: string) => send<{ resendAfterSeconds: number; expiresInSeconds: number }>("POST", "/api/shop/customer/otp/request", { body: { phone } });
+export const verifyCode = (phone: string, code: string) => send<{ customer: CustomerProfile }>("POST", "/api/shop/customer/otp/verify", { body: { phone, code } });
+export const logout = () => send("POST", "/api/shop/customer/logout");
+export const myOrders = () => send<ShopperOrder[]>("GET", "/api/shop/customer/orders");
+export const myOrder = (id: string) => send<ShopperOrder>("GET", `/api/shop/customer/orders/${encodeURIComponent(id)}`);
+export const cancelMyOrder = (id: string) => send<ShopperOrder>("POST", `/api/shop/customer/orders/${encodeURIComponent(id)}/cancel`);
+export const myAddresses = () => send<SavedAddress[]>("GET", "/api/shop/customer/addresses");
+export const saveAddress = (body: unknown) => send<SavedAddress>("POST", "/api/shop/customer/addresses", { body });
+export const deleteAddress = (id: string) => send("DELETE", `/api/shop/customer/addresses/${encodeURIComponent(id)}`);
+
+/** A same-site path to return to after signing in (never another host). */
+export const safeNext = (raw: string | null): string => (raw && /^\/(?!\/)[\w\-/%.?=&]*$/.test(raw) ? raw : "/account");

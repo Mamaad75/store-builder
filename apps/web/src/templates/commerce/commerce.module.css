@@ -8,3 +8,11 @@
 .button:disabled { opacity: .6; cursor: progress; }
 .button:focus-visible, .field select:focus-visible, .field input:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary, #1f2937) 50%, transparent); outline-offset: 2px; }
 .error { color: #b42318; font-size: .9em; margin: 0; }
+
+/* Header shortcuts on the live store: account and cart (with the number of items). */
+.nav { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: auto; }
+.navLink { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border-radius: 12px; color: inherit; text-decoration: none; }
+.navLink:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.navLink:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary, #1f2937) 50%, transparent); outline-offset: 2px; }
+.navLink svg { width: 24px; height: 24px; }
+.count { position: absolute; top: 2px; inset-inline-end: 0; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--primary, #b42318); color: var(--on-primary, #fff); font-size: 12px; font-weight: 800; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--surface, #fff); }

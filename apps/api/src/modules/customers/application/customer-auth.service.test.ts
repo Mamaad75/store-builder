@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OtpDeliveryError, OtpInvalidError, OtpRateLimitedError, OtpUnavailableError } from "@store-builder/shared/modules/customers/errors";
+import { CustomerExistsError, CustomerLoginError } from "@store-builder/shared/modules/customers/errors";
 import { ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { OTP } from "../domain/otp.js";
 import { CustomerAuthService } from "./customer-auth.service.js";
@@ -13,6 +14,7 @@ function world(o: { sender?: OtpSender | null; failSend?: boolean } = {}) {
   const sent: { phone: string; code: string }[] = [];
   const challenges: (ChallengeRow & { storeId: string; phone: string })[] = [];
   const customers: CustomerView[] = [];
+  const hashes = new Map<string, string>();
   const buckets = new Map<string, number>();
   let n = 0;
   let codeSeq = 111111;
@@ -24,6 +26,7 @@ function world(o: { sender?: OtpSender | null; failSend?: boolean } = {}) {
   };
   const svc = new CustomerAuthService({
     sender: async () => (o.sender === undefined ? sender : o.sender),
+    passwords: { hash: async (p) => `h:${p}`, verify: async (h, p) => h === `h:${p}`, verifyDummy: async () => false },
     now,
     codec: { newCode: () => String(codeSeq++), hash: (s, p, c) => `h(${s}|${p}|${c})`, same: (a, b) => a === b },
     limiter: {
@@ -65,16 +68,33 @@ function world(o: { sender?: OtpSender | null; failSend?: boolean } = {}) {
       signIn: async (storeId, phone, at) => {
         let c = customers.find((x) => x.storeId === storeId && x.phone === phone);
         if (!c) customers.push((c = { id: `u${customers.length + 1}`, storeId, phone, name: null, authVersion: 0, phoneVerifiedAt: null, lastLoginAt: null, createdAt: at }));
+        if (c.phoneVerifiedAt === null && hashes.has(c.id)) {
+          hashes.delete(c.id);
+          c.authVersion++;
+        }
         c.phoneVerifiedAt ??= at;
         c.lastLoginAt = at;
         return { ...c };
       },
+      credentials: async (s, phone) => {
+        const c = customers.find((x) => x.storeId === s && x.phone === phone);
+        return c ? { customer: { ...c }, passwordHash: hashes.get(c.id) ?? null } : null;
+      },
+      register: async (storeId, phone, name, hash, at) => {
+        let c = customers.find((x) => x.storeId === storeId && x.phone === phone);
+        if (c && (hashes.has(c.id) || c.phoneVerifiedAt)) return "exists";
+        if (!c) customers.push((c = { id: `u${customers.length + 1}`, storeId, phone, name, authVersion: 0, phoneVerifiedAt: null, lastLoginAt: at, createdAt: at }));
+        c.name = name;
+        hashes.set(c.id, hash);
+        return { ...c };
+      },
+      recordLogin: async (s, id, at) => void customers.filter((x) => x.storeId === s && x.id === id).forEach((x) => (x.lastLoginAt = at)),
       find: async (s, id) => customers.find((x) => x.storeId === s && x.id === id) ?? null,
       list: async (s, q) => customers.filter((x) => x.storeId === s && (!q.before || x.createdAt < q.before)).slice(0, q.limit),
       bumpAuthVersion: async (s, id) => void customers.filter((x) => x.storeId === s && x.id === id).forEach((x) => x.authVersion++),
     },
   });
-  return { svc, sent, challenges, customers, tick: (ms: number) => (t += ms) };
+  return { svc, sent, challenges, customers, hashes, tick: (ms: number) => (t += ms) };
 }
 const IP = "10.0.0.1";
 
@@ -93,7 +113,7 @@ describe("customer sign-in by SMS code (phase 3.1)", () => {
     expect(w.sent).toEqual([{ phone: "+989123456789", code: "111111" }]);
     expect(w.challenges[0]!.codeHash).not.toContain("111111x");
     const r = await w.svc.verifyCode("s1", "+989123456789", "111111", IP);
-    expect(r.customer).toEqual({ id: "u1", phone: "+989123456789", name: null });
+    expect(r.customer).toEqual({ id: "u1", phone: "+989123456789", name: null, phoneVerified: true });
     expect(await w.svc.current("s1", r.token)).toEqual(r.customer);
     expect(await w.svc.current("s2", r.token)).toBeNull(); // a session is valid for its own store only
     w.tick(61_000);
@@ -172,9 +192,50 @@ describe("the merchant's customer list (phase 3.1)", () => {
     const w = world();
     await w.svc.requestCode("s1", "09123456789", IP);
     await w.svc.verifyCode("s1", "09123456789", "111111", IP);
-    const list = new CustomersService({ list: async () => w.customers, signIn: async () => w.customers[0]!, find: async () => null, bumpAuthVersion: async () => undefined });
+    const list = new CustomersService({ list: async () => w.customers, signIn: async () => w.customers[0]!, find: async () => null, bumpAuthVersion: async () => undefined, credentials: async () => null, register: async () => "exists", recordLogin: async () => undefined });
     const rows = await list.list({ storeId: "s1" }, {});
     expect(Object.keys(rows[0]!)).not.toContain("authVersion");
     for (const bad of [{ limit: "0" }, { limit: "abc" }, { before: "not a date" }]) await expect(list.list({ storeId: "s1" }, bad)).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("password accounts (phase 3.3b)", () => {
+  const reg = { phone: "09121234567", name: " مریم  احمدی ", password: "secret-pass-1" };
+
+  it("registers, signs in with phone and password, and is NOT phone-verified", async () => {
+    const w = world();
+    const r = await w.svc.register("s1", reg, IP);
+    expect(r.customer).toMatchObject({ phone: "+989121234567", name: "مریم احمدی", phoneVerified: false });
+    expect(r.token).toMatch(/^tok:/);
+    expect((await w.svc.login("s1", { phone: "۰۹۱۲۱۲۳۴۵۶۷", password: "secret-pass-1" }, IP)).customer.id).toBe(r.customer.id);
+  });
+
+  it("one answer for wrong password, unknown phone and garbage", async () => {
+    const w = world();
+    await w.svc.register("s1", reg, IP);
+    for (const body of [{ phone: reg.phone, password: "wrong-pass" }, { phone: "09120000000", password: "secret-pass-1" }, { phone: "x", password: "y" }, {}]) {
+      await expect(w.svc.login("s1", body, IP)).rejects.toBeInstanceOf(CustomerLoginError);
+    }
+    await expect(w.svc.login("s2", { phone: reg.phone, password: "secret-pass-1" }, IP)).rejects.toBeInstanceOf(CustomerLoginError); // another store
+  });
+
+  it("a phone that already has a password, or was verified by SMS, cannot be registered again (no takeover)", async () => {
+    const w = world();
+    await w.svc.register("s1", reg, IP);
+    await expect(w.svc.register("s1", { ...reg, password: "other-pass-2" }, IP)).rejects.toBeInstanceOf(CustomerExistsError);
+    await w.svc.requestCode("s1", "09125550000", IP);
+    await w.svc.verifyCode("s1", "09125550000", "111111", IP);
+    await expect(w.svc.register("s1", { ...reg, phone: "09125550000" }, IP)).rejects.toBeInstanceOf(CustomerExistsError);
+    await expect(w.svc.register("s1", { ...reg, password: "short" }, IP)).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("the first SMS verification drops a password nobody proved owning the phone for, and ends its sessions", async () => {
+    const w = world();
+    const squatter = await w.svc.register("s1", reg, IP); // someone typed a phone that is not theirs
+    await w.svc.requestCode("s1", reg.phone, IP);
+    const owner = await w.svc.verifyCode("s1", reg.phone, "111111", IP);
+    expect(owner.customer).toMatchObject({ id: squatter.customer.id, phoneVerified: true });
+    expect(await w.svc.current("s1", squatter.token)).toBeNull();
+    await expect(w.svc.login("s1", { phone: reg.phone, password: reg.password }, IP)).rejects.toBeInstanceOf(CustomerLoginError);
   });
 });

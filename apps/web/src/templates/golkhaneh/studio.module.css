@@ -31,4 +31,6 @@
 .detail fieldset { min-width:0; margin:.65rem 0; border:1px solid var(--line); }
 .footer { background:#dceadd; display:flex; justify-content:space-between; flex-wrap:wrap; }
 @media(max-width:620px) { .hero,.detail { grid-template-columns:minmax(0,1fr); } .slider figure { aspect-ratio:1.35; } }
+/* Phones: brand and the account/cart icons share the first row; the search disclosure takes its own row. */
+@media(max-width:620px) { .header > div > details { order:3; flex-basis:100%; } }
 .cards h2 { font-size: 1em; }

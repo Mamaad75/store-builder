@@ -5,12 +5,13 @@ import { frame, frameProps, Skip, MissingHeading, Tiles, Promos, Highlights, Abo
 import { Icon } from "../kit/icons";
 import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import s from "./studio.module.css";
+import ShopNav from "../commerce/ShopNav";
 
 function Layout({ ctx, children }: LayoutProps) {
 
   return <div {...frameProps(ctx)} className={`${frame} ${s.root}`} data-storefront-layout="arcade">
     <Skip />
-    <header className={s.header}><Brand ctx={ctx} /><Pages ctx={ctx} /><Search ctx={ctx} /></header>
+    <header className={s.header}><Brand ctx={ctx} /><Pages ctx={ctx} /><Search ctx={ctx} /><ShopNav ctx={ctx} /></header>
     <div className={s.shell}><aside aria-label="پلتفرم‌های فروشگاه"><p>پلتفرم‌ها</p><Categories ctx={ctx} label="پلتفرم‌ها" /></aside><main id="main" tabIndex={-1} className={s.main}><MissingHeading ctx={ctx} />{children}</main></div>
     <footer className={s.footer}><div><Icon name="headset" /><strong>پشتیبانی</strong><Contacts ctx={ctx} /></div><Pages ctx={ctx} label="پیوندهای پایانی" /></footer>
   </div>;

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LINE_PROBLEM_MESSAGES } from "@store-builder/shared/modules/checkout/checkout";
 import { getCart, problemText, setCartLine, type CartView as Cart } from "@/client/shop";
 import { faNumber, toman } from "./format";
+import { CART_EVENT } from "@/templates/commerce/ShopLinks";
 import s from "./shop.module.css";
 
 /** The cart (phase 3.3): current prices from the published store, problems per line, quantities and removal. */
@@ -20,7 +21,9 @@ export default function CartView() {
     setBusy(true);
     setError(null);
     try {
-      setCart(await setCartLine(productId, variantId, quantity));
+      const next = await setCartLine(productId, variantId, quantity);
+      setCart(next);
+      window.dispatchEvent(new CustomEvent(CART_EVENT, { detail: { count: next.count } })); // the header badge follows
     } catch (e) {
       setError(problemText(e));
     } finally {

@@ -5,12 +5,13 @@ import { frame, frameProps, Skip, MissingHeading, Tiles, Promos, Highlights, Abo
 import { Icon } from "../kit/icons";
 import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import s from "./studio.module.css";
+import ShopNav from "../commerce/ShopNav";
 
 function Layout({ ctx, children }: LayoutProps) {
 
   return <div {...frameProps(ctx)} className={`${frame} ${s.root}`} data-storefront-layout="khaneh">
     <Skip />
-    <header className={s.header}><div><Brand ctx={ctx} /><Search ctx={ctx} /></div><section aria-label="منوی فروشگاه"><details className={s.mega}><summary><Icon name="grid" /> دسته‌بندی‌ها</summary><Categories ctx={ctx} /></details><Pages ctx={ctx} /></section></header>
+    <header className={s.header}><div><Brand ctx={ctx} /><Search ctx={ctx} /><ShopNav ctx={ctx} /></div><section aria-label="منوی فروشگاه"><details className={s.mega}><summary><Icon name="grid" /> دسته‌بندی‌ها</summary><Categories ctx={ctx} /></details><Pages ctx={ctx} /></section></header>
     <main id="main" tabIndex={-1} className={s.main}><MissingHeading ctx={ctx} />{children}</main>
     <footer className={s.footer}><div><Brand ctx={ctx} /><p>{ctx.data.store.description}</p></div><Pages ctx={ctx} label="پیوندهای پایانی" /><Categories ctx={ctx} label="دسته‌ها در پاورقی" /><Contacts ctx={ctx} /></footer>
   </div>;

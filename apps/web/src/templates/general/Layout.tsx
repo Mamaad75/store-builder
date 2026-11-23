@@ -4,6 +4,7 @@ import { contrastRatio, readableTextOn } from "@store-builder/shared/templates/e
 import type { LayoutProps } from "../types";
 import { initial } from "./ProductCard";
 import s from "./general.module.css";
+import ShopNav from "../commerce/ShopNav";
 
 const SIZE_SCALE = { small: 0.92, normal: 1, large: 1.1 } as const;
 
@@ -63,6 +64,7 @@ export default function Layout({ ctx, children }: LayoutProps) {
               ))}
             </ul>
           </nav>
+          <ShopNav ctx={ctx} />
         </div>
       </header>
       <main id="main" className={s.main} tabIndex={-1}>

@@ -24,6 +24,7 @@
 .brand { display: flex; align-items: center; gap: .65rem; min-width: 0; text-decoration: none; font-size: 1.22em; font-weight: var(--w-heading); }
 .brand img { max-width: 4rem; height: 2.5rem; object-fit: contain; }
 .brandIcon { width: 2.65rem; height: 2.65rem; flex: none; display: grid; place-items: center; border-radius: .78rem; background: var(--primary); color: var(--on-primary); }
+.tools { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; min-width: 0; }
 .help { display: inline-flex; align-items: center; gap: .36rem; font-size: .9em; min-height: 2.75rem; text-decoration: none; }
 .search { grid-column: 1 / -1; grid-row: 2; display: flex; border: 1px solid var(--line); border-radius: .75rem; background: var(--wash); }
 .search input { flex: 1; min-width: 0; font: inherit; background: transparent; border: 0; border-radius: .7rem; padding: .6rem .8rem; color: var(--ink); }
@@ -110,7 +111,7 @@
 @media (min-width: 720px) {
   .masthead { grid-template-columns: minmax(0, .8fr) minmax(0, 2fr) minmax(0, .55fr); }
   .search { grid-area: 1 / 2; }
-  .help { justify-self: end; }
+  .tools { justify-self: end; }
   .main { gap: 1.25rem; padding-block-start: 1.3rem; }
   .rail { grid-auto-columns: minmax(11rem, 21%); }
   .rail:has(> li:only-child) { grid-auto-columns: minmax(0, 34rem); }

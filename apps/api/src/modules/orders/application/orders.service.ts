@@ -136,18 +136,22 @@ export class OrdersService {
     return this.shopperView(await this.cancelAsCustomer(storeId, order.id, s.customerId));
   }
 
-  async listMine(storeId: string, customerId: string): Promise<ShopperOrder[]> {
-    return (await this.orders.listForCustomer(storeId, customerId, 50)).map((o) => this.shopperView(o));
+  /**
+   * The signed-in customer's orders. Orders attached to their phone from guest checkouts are included only when the phone is verified by
+   * an SMS code (phase 3.3b): a password account alone never proves the phone.
+   */
+  async listMine(storeId: string, customerId: string, verified = false): Promise<ShopperOrder[]> {
+    return (await this.orders.listForCustomer(storeId, customerId, 50, verified)).map((o) => this.shopperView(o));
   }
 
-  async getMine(storeId: string, customerId: string, id: string): Promise<ShopperOrder> {
-    const o = ID_RE.test(id) ? await this.orders.getForCustomer(storeId, customerId, id) : null;
+  async getMine(storeId: string, customerId: string, id: string, verified = false): Promise<ShopperOrder> {
+    const o = ID_RE.test(id) ? await this.orders.getForCustomer(storeId, customerId, id, verified) : null;
     if (!o) throw new NotFoundError();
     return this.shopperView(o);
   }
 
-  async cancelMine(storeId: string, customerId: string, id: string): Promise<ShopperOrder> {
-    await this.getMine(storeId, customerId, id); // scoped to this customer: anyone else's order is the same 404
+  async cancelMine(storeId: string, customerId: string, id: string, verified = false): Promise<ShopperOrder> {
+    await this.getMine(storeId, customerId, id, verified); // scoped to this customer: anyone else's order is the same 404
     return this.shopperView(await this.cancelAsCustomer(storeId, id, customerId));
   }
 
@@ -164,6 +168,12 @@ export class OrdersService {
   list(a: { storeId: string }, query: unknown): Promise<OrderListPage> {
     const q = parse(orderListQuerySchema, query ?? {});
     return this.orders.list(a.storeId, q);
+  }
+
+  /** Phase 3.3b: order count, amount spent (not cancelled) and last order per customer, for the merchant's customer list (at most 100 ids). */
+  customerStats(a: { storeId: string }, ids: unknown) {
+    const list = typeof ids === "string" ? ids.split(",").filter((x) => ID_RE.test(x)).slice(0, 100) : [];
+    return list.length ? this.orders.customerStats(a.storeId, [...new Set(list)]) : Promise.resolve([]);
   }
 
   async get(a: { storeId: string }, id: string): Promise<OrderView> {

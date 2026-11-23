@@ -84,6 +84,8 @@ export const orderTransitionSchema = z.object({ to: z.enum(ORDER_STATUSES, { err
 export const orderListQuerySchema = z
   .object({
     status: z.enum(ORDER_STATUSES).optional(),
+    /** Phase 3.3b: one customer's orders (the merchant's customer page). */
+    customerId: z.string().regex(ID_RE).optional(),
     before: z.string().regex(ID_RE).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(30),
   })

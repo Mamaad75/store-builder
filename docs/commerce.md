@@ -254,6 +254,27 @@ so rotating that secret invalidates links already sent (a key version will be ad
 * **Dashboard.** "سفارش‌ها" (orders: status tabs, newest first, older pages; order detail with items, delivery, history and the next steps
   with an optional note) and "روش‌های ارسال" (shipping methods: every field of 3.3, saved as a whole and applied at once).
 
+## Shopper accounts and the header (D33b-1, 2026-11-25)
+
+* **Sign-in.** Phone + password (`POST .../customer/register`, `.../customer/login`; Argon2id like the merchant sign-in; one answer for
+  unknown phone and wrong password, with the same cost; limits: 30 attempts per 15 minutes per network, 10 per phone per store, 10 new
+  accounts per hour per network) or phone + SMS code (3.1). Both set the same store-bound customer cookie.
+* **What a password proves.** Nothing about the phone. Guest orders are attached to the store's customer with the same phone
+  (`Order.linkedByPhone = true`, the customer created unverified when missing, in the order's transaction with one atomic
+  `INSERT ... ON CONFLICT`), but such orders are listed and opened only by a customer whose phone was verified by an SMS code. Orders placed
+  while signed in belong to the account either way. The first SMS verification drops a password set before it and ends its sessions
+  (whoever set it never proved the phone); registering a phone that already has a password, or was verified, is refused.
+* **Development.** `CUSTOMER_OTP_DEV_LOG=true` (API, development/test only; the API refuses to start with it in production) writes
+  sign-in codes to the API log, so SMS sign-in can be tried before the Kavenegar account exists.
+* **Storefront.** Every theme's header shows an account icon and a cart icon with the number of items (live, updated when the cart
+  changes). `/account`: sign in, register or SMS code; then the customer's orders (`/account/orders/<id>`), saved addresses and sign-out.
+  Checkout offers saved addresses, prefills name and phone, can save a new address, and links guests to sign in (`?next=/checkout`, same
+  site only).
+* **Dashboard.** "مشتری‌ها": every customer with order count, spending (not cancelled) and last order
+  (`GET /api/stores/:storeId/orders/customer-stats?ids=`, `customers.view`), linking to that customer's orders (`orders?customerId=`).
+* **Error text.** A domain error rebuilt from an API answer carries only its class name; `domainErrorMessage` gives back the class's fixed
+  Persian message, so shop and dashboard screens show it.
+
 ## 3.1 security review (2026-11-23) and what it leaves for later
 
 No path to super admin escalation was found. Fixed with tests: a global per-phone cap across stores (10/h, 20/day) and a platform-wide SMS

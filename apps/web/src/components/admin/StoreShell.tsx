@@ -8,6 +8,7 @@ import ArticleOutlined from "@mui/icons-material/ArticleOutlined";
 import CategoryOutlined from "@mui/icons-material/CategoryOutlined";
 import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
 import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
+import PeopleAltOutlined from "@mui/icons-material/PeopleAltOutlined";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
@@ -61,6 +62,7 @@ type Item = { label: string; href: string; icon: ReactNode; match?: (p: string) 
 function buildNav(base: string): Item[] {
   return [
     { label: "سفارش‌ها", href: `${base}/orders`, icon: <ReceiptLongOutlined />, match: (p) => p.startsWith(`${base}/orders`) },
+    { label: "مشتری‌ها", href: `${base}/customers`, icon: <PeopleAltOutlined />, match: (p) => p.startsWith(`${base}/customers`) },
     {
       label: "محصولات",
       href: `${base}/products`,

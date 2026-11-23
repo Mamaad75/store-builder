@@ -141,8 +141,8 @@ export const auditEventDto = z.object({
 export const secretListDto = z.object({ configured: z.boolean(), secrets: z.array(z.object({ name: z.string(), hint: z.string().nullable(), updatedAt: iso })) });
 
 // ---- phase 3.1: customers and platform operators (pinned to the service results in apps/api/src/dto.check.ts)
-export const customerProfileDto = z.object({ id: z.string(), phone: z.string().describe("+989xxxxxxxxx"), name: z.string().nullable() });
-export const customerListItemDto = customerProfileDto.extend({ phoneVerifiedAt: iso.nullable(), lastLoginAt: iso.nullable(), createdAt: iso });
+export const customerProfileDto = z.object({ id: z.string(), phone: z.string().describe("+989xxxxxxxxx"), name: z.string().nullable(), phoneVerified: z.boolean().describe("proven by an SMS code (phase 3.3b)") });
+export const customerListItemDto = z.object({ id: z.string(), phone: z.string(), name: z.string().nullable(), phoneVerifiedAt: iso.nullable(), lastLoginAt: iso.nullable(), createdAt: iso });
 export const otpRequestedDto = z.object({ resendAfterSeconds: z.number(), expiresInSeconds: z.number() });
 
 // ---- phase 3.3: cart, shipping, addresses, checkout summary (all money in toman, integers)

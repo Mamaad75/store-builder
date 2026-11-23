@@ -6,6 +6,8 @@ import type { NewOrder, OrderView, ReadySummary } from "../domain/orders.js";
 export interface Shopper {
   cartToken: string | null;
   customerId: string | null;
+  /** Phase 3.3b: the signed-in customer's phone is proven by an SMS code (orders attached to the phone from guest checkouts are theirs). */
+  customerVerified?: boolean;
   ipKey: string;
 }
 
@@ -36,9 +38,12 @@ export interface OrderStore {
   create(order: NewOrder, holdLines: number, cartId: string | null, now: Date): Promise<OrderView | "hold_lost" | "duplicate">;
   getById(storeId: string, id: string): Promise<OrderView | null>;
   getByTokenHash(storeId: string, tokenHash: string): Promise<OrderView | null>;
-  getForCustomer(storeId: string, customerId: string, id: string): Promise<OrderView | null>;
-  listForCustomer(storeId: string, customerId: string, limit: number): Promise<OrderView[]>;
-  list(storeId: string, q: { status?: OrderStatus; before?: string; limit: number }): Promise<OrderListPage>;
+  /** `includePhoneLinked`: also orders attached by phone from guest checkouts (only for a customer whose phone is verified, phase 3.3b). */
+  getForCustomer(storeId: string, customerId: string, id: string, includePhoneLinked: boolean): Promise<OrderView | null>;
+  listForCustomer(storeId: string, customerId: string, limit: number, includePhoneLinked: boolean): Promise<OrderView[]>;
+  /** Phase 3.3b: per customer, their orders' count and the total of those not cancelled (merchant's customer list). */
+  customerStats(storeId: string, customerIds: string[]): Promise<{ customerId: string; orders: number; spent: number; lastOrderAt: string | null }[]>;
+  list(storeId: string, q: { status?: OrderStatus; customerId?: string; before?: string; limit: number }): Promise<OrderListPage>;
   /**
    * ONE transaction with the order row locked: `check(current)` throws when the move is not allowed (nothing changes); otherwise the
    * status changes, the history gets an entry, a cancellation gives the stock back and "order.status_changed" is recorded. null = no such order.

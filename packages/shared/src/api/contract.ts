@@ -7,6 +7,7 @@ import { createProductSchema, statusSchema, updateProductSchema } from "../modul
 import { secretValueSchema } from "../modules/secrets/schemas.js";
 import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
+import { customerLoginSchema, customerRegisterSchema } from "../modules/customers/schemas.js";
 import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema } from "../modules/orders/orders.js";
 import { RATE_CODES, priceLinkInputSchema } from "../modules/pricing/pricing.js";
 import { createStoreSchema, switchThemeSchema, updateBusinessCategorySchema, updateStoreSchema } from "../modules/stores/schemas.js";
@@ -164,6 +165,8 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", "/api/public/stores/:label/customer/status", "Whether SMS sign-in is available", { auth: "public", response: z.object({ otpEnabled: z.boolean() }) }),
   r("POST", "/api/public/stores/:label/customer/otp/request", "Send a sign-in code by SMS (503 while SMS sign-in is off)", { auth: "public", status: 200, body: doc({ phone: z.string().max(40).describe("Iranian mobile, e.g. 09123456789") }), bodyDoc: true, response: S.otpRequestedDto }),
   r("POST", "/api/public/stores/:label/customer/otp/verify", "Sign in with the code (sets the customer cookie)", { auth: "public", status: 200, body: doc({ phone: z.string().max(40), code: z.string().max(20) }), bodyDoc: true, response: z.object({ customer: S.customerProfileDto }) }),
+  r("POST", "/api/public/stores/:label/customer/register", "Create a password account (phase 3.3b; the phone is not verified by this)", { auth: "public", status: 200, body: customerRegisterSchema, response: z.object({ customer: S.customerProfileDto }) }),
+  r("POST", "/api/public/stores/:label/customer/login", "Sign in with phone and password (sets the customer cookie)", { auth: "public", status: 200, body: customerLoginSchema, response: z.object({ customer: S.customerProfileDto }) }),
   r("GET", "/api/public/stores/:label/customer/me", "The signed-in customer of this store (customer cookie)", { auth: "public", response: z.object({ customer: S.customerProfileDto }) }),
   r("POST", "/api/public/stores/:label/customer/logout", "Sign out on this device", { auth: "public", status: 204 }),
   r("POST", "/api/public/stores/:label/customer/logout-all", "Sign out on every device", { auth: "public", status: 204 }),
@@ -187,6 +190,7 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", "/api/public/stores/:label/customer/orders/:orderId", "One of the signed-in customer's orders", { auth: "public", response: S.shopperOrderDto }),
   r("POST", "/api/public/stores/:label/customer/orders/:orderId/cancel", "Cancel one of the signed-in customer's orders, until the store confirms it", { auth: "public", status: 200, response: S.shopperOrderDto }),
   r("GET", st("/orders"), "The store's orders, newest first (keyset: pass nextCursor as before)", { permission: "orders.view", query: orderListQuerySchema, response: S.orderListDto }),
+  r("GET", st("/orders/customer-stats"), "Order count, spending (not cancelled) and last order per customer (phase 3.3b; ids=comma list, at most 100)", { permission: "customers.view", query: z.object({ ids: z.string().max(6600).optional() }), response: z.array(z.object({ customerId: z.string(), orders: z.number(), spent: z.number(), lastOrderAt: z.string().nullable() })) }),
   r("GET", st("/orders/:orderId"), "One order with its items and history", { permission: "orders.view", response: S.orderDto }),
   r("POST", st("/orders/:orderId/status"), "Confirm, ship, deliver or cancel an order (cancelling gives the stock back)", { permission: "orders.manage", status: 200, body: orderTransitionSchema, response: S.orderDto }),
   r("GET", st("/customers"), "The store's customers, newest first", { permission: "customers.view", query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.customerListItemDto) }),

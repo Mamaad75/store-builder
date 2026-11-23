@@ -147,7 +147,10 @@ describe("placing an order (phase 3.4)", () => {
     await a.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
     await b.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
     const r = await Promise.all([a, b].map((sh) => sh.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "COD" })));
-    expect(r.map((x) => x.status).sort()).toEqual([201, 409]);
+    // The loser is refused either at the stock hold (409) or, if the winner already committed, by its own checkout summary (422: sold out).
+    const statuses = r.map((x) => x.status).sort();
+    expect(statuses[0]).toBe(201);
+    expect([409, 422]).toContain(statuses[1]);
     expect((await stockOf(s)).tea).toBe(0);
     expect(await prisma.order.count()).toBe(1);
     expect(await prisma.stockReservation.count({ where: { status: "ACTIVE" } })).toBe(0);
@@ -280,5 +283,72 @@ describe("security review 3.4 regressions", () => {
     const own = (await b.call("POST", "/checkout/orders", { requestKey: key, address, shippingMethodId: s.method, paymentMethod: "COD" })).json;
     expect(own.order.id).not.toBe(first.order.id);
     expect(own.accessToken).not.toBe(first.accessToken);
+  });
+});
+
+describe("customer accounts and guest orders (phase 3.3b)", () => {
+  const placeAsGuest = async (s: Awaited<ReturnType<typeof liveStore>>, phone = "09123456789") => {
+    const g = shopper("shop");
+    await g.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    return (await g.call("POST", "/checkout/orders", { requestKey: requestKey(), address: { ...address, phone }, shippingMethodId: s.method, paymentMethod: "COD" })).json;
+  };
+
+  it("a guest order creates the store's customer for that phone (unverified) and is attached to it", async () => {
+    const s = await liveStore("shop");
+    const placed = await placeAsGuest(s);
+    const c = await prisma.customer.findUniqueOrThrow({ where: { storeId_phone: { storeId: s.storeId, phone: "+989123456789" } } });
+    expect(c).toMatchObject({ name: "علی رضایی", phoneVerifiedAt: null, passwordHash: null });
+    expect(await prisma.order.findUniqueOrThrow({ where: { id: placed.order.id } })).toMatchObject({ customerId: c.id, linkedByPhone: true });
+    await placeAsGuest(s); // the same phone again: still one customer
+    expect(await prisma.customer.count({ where: { storeId: s.storeId } })).toBe(1);
+  });
+
+  it("a password account does not see orders attached to its phone; a verified phone does", async () => {
+    const s = await liveStore("shop");
+    const guestOrder = await placeAsGuest(s);
+    const me = shopper("shop");
+    const reg = await me.call("POST", "/customer/register", { phone: "09123456789", name: "علی", password: "a-good-password" });
+    expect(reg.status).toBe(200);
+    expect(reg.json.customer).toMatchObject({ phoneVerified: false });
+    expect(me.jar.get("sb_customer")).toBeTruthy();
+    expect((await me.call("GET", "/customer/orders")).json).toEqual([]); // the guest order is not proven theirs
+    expect((await me.call("GET", `/customer/orders/${guestOrder.order.id}`)).status).toBe(404);
+
+    // an order placed while signed in is theirs
+    await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const own = (await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "COD" })).json;
+    expect((await me.call("GET", "/customer/orders")).json.map((o: any) => o.order.id)).toEqual([own.order.id]);
+
+    // once the phone is verified (SMS code), every order of that phone is theirs
+    const c = await prisma.customer.findUniqueOrThrow({ where: { storeId_phone: { storeId: s.storeId, phone: "+989123456789" } } });
+    await prisma.customer.update({ where: { id: c.id }, data: { phoneVerifiedAt: new Date() } });
+    expect((await me.call("GET", "/customer/orders")).json.map((o: any) => o.order.id).sort()).toEqual([guestOrder.order.id, own.order.id].sort());
+  });
+
+  it("password sign-in: wrong password and unknown phone get the same answer; registering a phone twice is refused", async () => {
+    const s = await liveStore("shop");
+    await shopper("shop").call("POST", "/customer/register", { phone: "09121112233", name: "مریم", password: "a-good-password" });
+    const a = await shopper("shop").call("POST", "/customer/login", { phone: "09121112233", password: "wrong-password" });
+    const b = await shopper("shop").call("POST", "/customer/login", { phone: "09129998877", password: "a-good-password" });
+    expect([a.status, b.status]).toEqual([400, 400]);
+    expect(a.json.errorName).toBe(b.json.errorName);
+    const ok = shopper("shop");
+    expect((await ok.call("POST", "/customer/login", { phone: "۰۹۱۲۱۱۱۲۲۳۳", password: "a-good-password" })).status).toBe(200);
+    expect((await ok.call("GET", "/customer/me")).json.customer.name).toBe("مریم");
+    expect((await shopper("shop").call("POST", "/customer/register", { phone: "09121112233", name: "x x", password: "another-password" })).status).toBe(409);
+    const stored = await prisma.customer.findFirstOrThrow({ where: { storeId: s.storeId, phone: "+989121112233" } });
+    expect(stored.passwordHash).toMatch(/^\$argon2id\$/);
+  });
+
+  it("the merchant sees each customer's order count, spending and orders", async () => {
+    const s = await liveStore("shop");
+    const first = await placeAsGuest(s);
+    await placeAsGuest(s);
+    await merchantCall(s.merchant, "POST", `/stores/${s.storeId}/orders/${first.order.id}/status`, { to: "CANCELLED" });
+    const c = await prisma.customer.findFirstOrThrow({ where: { storeId: s.storeId } });
+    const stats = await merchantCall(s.merchant, "GET", `/stores/${s.storeId}/orders/customer-stats?ids=${c.id}`);
+    expect(stats.json).toEqual([{ customerId: c.id, orders: 2, spent: 140_000, lastOrderAt: expect.any(String) }]); // 100k + 30k + 10k, the cancelled one not counted
+    const theirs = await merchantCall(s.merchant, "GET", `/stores/${s.storeId}/orders?customerId=${c.id}`);
+    expect(theirs.json.items).toHaveLength(2);
   });
 });

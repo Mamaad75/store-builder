@@ -2,6 +2,7 @@ import { buildContactLinks } from "@store-builder/shared/templates/engine/links"
 import { navItems, themeStyleVars } from "../engine/theme-vars";
 import type { LayoutProps } from "../types";
 import s from "./fashion.module.css";
+import ShopNav from "../commerce/ShopNav";
 
 export const initial = (name: string) => Array.from(name.trim())[0] ?? "؟";
 
@@ -38,6 +39,7 @@ export default function Layout({ ctx, children }: LayoutProps) {
               ))}
             </ul>
           </nav>
+          <ShopNav ctx={ctx} />
         </div>
       </header>
       <main id="main" className={s.main} tabIndex={-1}>

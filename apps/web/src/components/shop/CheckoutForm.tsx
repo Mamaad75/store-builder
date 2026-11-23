@@ -6,7 +6,7 @@ import { PROVINCES } from "@store-builder/shared/modules/checkout/provinces";
 import { LINE_PROBLEM_MESSAGES } from "@store-builder/shared/modules/checkout/checkout";
 import { ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { OrderNotReadyError } from "@store-builder/shared/modules/orders/errors";
-import { placeOrder, problemText, quote, type CheckoutSummary } from "@/client/shop";
+import { me, myAddresses, placeOrder, problemText, quote, saveAddress, type CheckoutSummary, type CustomerProfile, type SavedAddress } from "@/client/shop";
 import { faNumber, toman } from "./format";
 import s from "./shop.module.css";
 
@@ -42,11 +42,33 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Phase 3.3b: a signed-in customer picks a saved address (or a new one, optionally saved); guests type theirs.
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [saved, setSaved] = useState<SavedAddress[]>([]);
+  const [selectedId, setSelectedId] = useState<string>("new");
+  const [saveNew, setSaveNew] = useState(true);
 
-  // The cart part of the summary before any address (shows what is being bought).
+  // The cart part of the summary before any address (shows what is being bought), and who is shopping.
   useEffect(() => {
     quote({ cashOnDelivery: true }).then(setSummary).catch((e) => setError(problemText(e)));
+    me().then((c) => {
+      if (!c) return;
+      setCustomer(c);
+      setAddress((a) => ({ ...a, recipientName: a.recipientName || (c.name ?? ""), phone: a.phone || `0${c.phone.slice(3)}` }));
+      myAddresses().then((list) => {
+        setSaved(list);
+        if (list.length) setSelectedId(list[0]!.id);
+      }).catch(() => undefined);
+    });
   }, []);
+
+  const usingSaved = selectedId !== "new";
+  const addressBody = () => (usingSaved ? { addressId: selectedId } : { address });
+  const pick = (id: string) => {
+    setSelectedId(id);
+    setShippingMethodId(null);
+    if (summary?.shippingOptions.length) setSummary({ ...summary, shippingOptions: [], shippingMethodId: null });
+  };
 
   const set = (k: keyof Address, v: string) => {
     setAddress((a) => ({ ...a, [k]: v }));
@@ -73,7 +95,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
 
   async function onQuote(e: React.FormEvent) {
     e.preventDefault();
-    const r = await run(() => quote({ address, ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: true }));
+    const r = await run(() => quote({ ...addressBody(), ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: true }));
     if (r) {
       setSummary(r);
       if (r.shippingMethodId === null && r.shippingOptions.length === 1) choose(r.shippingOptions[0]!.methodId);
@@ -82,13 +104,16 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
 
   async function choose(id: string) {
     setShippingMethodId(id);
-    const r = await run(() => quote({ address, shippingMethodId: id, cashOnDelivery: true }));
+    const r = await run(() => quote({ ...addressBody(), shippingMethodId: id, cashOnDelivery: true }));
     if (r) setSummary(r);
   }
 
   async function onPlace() {
     if (!shippingMethodId) return;
-    const r = await run(() => placeOrder({ requestKey, address, shippingMethodId, paymentMethod: "COD", note }));
+    const r = await run(async () => {
+      if (customer && !usingSaved && saveNew) await saveAddress(address); // kept for the next purchase
+      return placeOrder({ requestKey, ...addressBody(), shippingMethodId, paymentMethod: "COD", note });
+    });
     if (r) router.push(`/orders/${encodeURIComponent(r.accessToken)}`);
   }
 
@@ -129,6 +154,23 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
 
           <form className={s.card} onSubmit={onQuote} aria-labelledby="co-address" noValidate>
             <h2 id="co-address" className={s.lineName}>نشانی تحویل</h2>
+            {!customer && <p className={s.muted}>حساب دارید؟ <a href="/account?next=/checkout">وارد شوید</a> تا نشانی‌ها و سفارش‌هایتان در حسابتان بماند. خرید بدون ورود هم ممکن است.</p>}
+            {saved.length > 0 && (
+              <fieldset className={s.options}>
+                <legend className={s.muted}>نشانی‌های ذخیره‌شده</legend>
+                {saved.map((a) => (
+                  <label key={a.id} className={s.option}>
+                    <input type="radio" name="saved-address" checked={selectedId === a.id} onChange={() => pick(a.id)} />
+                    <span>{a.recipientName} — {PROVINCES.find((p) => p.code === a.province)?.name ?? a.province}، {a.city}، {a.line}</span>
+                  </label>
+                ))}
+                <label className={s.option}>
+                  <input type="radio" name="saved-address" checked={selectedId === "new"} onChange={() => pick("new")} />
+                  <span>نشانی جدید</span>
+                </label>
+              </fieldset>
+            )}
+            {!usingSaved && <>
             <div className={s.grid}>
               {FIELDS.slice(0, 2).map((f) => (
                 <label key={f.key} className={s.field}>
@@ -159,6 +201,13 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
               <textarea value={address.line} onChange={(e) => set("line", e.target.value)} autoComplete="street-address" aria-invalid={err("line") ? true : undefined} required />
               {err("line") && <span className={s.fieldError}>{err("line")}</span>}
             </label>
+            {customer && (
+              <label className={s.option}>
+                <input type="checkbox" checked={saveNew} onChange={(e) => setSaveNew(e.target.checked)} />
+                <span>این نشانی را برای خریدهای بعدی ذخیره کن</span>
+              </label>
+            )}
+            </>}
             {!hasOptions && <div className={s.actions}><button className={s.button} type="submit" disabled={busy}>{busy ? "در حال بررسی…" : "نمایش روش‌های ارسال"}</button></div>}
           </form>
 

@@ -437,6 +437,8 @@ model Customer {
   /// Bumped to end every session of this customer.
   authVersion     Int               @default(0)
   phoneVerifiedAt DateTime?
+  /// Phase 3.3b: Argon2id hash for password sign-in (null = SMS code only). Dropped when the phone is first verified by SMS code.
+  passwordHash    String?
   lastLoginAt     DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -770,6 +772,9 @@ model Order {
   number           Int
   status           OrderStatus        @default(PLACED)
   customerId       String?
+  /// Phase 3.3b: placed as a guest and attached to the store's customer with the same phone; shown to that customer only once the
+  /// phone is verified by SMS code.
+  linkedByPhone    Boolean            @default(false)
   /// Client-made key of the checkout attempt: the same key returns the same order (no double orders).
   requestKey       String             @db.VarChar(64)
   /// SHA-256 of the access token handed to the shopper once (a guest follows and cancels the order with it).

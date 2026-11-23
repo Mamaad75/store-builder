@@ -42,6 +42,7 @@ class MemoryOrders implements OrderStore {
   async getForCustomer(storeId: string, c: string, id: string) { return this.rows.find((r) => r.storeId === storeId && r.customerId === c && r.id === id) ?? null; }
   async listForCustomer(storeId: string, c: string) { return this.rows.filter((r) => r.storeId === storeId && r.customerId === c); }
   async list() { return { items: this.rows, nextCursor: null }; }
+  async customerStats() { return []; }
   async transition(storeId: string, id: string, to: OrderStatus, check: (s: OrderStatus) => void) {
     const r = this.rows.find((x) => x.storeId === storeId && x.id === id);
     if (!r) return null;

@@ -19,14 +19,14 @@ import { listOrders, type OrderDto } from "@/client/api";
 import { ORDER_STATUS_LABELS, STATUS_COLOR, date, failText, toman } from "./labels";
 
 /** The store's orders, newest first, filtered by status, paged with "more" (phase 3.4). */
-export default function OrdersManager({ storeId }: { storeId: string }) {
+export default function OrdersManager({ storeId, customerId }: { storeId: string; customerId?: string }) {
   const [status, setStatus] = useState<OrderStatus | "ALL">("ALL");
   const [items, setItems] = useState<OrderDto[] | null>(null);
   const [next, setNext] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const query = useCallback((before?: string) => listOrders(storeId, { status: status === "ALL" ? undefined : status, before, limit: "30" }), [storeId, status]);
+  const query = useCallback((before?: string) => listOrders(storeId, { status: status === "ALL" ? undefined : status, customerId, before, limit: "30" }), [storeId, status, customerId]);
 
   // First page whenever the filter changes (state is set only when the answer arrives).
   useEffect(() => {
@@ -63,6 +63,7 @@ export default function OrdersManager({ storeId }: { storeId: string }) {
         <Tab value="ALL" label="همه" />
         {ORDER_STATUSES.map((s) => <Tab key={s} value={s} label={ORDER_STATUS_LABELS[s]} />)}
       </Tabs>
+      {customerId && <Alert severity="info">فقط سفارش‌های یک مشتری نمایش داده می‌شود. <a href={`/dashboard/stores/${encodeURIComponent(storeId)}/orders`}>همهٔ سفارش‌ها</a></Alert>}
       {error && <Alert severity="error">{error}</Alert>}
       {items && items.length === 0 && <Typography color="text.secondary">سفارشی با این وضعیت نیست.</Typography>}
       {items && items.length > 0 && (

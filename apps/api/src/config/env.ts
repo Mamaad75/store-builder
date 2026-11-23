@@ -42,6 +42,11 @@ export interface ApiConfig {
   secrets: MasterKeys | null;
   /** Metrics endpoint and error tracking of this process (phase 2.6). */
   observability: ObservabilityConfig;
+  /**
+   * Development and test only (CUSTOMER_OTP_DEV_LOG=true): shopper sign-in codes are written to the API log instead of being sent by SMS,
+   * so the SMS sign-in can be tried without an SMS account. Refused at start-up outside development/test.
+   */
+  customerOtpDevLog?: boolean;
 }
 
 
@@ -198,6 +203,7 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
   const secrets = parseMasterKeys(env.SECRETS_MASTER_KEYS, env.SECRETS_ACTIVE_KEY_ID);
   if (secrets && "error" in secrets) problems.push(secrets.error); // half or invalid configuration refuses to start, in every environment
   const observability = readObservability(env, dev, problems, d?.API_PORT);
+  if (env.CUSTOMER_OTP_DEV_LOG && !dev) problems.push("CUSTOMER_OTP_DEV_LOG is for development and tests only (sign-in codes would be written to the log)");
   if (problems.length > 0 || !d) throw new EnvError(problems);
 
   const base = `${d.APP_PROTOCOL}://${d.APP_ROOT_DOMAIN}`;
@@ -222,5 +228,6 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     secureCookies: d.APP_PROTOCOL === "https",
     secrets: secrets && !("error" in secrets) ? secrets : null,
     observability,
+    customerOtpDevLog: dev && env.CUSTOMER_OTP_DEV_LOG === "true",
   };
 }

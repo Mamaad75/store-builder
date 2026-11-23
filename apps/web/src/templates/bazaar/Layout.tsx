@@ -5,6 +5,7 @@ import { navItems, themeStyleVars } from "../engine/theme-vars";
 import { Icon } from "../kit/icons";
 import type { LayoutProps } from "../types";
 import s from "./market.module.css";
+import ShopNav from "../commerce/ShopNav";
 
 export default function BazaarLayout({ ctx, children }: LayoutProps) {
   const { store, categories } = ctx.data;
@@ -31,9 +32,12 @@ export default function BazaarLayout({ ctx, children }: LayoutProps) {
             <input name="q" type="search" aria-label="جستجو در محصولات" placeholder="نام کالا، دسته یا مشخصات" maxLength={SEARCH_MAX} defaultValue={ctx.query.q} />
             <button aria-label="جستجو"><Icon name="search" /></button>
           </form>
-          {pages.some((page) => page.type === "CONTACT") && (
-            <a className={s.help} href={ctx.href("/contact")}><Icon name="headset" size={19} /> پشتیبانی</a>
-          )}
+          <div className={s.tools}>
+            {pages.some((page) => page.type === "CONTACT") && (
+              <a className={s.help} href={ctx.href("/contact")}><Icon name="headset" size={19} /> پشتیبانی</a>
+            )}
+            <ShopNav ctx={ctx} />
+          </div>
         </div>
         <nav className={s.navigation} aria-label="ناوبری فروشگاه">
           <ul className={`${s.wrap} ${s.navItems}`} data-bazaar-region="category-navigation">

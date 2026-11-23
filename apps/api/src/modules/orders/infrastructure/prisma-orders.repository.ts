@@ -4,6 +4,7 @@ import type { ShippingKind } from "@store-builder/shared/modules/checkout/checko
 import { db } from "../../../lib/db.js";
 import { recordEvent } from "../../../platform/outbox/outbox.js";
 import { clearCartInTx } from "../../checkout/checkout.api.js";
+import { customerIdForPhoneInTx } from "../../customers/customers.api.js";
 import { consumeReservationInTx, restockReservationInTx } from "../../inventory/inventory.api.js";
 import type { OrderListPage, OrderStore } from "../application/ports.js";
 import type { NewOrder, OrderView } from "../domain/orders.js";
@@ -63,17 +64,29 @@ export class PrismaOrderStore implements OrderStore {
     return this.one({ storeId, accessTokenHash });
   }
 
-  getForCustomer(storeId: string, customerId: string, id: string) {
-    return this.one({ storeId, customerId, id });
+  getForCustomer(storeId: string, customerId: string, id: string, includePhoneLinked: boolean) {
+    return this.one({ storeId, customerId, id, ...(includePhoneLinked ? {} : { linkedByPhone: false }) });
   }
 
-  async listForCustomer(storeId: string, customerId: string, limit: number): Promise<OrderView[]> {
-    const rows = await db.order.findMany({ where: { storeId, customerId }, select: orderSelect, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit });
+  async listForCustomer(storeId: string, customerId: string, limit: number, includePhoneLinked: boolean): Promise<OrderView[]> {
+    const rows = await db.order.findMany({ where: { storeId, customerId, ...(includePhoneLinked ? {} : { linkedByPhone: false }) }, select: orderSelect, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit });
     return rows.map(toView);
   }
 
-  async list(storeId: string, q: { status?: OrderStatus; before?: string; limit: number }): Promise<OrderListPage> {
-    const where: Prisma.OrderWhereInput = { storeId, ...(q.status ? { status: q.status } : {}) };
+  async customerStats(storeId: string, customerIds: string[]) {
+    const rows = await db.order.groupBy({
+      by: ["customerId"],
+      where: { storeId, customerId: { in: customerIds } },
+      _count: { _all: true },
+      _max: { createdAt: true },
+    });
+    const spent = await db.order.groupBy({ by: ["customerId"], where: { storeId, customerId: { in: customerIds }, status: { not: "CANCELLED" } }, _sum: { total: true } });
+    const spentBy = new Map(spent.map((r) => [r.customerId, Number(r._sum.total ?? 0n)]));
+    return rows.map((r) => ({ customerId: r.customerId!, orders: r._count._all, spent: spentBy.get(r.customerId) ?? 0, lastOrderAt: r._max.createdAt?.toISOString() ?? null }));
+  }
+
+  async list(storeId: string, q: { status?: OrderStatus; customerId?: string; before?: string; limit: number }): Promise<OrderListPage> {
+    const where: Prisma.OrderWhereInput = { storeId, ...(q.status ? { status: q.status } : {}), ...(q.customerId ? { customerId: q.customerId } : {}) };
     if (q.before) {
       // Keyset: strictly older than the cursor order (of THIS store; a foreign or unknown cursor is an empty page).
       const c = await db.order.findFirst({ where: { storeId, id: q.before }, select: { createdAt: true, id: true } });
@@ -91,6 +104,9 @@ export class PrismaOrderStore implements OrderStore {
         const scope = { tx };
         // 1. the stock hold becomes the order's stock (or nothing happens)
         if (!(await consumeReservationInTx(scope, o.storeId, o.id, now, holdLines))) throw new HoldLost();
+        // Phase 3.3b: a guest order belongs to the store's customer with the same phone (created unverified when missing).
+        const linkedByPhone = o.customerId === null;
+        const customerId = o.customerId ?? (await customerIdForPhoneInTx(scope, o.storeId, o.address.phone, o.address.recipientName));
         // 2. the next number: the counter row is locked until commit, so numbers are unique and a rollback leaves no gap
         const [counter] = await tx.$queryRaw<{ n: number }[]>`
           INSERT INTO "StoreCounter" ("storeId", "lastOrderNumber") VALUES (${o.storeId}, 1)
@@ -99,14 +115,14 @@ export class PrismaOrderStore implements OrderStore {
         // 3. the snapshot
         await tx.order.create({
           data: {
-            id: o.id, storeId: o.storeId, number: counter!.n, status: "PLACED", customerId: o.customerId, requestKey: o.requestKey, accessTokenHash: o.accessTokenHash,
+            id: o.id, storeId: o.storeId, number: counter!.n, status: "PLACED", customerId, linkedByPhone, requestKey: o.requestKey, accessTokenHash: o.accessTokenHash,
             recipientName: o.address.recipientName, phone: o.address.phone, province: o.address.province, city: o.address.city, addressLine: o.address.line, postalCode: o.address.postalCode,
             shippingMethodId: o.shipping.methodId, shippingName: o.shipping.name, shippingKind: o.shipping.kind, shippingCost: BigInt(o.shipping.cost),
             paymentMethod: o.paymentMethod, codFee: BigInt(o.codFee), subtotal: BigInt(o.subtotal), total: BigInt(o.total), itemCount: o.itemCount, note: o.note,
           },
         });
         await tx.orderItem.createMany({ data: o.items.map((i) => ({ ...i, storeId: o.storeId, orderId: o.id, lineTotal: BigInt(i.lineTotal) })) });
-        await tx.orderEvent.create({ data: { storeId: o.storeId, orderId: o.id, fromStatus: null, toStatus: "PLACED", actor: "CUSTOMER", actorId: o.customerId } });
+        await tx.orderEvent.create({ data: { storeId: o.storeId, orderId: o.id, fromStatus: null, toStatus: "PLACED", actor: "CUSTOMER", actorId: linkedByPhone ? null : customerId } });
         // 4. consumers (order SMS, 3.6) re-read the order; the event carries ids only, never personal data
         await recordEvent(scope, { type: "order.placed", storeId: o.storeId, payload: { orderId: o.id, number: counter!.n } });
         // 5. the cart is emptied with the order
@@ -114,7 +130,8 @@ export class PrismaOrderStore implements OrderStore {
       }, TX);
     } catch (e) {
       if (e instanceof HoldLost) return "hold_lost";
-      if (prismaCode(e) === "P2002") return "duplicate"; // the same request key committed first
+      // the same request key committed first (only that unique index means "the same checkout")
+      if (prismaCode(e) === "P2002" && JSON.stringify((e as { meta?: unknown }).meta ?? "").includes("requestKey")) return "duplicate";
       throw e;
     }
     return (await this.getById(o.storeId, o.id))!;

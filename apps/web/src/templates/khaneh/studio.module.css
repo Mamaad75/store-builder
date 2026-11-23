@@ -13,7 +13,7 @@
 }
 .root { --ink:#282f31; --back:#f4f1e9; --paper:#fffdf7; --line:#d3c8b7; --focus:#795332; }
 .header { background:#e6decf; }
-.header > div { display:grid; grid-template-columns:minmax(7rem,1fr) minmax(0,1.4fr); gap:.7rem; align-items:center; }
+.header > div { display:grid; grid-template-columns:minmax(7rem,1fr) minmax(0,1.4fr) auto; gap:.7rem; align-items:center; }
 .header > section { display:flex; flex-wrap:wrap; gap:.8rem 1rem; align-items:start; margin-top:.45rem; }
 .mega { position:relative; z-index:2; }
 .mega > nav { position:absolute; inset-inline-start:0; top:100%; width:min(32rem,calc(100vw - 2rem)); background:#fdf9ee; padding:.85rem; border:1px solid var(--line); box-shadow:0 10px 25px #0002; }

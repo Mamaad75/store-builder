@@ -6,7 +6,7 @@ import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } f
 import * as publishing from "../modules/publishing/errors.js";
 import { CatalogLimitError, CategoryNotEmptyError, ConflictError, DraftBusyError, NotFoundError, StoreLimitError, ValidationError } from "../modules/stores/errors.js";
 import { ThemeSwitchBlockedError } from "../modules/stores/theme-switch-types.js";
-import { OtpDeliveryError, OtpInvalidError, OtpRateLimitedError, OtpUnavailableError } from "../modules/customers/errors.js";
+import { CustomerExistsError, CustomerLoginError, CustomerLoginRateLimitedError, OtpDeliveryError, OtpInvalidError, OtpRateLimitedError, OtpUnavailableError } from "../modules/customers/errors.js";
 import { PlatformAdminConflictError, PlatformForbiddenError } from "../modules/platform/errors.js";
 import { OutOfStockError, ReservationLostError, VariantLimitError } from "../modules/inventory/errors.js";
 import { AddressLimitError, CartLimitError, CartRateLimitedError } from "../modules/checkout/errors.js";
@@ -30,6 +30,7 @@ export const DOMAIN_ERRORS: Record<string, ErrorClass> = {
   SecretsUnavailableError, SecretLimitError,
   OtpUnavailableError, OtpRateLimitedError, OtpInvalidError, OtpDeliveryError, PlatformAdminConflictError, PlatformForbiddenError, OutOfStockError, ReservationLostError, VariantLimitError,
   CartLimitError, AddressLimitError, CartRateLimitedError, OrderNotReadyError, OrderTransitionError, OrderRateLimitedError,
+  CustomerLoginError, CustomerExistsError, CustomerLoginRateLimitedError,
   ...publishingErrors,
 };
 
@@ -37,7 +38,7 @@ export const DOMAIN_ERRORS: Record<string, ErrorClass> = {
 const STATUS: Record<string, number> = {
   NotFoundError: 404, ValidationError: 400, ConflictError: 409, DraftBusyError: 409, PublishBusyError: 409, StoreAlreadyLiveError: 409, VersionAlreadyLiveError: 409,
   PermissionDeniedError: 403, InvitationTargetError: 400, StaffLimitError: 409, SecretsUnavailableError: 503, SecretLimitError: 409,
-  OtpUnavailableError: 503, OtpRateLimitedError: 429, OtpInvalidError: 400, OtpDeliveryError: 502, PlatformAdminConflictError: 409, PlatformForbiddenError: 403, OutOfStockError: 409, ReservationLostError: 409, VariantLimitError: 409, CartLimitError: 409, AddressLimitError: 409, CartRateLimitedError: 429, OrderNotReadyError: 422, OrderTransitionError: 409, OrderRateLimitedError: 429,
+  OtpUnavailableError: 503, OtpRateLimitedError: 429, OtpInvalidError: 400, OtpDeliveryError: 502, PlatformAdminConflictError: 409, PlatformForbiddenError: 403, OutOfStockError: 409, ReservationLostError: 409, VariantLimitError: 409, CartLimitError: 409, AddressLimitError: 409, CartRateLimitedError: 429, OrderNotReadyError: 422, OrderTransitionError: 409, OrderRateLimitedError: 429, CustomerLoginError: 400, CustomerExistsError: 409, CustomerLoginRateLimitedError: 429,
   SubdomainTakenError: 409, SlugReservationConflictError: 409, MediaInUseError: 409, MediaRateLimitError: 429, PublishRateLimitedError: 429, MediaStorageError: 502, PublishTimedOutError: 503,
 };
 
@@ -67,3 +68,19 @@ export function rebuildDomainError(name: unknown, payload: unknown): Error | nul
   if (payload && typeof payload === "object") for (const [k, v] of Object.entries(payload as Record<string, unknown>)) (err as unknown as Record<string, unknown>)[k] = v;
   return err;
 }
+
+/**
+ * The fixed Persian message of a domain error class (each sets it in its constructor; a rebuilt error carries only the class name), or null.
+ * Shop and dashboard screens show it to the person. Constructing with no arguments is safe: messages never depend on the fields.
+ */
+export function domainErrorMessage(name: string): string | null {
+  if (!Object.prototype.hasOwnProperty.call(DOMAIN_ERRORS, name)) return null;
+  try {
+    const Cls = DOMAIN_ERRORS[name] as unknown as new () => Error;
+    const m = new Cls().message;
+    return /[\u0600-\u06FF]/.test(m) ? m : null;
+  } catch {
+    return null;
+  }
+}
+
