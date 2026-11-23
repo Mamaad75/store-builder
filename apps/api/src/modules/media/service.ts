@@ -1,3 +1,4 @@
+import { starterAssetForKey } from "@store-builder/shared/lib/storage/keys";
 import { db } from "../../lib/db.js";
 import { consoleSink } from "../../logging/json-logger.js";
 import { getMediaStorage, newMediaKey, type MediaStorage } from "../../lib/storage/index.js";
@@ -183,7 +184,6 @@ const inMutation: RunLocked = (ownerId, storeId, fn) => withStoreMutation(ownerI
 const inLock: RunLocked = async (ownerId, storeId, fn) => (await withStoreLock(ownerId, storeId, fn)).value;
 
 async function releaseWith(run: RunLocked, ownerId: string, sid: string, mediaId: string, deps: MediaDeps): Promise<ReleaseOutcome> {
-  const storage = deps.storage ?? getMediaStorage();
   const log = deps.log ?? defaultLog;
 
   const marked = await run(ownerId, sid, async (ctx) => {
@@ -198,7 +198,7 @@ async function releaseWith(run: RunLocked, ownerId: string, sid: string, mediaId
   if (typeof marked === "string") return marked;
 
   try {
-    await storage.delete(marked.key);
+    if (!starterAssetForKey(marked.key)) await (deps.storage ?? getMediaStorage()).delete(marked.key);
   } catch (e) {
     log("object delete failed; row stays DELETING for cleanup", e);
     return "pending_delete";

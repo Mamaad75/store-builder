@@ -338,6 +338,10 @@
                     "minLength": 1,
                     "maxLength": 80
                   },
+                  "withSampleContent": {
+                    "type": "boolean",
+                    "description": "Populate the draft with the selected theme’s sample content."
+                  },
                   "templateKey": {
                     "type": "string",
                     "pattern": "^[a-z][a-z0-9-]{0,39}$"

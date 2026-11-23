@@ -61,6 +61,15 @@ export class StoreRepository {
     return this.client.store.count({ where: { ownerId: this.ownerId } });
   }
 
+  /** During the creation transaction, products can reference the new store's categories and images. */
+  async createStarterProducts(storeId: string, products: Prisma.ProductCreateManyStoreInput[]) {
+    await this.client.store.update({
+      where: { id: storeId, ownerId: this.ownerId },
+      data: { products: { createMany: { data: products } } },
+      select: { id: true },
+    });
+  }
+
   find(storeId: string): Promise<StoreView | null> {
     return this.client.store.findFirst({ where: { id: storeId, ownerId: this.ownerId }, select: storeSelect });
   }

@@ -12,6 +12,7 @@ export const storeIdSchema = z.string().min(1).max(64);
 export const createStoreSchema = z
   .object({
     name,
+    withSampleContent: z.boolean().describe("Populate the draft with the selected theme’s sample content.").optional(),
     templateKey: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
     /** Optional; when absent a best-effort category is inferred from the theme. Validated against the registry in the service. */
     businessCategory: z.string().regex(BUSINESS_CATEGORY_KEY_RE, "دسته‌بندی نامعتبر است").optional(),

@@ -7,6 +7,8 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -39,6 +41,7 @@ export function CreateStoreForm({ templates, categories, initialTheme }: { templ
   const initialCategory = categories.find((c) => c.suggestedThemes[0] === initialTheme) ?? categories[0];
   const [category, setCategory] = useState(initialCategory?.key ?? "general");
   const [name, setName] = useState("");
+  const [withSampleContent, setWithSampleContent] = useState(true);
   const [theme, setTheme] = useState(() => {
     const first = initialCategory?.suggestedThemes.find((k) => templates.some((t) => t.key === k));
     return initialTheme ?? first ?? templates[0]?.key ?? "";
@@ -107,6 +110,7 @@ export function CreateStoreForm({ templates, categories, initialTheme }: { templ
           {fe(state, "templateKey") && <Alert severity="error" sx={{ mt: 1 }}>{fe(state, "templateKey")}</Alert>}
         </Box>
         <TextField name="name" label="نام فروشگاه" required value={name} onChange={(event) => setName(event.target.value)} error={!!fe(state, "name")} helperText={fe(state, "name")} />
+        <FormControlLabel control={<Checkbox name="withSampleContent" checked={withSampleContent} onChange={(_, checked) => setWithSampleContent(checked)} />} label="شروع با بنر، دسته‌ها و محصولات نمونهٔ قالب (قابل ویرایش)" />
         <Button type="submit" variant="contained" size="large" disabled={pending || !theme} sx={{ alignSelf: { sm: "start" } }}>
           ساخت فروشگاه
         </Button>

@@ -1,4 +1,4 @@
-import { isValidMediaKey } from "@store-builder/shared/lib/storage/keys";
+import { isValidMediaKey, starterAssetForKey } from "@store-builder/shared/lib/storage/keys";
 
 /**
  * The single place in the web app that turns an object key into a public image URL: `<S3_PUBLIC_BASE_URL>/<key>`. The database and
@@ -9,6 +9,8 @@ import { isValidMediaKey } from "@store-builder/shared/lib/storage/keys";
  */
 export function mediaPublicUrl(key: string, env: Record<string, string | undefined> = process.env): string | null {
   if (!isValidMediaKey(key)) return null;
+  const starter = starterAssetForKey(key);
+  if (starter) return starter.path;
   const base = (env.S3_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
   if (!/^https?:\/\/[^\s]+$/.test(base)) throw new Error("Invalid or missing storage configuration: S3_PUBLIC_BASE_URL");
   return `${base}/${key}`;
