@@ -61,6 +61,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   // Phase 5.1: one discount code; `code` is what is applied (sent with every summary and the order), `codeInput` what is typed.
   const [codeInput, setCodeInput] = useState("");
   const [code, setCode] = useState<string | null>(null);
+  const [codeNotice, setCodeNotice] = useState<string | null>(null);
   const withCode = (c: string | null = code) => (c ? { discountCode: c } : {});
 
   // The cart part of the summary before any address (shows what is being bought), and who is shopping.
@@ -132,7 +133,16 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   async function applyCode(c: string | null) {
     setCode(c);
     const r = await run(() => quote({ ...addressBody(), ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: cod, ...withCode(c) }));
-    if (r) setSummary(r);
+    // A code that does not exist is not kept (nor sent again with every later summary): the summary is asked for again without it.
+    if (r?.discountError?.reason === "not_found") {
+      setCode(null);
+      const again = await run(() => quote({ ...addressBody(), ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: cod }));
+      if (again) setSummary(again);
+      setCodeNotice(r.discountError.message);
+    } else if (r) {
+      setSummary(r);
+      setCodeNotice(null);
+    }
   }
 
   /** The cash-on-delivery fee depends on the method: the summary is asked for again. */
@@ -310,12 +320,12 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
                 <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
                   <input
                     value={code ?? codeInput}
-                    onChange={(e) => setCodeInput(e.target.value)}
+                    onChange={(e) => { setCodeInput(e.target.value); setCodeNotice(null); }}
                     disabled={busy || code !== null}
                     dir="ltr"
                     autoComplete="off"
                     aria-label="کد تخفیف"
-                    aria-invalid={summary.discountError ? true : undefined}
+                    aria-invalid={summary.discountError || codeNotice ? true : undefined}
                     style={{ flex: "1 1 auto", minWidth: 0 }}
                   />
                   {code === null ? (
@@ -324,6 +334,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
                     <button type="button" className={`${s.button} ${s.ghost}`} style={{ flex: "0 0 auto", whiteSpace: "nowrap", minHeight: 44 }} onClick={() => { setCodeInput(""); void applyCode(null); }} disabled={busy}>حذف کد</button>
                   )}
                 </div>
+                {codeNotice && !summary.discountError && <span className={s.fieldError} role="alert">{codeNotice}</span>}
                 {summary.discountError && <span className={s.fieldError} role="alert">{summary.discountError.message}{summary.discountError.minOrder ? ` (حداقل ${toman(summary.discountError.minOrder)})` : ""}</span>}
                 {summary.discount && <span className={s.muted}>کد {summary.discount.code} اعمال شد.</span>}
               </div>

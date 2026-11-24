@@ -12,7 +12,7 @@ import { NotFoundError, ValidationError } from "@store-builder/shared/modules/st
 import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { z } from "zod";
 import { mergeLines, priceLines, stockKey, summarize, withDiscount, type CartLine, type CheckoutSummary, type PricedLine } from "../domain/quote.js";
-import { DISCOUNT_REASON_MESSAGES, DISCOUNT_TRY_RULE, type DiscountCart } from "@store-builder/shared/modules/discounts/discounts";
+import { DISCOUNT_REASON_MESSAGES, DISCOUNT_TRY_RULE, DISCOUNT_TRY_STORE_RULE, type DiscountCart } from "@store-builder/shared/modules/discounts/discounts";
 import type { AddressStore, CartRow, CartStore, CartTokens, CheckoutReads, DiscountPort, Limiter, SavedAddress } from "./ports.js";
 
 const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -236,12 +236,19 @@ export class CheckoutService {
     };
     const code = q.discountCode?.trim();
     if (code && this.discounts) {
-      const ev = await this.discounts.evaluate(storeId, code, discountCart, { phone: address?.phone ?? null, customerId: s.customerId });
-      if (!ev.rule) {
-        // Codes must not be guessable by trying: wrong ones are counted per network.
-        const r = await this.limiter.consume(`discount-try:${storeId}:ip:${s.ipKey}`, DISCOUNT_TRY_RULE);
-        if (!r.allowed) throw new CartRateLimitedError(r.retryAfterSeconds);
+      // Codes must not be guessable by trying (review 5.1): every DIFFERENT code a network tries is counted BEFORE the lookup, so a blocked
+      // network gets 429 for existing and missing codes alike; quoting again with the same code is free. A store-wide count of new codes
+      // limits guessing spread over many addresses.
+      const first = await this.limiter.consume(`discount-seen:${storeId}:ip:${s.ipKey}:${code.toUpperCase().slice(0, 64)}`, { limit: 1, windowSeconds: DISCOUNT_TRY_RULE.windowSeconds });
+      if (first.allowed) {
+        for (const [key, rule] of [[`discount-try:${storeId}:ip:${s.ipKey}`, DISCOUNT_TRY_RULE], [`discount-try:${storeId}:all`, DISCOUNT_TRY_STORE_RULE]] as const) {
+          const r = await this.limiter.consume(key, rule);
+          if (!r.allowed) throw new CartRateLimitedError(r.retryAfterSeconds);
+        }
       }
+      // Per-customer and first-order limits are checked here only for a signed-in customer's own account: a typed phone must not reveal
+      // whether that number has ordered (review 5.1). The order checks every limit with the order's phone under the discount's lock.
+      const ev = await this.discounts.evaluate(storeId, code, discountCart, { phone: null, customerId: s.customerId });
       summary = ev.rule && ev.result.ok
         ? withDiscount(summary, { applied: { id: ev.rule.id, code: ev.rule.code, amount: ev.result.amount, itemsDiscount: ev.result.itemsDiscount, shippingDiscount: ev.result.shippingDiscount } })
         : withDiscount(summary, {

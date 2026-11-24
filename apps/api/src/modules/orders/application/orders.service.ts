@@ -123,9 +123,12 @@ export class OrdersService {
     // Phase 5.1: a code that does not apply is reported with its own reason (expired, exhausted, minimum order, ...).
     if (prep.summary.discountError) throw new DiscountInvalidError(prep.summary.discountError.reason as DiscountReason, prep.summary.discountError.minOrder);
     if (!prep.summary.ready || !prep.address) throw new OrderNotReadyError(prep.summary.blockers.length ? prep.summary.blockers : ["no_address"]);
-    if (q.paymentMethod !== "COD") {
-      if (!this.prepaid) throw new PaymentUnavailableError(q.paymentMethod === "CARD_TRANSFER" ? "no_cards" : "off");
-      await this.prepaid.assertCanPay(storeId, prep.summary.total, q.paymentMethod, q.gateway);
+    // Review 5.1: a discount can bring the total to 0; there is then nothing to pay online or by card, so the order is placed at once.
+    const method = prep.summary.total === 0 ? ("COD" as const) : q.paymentMethod;
+    const gateway = method === "ONLINE" ? q.gateway : undefined;
+    if (method !== "COD") {
+      if (!this.prepaid) throw new PaymentUnavailableError(method === "CARD_TRANSFER" ? "no_cards" : "off");
+      await this.prepaid.assertCanPay(storeId, prep.summary.total, method, gateway);
     }
     await this.limit(`order-place:${storeId}:ip:${s.ipKey}`, ORDER_PLACE_RULE);
     await this.limit(`order-place:${storeId}:phone:${prep.address.phone}`, ORDER_PHONE_RULE);
@@ -135,11 +138,11 @@ export class OrdersService {
     const token = this.tokens.tokenFor(id);
     const order = draftOrder({
       id, storeId, customerId: s.customerId, requestKey, accessTokenHash: this.tokens.hash(token)!,
-      summary: prep.summary, address: prep.address, weights: prep.weights, paymentMethod: q.paymentMethod, paymentGateway: q.gateway ?? null, note: q.note,
+      summary: prep.summary, address: prep.address, weights: prep.weights, paymentMethod: method, paymentGateway: gateway ?? null, note: q.note,
       paymentDeadline:
-        q.paymentMethod === "ONLINE"
+        method === "ONLINE"
           ? new Date(this.clock().getTime() + PAYMENT_WINDOW_MINUTES * 60_000)
-          : q.paymentMethod === "CARD_TRANSFER"
+          : method === "CARD_TRANSFER"
             ? new Date(this.clock().getTime() + CARD_TRANSFER_WINDOW_HOURS * 3600_000)
             : null,
     });

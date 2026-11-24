@@ -40,8 +40,16 @@ async function usageOf(c: Client, storeId: string, discountId: string, who: { ph
       })
     : null;
   // "First order": no other order of this phone in this store that still stands (cancelled and expired ones do not count).
-  const prior = who.phone
-    ? (await c.order.count({ where: { storeId, phone: who.phone, status: { notIn: ["CANCELLED", "EXPIRED"] }, ...(exceptOrderId ? { id: { not: exceptOrderId } } : {}) } })) > 0
+  // By the phone AND by the signed-in customer (review 5.1: a customer shipping to a new phone is not a first order).
+  const prior = who.phone || who.customerId
+    ? (await c.order.count({
+        where: {
+          storeId,
+          OR: [...(who.phone ? [{ phone: who.phone }] : []), ...(who.customerId ? [{ customerId: who.customerId }] : [])],
+          status: { notIn: ["CANCELLED", "EXPIRED"] },
+          ...(exceptOrderId ? { id: { not: exceptOrderId } } : {}),
+        },
+      })) > 0
     : null;
   return { total, byCustomer: mine, hasPriorOrders: prior };
 }
@@ -114,6 +122,8 @@ export async function redeemDiscountInTx(
   const [locked] = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Discount" WHERE id = ${r.discountId} AND "storeId" = ${r.storeId} FOR UPDATE`;
   if (!locked) throw new DiscountInvalidError("not_found");
   const row = await tx.discount.findUniqueOrThrow({ where: { id: r.discountId }, select: ruleSelect });
+  // Review 5.1: two orders of one phone at once (e.g. two different first-order codes) must not both count as "first": they queue here.
+  if (row.firstOrderOnly) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"discount-first:" + r.storeId + ":" + r.phone}))`;
   const usage = await usageOf(tx, r.storeId, r.discountId, { phone: r.phone, customerId: r.customerId }, r.orderId);
   const result = evaluateDiscount(toRule(row), r.cart, usage, r.now);
   if (!result.ok) throw new DiscountInvalidError(result.reason, result.minOrder);

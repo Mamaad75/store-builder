@@ -21,6 +21,8 @@ export const MAX_DISCOUNTS_PER_STORE = 200;
 export const MAX_SCOPE_IDS = 200;
 /** Wrong codes tried per network per store per hour (codes must not be guessable by trying). */
 export const DISCOUNT_TRY_RULE = { limit: 30, windowSeconds: 3600 } as const;
+/** Different codes tried in one store per hour from all networks together (guessing spread over many addresses). */
+export const DISCOUNT_TRY_STORE_RULE = { limit: 600, windowSeconds: 3600 } as const;
 
 /** Codes are case-insensitive: stored and compared in upper case; Persian digits accepted. */
 export const normalizeCode = (v: string) => digitsToAscii(v).trim().toUpperCase();
@@ -92,6 +94,7 @@ export function evaluateDiscount(r: DiscountRule, cart: DiscountCart, usage: Dis
   const eligible = cart.lines.filter((l) => r.scope === "ALL" || (r.scope === "PRODUCTS" ? ids.has(l.productId) : l.categoryId !== null && ids.has(l.categoryId)));
   if (eligible.length === 0) return { ok: false, reason: "no_eligible_items" };
   const base = eligible.reduce((s, l) => s + l.lineTotal, 0);
+  if (r.type === "FREE_SHIPPING" && cart.shippingCost <= 0) return { ok: false, reason: "no_shipping" }; // nothing to discount: no use spent
   if (r.type === "FREE_SHIPPING") return { ok: true, itemsDiscount: 0, shippingDiscount: cart.shippingCost, amount: cart.shippingCost };
   let items = r.type === "PERCENT" ? Math.floor((base * r.value) / 100) : r.value;
   if (r.type === "PERCENT" && r.maxDiscount !== null) items = Math.min(items, r.maxDiscount);

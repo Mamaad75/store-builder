@@ -396,6 +396,17 @@ limit (by phone), product/category scope, first order only; **one code per order
 * **Order**: the amount is computed on the server again when the order is placed. Inside the order's create transaction the discount row is
   locked (`FOR UPDATE`), usage / per-phone / first-order are counted again, and the order is refused (`changed`) if the amount differs from
   the summary. Released redemptions do not count, so a cancelled or expired order gives the use back.
+* **Security review (2026-11-24)**, fixed with tests:
+  * guessing: every *different* code a network tries is counted before the lookup (30 per hour per network, 600 per hour per store), so a
+    blocked network gets 429 for existing and missing codes alike; quoting again with the same code is free;
+  * the summary checks per-customer and first-order limits only for a signed-in customer's own account (a typed phone must not reveal
+    whether it has ordered); the order checks them with the order's phone under the lock;
+  * first order counts earlier orders by phone **and** by the signed-in customer, and orders of one phone queue on an advisory lock;
+  * free shipping without a shipping cost is refused (`no_shipping`), so no use is spent for nothing;
+  * a discount that brings the total to 0 places the order at once (no online or card payment of 0);
+  * the checkout form drops a code that does not exist instead of sending it with every summary.
+  * Accepted: unpaid online / card-to-card orders hold their use until they expire (like stock); `scopeIds` are not checked against the
+    catalogue (other stores' ids can never match); deleting a code deletes its redemptions.
 * **Dashboard**: «کدهای تخفیف» (permission `discounts.manage`, owner and manager): list with usage, create/edit dialog with product and
   category pickers, delete (redemptions keep the order snapshot). All writes are audited.
 

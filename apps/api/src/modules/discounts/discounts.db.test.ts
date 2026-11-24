@@ -132,7 +132,38 @@ describe("discount codes (phase 5.1)", () => {
     await shop("POST", "/checkout/orders", { requestKey: requestKey(), address: address(), shippingMethodId: s.method, paymentMethod: "COD", discountCode: "welcome" });
     const again = shopper();
     await again("POST", "/cart/items", { productId: s.cup, quantity: 1 });
-    expect((await again("POST", "/checkout/quote", { address: address(), shippingMethodId: s.method, cashOnDelivery: true, discountCode: "welcome" })).json.discountError.reason).toBe("customer_limit");
+    // review 5.1: the summary does not tell whether a typed phone has ordered; the order checks it
+    expect((await again("POST", "/checkout/quote", { address: address(), shippingMethodId: s.method, cashOnDelivery: true, discountCode: "welcome" })).json.discount.amount).toBe(5_000);
+    const refused = await again("POST", "/checkout/orders", { requestKey: requestKey(), address: address(), shippingMethodId: s.method, paymentMethod: "COD", discountCode: "welcome" });
+    expect([refused.status, refused.json.payload.reason]).toEqual([422, "customer_limit"]);
+  });
+
+  it("review 5.1: a network over the guessing limit gets 429 for existing codes too; the same code quoted again is not counted", async () => {
+    const s = await liveStore();
+    await create(s, { code: "REAL", type: "FIXED", value: 1_000 });
+    const shop = shopper();
+    await shop("POST", "/cart/items", { productId: s.cup, quantity: 1 });
+    const quote = (code: string) => shop("POST", "/checkout/quote", { address: address(), shippingMethodId: s.method, cashOnDelivery: true, discountCode: code });
+    for (let i = 0; i < 5; i++) expect((await quote("REAL")).status).toBe(200); // re-quotes with one code: one try
+    for (let i = 0; i < 29; i++) expect((await quote(`GUESS${i}`)).status).toBe(200);
+    expect((await quote("REAL")).json.discount.amount).toBe(1_000); // already seen: still answered
+    expect((await quote("GUESS99")).status).toBe(429);
+    expect((await quote("real2")).status).toBe(429);
+    await create(s, { code: "OTHER", type: "FIXED", value: 1_000 });
+    expect((await quote("OTHER")).status).toBe(429); // an existing code is refused exactly like a missing one
+  });
+
+  it("review 5.1: a discount that brings the total to 0 places the order at once (nothing to pay online); free shipping needs a shipping cost", async () => {
+    const s = await liveStore();
+    const pickup = await prisma.shippingMethod.create({ data: { storeId: s.storeId, name: "حضوری", kind: "PICKUP", price: 0, codEnabled: false, codFee: 0 } });
+    await create(s, { code: "FREE", type: "PERCENT", value: 100 });
+    await create(s, { code: "SHIP", type: "FREE_SHIPPING" });
+    const shop = shopper();
+    await shop("POST", "/cart/items", { productId: s.cup, quantity: 1 });
+    expect((await shop("POST", "/checkout/quote", { address: address(), shippingMethodId: pickup.id, cashOnDelivery: false, discountCode: "ship" })).json.discountError.reason).toBe("no_shipping");
+    const placed = await shop("POST", "/checkout/orders", { requestKey: requestKey(), address: address(), shippingMethodId: pickup.id, paymentMethod: "ONLINE", gateway: "ZARINPAL", discountCode: "free" });
+    expect(placed.status).toBe(201);
+    expect(placed.json.order).toMatchObject({ total: 0, discountAmount: 50_000, status: "PLACED", paymentMethod: "COD" });
   });
 
   it("the merchant's list: validation, unique codes, owner/manager only; a code changed between summary and order is refused", async () => {

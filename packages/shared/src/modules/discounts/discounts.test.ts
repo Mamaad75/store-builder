@@ -16,6 +16,8 @@ describe("discount rules (phase 5.1)", () => {
     expect(evaluateDiscount(rule({ type: "FIXED", value: 50_000 }), cart, usage, now)).toMatchObject({ amount: 50_000 });
     expect(evaluateDiscount(rule({ type: "FIXED", value: 900_000 }), cart, usage, now)).toMatchObject({ amount: 255_555 });
     expect(evaluateDiscount(rule({ type: "FREE_SHIPPING", value: 0 }), cart, usage, now)).toEqual({ ok: true, itemsDiscount: 0, shippingDiscount: 30_000, amount: 30_000 });
+    // review 5.1: no shipping cost, nothing to discount: no use is spent
+    expect(evaluateDiscount(rule({ type: "FREE_SHIPPING", value: 0 }), { ...cart, shippingCost: 0 }, usage, now)).toEqual({ ok: false, reason: "no_shipping" });
   });
 
   it("scope: only chosen products or categories count", () => {
