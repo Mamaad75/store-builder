@@ -22,23 +22,27 @@
 | **D-13** | **Grace period for existing stores.** Existing stores never go offline and receive no automatic restriction because their owners have not verified; the grace period is for notices and reminders only. This is **not** a permanent exemption: any future enforcement for existing merchants is a separate product decision (D-17). | §11; V1 builds verification without enforcing it on existing stores |
 | **D-10** | **Identity-based manual recovery.** A merchant who lost access to the verified phone may request manual recovery, available **only to identity-verified users**, through a controlled administrative review. Success invalidates every session and notifies the owner through the available verified channels. Users who are **not** identity-verified have **no** manual recovery path and no alternative method (§6.3). | V2 builds self-service recovery; the manual path ships with V4 |
 | **D-6** | **Encrypted PostgreSQL storage** for identity documents in the initial implementation; **no private S3 bucket in this phase**. | §6.4 requirements; V4 |
-| **D-15** | **V0 (payout security) and V1 (merchant phone verification) proceed in parallel**; their integration is reviewed together; V2 depends on V1. *(The owner's message labelled this "D-14"; the original D-14 is a different question and stays Pending — see §0.4.)* | §14 |
+| **D-15** | **V0 (payout security) and V1 (merchant phone verification) proceed in parallel**, with an explicit integration review **before either is considered complete**; V2 depends on V1. *(First labelled "D-14" by the owner; the original D-14 is a different question and stays Pending — see §0.4.)* | §14, §15.7 |
+| **D-3** | **Only the store OWNER may change payout settings** — bank cards and payment-gateway credentials (merchant id / pin). MANAGER and OPERATOR may not. *(Approved in the security-review round, 2026-11-24.)* | §6.2, §15 V0-1 |
+| **D-2** | **Cooling-off of 24 hours** after account recovery or a merchant phone-number change. The exact list of restricted operations is in §15.3 (Recommended, confirm). | §6.3, §15.3 |
+| **D-2a** | **Only an authorised SUPER_ADMIN may lift a cooling-off early**; the action requires a reason and produces an immutable audit record. | §15.3 |
+| **D-12** | **A phone-number change invalidates all other active sessions**; the current session is handled safely according to the authentication design (§15.4); the previously verified phone is notified where possible. | §15.4 |
 
 ### 0.2 Recommended (architect; needs explicit owner confirmation)
 
 | ID | Recommendation | Status |
 |---|---|---|
-| **D-3** | Only the store **OWNER** may change bank cards and payment-gateway payout credentials; MANAGER and OPERATOR may not. Every such change is audited and the owner notified. (Today MANAGER can change bank cards through `store.settings`; gateway credentials are already OWNER-only through `secrets.manage`.) | **Recommended — not approved.** V0 audit and notices do not depend on it; the permission change does |
 | D-11 | Separate development flag for merchant OTP (`ACCOUNT_OTP_DEV_LOG`, refused outside development/test, start-up test) | Recommended |
-| D-12 | On phone change, sign out every other session and keep the current one | Recommended |
+| D-2s | Exact cooling-off scope (§15.3 table) | Recommended — confirm |
+| D-12c | Current session on phone change: **re-issue** a fresh token in the same response (other tokens die by the `authVersion` bump) rather than signing the user out (§15.4) | Recommended — confirm |
+| D-19 | Production refuses the platform payment **sandbox** switch unless the environment explicitly allows it (finding V0-4) | Recommended — confirm |
+| D-20 | SUPER_ADMIN step-up (password re-entry) for cooling-off lift and future manual recovery (risk of a phished admin, §15.3) | Recommended — confirm |
 
 ### 0.3 Pending (owner decision required)
 
 | ID | Question | Recommendation | Status |
 |---|---|---|---|
 | **D-1** | Does card-to-card require identity verification? | Yes by public launch; pilot: no gate, manual identity on request | **Pending** |
-| **D-2** | Cooling-off duration and scope after recovery / phone change | 24 h; payout settings (bank cards, gateway credentials) + phone only | **Pending** |
-| **D-2a** | Who may release a cooling-off early | Reviewer with `verification.recovery` permission, after a recorded check; never the merchant | **Pending** |
 | D-4 | Phone uniqueness | One verified phone per account; a phone verified on at most one account | **Pending** |
 | **D-5** | Reviewer permissions (and four-eyes for revocations / manual recovery) | Permissions required before any real document is stored; four-eyes for manual recovery | **Pending** |
 | D-7 | National code: HMAC only, or also encrypted clear value | HMAC + last 3 digits; encrypted clear value only if a provider re-check or invoices need it | **Pending** |
@@ -48,6 +52,7 @@
 | **D-16** | Onboarding policy for **new** merchants: does publishing require a verified phone? | Yes (phone verification is cheap and gives reachability); enforcement behind a platform switch, off until approved | **Pending** |
 | **D-17** | Future enforcement for **existing** merchants after the grace period | Separate decision when V1 data shows adoption; never automatic offline | **Pending** |
 | D-18 | Manual recovery when the old phone is lost: which "verified channels" receive the notice | Old phone (if reachable), the newly verified phone, an in-app notice; no email (none exists) | **Pending** |
+| D-21 | Separate master-key id for identity documents (not shared with payment credentials) | Yes | **Pending** |
 
 ### 0.4 Inconsistencies found while updating
 
@@ -230,8 +235,8 @@ stateDiagram-v2
   contact, shipping) do not.
 * Required regardless of D-3: an audit row for every payout change (actor, store, kind, masked summary — last 4 digits / gateway name,
   never full values), and an owner notice (in-app now; SMS when V1 provides a verified phone and the provider is live at deployment).
-* With D-3 (Recommended, not approved): a dedicated permission (e.g. `payout.manage`, OWNER only) replaces `store.settings` on the
-  bank-card route; MANAGER keeps ordinary settings.
+* With D-3 (**Approved**): a dedicated permission (e.g. `payout.manage`, OWNER only) replaces `store.settings` on the bank-card route;
+  MANAGER keeps ordinary settings.
 * Payout changes are refused while the platform suspends the store (already true: G2 refuses all non-order writes).
 
 ### 6.3 Account recovery and cooling-off (V2; manual path V4)
@@ -246,7 +251,7 @@ stateDiagram-v2
 
 **Cooling-off (D-2 Pending):** blocks only payout settings and phone change for the duration; never catalog, orders or publishing.
 Benefit: a SIM-swap or password thief cannot redirect money immediately and the owner is warned. Cost: a legitimate merchant who just
-recovered cannot change bank cards for the period. Exceptions: early release by a reviewer (D-2a), audited. New merchants verifying a
+recovered cannot change bank cards for the period. Exception: early release only by a SUPER_ADMIN with a reason and an immutable audit record (D-2a, Approved). New merchants verifying a
 phone for the first time are not affected.
 
 ### 6.4 Identity documents in encrypted PostgreSQL (D-6, V4)
@@ -296,7 +301,8 @@ table size; a private bucket remains a later option (not in this phase).
 ## 7. Platform admin requirements (V3, before any real document)
 
 * Permissions (D-5 Pending): `verification.review` (queue, decide), `verification.documents` (open documents),
-  `verification.recovery` (manual recovery, early cooling-off release), `verification.revoke`. SUPER_ADMIN holds all.
+  `verification.recovery` (manual recovery), `verification.revoke`. SUPER_ADMIN holds all. Early cooling-off release stays
+  **SUPER_ADMIN-only** (D-2a, Approved) and is not delegated to these permissions.
   Implementation expectation: a permission set on `PlatformAdmin` or additional roles; the guard checks the permission per route.
 * Screens: queue (status, age, subject type), request detail (masked facts, document viewer with per-view audit), actions (approve,
   reject with public reason, request information, revoke with reason), internal notes (platform only), full history, linked stores and
@@ -316,7 +322,7 @@ table size; a private bucket remains a later option (not in this phase).
 | Custom domain (not built) | — | phone verified + domain proof | Recommended | eNamad per domain: merchant matter, consultation |
 | Torob / external feeds (not built) | — | phone verified | Recommended | Torob partner terms: provider consultation |
 | Selling as a company | — | business verified (V5) | Recommended | Tax / e-invoicing: legal consultation |
-| Payout changes | per V0 (D-3 Recommended) | per V0 | Recommended | — |
+| Payout changes | OWNER only (D-3 Approved) | OWNER only | Approved | — |
 
 Capabilities are computed by a pure function and checked where the capability is enabled **and** where money is involved (e.g. card
 numbers shown only while the owner holds the capability). Losing a fact disables use, never deletes configuration, and never unpublishes
@@ -382,8 +388,8 @@ Existing stores never go offline because of verification. The grace period has n
 
 ## 13. Open decisions (owner approval needed)
 
-D-1, D-2, D-2a, D-3 (recommendation), D-4, D-5, D-7, D-8, D-9, D-11 (recommendation), D-12 (recommendation), D-14, D-16, D-17, D-18 —
-see §0.2 and §0.3.
+**Pending:** D-1, D-4, D-5, D-7, D-8, D-9, D-14, D-16, D-17, D-18, D-21. **Recommended (confirm):** D-2s, D-11, D-12c, D-19, D-20.
+**Approved:** D-2, D-2a, D-3, D-6, D-10, D-12, D-13, D-15. See §0.
 
 ---
 
@@ -404,14 +410,14 @@ flowchart LR
 
 ### V0 — Payout security (parallel with V1)
 * **Scope:** classify payout settings separately from ordinary settings; audit every bank-card and gateway-credential change with a
-  masked summary; owner notice (in-app; SMS once V1 and the provider exist); if D-3 is approved, OWNER-only payout permission.
-* **Dependencies:** none for audit and notices; D-3 for the permission change.
+  masked summary; owner notice (in-app; SMS once V1 and the provider exist); OWNER-only payout permission (D-3, Approved).
+* **Dependencies:** none (D-3 approved).
 * **Expected changes:** possibly a `PayoutChange` table or a fixed set of `AuditEvent` actions; a `payout.manage` permission (D-3);
   bank-card route permission change (D-3); an in-app notification read model; no migration needed if audit rows suffice.
 * **Security:** no full card number or credential in audit or notices; changes refused on suspended stores (existing).
 * **Tests:** role matrix for payout routes; audit content (masked); notice created for the owner; staff cannot read full values;
   suspended store refusal.
-* **Done when:** every payout change is audited and notified; D-3 decided and, if approved, enforced; tests green.
+* **Done when:** every payout change is audited and notified; OWNER-only enforced (D-3); integration review with V1 passed; tests green.
 * **Rollback:** permission change is code-only (revert); audit/notice data additive.
 
 ### V1 — Merchant phone verification (parallel with V0)
@@ -431,7 +437,7 @@ flowchart LR
 
 ### V2 — Account recovery and cooling-off (after V1)
 * **Scope:** forgot-password by OTP to the verified phone; `authVersion` bump; `sensitiveLockUntil` cooling-off on recovery and phone
-  change (D-2); early release by permitted reviewers (D-2a, needs V3 or SUPER_ADMIN until then); notices.
+  change (D-2, 24 h); early release by a SUPER_ADMIN only, with reason and immutable audit (D-2a); notices.
 * **Expected changes:** `User.sensitiveLockUntil`; `AccountOtpChallenge` purpose RECOVER; routes `/auth/recovery/challenge`,
   `/auth/recovery/reset`; checks in payout routes.
 * **Security:** same answer whether the account or phone exists; rate limits; cooling-off enforced server-side on every payout route.
@@ -462,3 +468,141 @@ flowchart LR
 * **Scope:** `LegalEntity`, store link, reviewer flow, "sell as a company" capability.
 * **Dependencies:** V4; legal and provider research (§9) — **does not start before those answers exist**.
 * **Done when:** defined after the research.
+
+---
+
+## 15. Security review before V0/V1 (2026-11-24)
+
+**Method:** repository inspection at commit `851535b` (no code executed for this review; no test results are claimed). File paths are
+relative to `apps/api/src` unless stated otherwise.
+
+### 15.1 Payout-mutation inventory (V0)
+
+| # | Operation | Endpoint | Server-side check | Allowed today | Required (D-3) | UI bypass? | Audited | Owner notified |
+|---|---|---|---|---|---|---|---|---|
+| P1 | Add / change / remove bank cards (one call replaces the whole list; there is no per-card route) | `PUT /api/stores/:storeId/bank-cards` → `TransfersService.replaceCards` (`modules/orders/application/transfers.service.ts:47`) → `PrismaTransferStore.replaceCards` (`modules/orders/infrastructure/prisma-transfers.repository.ts:29`, store row `FOR UPDATE`, delete-all + insert) | `StoreAccessGuard` + `@RequirePermission("store.settings")` (`modules/orders/interface/orders.controllers.ts:299-301`) | **OWNER, MANAGER** (`packages/shared/src/modules/access/permissions.ts:34`) | OWNER only | No — the check is server-side; hiding buttons is irrelevant | `@Audit("store.bank_cards_replaced")` by `AuditInterceptor` (`modules/access/interface/store-access.ts:70`): **after success only, outside the transaction, metadata `{ role }` only**, no before/after, failures not recorded | **No** |
+| P2 | Set Zarinpal merchant id | `PUT /api/stores/:storeId/secrets/payment.zarinpal.merchant_id` → `SecretService.set` (`modules/secrets/application/secret.service.ts:31`) | `@RequirePermission("secrets.manage")` (`modules/secrets/interface/secrets.controller.ts:21-23`) | **OWNER** | OWNER | No | Yes, **in the same transaction** (`modules/secrets/infrastructure/prisma-secret.repository.ts:25`), action `secret.set`, target = secret name, no value | **No** |
+| P3 | Set Aghaye Pardakht pin | `PUT /api/stores/:storeId/secrets/payment.aqayepardakht.pin` (names in `GATEWAY_SECRETS`, `packages/shared/src/modules/orders/orders.ts:60`) | same as P2 | OWNER | OWNER | No | same as P2 | **No** |
+| P4 | Remove a gateway credential (disables that gateway) | `POST /api/stores/:storeId/secrets/:name/delete` (`secrets.controller.ts:28-30`) | `secrets.manage` | OWNER | OWNER | No | Yes, in transaction (`prisma-secret.repository.ts:34`), `secret.deleted` | **No** |
+| P5 | Merchant notification phone (not a payout, but it is where payout alerts would go) | `PUT /api/stores/:storeId/sms-settings` (`modules/notifications/interface/sms.controllers.ts:18-20`) | `store.settings` | OWNER, MANAGER | see V0-5 | No | `@Audit("store.sms_settings_updated")` (interceptor) | No |
+| P6 | Platform payment sandbox switch (affects every store's payments) | `PATCH /api/v1/platform/settings/payment` → `PlatformSettingsService.update` (`modules/platform/application/settings.service.ts:81-90`) | `PlatformAdminGuard` (SUPER_ADMIN) | SUPER_ADMIN | SUPER_ADMIN + D-19 | No | Yes, `platform.settings_updated`, target = group, **no before/after** | n/a |
+| — | Terminal ids | **Do not exist**: Zarinpal uses a merchant id, Aghaye Pardakht a pin; both are store secrets (P2–P4) | — | — | — | — | — | — |
+| — | SUPER_ADMIN changing a store's payouts | **No route exists** (platform routes never write store secrets or bank cards) | — | none | none | — | — | — |
+| — | Background jobs | None writes bank cards or store secrets (rotation re-wraps keys without changing values: `modules/secrets/infrastructure/rotation.ts`) | — | — | — | — | — | — |
+
+Reads: `GET /api/stores/:storeId/bank-cards` requires only `store.view` (OPERATOR included) and returns full card numbers (`orders.controllers.ts:292-295`); the
+numbers are shown to shoppers on unpaid card-to-card orders anyway (Low, V0-6). Gateway credentials are never readable (write-only;
+`GET .../payment-settings` reports state only, `secrets.manage`).
+
+### 15.2 Findings
+
+| ID | Severity | Finding (current → required) | Attack scenario | Remediation | Tests that prove it |
+|---|---|---|---|---|---|
+| **V0-1** | **High** | MANAGER can replace bank cards (P1). Required: OWNER only (D-3). | A dishonest or compromised manager account swaps the card; shoppers of card-to-card orders transfer to the attacker; receipts show only the payer's last 4 digits, so the owner may approve them | New permission (e.g. `payout.manage`, OWNER only) on the bank-card route; MANAGER keeps `store.settings` for ordinary settings | Role matrix on `PUT bank-cards`: OWNER 200, MANAGER 403, OPERATOR 403, stranger 404, suspended store 403 `STORE_SUSPENDED`; contract test pins the permission |
+| **V0-2** | **High** | Bank-card change has no owner notice and a weak audit: interceptor row after success, outside the transaction, `{ role }` only; a failed audit write does not fail the change; failed attempts are not recorded. Required: transactional audit with masked before/after, failed-attempt audit, owner notice | A change goes unnoticed for days; the trail cannot show what changed | Write the audit row inside `replaceCards`' transaction: actor, store, category `bank_cards`, request id, before/after as `{count, last4[], bank[]}`; record refused attempts (permission or cooling-off) in a platform-visible row; create an owner notice (§15.5) | DB test: audit row in the same transaction (forced failure → no change); masked content (no 16-digit sequence anywhere in audit/notice/log); refused MANAGER attempt recorded; notice created |
+| **V0-3** | **Medium** | Gateway credentials (P2–P4) are OWNER-only and audited in-transaction, but with no notice, no cooling-off and no payout category (they share `secret.set` with any other secret). Required: payout category, notice, cooling-off | Stolen owner password → merchant id replaced → online payments settle to the attacker's terminal (attempts opened before are protected by the merchant fingerprint check, `modules/orders/application/payments.service.ts:127`) | Treat names in `GATEWAY_SECRETS` as payout: audit metadata `{category: "gateway", gateway}`, owner notice, cooling-off check (§15.3) | Setting/removing a gateway secret creates the notice and audit category; refused during cooling-off; other secrets unaffected |
+| **V0-4** | **High** (platform) | A SUPER_ADMIN can switch `payment.sandbox` on in production; every new gateway session then goes to the sandbox and test payments verify as paid; the switch-back guard exists only in one direction (`payments.service.ts:193`). Audit has no before/after. There is no admin second factor | A phished or careless super admin turns sandbox on → orders are marked paid without money → merchants ship goods | D-19: production refuses `sandbox: true` unless an explicit environment opt-in (staging) is set; audit before/after for settings changes | Config test (production + sandbox refused); settings audit contains before/after |
+| **V0-5** | **Medium** | The merchant notification phone (P5) is editable by MANAGER. If payout alerts used it, a manager could redirect the alert about their own payout change | Manager changes cards and the notification phone together | Payout and account-security notices go **only** to the owner's verified `User.phone` (V1) and the in-app inbox, never to `StoreSmsSetting.merchantPhone` | Notice recipient test: changing `merchantPhone` does not change where payout notices go |
+| **V0-6** | Low | OPERATOR can read full bank-card numbers (`GET bank-cards`, `store.view`) | Minor: numbers are shown to shoppers anyway | Mask to last 4 for non-owners | DTO test per role |
+| **V0-7** | Low | `orders.controllers.ts:270-274` comment says payment settings are "owner and manager", but the permission is `secrets.manage` (owner only) | Misleads future changes | Fix the comment during V0 | — |
+| **CO-1** | **High** | No cooling-off exists; no field records recovery/phone-change time; payout routes take the **store** row lock but not the owner's **user** row (`prisma-transfers.repository.ts:32`, `prisma-secret.repository.ts` `lockStore`). Required: server-side check inside each payout transaction | A request already in flight when the phone change commits could slip through | One helper `assertPayoutChangeAllowed(tx, storeId, actorId)` that reads the owner's `sensitiveLockUntil` with `FOR SHARE` on the user row inside the payout transaction; phone change and recovery take `FOR UPDATE` on the user row; architecture test: every payout mutation calls the helper | Race test (payout change and phone change in parallel: either the change completes before the lock or is refused after); expiry boundary test; catalog/orders unaffected |
+| **SE-1** | Medium | Sessions are stateless tokens bound to `authVersion` (`auth/auth.service.ts:66-75`); a bump kills **every** token including the current one; `change-password` clears the current cookie (`auth/auth.controller.ts:57-67`) and sends no notice | — | D-12 implementation per §15.4; notices for password change, phone change and recovery | Token from before the change → 401; current session behaviour per D-12c; notice created |
+| **SE-2** | **High** (existing, known) | No account recovery at all; no second factor for merchants or super admins | Account loss; super-admin phishing has platform-wide impact (V0-4, D-2a) | V1 + V2; D-20 step-up for admin actions; admin 2FA before public launch (checklist SEC3) | V2 tests; step-up test |
+| **OTP-1** | Info | Shopper OTP is sound: CSPRNG codes (`modules/customers/infrastructure/crypto.ts:16`), HMAC bound to store and phone with an HKDF-derived key, timing-safe compare, 120 s TTL, 5 attempts counted atomically **before** the comparison, compare-and-set consumption, 60 s resend, per-phone / per-IP / platform limits (`modules/customers/domain/otp.ts`, `application/customer-auth.service.ts:57-109`), Iranian mobile normalisation (`normalizeIranMobile`) | — | Reuse these rules for merchants with a **separate table, a separate HKDF label and a purpose in the HMAC** (`account|<userId or phone>|<purpose>|<code>`); merchant requests count against the same per-phone all-stores and platform SMS budgets | Unit tests mirrored for the account codec; a shopper code never verifies a merchant challenge and vice versa |
+| **DOC-1** | Medium (blocks V4) | The envelope scheme (`platform/crypto/envelope.ts`) is suitable in principle (AES-256-GCM, fresh 256-bit data key per record, random 96-bit IV per encryption, AAD binding, key ids, re-wrap rotation) but: the API is **string-only** (`encrypt(keys, context, value: string)`), so binary documents need a bytes variant; rotation covers only `StoreSecret` and `PlatformSecret` (`modules/secrets/infrastructure/rotation.ts`, `modules/platform/infrastructure/rotation.ts`); documents would share the master keys with payment credentials | — | Bytes API with a `document|<verificationId>|<documentId>` context; extend rotation to documents; decide whether documents get their own master-key id (D-21, see §15.6) | Round-trip, tamper (flip a byte → error), context swap → error, rotation re-wraps documents, wrong key → error |
+| **DOC-2** | Low (existing) | Card-to-card receipt images are stored **unencrypted** in `bytea` (`prisma/schema.prisma`, model `TransferReceipt`), so backups contain them in clear; this is a precedent for authorisation and re-encoding, **not** for encryption | Backup leak exposes receipts | Out of scope for V0/V1; consider encrypting receipts when V4's bytes API exists | — |
+
+### 15.3 Cooling-off (D-2, D-2a approved; scope D-2s Recommended)
+
+Triggers: completed self-service recovery (V2), completed manual recovery (V4), phone-number change (V1). Duration 24 h from the trigger.
+
+| Operation | During cooling-off |
+|---|---|
+| Bank cards: add, change, remove (P1) | **Refused** |
+| Gateway credentials: set, remove (P2–P4) | **Refused** |
+| Verified phone change | **Refused** |
+| Password change | Allowed (the legitimate owner must be able to lock out an attacker) |
+| Sign out everywhere | Allowed |
+| Future: ownership transfer, staff role grants with payout rights (none exist) | Refused (when built) |
+| Catalog, pages, publishing, orders, receipt review, discounts, SMS settings | Allowed |
+
+* Enforced in the service layer inside the payout transaction (CO-1), never only in the UI; returns a dedicated error with the end time.
+* Multiple sessions: recovery and phone change bump `authVersion`, so every other session is already signed out; the restriction is on the
+  **account**, so a new session does not escape it.
+* Expiry: compared against the database clock inside the transaction; no job is needed.
+* **Early lift (D-2a):** SUPER_ADMIN only, reason required, immutable platform audit row (actor, user, previous end time, reason) written
+  in the same transaction; also a notice to the merchant. There is no path that clears the lock without that row (architecture test: the
+  only writer of `sensitiveLockUntil` besides the triggers is the audited lift).
+* **Risk inside the approved decision:** a phished SUPER_ADMIN can lift any cooling-off. Without overriding D-2a, recommended safeguards:
+  password re-entry for the lift (D-20), the merchant notice, and a platform alert on every lift.
+
+### 15.4 V1 phone verification and sessions
+
+* **Data:** `User.phone`, `User.phoneVerifiedAt`, partial unique index on verified phones (D-4 pending), `AccountOtpChallenge` (separate
+  from the store-scoped `OtpChallenge`).
+* **Codec:** same rules as OTP-1, separate HKDF label (e.g. `account-otp v1`), HMAC input includes purpose and subject.
+* **Enumeration:** "send code to a new phone" answers the same whether the phone is free or already verified on another account; the
+  conflict is reported only after a correct code (or not at all, depending on D-4).
+* **Phone change (D-12 approved):** requires the current password and an OTP to the new phone; in one transaction: lock the user row,
+  set the new phone, bump `authVersion`, start the cooling-off, write the audit row; then notify the previous phone (dev log in
+  development, real SMS after deployment per ADR 0004). Current session (D-12c recommended): re-issue a fresh token in the same response,
+  so the person who just proved password + new phone is not signed out, while every other token dies. The alternative (clear the cookie,
+  like `change-password` today) is also safe but forces a re-login.
+* **Development delivery:** development-only sender behind a flag refused outside development/test, with a start-up test (D-11). No
+  fixed code, no bypass, no production fallback to logging.
+
+### 15.5 Notifications
+
+| Event | In-app inbox (owner) | SMS to the owner's verified phone | Notes |
+|---|---|---|---|
+| Bank cards added / changed / removed | Yes (V0) | After V1 **and** provider configuration (ADR 0004) | Masked: count, last 4, bank |
+| Gateway credential set / removed | Yes (V0) | as above | Gateway name only |
+| Refused payout attempt (permission or cooling-off) | Yes (V0) | Optional, rate-limited | Prevents silent probing by staff |
+| Phone changed | — | **Previous** phone | Plus audit |
+| Password changed / recovery completed | Yes | Verified phone | Plus audit |
+| Cooling-off lifted by an admin | Yes | Verified phone | Plus platform alert |
+
+Development behaviour: notices are always written to the in-app inbox; SMS notices go through the development log sender only in
+development/test. Before deployment there is **no** fake production delivery: in production without a configured provider the SMS part is
+recorded as "not sent (provider not configured)", never as delivered.
+
+### 15.6 Prerequisites before accepting real identity documents (V4 gate)
+
+1. Bytes envelope API with document context; rotation extended to documents; key-id decision **D-21 (Pending):** separate master-key id
+   for documents (recommended: yes, so payment credentials and identity documents do not share one key).
+2. V3 permissions live (`verification.documents` distinct from `review`); per-view audit implemented and tested.
+3. Upload pipeline: images only, magic bytes, decode + re-encode (the existing `processReceiptImage` in `modules/media`), byte and pixel
+   limits, count limit per request; merchants cannot download stored documents.
+4. Store an HMAC (not a plain SHA-256) of the plaintext for de-duplication, or only a hash of the ciphertext, so equal documents are not
+   recognisable across users without the key.
+5. Retention job (D-9) and documented backup window (14-day `RETENTION_DAYS` in `docs/runbook.md`).
+6. Backup and export exposure: documents are ciphertext in dumps; master keys never in backups (already stated in `docs/security.md`);
+   Prisma Studio is already refused in production (`scripts/db-studio-guard.ts`); any support export excludes the document table.
+7. All §6.4 requirements implemented **and** tested; recorded as the V4 gate.
+
+### 15.7 V0 ∥ V1 parallel development
+
+* **Feasible**, with these shared files (likely merge conflicts): `packages/shared/src/modules/access/permissions.ts` (V0 adds the payout
+  permission), `packages/shared/src/api/contract.ts`, `packages/shared/src/api/schemas.ts`, `docs/api/openapi.json` (both add routes),
+  `prisma/schema.prisma` and migrations (V1 certainly; V0 only if it adds an inbox table), `CHANGELOG.md`.
+* **Migrations:** only one branch at a time may add a migration; names must sort after the latest existing one (ADR 0003 rule); if both
+  need one, V1's goes first and V0 rebases.
+* **Contract between them (defined first, by V0):** `PayoutGuard.assertChangeAllowed(tx, storeId, actorId)` (V0 implements permission +
+  audit; V2 later adds the cooling-off check) and `OwnerNotifier.notify(ownerId, event)` (V0 writes the inbox; V1 later adds the SMS
+  channel to the verified phone).
+* **Sequencing inside V0:** permission change → transactional audit → inbox → refused-attempt audit → (D-19 config refusal).
+  **Inside V1:** move `OtpSender` to the platform SMS layer → account codec + table → verify phone → change phone (D-12) → start-up test
+  for the flag.
+* **Integration tests (required before either is "done", D-15):** payout change notifies the owner's verified phone (dev sender);
+  phone change starts the cooling-off hook and the payout guard refuses during it (once V2's check exists, otherwise the hook point is
+  asserted); MANAGER can neither change payouts nor redirect payout notices.
+
+### 15.8 Blockers before real merchant onboarding
+
+V0-1, V0-2, V0-3, V0-4 (D-19), CO-1 with V2, V1 phone verification, V2 self-service recovery, SE-1 (D-12 behaviour). Real SMS delivery
+of these notices is verified at deployment (ADR 0004).
+
+### 15.9 Safely deferred
+
+V0-6, V0-7, DOC-2, DOC-1 (until V4), admin 2FA (before public launch, checklist SEC3), manual recovery (V4, D-10), business
+verification (V5).
