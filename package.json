@@ -9,7 +9,7 @@
     "build": "pnpm shared:build && pnpm --filter @store-builder/web build",
     "start": "pnpm --filter @store-builder/web start",
     "lint": "pnpm shared:build && pnpm --filter @store-builder/shared lint && pnpm --filter @store-builder/api lint && pnpm --filter @store-builder/web lint",
-    "typecheck": "pnpm shared:build && pnpm --filter @store-builder/shared typecheck && pnpm --filter @store-builder/api typecheck && pnpm --filter @store-builder/web typecheck",
+    "typecheck": "pnpm shared:build && pnpm --filter @store-builder/shared typecheck && pnpm --filter @store-builder/api typecheck && pnpm --filter @store-builder/web typecheck && pnpm --filter @store-builder/e2e typecheck",
     "test": "pnpm shared:build && pnpm --filter @store-builder/shared test && pnpm --filter @store-builder/api test && pnpm --filter @store-builder/web test",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:db",
     "api:dev": "pnpm --filter @store-builder/api dev",
