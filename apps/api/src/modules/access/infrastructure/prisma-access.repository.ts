@@ -72,8 +72,13 @@ export class PrismaAccessRepository implements AccessRepository {
     return rows.map((r) => ({ id: r.id, storeId: r.storeId, storeName: r.store.name, role: r.role as StaffRole, invitedBy: inviters.get(r.invitedById) ?? "", expiresAt: r.expiresAt }));
   }
 
-  async acceptInvitation(id: string, userId: string, now: Date): Promise<{ storeId: string; role: StaffRole } | null> {
+  async acceptInvitation(id: string, userId: string, now: Date): Promise<{ storeId: string; role: StaffRole } | null | "suspended"> {
     return db.$transaction(async (tx) => {
+      // ADR 0003 (review G2): the team of a suspended store does not change; the invitation stays (it can be accepted after a restore).
+      const target = await tx.$queryRaw<{ suspended: boolean }[]>`
+        SELECT (s."suspendedAt" IS NOT NULL) AS "suspended" FROM "StoreInvitation" i JOIN "Store" s ON s."id" = i."storeId"
+        WHERE i."id" = ${id} AND i."invitedUserId" = ${userId} AND i."expiresAt" > ${now} FOR UPDATE OF s`;
+      if (target[0]?.suspended) return "suspended" as const;
       // consume first: two concurrent accepts of the same invitation cannot both succeed
       const rows = await tx.$queryRaw<{ storeId: string; role: StaffRole }[]>`
         DELETE FROM "StoreInvitation" WHERE "id" = ${id} AND "invitedUserId" = ${userId} AND "expiresAt" > ${now}

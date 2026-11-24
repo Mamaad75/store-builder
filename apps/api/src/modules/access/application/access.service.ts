@@ -112,6 +112,7 @@ export class AccessService {
   async acceptInvitation(userId: string, invitationId: unknown): Promise<{ storeId: string }> {
     const got = await this.repo.acceptInvitation(idOrNotFound(invitationId), userId, this.now());
     if (!got) throw new NotFoundError(); // unknown, expired, or addressed to someone else: indistinguishable
+    if (got === "suspended") throw new StoreSuspendedError();
     await this.audit.record({ storeId: got.storeId, actorId: userId, action: "staff.joined", targetType: "user", targetId: userId, metadata: { role: got.role } });
     return { storeId: got.storeId };
   }

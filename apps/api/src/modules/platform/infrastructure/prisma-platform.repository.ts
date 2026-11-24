@@ -2,7 +2,7 @@ import { db } from "../../../lib/db.js";
 import { withDraftLockTimeout } from "../../stores/stores.api.js";
 import type { PlatformRole } from "../domain/platform.js";
 import type { Prisma, StoreStatus } from "@prisma/client";
-import type { SuspendStoreInput, SuspensionReason } from "@store-builder/shared/modules/platform/suspension";
+import type { SuspendStoreInput } from "@store-builder/shared/modules/platform/suspension";
 import type { MerchantSuspensionView, PlatformAdminView, PlatformAudit, PlatformOverview, PlatformRepository, PlatformStoreRow, StoreSuspensionView } from "../application/ports.js";
 
 type Tx = Prisma.TransactionClient;
@@ -82,10 +82,18 @@ export class PrismaPlatformRepository implements PlatformRepository {
     return rows[0] ?? "missing";
   }
 
-  private async audit(tx: Tx, storeId: string, actorId: string, action: "suspended" | "suspension_amended" | "restored", reason: SuspensionReason | null) {
-    await tx.auditEvent.create({ data: { storeId: null, actorId, action: `platform.store_${action}`, targetType: "store", targetId: storeId, metadata: reason ? { reason } : undefined } });
-    // The store's own log (visible to owner and managers): what happened and the reason code; never the internal note.
-    await tx.auditEvent.create({ data: { storeId, actorId, action: `store.${action}`, targetType: "store", targetId: storeId, metadata: reason ? { reason, byPlatform: true } : { byPlatform: true } } });
+  /**
+   * Two rows: the platform's (storeId null; admins only) with the actor and the facts, and the store's own (visible to owner and managers)
+   * that says only WHAT happened (review G2): no reason code, no operator identity, never a note.
+   */
+  private async audit(tx: Tx, storeId: string, actorId: string, action: "suspended" | "suspension_amended" | "restored", platformFacts?: Prisma.InputJsonObject) {
+    await tx.auditEvent.create({ data: { storeId: null, actorId, action: `platform.store_${action}`, targetType: "store", targetId: storeId, metadata: platformFacts } });
+    await tx.auditEvent.create({ data: { storeId, actorId: null, action: `store.${action}`, targetType: "store", targetId: storeId, metadata: { byPlatform: true } } });
+  }
+
+  /** The database clock for every suspension timestamp (review G2: app clocks may be skewed; the CHECK compares them). */
+  private async dbNow(tx: Tx): Promise<Date> {
+    return (await tx.$queryRaw<{ now: Date }[]>`SELECT now() AS "now"`)[0]!.now;
   }
 
   suspend(storeId: string, input: SuspendStoreInput, actorId: string): Promise<"ok" | "missing" | "already_suspended" | "forbidden"> {
@@ -94,10 +102,12 @@ export class PrismaPlatformRepository implements PlatformRepository {
       const s = await this.locked(tx, storeId, actorId);
       if (typeof s === "string") return s;
       if (s.suspendedAt) return "already_suspended";
-      const at = new Date();
-      await tx.storeSuspension.create({ data: { storeId, reason: input.reason, publicMessage: input.publicMessage, internalNote: input.internalNote, merchantStatusAtStart: s.status, suspendedById: actorId, suspendedAt: at } });
+      // An open history row without Store.suspendedAt (manual SQL gone wrong) is a conflict, not a crash on the unique index.
+      if (await tx.storeSuspension.count({ where: { storeId, liftedAt: null } })) return "already_suspended";
+      const at = await this.dbNow(tx);
+      await tx.storeSuspension.create({ data: { storeId, reason: input.reason, publicMessage: input.publicMessage, internalNote: input.internalNote ?? "", merchantStatusAtStart: s.status, suspendedById: actorId, suspendedAt: at } });
       await tx.store.update({ where: { id: storeId }, data: { suspendedAt: at } });
-      await this.audit(tx, storeId, actorId, "suspended", input.reason);
+      await this.audit(tx, storeId, actorId, "suspended", { reason: input.reason, merchantStatusAtStart: s.status });
       return "ok";
     });
   }
@@ -107,9 +117,13 @@ export class PrismaPlatformRepository implements PlatformRepository {
     return withDraftLockTimeout(db, async (tx) => {
       const s = await this.locked(tx, storeId, actorId);
       if (typeof s === "string") return s;
-      const n = await tx.storeSuspension.updateMany({ where: { storeId, liftedAt: null }, data: { reason: input.reason, publicMessage: input.publicMessage, internalNote: input.internalNote } });
-      if (!s.suspendedAt || n.count !== 1) return "not_suspended";
-      await this.audit(tx, storeId, actorId, "suspension_amended", input.reason);
+      if (!s.suspendedAt) return "not_suspended";
+      const open = await tx.storeSuspension.findFirst({ where: { storeId, liftedAt: null }, select: { id: true, reason: true, publicMessage: true, internalNote: true } });
+      if (!open) return "not_suspended";
+      // Review G2: an amendment never erases evidence. The previous values go into the PLATFORM audit row (admins only); an omitted
+      // internal note keeps the old one.
+      await tx.storeSuspension.update({ where: { id: open.id }, data: { reason: input.reason, publicMessage: input.publicMessage, ...(input.internalNote !== undefined ? { internalNote: input.internalNote } : {}) } });
+      await this.audit(tx, storeId, actorId, "suspension_amended", { reason: input.reason, previous: { reason: open.reason, publicMessage: open.publicMessage, internalNote: open.internalNote } });
       return "ok";
     });
   }
@@ -120,10 +134,11 @@ export class PrismaPlatformRepository implements PlatformRepository {
       const s = await this.locked(tx, storeId, actorId);
       if (typeof s === "string") return s;
       if (!s.suspendedAt) return "not_suspended";
-      await tx.storeSuspension.updateMany({ where: { storeId, liftedAt: null }, data: { liftedAt: new Date(), liftedById: actorId, liftNote: note } });
+      // GREATEST: a lift is never before its start, whatever wrote the start (CHECK StoreSuspension_shape).
+      await tx.$executeRaw`UPDATE "StoreSuspension" SET "liftedAt" = GREATEST(now(), "suspendedAt"), "liftedById" = ${actorId}, "liftNote" = ${note} WHERE "storeId" = ${storeId} AND "liftedAt" IS NULL`;
       // Only the platform condition is cleared: the merchant's status and (later) billing stay exactly as they are (ADR 0003 §0.2).
       await tx.store.update({ where: { id: storeId }, data: { suspendedAt: null } });
-      await this.audit(tx, storeId, actorId, "restored", null);
+      await this.audit(tx, storeId, actorId, "restored");
       return "ok";
     });
   }
@@ -137,8 +152,11 @@ export class PrismaPlatformRepository implements PlatformRepository {
     });
   }
 
+  /** Review G2: "suspended" comes from Store.suspendedAt, the same field every gate reads; the message from the open history row. */
   async merchantSuspension(storeId: string): Promise<MerchantSuspensionView> {
-    const open = await db.storeSuspension.findFirst({ where: { storeId, liftedAt: null }, select: { publicMessage: true, suspendedAt: true } });
-    return open ? { suspended: true, publicMessage: open.publicMessage, since: open.suspendedAt } : { suspended: false, publicMessage: null, since: null };
+    const s = await db.store.findUnique({ where: { id: storeId }, select: { suspendedAt: true } });
+    if (!s?.suspendedAt) return { suspended: false, publicMessage: null, since: null };
+    const open = await db.storeSuspension.findFirst({ where: { storeId, liftedAt: null }, select: { publicMessage: true } });
+    return { suspended: true, publicMessage: open?.publicMessage ?? null, since: s.suspendedAt };
   }
 }

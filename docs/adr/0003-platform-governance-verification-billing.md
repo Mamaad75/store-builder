@@ -63,6 +63,25 @@ later capability; nothing in G1/G2 may assume suspension hides stored assets.
   stores/:storeId/suspension`; audit rows on both sides; `/platform/stores` UI and the dashboard banner. The emergency path is a documented
   SQL procedure (docs/runbook.md), not a CLI.
 
+**Independent review of G1/G2 (2026-11-24): no bypass of the gates found.** Fixed with tests:
+* the store's own audit rows no longer carry the reason code or the operator (actor null, `{ byPlatform: true }` only); the platform's rows
+  keep both;
+* amending never erases evidence: the previous reason, message and note go into the platform audit row, and an omitted note keeps the
+  current one;
+* accepting an invitation to a suspended store is refused (`STORE_SUSPENDED`), the invitation stays valid for after a restore;
+* suspension timestamps come from the database clock (`now()`, `GREATEST` on restore); an orphan open history row answers 409; the
+  merchant banner reads `Store.suspendedAt`, the same field as every gate;
+* no order SMS while a store is suspended (they carry the merchant-controlled store name);
+* a busy store row (publish in progress) gives the admin a "retry" message.
+
+**Accepted (documented, not fixed):**
+* customers who only have SMS-code accounts cannot sign in on an offline store (codes cost SMS and must not reveal which phones have
+  accounts); their order links and existing sessions keep working;
+* order pages render the neutral frame with status 200 for any label (the API answers 404 for unknown orders; nothing store-specific
+  leaks); existing offline stores answer 400/401 on customer sign-in where unknown labels answer 404 (subdomain existence is public anyway);
+* the prepaid check lives in the order controllers (every current caller), not inside the payment services;
+* a write already past the access check when a suspension lands still commits (it can never make the store live).
+
 ### 0.5 Scope of the approved phase
 G1: order access when a store is offline. G2: platform suspension with audit history, authorization and tenant-isolation tests.
 Not in scope: billing, verification, account restriction, admin deletion, content takedown, emergency CLI (manual SQL procedure documented

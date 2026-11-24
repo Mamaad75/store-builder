@@ -11,8 +11,13 @@ const prismaCode = (e: unknown) => (typeof e === "object" && e !== null ? (e as 
 
 export class PrismaSmsStore implements SmsStore {
   async choice(storeId: string): Promise<StoreSmsChoice> {
-    const r = await db.storeSmsSetting.findUnique({ where: { storeId }, select: { enabled: true, merchantPhone: true } });
-    return r ?? { enabled: true, merchantPhone: null };
+    const [r, store] = await Promise.all([
+      db.storeSmsSetting.findUnique({ where: { storeId }, select: { enabled: true, merchantPhone: true } }),
+      db.store.findUnique({ where: { id: storeId }, select: { suspendedAt: true } }),
+    ]);
+    const c = r ?? { enabled: true, merchantPhone: null };
+    // ADR 0003 (review G2): no order SMS (they carry the merchant-controlled store name) while the platform suspends the store.
+    return store?.suspendedAt ? { ...c, enabled: false } : c;
   }
 
   async saveChoice(storeId: string, c: StoreSmsChoice): Promise<StoreSmsChoice> {

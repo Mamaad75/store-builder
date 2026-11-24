@@ -37,7 +37,8 @@ export const suspendStoreSchema = z
     /** Shown to the store's owner and staff (never to shoppers). */
     publicMessage: text(300, "پیام قابل نمایش به فروشنده را بنویسید"),
     /** Platform admins only. */
-    internalNote: text(2000, null).optional().default(""),
+    /** Omitted on amend = keep the current note; omitted on suspend = empty. */
+    internalNote: text(2000, null).optional(),
   })
   .strict();
 export type SuspendStoreInput = z.infer<typeof suspendStoreSchema>;

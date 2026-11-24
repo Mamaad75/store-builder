@@ -198,6 +198,10 @@ describe("platform suspension (ADR 0003, G2)", () => {
     expect(audit.status).toBe(200);
     expect(audit.text).toContain("store.suspended");
     expect(audit.text).not.toContain("internal-note");
+    // review G2: the store's log says what happened, not why or who on the platform's side
+    expect(audit.text).not.toContain("FRAUD");
+    const ops = await prisma.platformAdmin.findMany({ include: { user: true } });
+    for (const o of ops) expect(audit.text).not.toContain(o.user.username);
   });
 
   it("the three conditions never overwrite one another (publishing, suspension; restore publishes nothing)", async () => {
@@ -219,7 +223,7 @@ describe("platform suspension (ADR 0003, G2)", () => {
     expect(await storefront("tea")).toBe(404);
     expect((await restore(admin, t.storeId)).status).toBe(204);
     expect(await storefront("tea")).toBe(200);
-    expect((await call(t.merchant, "PATCH", `/stores/${t.storeId}`, { name: "تازه" })).status).not.toBe(403);
+    expect((await call(t.merchant, "POST", `/stores/${t.storeId}/categories`, { name: "تازه" })).status).toBe(201); // writes allowed again
   });
 
   it("history and audit: actor, time, reason, previous merchant status; amend; restore; conflicts; internal note stays platform-only", async () => {
@@ -231,7 +235,10 @@ describe("platform suspension (ADR 0003, G2)", () => {
     expect((await suspend(admin, s.storeId)).status).toBe(204);
     const again = await suspend(admin, s.storeId);
     expect([again.status, again.json.payload.reason]).toEqual([409, "already_suspended"]);
-    expect((await call(admin.cookie, "POST", `/platform/stores/${s.storeId}/suspension/amend`, { reason: "LEGAL_ORDER", publicMessage: "به دستور مرجع قانونی معلق است.", internalNote: SECRET_NOTE })).status).toBe(204);
+    // an amendment without an internal note keeps the note; the previous values stay in the platform's own audit row
+    expect((await call(admin.cookie, "POST", `/platform/stores/${s.storeId}/suspension/amend`, { reason: "LEGAL_ORDER", publicMessage: "به دستور مرجع قانونی معلق است." })).status).toBe(204);
+    const amended = await prisma.auditEvent.findFirstOrThrow({ where: { action: "platform.store_suspension_amended" } });
+    expect(amended.metadata).toMatchObject({ reason: "LEGAL_ORDER", previous: { reason: "FRAUD", internalNote: SECRET_NOTE } });
     expect((await restore(admin, s.storeId)).status).toBe(204);
     expect((await suspend(admin, s.storeId, "second")).status).toBe(204);
 
@@ -243,13 +250,15 @@ describe("platform suspension (ADR 0003, G2)", () => {
     expect((await prisma.store.findUniqueOrThrow({ where: { id: s.storeId } })).suspendedAt).not.toBeNull();
 
     const events = await prisma.auditEvent.findMany({ where: { targetId: s.storeId, action: { contains: "suspen" } }, orderBy: { createdAt: "asc" } });
+    // platform rows carry the actor; the store's rows carry neither the actor nor the reason
     expect(events.map((e) => [e.storeId === null ? "platform" : "store", e.action, e.actorId])).toEqual([
-      ["platform", "platform.store_suspended", admin.id], ["store", "store.suspended", admin.id],
-      ["platform", "platform.store_suspension_amended", admin.id], ["store", "store.suspension_amended", admin.id],
-      ["platform", "platform.store_suspended", admin.id], ["store", "store.suspended", admin.id],
+      ["platform", "platform.store_suspended", admin.id], ["store", "store.suspended", null],
+      ["platform", "platform.store_suspension_amended", admin.id], ["store", "store.suspension_amended", null],
+      ["platform", "platform.store_suspended", admin.id], ["store", "store.suspended", null],
     ]);
     expect(await prisma.auditEvent.count({ where: { action: { in: ["platform.store_restored", "store.restored"] } } })).toBe(2);
-    expect(JSON.stringify(await prisma.auditEvent.findMany())).not.toContain("internal-note"); // notes live only in StoreSuspension
+    const storeRows = await prisma.auditEvent.findMany({ where: { storeId: s.storeId } });
+    expect(JSON.stringify(storeRows)).not.toMatch(/internal-note|FRAUD|LEGAL_ORDER/); // notes and reasons never reach the store's log
     // the database refuses a second open suspension even outside the service
     await expect(prisma.storeSuspension.create({ data: { storeId: s.storeId, reason: "OTHER", publicMessage: "x", internalNote: "", merchantStatusAtStart: "PUBLISHED" } })).rejects.toThrow();
   });
@@ -272,7 +281,7 @@ describe("platform suspension (ADR 0003, G2)", () => {
 
     // suspending one store never touches the owner's other store
     expect(await storefront("tea")).toBe(200);
-    expect((await call(owner && b.merchant, "PATCH", `/stores/${b.storeId}`, { name: "دیگر" })).status).not.toBe(403);
+    expect((await call(b.merchant, "POST", `/stores/${b.storeId}/categories`, { name: "دیگر" })).status).toBe(201);
     expect((await call(b.merchant, "GET", `/stores/${b.storeId}/suspension`)).json.suspended).toBe(false);
     // another merchant cannot read this store's suspension (no existence leak)
     expect((await call(stranger.merchant, "GET", `/stores/${a.storeId}/suspension`)).status).toBe(404);
@@ -289,5 +298,48 @@ describe("platform suspension (ADR 0003, G2)", () => {
     expect(await prisma.storeSuspension.count({ where: { storeId: s.storeId, liftedAt: null } })).toBe(1);
     const open = await prisma.storeSuspension.findFirstOrThrow({ where: { liftedAt: null } });
     expect((await prisma.store.findUniqueOrThrow({ where: { id: s.storeId } })).suspendedAt?.getTime()).toBe(open.suspendedAt.getTime());
+  });
+
+  it("staff roles while suspended: managers manage orders, operators are refused, invitations cannot be accepted until restored", async () => {
+    const s = await liveStore("shop");
+    const admin = await superAdmin();
+    const cod = await order(s, "COD");
+    const [manager, operator, invitee] = [await makeUser(), await makeUser(), await makeUser()];
+    await prisma.storeMember.createMany({ data: [{ storeId: s.storeId, userId: manager.id, role: "MANAGER" }, { storeId: s.storeId, userId: operator.id, role: "OPERATOR" }] });
+    const inv = await call(s.merchant, "POST", `/stores/${s.storeId}/team/invitations`, { username: invitee.username, role: "OPERATOR" });
+    expect(inv.status).toBe(201);
+    expect((await suspend(admin, s.storeId)).status).toBe(204);
+
+    const m = await sessionOf(manager.id);
+    expect((await call(m, "GET", `/stores/${s.storeId}/orders`)).status).toBe(200);
+    expect((await call(m, "POST", `/stores/${s.storeId}/orders/${cod.placed.order.id}/status`, { to: "CONFIRMED", note: "" })).status).toBe(200);
+    expect((await call(m, "POST", `/stores/${s.storeId}/publish`, {})).json.payload.code).toBe("STORE_SUSPENDED");
+    const o = await sessionOf(operator.id);
+    expect((await call(o, "GET", `/stores/${s.storeId}/categories`)).status).toBe(200);
+    expect((await call(o, "POST", `/stores/${s.storeId}/categories`, { name: "دسته" })).json.payload.code).toBe("STORE_SUSPENDED");
+    expect((await call(o, "POST", `/stores/${s.storeId}/publish`, {})).json.errorName).toBe("PermissionDeniedError"); // the role check comes first
+    expect((await call(o, "GET", `/stores/${s.storeId}/orders`)).status).toBe(403);
+
+    const i = await sessionOf(invitee.id);
+    const id = inv.json.id as string;
+    const refused = await call(i, "POST", `/me/invitations/${id}/accept`);
+    expect([refused.status, refused.json.payload.code]).toEqual([403, "STORE_SUSPENDED"]);
+    expect(await prisma.storeMember.count({ where: { storeId: s.storeId, userId: invitee.id } })).toBe(0);
+    expect((await restore(admin, s.storeId)).status).toBe(204);
+    expect((await call(i, "POST", `/me/invitations/${id}/accept`)).status).toBeLessThan(300); // still valid after the restore
+  });
+
+  it("restore uses the database clock: a suspension written by hand (runbook) can be lifted at once", async () => {
+    const s = await liveStore("shop");
+    const admin = await superAdmin();
+    await prisma.$executeRaw`INSERT INTO "StoreSuspension" ("id","storeId","reason","publicMessage","internalNote","merchantStatusAtStart","suspendedAt") VALUES ('manual-1', ${s.storeId}, 'SECURITY_INCIDENT', 'معلق', '', 'PUBLISHED', now() + interval '2 seconds')`;
+    await prisma.$executeRaw`UPDATE "Store" SET "suspendedAt" = now() WHERE "id" = ${s.storeId}`;
+    expect((await restore(admin, s.storeId)).status).toBe(204);
+    const row = await prisma.storeSuspension.findUniqueOrThrow({ where: { id: "manual-1" } });
+    expect(row.liftedAt!.getTime()).toBeGreaterThanOrEqual(row.suspendedAt.getTime());
+    // an orphan open row without Store.suspendedAt answers 409, not 500
+    await prisma.$executeRaw`INSERT INTO "StoreSuspension" ("id","storeId","reason","publicMessage","internalNote","merchantStatusAtStart") VALUES ('manual-2', ${s.storeId}, 'OTHER', 'x', '', 'PUBLISHED')`;
+    expect((await suspend(admin, s.storeId)).status).toBe(409);
+    expect((await call(s.merchant, "GET", `/stores/${s.storeId}/suspension`)).json.suspended).toBe(false); // the banner follows the gate
   });
 });

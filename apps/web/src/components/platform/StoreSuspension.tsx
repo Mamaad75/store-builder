@@ -15,7 +15,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { SUSPENSION_REASONS, SUSPENSION_REASON_LABELS, type SuspensionReason } from "@store-builder/shared/modules/platform/suspension";
 import { StoreSuspensionConflictError } from "@store-builder/shared/modules/platform/errors";
-import { ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { DraftBusyError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { getSuspensions, restoreStore, suspendStore, type SuspensionRow } from "@/client/platform-api";
 import { transportState } from "@/client/guard";
 
@@ -24,6 +24,8 @@ const errorText = (e: unknown): { error: string; fields?: Record<string, string[
   if (t?.error) return { error: t.error };
   if (e instanceof ValidationError) return { error: "مقدارها را بررسی کنید.", fields: e.fieldErrors };
   if (e instanceof StoreSuspensionConflictError) return { error: e.message + " صفحه را تازه کنید." };
+  // Review G2: the store row is held by a merchant change or a publish right now; nothing was changed.
+  if (e instanceof DraftBusyError) return { error: "فروشگاه همین حالا در حال ذخیره یا انتشار است؛ چند ثانیه بعد دوباره امتحان کنید." };
   return { error: "انجام نشد. دوباره امتحان کنید." };
 };
 const date = (iso: string) => new Date(iso).toLocaleString("fa-IR");

@@ -55,7 +55,7 @@ export interface AccessRepository {
   createInvitation(i: { storeId: string; invitedUserId: string; role: StaffRole; invitedById: string; expiresAt: Date }, now: Date): Promise<{ id: string }>;
   myInvitations(userId: string, now: Date): Promise<MyInvitationView[]>;
   /** Atomically consumes an unexpired invitation addressed to `userId` and creates the membership. null = no such invitation. */
-  acceptInvitation(id: string, userId: string, now: Date): Promise<{ storeId: string; role: StaffRole } | null>;
+  acceptInvitation(id: string, userId: string, now: Date): Promise<{ storeId: string; role: StaffRole } | null | "suspended">;
   /** Deletes an invitation addressed to `userId` (decline). Returns its store, or null. */
   declineInvitation(id: string, userId: string): Promise<{ storeId: string } | null>;
   cancelInvitation(storeId: string, id: string): Promise<boolean>;
