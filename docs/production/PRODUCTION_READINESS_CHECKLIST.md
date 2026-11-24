@@ -297,6 +297,11 @@ number, bank account (Sheba) in the holder's name, domain ownership proof, site 
 
 ## S. SMS (Kavenegar)
 
+> **ADR 0004 (owner decision 2026-11-24):** the Kavenegar account, line, templates and key are set up **only in the final deployment
+> phase**, on the production server. Until then development and UI testing use the development-only senders (`CUSTOMER_OTP_DEV_LOG`,
+> `ORDER_SMS_DEV_LOG`, refused outside development/test); none of S1–S8 blocks development. Production never accepts fixed or
+> development codes.
+
 | ID | Task | Why | Needs | Blocks | When | Status | Done when |
 |---|---|---|---|---|---|---|---|
 | S1 | Create and verify the platform's Kavenegar account | One platform account sends OTP and order SMS (D31-2, D36-1) | Identity (L1), phone, documents **[CONFIRM Kavenegar's verification list]** | OTP + order SMS (gated) | Early (A7) | Not started | Account verified; 2FA on |

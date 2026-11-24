@@ -128,3 +128,13 @@ describe("secrets master keys (phase 2.4, D24-1)", () => {
     }
   });
 });
+
+describe("ADR 0004: development OTP delivery never reaches production", () => {
+  it("CUSTOMER_OTP_DEV_LOG is refused unless NODE_ENV is development or test (an unset NODE_ENV counts as production)", () => {
+    expect(() => loadConfig({ ...prod, CUSTOMER_OTP_DEV_LOG: "true" })).toThrow(EnvError);
+    expect(() => loadConfig({ ...prod, NODE_ENV: undefined, CUSTOMER_OTP_DEV_LOG: "true" })).toThrow(EnvError);
+    expect(() => loadConfig({ ...prod, NODE_ENV: "staging", CUSTOMER_OTP_DEV_LOG: "true" })).toThrow(EnvError);
+    expect(loadConfig(prod).customerOtpDevLog).toBe(false);
+    expect(loadConfig({ NODE_ENV: "development", DATABASE_URL: prod.DATABASE_URL, CUSTOMER_OTP_DEV_LOG: "true" }).customerOtpDevLog).toBe(true);
+  });
+});
