@@ -1,6 +1,6 @@
 # Production readiness and external dependencies checklist
 
-> **Status of this document:** living checklist, created 2026-11-24. Nothing here has been bought, created, registered or deployed.
+> **Status of this document:** living checklist, created 2026-11-24, reviewed against the code the same day (§R). Nothing here has been bought, created, registered or deployed.
 > Product development continues **without** waiting for any item below; every external service sits behind an interface with a
 > development/mock implementation (see §1).
 >
@@ -37,24 +37,27 @@ Each task has: **Why** · **Needs** (information/documents) · **Provider** · *
 | Service / dependency | Implemented in code? | Where | Credentials / config | Default |
 |---|---|---|---|---|
 | PostgreSQL 16 | Yes (only datastore of record) | Prisma, `apps/api/prisma` | `DATABASE_URL`, `POSTGRES_*` | — |
-| Redis | Yes (BullMQ job queue / worker) | `apps/api/src/config/env.ts`, worker | `REDIS_URL` (password in URL) | — |
+| Valkey (Redis-compatible) | Yes: BullMQ queue for the outbox relay, event handlers and scheduled maintenance jobs; self-hosted container, AOF on, `noeviction` (`docs/async.md`) | `docker-compose.prod.yml`, `apps/api/src/worker` | `REDIS_URL`, `VALKEY_PASSWORD` | — |
+| Rate limiting | Yes, in PostgreSQL (`RateLimitBucket`, one upsert per limited request) | `apps/api/src/lib/rate-limit.ts` | `RATE_LIMIT_BACKEND=postgres` | — |
 | S3-compatible object storage | Yes (product/store images) | `apps/api/src/lib/storage`, `docs/media.md` | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, `S3_PUBLIC_BASE_URL` | — |
 | Caddy reverse proxy + TLS (ACME DNS-01 wildcard) | Yes (config + Dockerfile) | `docker/caddy/`, `docker-compose.prod.yml` | `CADDY_DNS_MODULE`, `DNS_API_TOKEN`, `CADDY_TLS_DIR` | TLS snippet per DNS provider still to generate (phase14 K2) |
-| Domain + DNS (root, `www`, `*` wildcard) | Platform subdomains: yes. **Custom merchant domains: not implemented** (only a `CUSTOM` value in the `DomainKind` enum) | `apps/web/src/lib/host-policy.ts` | `APP_ROOT_DOMAIN`, `APP_PROTOCOL` | — |
+| Domain + DNS (root, `www`, `*` wildcard) | Platform subdomains: yes. **Custom merchant domains: data model only** (`Domain` rows with `kind CUSTOM`, `host`, `verifiedAt` exist; nothing creates or verifies them, the host policy accepts only the root domain and its subdomains, and Caddy serves only `{root}, www.{root}, *.{root}`) | `apps/web/src/lib/host-policy.ts`, `docker/caddy/Caddyfile` | `APP_ROOT_DOMAIN`, `APP_PROTOCOL` | — |
 | Kavenegar SMS | Yes: customer OTP (`verify/lookup`) and order SMS (templates) | `apps/api/src/platform/sms`, `modules/notifications` | Platform secret (Kavenegar API key) + template names in `/platform` | **Off** |
 | Zarinpal (REST v4) | Yes: per-store merchant id, verify, inquiry, reconciler; refund via `reverse` **not** implemented | `modules/orders/infrastructure/zarinpal.ts` | Store secret `payment.zarinpal.merchant_id`; platform switch + sandbox flag | **Off**, sandbox on |
 | Aghaye Pardakht | Yes: per-store gateway pin; no automatic refund | `modules/orders/infrastructure` | Store secret (gateway pin); platform switch | **Off** |
 | Card-to-card | Yes (no external provider; receipts stored in PostgreSQL) | `modules/orders` | — | Per store |
 | Navasan (gold/USD rates) | Yes: hourly reader, jump/stale guard; documented API is plain HTTP | `modules/pricing/infrastructure/navasan.ts` | Platform secret `rates.navasan.api_key` | **Off** (`provider: off`) |
 | Bale bot (ops alerts) | Yes | `apps/api/src/lib/alert.ts` | `BALE_BOT_TOKEN`, `BALE_CHAT_ID`, optional `BALE_API_BASE` | Off when unset |
-| Error tracking (Sentry protocol, GlitchTip planned) | Yes (reporter); server not installed by this repo | `packages/shared/src/observability` | `ERROR_TRACKING_DSN`, `ERROR_TRACKING_ENVIRONMENT` | Off when unset |
-| Prometheus metrics | Yes (separate port) | `docs/observability.md` | `METRICS_PORT`, `METRICS_HOST` | — |
+| Error tracking (Sentry protocol, GlitchTip planned) | **Partial:** reporter in API, worker and web; no server installed by this repo | `packages/shared/src/observability` | `ERROR_TRACKING_DSN`, `ERROR_TRACKING_ENVIRONMENT` | Off when unset |
+| Prometheus metrics | **Partial:** `/metrics` on a separate port in API and worker; Prometheus only in the optional `docker-compose.observability.yml`; no dashboards, no metric-based alert rules | `docs/observability.md` | `METRICS_PORT`, `METRICS_HOST` | — |
+| Container logs | **Partial:** JSON logs, Docker `json-file` rotation (20 MB × 5 per container); no central log store, no retention policy beyond rotation | `docker-compose.prod.yml` | — | — |
 | SMTP email | Transport implemented (`smtp.ts`), **no user-facing flow currently sends email** (sign-in is by username since ADR 0001 U1; password reset by email is not wired) | `apps/web/src/modules/auth` | `MAIL_TRANSPORT`, `SMTP_*`, `MAIL_FROM` | `none` |
 | AI provider | **Settings only**; nothing calls a model | `packages/shared/src/modules/platform/settings.ts` | Platform secret (AI key) | **Off** |
 | Torob (Product API v3, webhook, Shop Generator, Shop API) | **Not implemented** | — | — | — |
 | Emalls feed | **Not implemented**; no documentation obtained | — | — | — |
 | eNamad / Samandehi badges | **Not implemented** (no badge slot in footer/themes) | — | — | — |
-| Merchant subscription billing | **Not implemented** (a platform-own Zarinpal merchant id secret exists for it) | — | — | — |
+| Merchant subscription billing / plans | **Missing.** No plan, subscription or invoice model. Limits are global constants, not per plan: 10 stores per user, 500 products and 100 MB media per store, 200 discount codes per store. A platform-own Zarinpal merchant id secret slot exists, unused | `packages/shared/src/modules/*/schemas.ts` | — | — |
+| Merchant identity / verification | **Missing.** Open self-registration with username + password; merchants have no phone, email or identity on record; no 2FA for merchants or platform admins | `apps/web/src/app/(auth)/register` | — | — |
 | Container registry / base images | Docker Hub returned 403 from an Iranian network (2026-11-18); `ghcr.io` reachable | `docs/phase14-checklist.md` §2.1 | — | — |
 
 ---
@@ -395,6 +398,129 @@ number, bank account (Sheba) in the holder's name, domain ownership proof, site 
 | O7 | AI provider | Settings only; nothing calls a model | — | TBD | No | When an AI feature is built | Not started | — |
 | O8 | Custom domains for merchants | **Not implemented**; needs on-demand TLS (Caddy `on_demand` with an `ask` endpoint), DNS verification (TXT/CNAME), abuse limits | Design + Caddy config | — | No | Product roadmap (phase 5) | Not started | Design approved; verified domain gets a certificate |
 | O9 | Git hosting fallback | International outage | Domestic mirror (phase14 T1) | TBD | No | B10 | Not started | Mirror updated by CI or manually documented |
+
+---
+
+## K. Multi-tenant custom domains (missing; product + infrastructure)
+
+Today every store is `<label>.<root>`; one wildcard certificate covers all of them. A merchant's own domain changes TLS, routing, cookies,
+payments and feeds, so it needs a design decision before code.
+
+| ID | Task | Why | Needs | Blocks | When | Status | Done when |
+|---|---|---|---|---|---|---|---|
+| K1 | Decide whether custom domains are in the launch scope | Merchants with eNamad / their own gateway terminal usually need their own domain **[CONFIRM L4, P1]** | Owner decision | First merchants who need it | Before merchant onboarding | Not started | Decision recorded |
+| K2 | Domain verification design | Prevent claiming someone else's domain | TXT record with a per-store token (or CNAME to `<label>.<root>`), re-check schedule, removal when the record disappears | — | Design phase | Not started | Design approved (ADR) |
+| K3 | Certificates for arbitrary hosts | Wildcard DNS-01 cannot cover foreign domains | Caddy `on_demand_tls` with an `ask` endpoint that answers yes only for verified `Domain` rows; rate limit; HTTP-01/TLS-ALPN-01 reachable on 80/443; Let's Encrypt rate limits (per registered domain, per account) | — | Design phase | Not started | A verified test domain gets a certificate; an unverified one gets none |
+| K4 | Host routing and security | Host policy, CSRF/origin checks, cookies, CSP, canonical/sitemap, `sb_pay` return cookie | List of every place that assumes `*.root` (`host-policy.ts`, `origin.guard.ts`, proxy, SEO) | — | Design phase | Not started | Tests cover a custom host end to end |
+| K5 | Provider side effects | Zarinpal/AP callback domain, Torob `shop_domain`, Emalls, eNamad all key on the domain | Answers from P1, T Q4, M3, L4 | — | With K2 | Not started | Each provider's rule recorded |
+| K6 | DNS instructions and support load | Merchants must set records themselves | Persian help page, status display in dashboard | — | Before release of K | Not started | Help page published |
+
+## BL. Subscription billing and plan enforcement (missing; product decision first)
+
+| ID | Task | Why | Needs | Blocks | When | Status | Done when |
+|---|---|---|---|---|---|---|---|
+| BL1 | Pricing and plans (free/trial/paid; what each includes) | Revenue; "300 paying stores" needs it | Owner decision: prices, limits per plan (products, media, staff, SMS cap, gateways, custom domain), trial length | Paid stores | Before first paying merchant | Not started | Plan table approved |
+| BL2 | Plan model and enforcement in code | Today limits are global constants | Design: `Plan`, `Subscription` (status, period, grace), per-plan limits read where constants are used today | Paid stores | After BL1 | Not started | Limits come from the plan; tests for downgrade/over-limit |
+| BL3 | Payment of subscriptions | Platform's own terminal | P4, L1–L3 | Paid stores | After BL1 | Blocked (L1) | A subscription paid in sandbox, then live |
+| BL4 | Invoices and tax | Merchants (businesses) may need official invoices **[CONFIRM L2, and whether the tax authority's e-invoice system (سامانه مودیان) applies]** | Accountant | Paid stores | Before charging | Not started | Invoice format and obligation confirmed |
+| BL5 | Non-payment policy | What happens to the storefront and data when a subscription lapses | Owner decision: grace days, read-only dashboard, storefront off, data retention | Paid stores | With BL1 | Not started | Policy in terms (C3) and in code |
+| BL6 | Refunds / cancellation of subscriptions | Consumer and contract rules | Lawyer | Paid stores | With C3 | Not started | Policy published |
+
+## MO. Merchant onboarding, verification and abuse
+
+| ID | Task | Why | Needs | Blocks | When | Status | Done when |
+|---|---|---|---|---|---|---|---|
+| MO1 | Decide the merchant verification level | Today anyone can register and publish a store on our domain; fraudulent stores harm shoppers and the platform's domain reputation and provider relations | Owner + lawyer decision: none / verified mobile / national ID; what is required before publishing, taking online payment or card-to-card | First real merchant | Before onboarding | Not started | Policy recorded |
+| MO2 | Verified merchant contact | No merchant phone or email on record today (the merchant SMS phone is a per-store setting) | Design: verified mobile on the user account | Support, billing | Before onboarding | Not started | Every merchant has a verified contact |
+| MO3 | Abuse and takedown process | Phishing/scam stores, counterfeit goods, illegal products **[CONFIRM legal obligations]** | Report channel, who decides, evidence retention, and a **platform-level store suspension** (missing today: `StoreStatus` has only DRAFT / PUBLISHED / UNPUBLISHED, set by the merchant; platform admins have no suspend action) | Public launch | Before D | Not started | Procedure documented and rehearsed |
+| MO4 | Prohibited goods / acceptable use policy | Part of terms; providers may require it | Lawyer | Public launch | With C3 | Not started | Published |
+| MO5 | Onboarding guide | Merchants must set up gateway terminal, card-to-card cards, shipping, SMS | Persian help pages | First merchant | Before onboarding | Not started | Guide reviewed with one pilot merchant |
+
+## SEC. Security, secrets and production access
+
+| ID | Task | Why | Needs | Blocks | When | Status | Done when |
+|---|---|---|---|---|---|---|---|
+| SEC1 | Production access list | Who can SSH, who holds provider logins and master keys | Named people, one key per person, no shared accounts | Yes | B2 | Not started | Access list in a private place; revocation procedure written |
+| SEC2 | 2FA on every provider account | Domain, DNS, server, storage, Kavenegar, Zarinpal, Torob, Bale | — | Yes | At account creation | Not started | Verified per account |
+| SEC3 | 2FA (or equivalent) for platform super admins | Super admins can read settings, change platform secrets and see all stores; today password only | Product decision + code | Public launch | Before D | Not started | Decision recorded; implemented or risk accepted |
+| SEC4 | Master-key custody and break-glass | Losing `SECRETS_MASTER_KEYS` loses every stored provider key | Offline copy in two places held by the owner | Yes | B11 | Not started | Restore of secrets from the offline copy rehearsed |
+| SEC5 | Independent security review / penetration test | Money and personal data | External reviewer | Public launch | Before D | Not started | Findings fixed or accepted |
+| SEC6 | Vulnerability disclosure contact | Reports must reach someone | `security.txt` / contact address | No | Before D | Not started | Published |
+| SEC7 | Personal data handling | Shopper phones, addresses, receipts (images of bank transfers) | Retention periods (receipts, orders, OTP, audit 365 days already), export and deletion on request, store deletion behaviour **[CONFIRM legal retention for order/financial records]** | Public launch | With C3 | Not started | Retention table approved; deletion path tested |
+
+## MON. Monitoring, logging and alerting (additions to B8)
+
+| ID | Task | Why | Done when | Status |
+|---|---|---|---|---|
+| MON1 | Business alerts | Payment reconciler stuck, `REFUND_REQUIRED` orders, SMS send failures, Kavenegar low credit, receipt reviews waiting too long | Each raises a Bale alert in a staging drill | Not started |
+| MON2 | Central logs | Container rotation keeps only ~100 MB per service; incidents need longer history | Decision: Loki/hosted/none; retention set | Not started |
+| MON3 | Capacity metrics | Disk (DB + receipts + backups), Postgres connections, Valkey memory (`noeviction` stops the queue when full), queue depth | Dashboards + threshold alerts | Not started |
+| MON4 | Certificate expiry and domain renewal alerts | International outage can block renewal | Alert ≥ 21 days before expiry | Not started |
+
+## SC. Scaling to ~300 paying stores
+
+The current design is a single server (Caddy, web, API, worker, PostgreSQL, Valkey). Nothing below is a known problem today; each item is
+a measurement to make before that size, not a rewrite.
+
+| ID | Task | Why | Done when | Status |
+|---|---|---|---|---|
+| SC1 | Load test with realistic data | 300 stores × up to 500 products, storefront traffic, checkout | p95 latency and CPU/RAM recorded; server size chosen from data | Not started |
+| SC2 | Database growth plan | Card-to-card receipt images are stored in PostgreSQL (`bytea`): DB and every backup grow with them | Size projection; decision to keep or move receipts to private object storage | Not started |
+| SC3 | Rate-limit table load | Every limited request writes to `RateLimitBucket` in PostgreSQL | Measured under load; Valkey backend considered if needed | Not started |
+| SC4 | Image delivery | Bucket egress cost and latency | CDN in front of `S3_PUBLIC_BASE_URL` decided | Not started |
+| SC5 | External crawlers | Torob/Emalls feeds and search engines read 300 stores | Feed endpoint cached / rate limited; measured | Not started |
+| SC6 | Backup and restore time at size | Restore time grows with DB size | Restore drill at projected size meets RTO | Not started |
+| SC7 | SMS and support cost | Platform pays order SMS; support load per merchant | Budget per store matches plan prices (BL1) | Not started |
+| SC8 | Second server / managed DB decision | Single point of failure | Decision recorded with RPO/RTO (B10) | Not started |
+
+## R. Review of this checklist (2026-11-24)
+
+**Corrections made:** the queue is self-hosted **Valkey** (not "Redis"); rate limiting runs in PostgreSQL; custom domains have a data model
+(not "nothing"); error tracking, metrics and logs are **partial**; billing and merchant verification are **missing**, not just "not
+implemented".
+
+**Classification of external dependencies**
+
+| Dependency | Classification |
+|---|---|
+| PostgreSQL, Valkey, S3 storage, Caddy | Implemented (needs production provisioning) |
+| Kavenegar (OTP, order SMS), Zarinpal, Aghaye Pardakht, Navasan | Implemented, **disabled by default** |
+| Bale alerts | Implemented, disabled until configured |
+| Caddy wildcard TLS | Partially implemented (DNS-provider snippet to generate, phase14 K2) |
+| Error tracking, metrics, logs | Partially implemented |
+| SMTP email | Implemented but unused by any flow |
+| AI provider | Disabled placeholder (settings only) |
+| Custom domains | Partially implemented (data model only) |
+| Torob, Emalls, eNamad badge, subscription billing, merchant verification, 2FA, platform store suspension | Missing |
+
+**Duplicates (kept on purpose, cross-referenced):** A7 is the umbrella for T1, M1, S1, P1–P2; C2 overlaps S4/O1 (C2 is the general rule);
+E7 is T5 after launch; D1–D3 point to §P, §S and L3.
+
+**Assumptions that are still unverified:** that each store using its own gateway terminal needs no platform licence (L6); that platform
+subdomains are acceptable to Zarinpal, eNamad and Torob as a merchant's site (L4, P1, T Q4); that ParsPack's public bucket blocks anonymous
+LIST (A2); that the server's outbound IP equals its public IP (A5); that Navasan offers HTTPS (O1).
+
+**Unresolved decisions (owner):** legal form (L1); launch scope of custom domains (K1); plans and prices (BL1); merchant verification level
+(MO1); non-payment policy (BL5); RPO/RTO (B10); central logging (MON2); 2FA for admins (SEC3); receipts storage location (SC2); T8, T10, T12
+from phase14.
+
+## G. Gates: what must be done before each milestone
+
+**1. Internal staging** (team only, sandbox gateways, no real shoppers)
+A1–A5, A2 tests, B1–B9, B11, SEC1, SEC2, SEC4, O2, O6. Legal and provider items not required.
+
+**2. First real merchant onboarding** (pilot, real orders)
+Everything in gate 1, plus: B10, C1, C2, C4; MO1, MO2, MO5; K1 decided (and K built if the pilot needs its own domain); L1, L3/L4 answers,
+L6, L7; C3 legal pages; P1 + P3 if online payment is offered (else COD/card-to-card only); S1–S3, S6–S8 if SMS is on; MON1; BL1 decided and
+BL5 written even if the pilot is free.
+
+**3. Public launch** (open registration)
+Everything in gate 2, plus: MO3, MO4, SEC3, SEC5, SEC6, SEC7, D4, D5, MON2–MON4, L3 issued for the platform, BL2–BL4 if paid plans start at
+launch, E2 reminders in place.
+
+**4. Scaling to 300 paying stores**
+Everything above, plus: BL2–BL6 live, SC1–SC8, quarterly restore drills (E1), payment and SMS reviews (E3, E4), Torob/Emalls only if their
+access is granted (§T, §M), K built if a meaningful share of merchants needs their own domain.
 
 ---
 
