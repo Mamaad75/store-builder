@@ -259,6 +259,17 @@ jobs:
       - name: Summarise E2E results (passed vs flaky vs failed)
         if: always()
         run: node apps/e2e/scripts/ci-summarize-playwright.mjs apps/e2e/playwright-report/results.json
+      # D-E2E-PAY (MVP roadmap §12.1): online payment on the ISOLATED test stack (playwright.payments.config.ts): an API with
+      # NODE_ENV=test on its own "_e2e" database, a test-only secrets key generated per run, and a loopback fake Zarinpal with one test
+      # merchant id. It reuses the ports of the main stack, so it runs after it; the web build of the step above is reused.
+      - name: E2E online-payment tests (isolated test stack)
+        if: ${{ !cancelled() }}
+        env:
+          E2E_REUSE_WEB_BUILD: "1"
+        run: pnpm test:e2e:payments
+      - name: Summarise online-payment E2E results
+        if: ${{ !cancelled() }}
+        run: node apps/e2e/scripts/ci-summarize-playwright.mjs apps/e2e/playwright-report/payments-results.json
       - name: Upload failure details (traces and report)
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -266,6 +277,7 @@ jobs:
           name: e2e-failure-details
           path: |
             apps/e2e/test-results/
+            apps/e2e/test-results-payments/
             apps/e2e/playwright-report/
           if-no-files-found: ignore
           retention-days: 7

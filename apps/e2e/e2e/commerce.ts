@@ -1,5 +1,6 @@
 import { deflateSync } from "node:zlib";
-import type { APIResponse, Browser, BrowserContext, Page } from "@playwright/test";
+import { test, type APIResponse, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import type { PrismaClient } from "@prisma/client";
 import { PASSWORD, db, expect, randomIp, uniqueUsername, waitForHydration } from "./helpers";
 
 /**
@@ -7,9 +8,11 @@ import { PASSWORD, db, expect, randomIp, uniqueUsername, waitForHydration } from
  * uses), so the specs spend their time on the shopper and merchant journeys in the browser. The database is only READ by the specs, except
  * for granting a platform admin (no HTTP route grants the first one by design).
  */
-export const PORT = 3100;
-export const PLATFORM = `http://localhost:${PORT}`;
-export const storeUrl = (label: string, path = "/") => `http://${label}.localhost:${PORT}${path}`;
+// The stack is the running project's: "chromium" → the main stack (3100), "payments" → the isolated payments stack (3200, D-E2E-PAY).
+const baseUrl = () => new URL(test.info().project.use.baseURL ?? "http://localhost:3100");
+const port = () => Number(baseUrl().port);
+const platform = () => baseUrl().origin;
+export const storeUrl = (label: string, path = "/") => `http://${label}.localhost:${port()}${path}`;
 
 export interface LiveStore {
   storeId: string;
@@ -22,9 +25,9 @@ export interface LiveStore {
 
 /** A JSON call to the API through the web app's /api proxy, as the signed-in user of `page`'s context (the platform origin is required). */
 export async function api(page: Page, method: "GET" | "POST" | "PUT" | "PATCH", path: string, body?: unknown): Promise<APIResponse> {
-  return page.request.fetch(`${PLATFORM}/api${path}`, {
+  return page.request.fetch(`${platform()}/api${path}`, {
     method,
-    headers: { origin: PLATFORM, ...(body !== undefined ? { "content-type": "application/json" } : {}) },
+    headers: { origin: platform(), ...(body !== undefined ? { "content-type": "application/json" } : {}) },
     data: body === undefined ? undefined : JSON.stringify(body),
     failOnStatusCode: false,
   });
@@ -67,7 +70,9 @@ export async function shopper(browser: Browser): Promise<{ context: BrowserConte
 }
 
 /** Product page → add to cart → checkout → address → shipping → payment method (nothing placed yet). */
-export async function fillCheckout(page: Page, s: LiveStore, method: "COD" | "CARD_TRANSFER"): Promise<void> {
+export type CheckoutMethod = "COD" | "CARD_TRANSFER" | "ZARINPAL";
+
+export async function fillCheckout(page: Page, s: LiveStore, method: CheckoutMethod): Promise<void> {
   await page.goto(storeUrl(s.label, `/products/${s.productSlug}`));
   await waitForHydration(page, "form[aria-label^='خرید'] button[type=submit]");
   await page.getByRole("button", { name: "افزودن به سبد خرید" }).click();
@@ -84,6 +89,7 @@ export async function fillCheckout(page: Page, s: LiveStore, method: "COD" | "CA
   await page.getByRole("button", { name: "نمایش روش‌های ارسال" }).click();
   await page.getByRole("radio", { name: /پیک/ }).check();
   if (method === "CARD_TRANSFER") await page.getByRole("radio", { name: /کارت به کارت/ }).check();
+  else if (method === "ZARINPAL") await page.getByRole("radio", { name: /زرین‌پال/ }).check();
   else {
     // A store that only takes cash on delivery shows a note instead of a choice.
     const cod = page.getByRole("radio", { name: /پرداخت در محل/ });
@@ -94,11 +100,11 @@ export async function fillCheckout(page: Page, s: LiveStore, method: "COD" | "CA
 
 /** A raw request to a store host from the test process (Node cannot resolve *.localhost; the Host header decides the store). */
 export function storeRequest(page: Page, label: string, path: string): Promise<APIResponse> {
-  return page.request.get(`http://127.0.0.1:${PORT}${path}`, { headers: { host: `${label}.localhost:${PORT}` }, maxRedirects: 0, failOnStatusCode: false });
+  return page.request.get(`http://127.0.0.1:${port()}${path}`, { headers: { host: `${label}.localhost:${port()}` }, maxRedirects: 0, failOnStatusCode: false });
 }
 
-export const placeButton = (page: Page, method: "COD" | "CARD_TRANSFER") =>
-  page.getByRole("button", { name: method === "CARD_TRANSFER" ? "ثبت سفارش و دریافت شماره کارت" : "ثبت سفارش", exact: true });
+export const placeButton = (page: Page, method: CheckoutMethod) =>
+  page.getByRole("button", { name: method === "ZARINPAL" ? "ثبت سفارش و پرداخت" : method === "CARD_TRANSFER" ? "ثبت سفارش و دریافت شماره کارت" : "ثبت سفارش", exact: true });
 
 /** Places the filled checkout; returns the order page URL (it holds the access token). */
 export async function placeOrder(page: Page, method: "COD" | "CARD_TRANSFER"): Promise<string> {
@@ -130,8 +136,8 @@ export function pngBytes(w = 64, h = 64): Buffer {
 }
 
 /** Grants SUPER_ADMIN to a freshly registered account (no HTTP route can grant the first one; the server command does the same). */
-export async function makeSuperAdmin(page: Page): Promise<void> {
+export async function makeSuperAdmin(page: Page, client: PrismaClient = db): Promise<void> {
   const username = await apiSignUp(page, "مدیر پلتفرم");
-  const user = await db.user.findUniqueOrThrow({ where: { username } });
-  await db.platformAdmin.create({ data: { userId: user.id } });
+  const user = await client.user.findUniqueOrThrow({ where: { username } });
+  await client.platformAdmin.create({ data: { userId: user.id } });
 }

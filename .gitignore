@@ -145,6 +145,7 @@ vite.config.ts.timestamp-*
 
 # Playwright
 test-results/
+test-results-payments/
 playwright-report/
 
 # compiled output next to sources must never be committed

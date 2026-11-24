@@ -7,7 +7,8 @@
   "scripts": {
     "test": "playwright test",
     "smoke": "playwright test -c playwright.smoke.config.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:payments": "playwright test -c playwright.payments.config.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",

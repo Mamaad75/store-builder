@@ -435,10 +435,28 @@ cancelled/expired/awaiting payment); low-stock threshold 3.
 
 **Why this does not weaken D-19:** the existing production rule (`ZARINPAL_DEV_BASE_URL` refused unless `NODE_ENV` is `development`
 or `test`) is used as is. Under the future `APP_ENV` rule (ADR 0005 §17.2) this stack runs as `APP_ENV=test`. Production keeps
-rejecting fake gateways and sandbox payments unconditionally. The main E2E stack keeps running the production build with
+rejecting fake gateways (`ZARINPAL_DEV_BASE_URL` / `AQAYEPARDAKHT_DEV_BASE_URL`) unconditionally. The main E2E stack keeps running the production build with
 `NODE_ENV=production`. No environment rule needs to change, so none is proposed.
 
-**Not exposed:** every process binds to `127.0.0.1`; nothing is published outside the CI job or the developer's machine.
+**Correction (M1 implementation):** production does **not** yet refuse sandbox *mode*: a SUPER_ADMIN can still switch
+`payment.sandbox` on (finding V0-4). Refusing it categorically is D-19, scheduled in M3 (payment safety core, pilot gate B),
+and is **not** part of M1/M2. The test stack neither depends on nor changes that gap.
+
+**Not exposed:** the test API and the fake gateway bind to `127.0.0.1`; nothing is published outside the CI job or the developer's machine.
+
+**As implemented (M1-7):** `apps/e2e/playwright.payments.config.ts`, `apps/e2e/e2e-payments/`, `apps/e2e/src/fake-zarinpal.mjs`;
+run with `pnpm test:e2e:payments` (CI: a separate step after the main E2E suite). Deviations from the plan above, each for a concrete reason:
+
+* **Same ports as the main stack, run one after the other** (not a second web on another port): the web build fixes its `/api/*` proxy
+  target at build time (`next.config.ts` rewrites), so a second web server would still have talked to the main API. Found when the
+  first attempt's merchant calls were refused by the main API (403) — it failed closed.
+* **The web binds like the main E2E web (`0.0.0.0`)**: the Next standalone server's host-based store routing answers 404 for every store
+  host when bound to `127.0.0.1`. The web holds no secret and no gateway access. CI runners accept no inbound connections.
+* **Browser-side route for the payment page:** the production web build sends the browser only to the real gateway hosts
+  (`client/shop.ts` `goToGateway`) and refuses a loopback one. The test shows the browser the real sandbox address and serves it from
+  the fake (Playwright `page.route`, in place of DNS/TLS). The web's allow-list runs unchanged; server-to-server request/verify calls go to
+  the fake through `ZARINPAL_DEV_BASE_URL`.
+* **Fake gateway port 4180** (not 4190: on the Fetch standard's blocked-port list).
 
 ### 12.2 D-PILOT-CAP — server-side pilot order limit (Approved; implemented in M5, not now)
 

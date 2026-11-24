@@ -45,7 +45,8 @@
     "shared:build": "pnpm --filter @store-builder/shared build",
     "shared:dev": "pnpm --filter @store-builder/shared dev",
     "shared:test": "pnpm --filter @store-builder/shared test",
-    "test:smoke": "pnpm --filter @store-builder/e2e smoke"
+    "test:smoke": "pnpm --filter @store-builder/e2e smoke",
+    "test:e2e:payments": "pnpm shared:build && pnpm --filter @store-builder/e2e test:payments"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
