@@ -67,6 +67,9 @@ export default function CardTransferPanel({
   return (
     <section className={s.card} aria-labelledby="ct-title">
       <h2 id="ct-title" className={s.lineName}>پرداخت کارت به کارت</h2>
+      {o.status === "AWAITING_PAYMENT" && t.cards.length === 0 && !t.canSubmit && !data.storeOpen && (
+        <p className={s.muted}>این فروشگاه در حال حاضر پرداخت نمی‌پذیرد. اگر سفارش تا پایان مهلت پرداخت نشود، لغو و کالاها آزاد می‌شوند.</p>
+      )}
       {o.status === "AWAITING_PAYMENT" && t.cards.length > 0 && (
         <>
           <p className={s.muted}>

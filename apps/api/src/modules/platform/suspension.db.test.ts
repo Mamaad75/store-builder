@@ -259,6 +259,10 @@ describe("platform suspension (ADR 0003, G2)", () => {
     expect(await prisma.auditEvent.count({ where: { action: { in: ["platform.store_restored", "store.restored"] } } })).toBe(2);
     const storeRows = await prisma.auditEvent.findMany({ where: { storeId: s.storeId } });
     expect(JSON.stringify(storeRows)).not.toMatch(/internal-note|FRAUD|LEGAL_ORDER/); // notes and reasons never reach the store's log
+    // the platform's row identifies the store and its owner even after the store is deleted (no FK on the history)
+    const first = await prisma.auditEvent.findFirstOrThrow({ where: { action: "platform.store_suspended", targetId: s.storeId }, orderBy: { createdAt: "asc" } });
+    const owner = await prisma.user.findUniqueOrThrow({ where: { id: s.ownerId } });
+    expect(first.metadata).toMatchObject({ reason: "FRAUD", store: { name: "فروشگاه shop", ownerId: s.ownerId, ownerUsername: owner.username, subdomain: "shop" } });
     // the database refuses a second open suspension even outside the service
     await expect(prisma.storeSuspension.create({ data: { storeId: s.storeId, reason: "OTHER", publicMessage: "x", internalNote: "", merchantStatusAtStart: "PUBLISHED" } })).rejects.toThrow();
   });

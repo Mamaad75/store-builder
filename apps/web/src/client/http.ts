@@ -53,11 +53,26 @@ export async function send<T = void>(method: "GET" | "POST" | "PATCH" | "PUT" | 
     }
   }
   if (res.ok) return (json ?? undefined) as T;
-  const b = json as { errorName?: unknown; payload?: unknown; code?: unknown; fieldErrors?: unknown; retryAfterSeconds?: unknown } | null;
-  const domain = rebuildDomainError(b?.errorName, b?.payload);
+  const b = json as { errorName?: unknown; payload?: unknown; code?: unknown; fieldErrors?: unknown; retryAfterSeconds?: unknown; error?: unknown } | null;
+  const domain = rebuildDomainError(b?.errorName, b?.payload) ?? fromV1(b?.error);
   if (domain) throw domain;
-  if (res.status === 401 && b?.code === "unauthenticated") throw new UnauthenticatedError();
+  if (res.status === 401 && (b?.code === "unauthenticated" || (b?.error as { reason?: unknown } | undefined)?.reason === "unauthenticated")) throw new UnauthenticatedError();
   throw Object.assign(new ApiHttpError(res.status), { body: b });
+}
+
+/**
+ * /api/v1 answers `{ error: { code, message, reason, fieldErrors?, retryAfterSeconds?, details? } }` (the platform pages call it). The
+ * domain error is rebuilt from `reason` (the class name) and its own fields, exactly like the unversioned `{ errorName, payload }`.
+ */
+function fromV1(e: unknown): Error | null {
+  if (!e || typeof e !== "object") return null;
+  const v = e as { reason?: unknown; fieldErrors?: unknown; retryAfterSeconds?: unknown; details?: unknown };
+  const details = v.details && typeof v.details === "object" ? (v.details as Record<string, unknown>) : {};
+  return rebuildDomainError(v.reason, {
+    ...details,
+    ...(v.fieldErrors !== undefined ? { fieldErrors: v.fieldErrors } : {}),
+    ...(v.retryAfterSeconds !== undefined ? { retryAfterSeconds: v.retryAfterSeconds } : {}),
+  });
 }
 
 export const enc = encodeURIComponent;

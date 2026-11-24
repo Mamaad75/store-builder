@@ -107,7 +107,14 @@ export class PrismaPlatformRepository implements PlatformRepository {
       const at = await this.dbNow(tx);
       await tx.storeSuspension.create({ data: { storeId, reason: input.reason, publicMessage: input.publicMessage, internalNote: input.internalNote ?? "", merchantStatusAtStart: s.status, suspendedById: actorId, suspendedAt: at } });
       await tx.store.update({ where: { id: storeId }, data: { suspendedAt: at } });
-      await this.audit(tx, storeId, actorId, "suspended", { reason: input.reason, merchantStatusAtStart: s.status });
+      // Verification G2: the store row may be deleted later (StoreSuspension has no FK on purpose), so the PLATFORM audit row keeps who
+      // and what the store was at suspension time: name, owner and subdomain. Admins only; never in the store's own log.
+      const who = await tx.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true, ownerId: true, owner: { select: { username: true } }, domains: { where: { kind: "SUBDOMAIN" }, select: { host: true }, take: 1 } } });
+      await this.audit(tx, storeId, actorId, "suspended", {
+        reason: input.reason,
+        merchantStatusAtStart: s.status,
+        store: { name: who.name, ownerId: who.ownerId, ownerUsername: who.owner.username, subdomain: who.domains[0]?.host ?? null },
+      });
       return "ok";
     });
   }

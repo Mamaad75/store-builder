@@ -82,6 +82,37 @@ later capability; nothing in G1/G2 may assume suspension hides stored assets.
 * the prepaid check lives in the order controllers (every current caller), not inside the payment services;
 * a write already past the access check when a suspension lands still commits (it can never make the store live).
 
+**Final verification (2026-11-24).**
+* **Browser:** a Playwright run against the dev servers made 28 checks, all passing. It covered:
+  * the `/platform/stores` list;
+  * the suspend dialog, including validation and a server error;
+  * history, both empty and filled;
+  * the restore dialog, success, and a stale-page conflict;
+  * the dashboard banner and a refused merchant write;
+  * the store audit log, which shows no reason, note or operator;
+  * the owner's other store;
+  * shopper order pages on suspended and unpublished stores;
+  * a 375 px mobile layout with RTL and no horizontal overflow.
+
+  Defects found and fixed:
+  1. The browser client did not rebuild domain errors from the `/api/v1` error shape. Every platform form (not only suspension) showed a
+     generic message instead of field errors or conflicts. `client/http.ts` now reads both shapes; unit test added.
+  2. The suspension dialog showed a class name for conflicts. It now builds the sentence from the error's reason.
+  3. On a suspended store, the card-to-card panel had an empty heading. It now explains that the store takes no payments right now.
+* **Migrations:**
+  * Folder names in this repository carry one planned day per phase. Eleven are future-dated (up to `20261203090000`).
+  * Prisma orders migrations only by name and applies them correctly.
+  * The G2 migration was applied, rolled back and applied again on a clone of the dev database (12 stores, 32 orders), with no drift.
+  * **Rule from now on:** a new migration's folder name must sort after the latest existing one. Do not use the name `prisma migrate dev`
+    generates from today's clock. A probe showed that an earlier-named migration is applied LAST on existing databases but FIRST on fresh
+    ones, so its order would differ between the two. Applied migrations are never renamed.
+* **History after deletion:** the history rows and the platform audit rows survive store deletion and can still be fetched by store id.
+  The suspension's platform audit row now also keeps the store's name, owner (id and username) and subdomain, so the history still
+  identifies the merchant after the store row is gone.
+* **E2E type check:** there were 6 errors (`FormData.entries`, iterating a `NodeListOf`). They existed before G2 (same 6 at `fd17051`).
+  The cause was a missing `DOM.Iterable` lib in `apps/e2e/tsconfig.json`; fixed, now 0 errors. CI's `pnpm typecheck` does not include the
+  e2e package. Recommended: add it.
+
 ### 0.5 Scope of the approved phase
 G1: order access when a store is offline. G2: platform suspension with audit history, authorization and tenant-isolation tests.
 Not in scope: billing, verification, account restriction, admin deletion, content takedown, emergency CLI (manual SQL procedure documented

@@ -23,7 +23,8 @@ const errorText = (e: unknown): { error: string; fields?: Record<string, string[
   const t = transportState(e);
   if (t?.error) return { error: t.error };
   if (e instanceof ValidationError) return { error: "مقدارها را بررسی کنید.", fields: e.fieldErrors };
-  if (e instanceof StoreSuspensionConflictError) return { error: e.message + " صفحه را تازه کنید." };
+  // Rebuilt errors carry their fields, not their text: the sentence comes from the reason.
+  if (e instanceof StoreSuspensionConflictError) return { error: `${e.reason === "not_suspended" ? "این فروشگاه معلق نیست." : "این فروشگاه از قبل معلق است."} صفحه را تازه کنید.` };
   // Review G2: the store row is held by a merchant change or a publish right now; nothing was changed.
   if (e instanceof DraftBusyError) return { error: "فروشگاه همین حالا در حال ذخیره یا انتشار است؛ چند ثانیه بعد دوباره امتحان کنید." };
   return { error: "انجام نشد. دوباره امتحان کنید." };
