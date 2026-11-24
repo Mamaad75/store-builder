@@ -119,7 +119,7 @@ export class PrismaOrderStore implements OrderStore {
           RETURNING "lastOrderNumber" AS n`;
         // 3. the snapshot. Phase 3.5: an online order waits for its payment (AWAITING_PAYMENT, with a deadline); "order.placed" is
         // recorded only once the payment is verified (PaymentStore.settlePaid), so nothing is sent for an order nobody paid.
-        const first = o.paymentMethod === "ONLINE" ? "AWAITING_PAYMENT" : "PLACED";
+        const first = o.paymentMethod === "COD" ? "PLACED" : "AWAITING_PAYMENT"; // prepaid (online, card-to-card) orders wait for their payment
         await tx.order.create({
           data: {
             id: o.id, storeId: o.storeId, number: counter!.n, status: first, customerId, linkedByPhone, requestKey: o.requestKey, accessTokenHash: o.accessTokenHash,
@@ -163,6 +163,14 @@ export class PrismaOrderStore implements OrderStore {
           SELECT id FROM "Payment" WHERE "storeId" = ${storeId} AND "orderId" = ${id}
             AND (status IN ('VERIFYING', 'PAID') OR (status = 'CREATED' AND "verifySentAt" IS NOT NULL)) FOR UPDATE`;
         if (busy.length) throw new PaymentNotAllowedError("busy");
+        // D35b-1: a card-to-card receipt under review: the shopper cannot cancel; the merchant's cancel rejects it in the same transaction.
+        if (await tx.transferReceipt.count({ where: { storeId, orderId: id, status: "SUBMITTED" } })) {
+          if (by.actor !== "MERCHANT") throw new PaymentNotAllowedError("busy");
+          await tx.transferReceipt.updateMany({
+            where: { storeId, orderId: id, status: "SUBMITTED" },
+            data: { status: "REJECTED", reviewNote: by.note.length >= 3 ? by.note.slice(0, 300) : "سفارش توسط فروشگاه لغو شد", reviewedById: by.actorId, reviewedAt: new Date() },
+          });
+        }
       }
       await tx.order.updateMany({ where: { id, storeId, status: row.status }, data: { status: to } });
       await tx.orderEvent.create({ data: { storeId, orderId: id, fromStatus: row.status, toStatus: to, actor: by.actor, actorId: by.actorId, note: by.note } });

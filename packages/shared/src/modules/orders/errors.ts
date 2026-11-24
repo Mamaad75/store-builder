@@ -29,8 +29,14 @@ export class OrderRateLimitedError extends Error {
 
 /** Phase 3.5: online payment is not available for this store (off on the platform, or no merchant id), or not for this amount. */
 export class PaymentUnavailableError extends Error {
-  constructor(public readonly reason: "off" | "amount") {
-    super(reason === "amount" ? "پرداخت اینترنتی برای مبلغ بیش از ۱۰۰ میلیون تومان ممکن نیست؛ پرداخت در محل را انتخاب کنید." : "پرداخت اینترنتی در این فروشگاه فعال نیست.");
+  constructor(public readonly reason: "off" | "amount" | "no_cards") {
+    super(
+      reason === "amount"
+        ? "پرداخت اینترنتی برای مبلغ بیش از ۱۰۰ میلیون تومان ممکن نیست؛ پرداخت در محل را انتخاب کنید."
+        : reason === "no_cards"
+          ? "پرداخت کارت به کارت در این فروشگاه فعال نیست."
+          : "پرداخت اینترنتی در این فروشگاه فعال نیست.",
+    );
     this.name = "PaymentUnavailableError";
   }
 }
@@ -48,5 +54,19 @@ export class PaymentNotAllowedError extends Error {
   constructor(public readonly reason: "closed" | "busy" = "closed") {
     super(reason === "busy" ? "پرداخت این سفارش در حال تأیید است؛ چند دقیقه بعد دوباره ببینید." : "این سفارش در حال حاضر قابل پرداخت نیست.");
     this.name = "PaymentNotAllowedError";
+  }
+}
+
+/** D35b-1: a receipt cannot be sent now (order not waiting for one, one already under review, or too many). */
+export class ReceiptNotAllowedError extends Error {
+  constructor(public readonly reason: "closed" | "pending" | "too_many" = "closed") {
+    super(
+      reason === "pending"
+        ? "رسید قبلی شما در حال بررسی فروشگاه است."
+        : reason === "too_many"
+          ? "تعداد رسیدهای این سفارش به حداکثر رسیده است؛ با فروشگاه تماس بگیرید."
+          : "این سفارش در حال حاضر رسید نمی‌پذیرد.",
+    );
+    this.name = "ReceiptNotAllowedError";
   }
 }

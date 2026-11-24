@@ -20,6 +20,7 @@ const BLOCKERS: Record<string, string> = {
   cod_unavailable: "پرداخت در محل برای این روش ارسال و نشانی ممکن نیست.",
 };
 
+type Method = "COD" | "ONLINE" | "CARD_TRANSFER";
 type Address = { recipientName: string; phone: string; province: string; city: string; line: string; postalCode: string };
 const EMPTY: Address = { recipientName: "", phone: "", province: "", city: "", line: "", postalCode: "" };
 const FIELDS: { key: keyof Address; label: string; autoComplete: string; inputMode?: "numeric" | "tel" }[] = [
@@ -50,7 +51,8 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   const [saveNew, setSaveNew] = useState(true);
   // Phase 3.5: the payment method; online only when the store takes it.
   const [online, setOnline] = useState(false);
-  const [method, setMethod] = useState<"COD" | "ONLINE">("COD");
+  const [cardTransfer, setCardTransfer] = useState(false);
+  const [method, setMethod] = useState<Method>("COD");
   const cod = method === "COD";
 
   // The cart part of the summary before any address (shows what is being bought), and who is shopping.
@@ -58,6 +60,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
     quote({ cashOnDelivery: true }).then(setSummary).catch((e) => setError(problemText(e)));
     paymentMethods().then((m) => {
       setOnline(m.online);
+      setCardTransfer(m.cardTransfer);
       if (m.online) setMethod("ONLINE");
     }).catch(() => undefined);
     me().then((c) => {
@@ -111,14 +114,14 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
     }
   }
 
-  async function choose(id: string, m: "COD" | "ONLINE" = method) {
+  async function choose(id: string, m: Method = method) {
     setShippingMethodId(id);
     const r = await run(() => quote({ ...addressBody(), shippingMethodId: id, cashOnDelivery: m === "COD" }));
     if (r) setSummary(r);
   }
 
   /** The cash-on-delivery fee depends on the method: the summary is asked for again. */
-  function pickMethod(m: "COD" | "ONLINE") {
+  function pickMethod(m: Method) {
     setMethod(m);
     if (shippingMethodId) void choose(shippingMethodId, m);
   }
@@ -131,7 +134,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
     });
     if (!r) return;
     const orderPage = `/orders/${encodeURIComponent(r.accessToken)}`;
-    if (r.order.status === "AWAITING_PAYMENT") {
+    if (r.order.status === "AWAITING_PAYMENT" && r.order.paymentMethod === "ONLINE") {
       setBusy(true);
       try {
         const p = await payOrder(r.accessToken);
@@ -257,13 +260,21 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
               </fieldset>
 
               <h2 className={s.lineName}>پرداخت</h2>
-              {online ? (
+              {online || cardTransfer ? (
                 <fieldset className={s.options}>
                   <legend className={s.muted}>روش پرداخت</legend>
-                  <label className={s.option}>
-                    <input type="radio" name="payment" checked={method === "ONLINE"} onChange={() => pickMethod("ONLINE")} disabled={busy} />
-                    <span><strong>پرداخت اینترنتی</strong> — با همه‌ی کارت‌های بانکی عضو شتاب (درگاه امن زرین‌پال)</span>
-                  </label>
+                  {online && (
+                    <label className={s.option}>
+                      <input type="radio" name="payment" checked={method === "ONLINE"} onChange={() => pickMethod("ONLINE")} disabled={busy} />
+                      <span><strong>پرداخت اینترنتی</strong> — با همه‌ی کارت‌های بانکی عضو شتاب (درگاه امن زرین‌پال)</span>
+                    </label>
+                  )}
+                  {cardTransfer && (
+                    <label className={s.option}>
+                      <input type="radio" name="payment" checked={method === "CARD_TRANSFER"} onChange={() => pickMethod("CARD_TRANSFER")} disabled={busy} />
+                      <span><strong>کارت به کارت</strong> — پس از ثبت سفارش شماره کارت فروشگاه نمایش داده می‌شود؛ تا ۲۴ ساعت رسید را بفرستید</span>
+                    </label>
+                  )}
                   <label className={s.option}>
                     <input type="radio" name="payment" checked={method === "COD"} onChange={() => pickMethod("COD")} disabled={busy} />
                     <span><strong>پرداخت در محل</strong> — هنگام تحویل</span>
@@ -286,7 +297,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
               </div>
               {!summary.ready && summary.blockers.length > 0 && <p className={s.alert}>{summary.blockers.map((b) => BLOCKERS[b] ?? b).join(" ")}</p>}
               <div className={s.actions}>
-                <button className={s.button} type="button" onClick={onPlace} disabled={busy || !summary.ready}>{busy ? "در حال ثبت…" : method === "ONLINE" ? "ثبت سفارش و پرداخت" : "ثبت سفارش"}</button>
+                <button className={s.button} type="button" onClick={onPlace} disabled={busy || !summary.ready}>{busy ? "در حال ثبت…" : method === "ONLINE" ? "ثبت سفارش و پرداخت" : method === "CARD_TRANSFER" ? "ثبت سفارش و دریافت شماره کارت" : "ثبت سفارش"}</button>
               </div>
             </section>
           )}

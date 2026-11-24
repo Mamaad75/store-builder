@@ -16,8 +16,8 @@ const attemptSelect = {
 const toAttempt = (r: Prisma.PaymentGetPayload<{ select: typeof attemptSelect }>): PaymentAttempt => ({ ...r, amountRial: Number(r.amountRial) });
 
 async function lockOrder(tx: Tx, storeId: string, orderId: string) {
-  const [row] = await tx.$queryRaw<{ status: string; paymentDeadline: Date | null; number: number }[]>`
-    SELECT status::text AS status, "paymentDeadline", number FROM "Order" WHERE id = ${orderId} AND "storeId" = ${storeId} FOR UPDATE`;
+  const [row] = await tx.$queryRaw<{ status: string; method: string; paymentDeadline: Date | null; number: number }[]>`
+    SELECT status::text AS status, "paymentMethod"::text AS method, "paymentDeadline", number FROM "Order" WHERE id = ${orderId} AND "storeId" = ${storeId} FOR UPDATE`;
   return row ?? null;
 }
 
@@ -31,8 +31,9 @@ async function lockAttempts(tx: Tx, storeId: string, orderId: string) {
 export const holdsMoney = (a: { status: string; verifySentAt: Date | null }) =>
   a.status === "VERIFYING" || a.status === "PAID" || (a.status === "CREATED" && a.verifySentAt !== null);
 
-function startable(o: { status: string; paymentDeadline: Date | null } | null, attempts: LockedAttempt[], now: Date, max: number) {
-  if (!o || o.status !== "AWAITING_PAYMENT" || !o.paymentDeadline || o.paymentDeadline <= now) return "closed" as const;
+function startable(o: { status: string; method: string; paymentDeadline: Date | null } | null, attempts: LockedAttempt[], now: Date, max: number) {
+  // Review D35b-1: only an ONLINE order is paid through a gateway (a card-to-card order is paid by transfer and the merchant's approval).
+  if (!o || o.method !== "ONLINE" || o.status !== "AWAITING_PAYMENT" || !o.paymentDeadline || o.paymentDeadline <= now) return "closed" as const;
   if (attempts.some(holdsMoney)) return "busy" as const;
   return attempts.length >= max ? ("too_many" as const) : ("ok" as const);
 }
@@ -158,7 +159,8 @@ export class PrismaPaymentStore implements PaymentStore {
 
   async expirable(before: Date, limit: number) {
     const rows = await db.order.findMany({
-      where: { status: "AWAITING_PAYMENT", paymentDeadline: { lt: before } },
+      // Orders whose card-to-card receipt waits for the merchant are not picked (they would crowd out the others on every run).
+      where: { status: "AWAITING_PAYMENT", paymentDeadline: { lt: before }, receipts: { none: { status: "SUBMITTED" } } },
       select: { storeId: true, id: true },
       orderBy: { paymentDeadline: "asc" },
       take: limit,
@@ -171,6 +173,8 @@ export class PrismaPaymentStore implements PaymentStore {
       const o = await lockOrder(tx, storeId, orderId);
       if (!o || o.status !== "AWAITING_PAYMENT" || !o.paymentDeadline || o.paymentDeadline >= before) return false;
       if ((await lockAttempts(tx, storeId, orderId)).some(holdsMoney)) return false;
+      // D35b-1: a card-to-card receipt waiting for the merchant keeps the order (the shopper may already have paid).
+      if (await tx.transferReceipt.count({ where: { storeId, orderId, status: "SUBMITTED" } })) return false;
       await tx.payment.updateMany({ where: { storeId, orderId, status: "CREATED" }, data: { status: "EXPIRED" } });
       await tx.order.update({ where: { storeId_id: { storeId, id: orderId } }, data: { status: "EXPIRED" } });
       await tx.orderEvent.create({ data: { storeId, orderId, fromStatus: "AWAITING_PAYMENT", toStatus: "EXPIRED", actor: "SYSTEM", actorId: null, note: "مهلت پرداخت تمام شد" } });

@@ -202,7 +202,7 @@ export const orderDto = z.object({
   customerId: z.string().nullable(),
   address: z.object({ recipientName: z.string(), phone: z.string(), province: z.string(), city: z.string(), line: z.string(), postalCode: z.string() }),
   shipping: z.object({ name: z.string(), kind: z.enum(["FLAT", "WEIGHT", "PICKUP"]), cost: z.number() }),
-  paymentMethod: z.enum(["COD", "ONLINE"]),
+  paymentMethod: z.enum(["COD", "ONLINE", "CARD_TRANSFER"]),
   paymentDeadline: iso.nullable().describe("online orders: the order can be paid until then (then it expires and the stock goes back)"),
   payment: z.object({ refId: z.string(), cardPan: z.string().nullable().describe("masked"), paidAt: iso }).nullable().describe("the verified online payment"),
   subtotal: z.number(),
@@ -213,7 +213,20 @@ export const orderDto = z.object({
   items: z.array(z.object({ productId: z.string(), variantId: z.string().nullable(), name: z.string(), variantLabel: z.string(), unitPrice: z.number(), quantity: z.number(), lineTotal: z.number(), weightGrams: z.number().nullable() })),
   history: z.array(z.object({ from: orderStatus.nullable(), to: orderStatus, actor: z.enum(["CUSTOMER", "MERCHANT", "SYSTEM"]), note: z.string(), at: iso })),
 });
-export const shopperOrderDto = z.object({ order: orderDto, canCancel: z.boolean(), canPay: z.boolean().describe("an unpaid online order still within its payment window") });
+export const bankCardDto = z.object({ cardNumber: z.string().describe("16 digits"), holderName: z.string(), bankName: z.string() });
+const receiptStatus = z.enum(["SUBMITTED", "APPROVED", "REJECTED"]);
+export const transferInfoDto = z.object({
+  cards: z.array(bankCardDto).describe("where to transfer (only while the order waits for payment)"),
+  receipts: z.array(z.object({ status: receiptStatus, payerCardLast4: z.string(), reviewNote: z.string(), createdAt: iso, reviewedAt: iso.nullable() })),
+  canSubmit: z.boolean().describe("a receipt can be sent now"),
+});
+export const receiptDto = z.object({ id: z.string(), status: receiptStatus, trackingCode: z.string(), payerCardLast4: z.string(), reviewNote: z.string(), createdAt: iso, reviewedAt: iso.nullable() });
+export const shopperOrderDto = z.object({
+  order: orderDto,
+  canCancel: z.boolean(),
+  canPay: z.boolean().describe("an unpaid online order still within its payment window"),
+  transfer: transferInfoDto.nullable().describe("card-to-card orders, single-order answers only"),
+});
 // ---- phase 3.5: online payment
 export const paymentStartDto = z.object({ url: z.string().describe("the Zarinpal page to send the buyer to") });
 export const paymentReturnDto = z.object({

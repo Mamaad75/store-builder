@@ -76,7 +76,7 @@ function buildNav(base: string): Item[] {
     },
     { label: "دسته‌بندی‌ها", href: `${base}/categories`, icon: <CategoryOutlined />, match: (p) => p.startsWith(`${base}/categories`) },
     { label: "روش‌های ارسال", href: `${base}/shipping`, icon: <LocalShippingOutlined />, match: (p) => p.startsWith(`${base}/shipping`) },
-    { label: "پرداخت آنلاین", href: `${base}/payments`, icon: <CreditCardOutlined />, match: (p) => p.startsWith(`${base}/payments`) },
+    { label: "روش‌های پرداخت", href: `${base}/payments`, icon: <CreditCardOutlined />, match: (p) => p.startsWith(`${base}/payments`) },
     { label: "صفحه‌ها", href: `${base}/pages`, icon: <ArticleOutlined />, match: (p) => p.startsWith(`${base}/pages`) },
     { label: "ظاهر", href: `${base}/appearance`, icon: <PaletteOutlined />, match: (p) => p.startsWith(`${base}/appearance`) },
     { label: "انتشار", href: `${base}/publish`, icon: <RocketLaunchOutlined />, match: (p) => p.startsWith(`${base}/publish`) },

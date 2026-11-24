@@ -139,6 +139,8 @@ model Store {
   carts            Cart[]
   orders           Order[]
   payments         Payment[]
+  bankCards        StoreBankCard[]
+  receipts         TransferReceipt[]
   counter          StoreCounter?
 
   @@index([ownerId, createdAt])
@@ -750,6 +752,8 @@ enum OrderStatus {
 enum OrderPaymentMethod {
   COD
   ONLINE
+  /// D35b-1: card-to-card, confirmed by the merchant from the shopper's receipt.
+  CARD_TRANSFER
 }
 
 enum PaymentStatus {
@@ -818,6 +822,7 @@ model Order {
   items    OrderItem[]
   events   OrderEvent[]
   payments Payment[]
+  receipts TransferReceipt[]
 
   @@unique([storeId, number])
   @@unique([storeId, requestKey])
@@ -903,4 +908,51 @@ model Payment {
 
   @@index([storeId, orderId, createdAt])
   @@index([status, nextCheckAt])
+}
+
+/// D35b-1: a bank card of the store, shown to shoppers who pay card-to-card (the merchant's own card: not a secret).
+model StoreBankCard {
+  id         String   @id @default(cuid())
+  storeId    String
+  cardNumber String   @db.VarChar(16)
+  holderName String   @db.VarChar(60)
+  bankName   String   @db.VarChar(40)
+  position   Int
+  createdAt  DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, cardNumber])
+  @@index([storeId, position])
+}
+
+enum ReceiptStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+/// D35b-1: a card-to-card receipt sent by the shopper. The image is re-encoded (no EXIF/GPS) and kept here, never in the public bucket:
+/// only the store's staff (orders.view) can fetch it, through the API.
+model TransferReceipt {
+  id             String        @id @default(cuid())
+  storeId        String
+  orderId        String
+  status         ReceiptStatus @default(SUBMITTED)
+  trackingCode   String        @db.VarChar(30)
+  payerCardLast4 String        @db.Char(4)
+  image          Bytes
+  imageMime      String        @db.VarChar(20)
+  imageWidth     Int
+  imageHeight    Int
+  reviewNote     String        @default("") @db.VarChar(300)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime      @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [storeId, orderId], references: [storeId, id], onDelete: Cascade)
+
+  @@index([storeId, orderId, createdAt])
+  @@index([storeId, status, createdAt])
 }

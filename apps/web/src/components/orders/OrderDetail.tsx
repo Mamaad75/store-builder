@@ -13,6 +13,7 @@ import { nextStatuses, PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, type OrderS
 import { provinceName } from "@store-builder/shared/modules/checkout/provinces";
 import { formatIranMobile } from "@store-builder/shared/lib/phone";
 import { changeOrderStatus, getOrder, getOrderPayments, type OrderDto, type PaymentAttempt } from "@/client/api";
+import ReceiptReview from "./ReceiptReview";
 import { ACTION_LABEL, ORDER_STATUS_LABELS, STATUS_COLOR, date, failText, toman } from "./labels";
 
 /** One order for the merchant (phase 3.4): items, delivery, history and the next steps (cancelling gives the stock back). */
@@ -32,8 +33,11 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
 
   async function move(to: OrderStatus) {
     const paidOnline = order?.paymentMethod === "ONLINE" && order.payment !== null;
+    const paidTransfer = order?.paymentMethod === "CARD_TRANSFER" && order.status !== "AWAITING_PAYMENT";
     const ask = paidOnline
       ? "این سفارش آنلاین پرداخت شده است. با لغو، موجودی برمی‌گردد اما مبلغ خودکار برگردانده نمی‌شود: آن را خودتان از پنل زرین‌پال به خریدار برگردانید. لغو شود؟"
+      : paidTransfer
+      ? "واریز کارت به کارت این سفارش تأیید شده است. با لغو، موجودی برمی‌گردد؛ مبلغ را خودتان به حساب خریدار برگردانید. لغو شود؟"
       : "سفارش لغو شود؟ موجودی کالاها برمی‌گردد.";
     if (to === "CANCELLED" && !window.confirm(ask)) return;
     setBusy(true);
@@ -86,6 +90,8 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
         {order.codFee > 0 && <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>کارمزد پرداخت در محل</span><span>{toman(order.codFee)}</span></Box>}
         <Box sx={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}><span>مبلغ کل</span><span>{toman(order.total)}</span></Box>
       </Paper>
+
+      {order.paymentMethod === "CARD_TRANSFER" && <ReceiptReview storeId={storeId} order={order} onOrder={setOrder} />}
 
       {order.paymentMethod === "ONLINE" && (
         <Paper variant="outlined" sx={{ p: 2, display: "grid", gap: 0.5 }}>
