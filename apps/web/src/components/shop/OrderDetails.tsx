@@ -35,6 +35,7 @@ export default function OrderDetails({
       <h1 className={s.title}>سفارش شماره‌ی <span className={s.num}>{faNumber(o.number)}</span></h1>
       {o.history.length === 1 && o.status === "PLACED" && <p className={s.ok}>سفارش شما ثبت شد. این صفحه را نگه دارید؛ پیگیری سفارش با همین نشانی ممکن است.</p>}
       {error && <p className={s.alert} role="alert">{error}</p>}
+      {!data.storeOpen && <p className={s.muted}>این فروشگاه در حال حاضر سفارش جدید نمی‌پذیرد؛ پیگیری این سفارش همچنان از همین صفحه ممکن است.</p>}
       <div className={s.card}>
         <p>وضعیت: <span className={s.status}>{ORDER_STATUS_LABELS[o.status]}</span></p>
         <p className={s.muted}>ثبت در {date(o.createdAt)} — {PAYMENT_METHOD_LABELS[o.paymentMethod]}{o.paymentGateway ? ` (${GATEWAY_LABELS[o.paymentGateway]})` : ""}</p>
@@ -43,7 +44,9 @@ export default function OrderDetails({
           <p className={data.canPay ? s.alert : s.muted}>
             {data.canPay
               ? `این سفارش هنوز پرداخت نشده است. تا ${date(o.paymentDeadline)} فرصت پرداخت دارید؛ پس از آن سفارش لغو و کالاها آزاد می‌شوند.`
-              : "مهلت پرداخت این سفارش تمام شده است. اگر مبلغی از حساب شما کم شده باشد، حداکثر ظرف ۷۲ ساعت به حساب شما برمی‌گردد."}
+              : new Date(o.paymentDeadline) > new Date()
+                ? "این فروشگاه در حال حاضر پرداخت نمی‌پذیرد. اگر سفارش تا پایان مهلت پرداخت نشود، لغو و کالاها آزاد می‌شوند."
+                : "مهلت پرداخت این سفارش تمام شده است. اگر مبلغی از حساب شما کم شده باشد، حداکثر ظرف ۷۲ ساعت به حساب شما برمی‌گردد."}
           </p>
         )}
         {o.status === "EXPIRED" && (

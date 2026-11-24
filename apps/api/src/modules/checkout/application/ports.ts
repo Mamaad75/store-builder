@@ -1,3 +1,4 @@
+import type { StoreAvailability } from "@store-builder/shared/modules/stores/availability";
 import type { AddressInput, ShippingMethod, ShippingMethodInput } from "@store-builder/shared/modules/checkout/checkout";
 import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { CartLine, StockFact } from "../domain/quote.js";
@@ -30,6 +31,8 @@ export interface CartStore {
 /** What the public checkout may read: the published store (with live prices), the stock rows and the shipping methods. */
 export interface CheckoutReads {
   liveStore(label: string): Promise<{ storeId: string; versionId: string } | null>;
+  /** ADR 0003 (D1): the store for its shoppers' existing orders, whatever its state, with its computed availability. */
+  orderStore(label: string): Promise<{ storeId: string; availability: StoreAvailability } | null>;
   /** Published products with current linked prices; null = the published data is unreadable. */
   publishedProducts(storeId: string, versionId: string): Promise<StorefrontProduct[] | null>;
   /** Product status and sellable quantity per line, keyed by stockKey(productId, variantId); missing = the row is gone. */

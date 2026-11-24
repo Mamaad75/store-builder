@@ -1,3 +1,4 @@
+import type { StoreAvailability } from "@store-builder/shared/modules/stores/availability";
 import {
   MAX_ADDRESSES_PER_CUSTOMER,
   MAX_CART_LINES,
@@ -87,6 +88,17 @@ export class CheckoutService {
     const live = await this.reads.liveStore(label);
     if (!live) throw new NotFoundError();
     return live.storeId;
+  }
+
+  /**
+   * ADR 0003 (D1): the store behind a label for its shoppers' EXISTING orders (order links, my orders, payment return), whatever the store's
+   * state, with what is allowed there now. Unknown labels are the same NotFoundError as everywhere else.
+   */
+  async orderStore(label: string): Promise<{ storeId: string; availability: StoreAvailability }> {
+    if (typeof label !== "string" || !LABEL_RE.test(label)) throw new NotFoundError();
+    const s = await this.reads.orderStore(label);
+    if (!s) throw new NotFoundError();
+    return s;
   }
 
   /**

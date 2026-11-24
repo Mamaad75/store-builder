@@ -44,7 +44,7 @@ export class PublicOrdersController {
   @HttpCode(200)
   async cancel(@Param("label") label: string, @Param("token") token: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     res.setHeader("Cache-Control", "no-store");
-    const s = await shopperOf(req, this.config, this.auth, await this.orders.liveStoreId(label));
+    const s = await shopperOf(req, this.config, this.auth, (await this.orders.orderStore(label)).storeId);
     return this.orders.cancelByToken(label, token, s);
   }
 
@@ -53,7 +53,8 @@ export class PublicOrdersController {
   @HttpCode(200)
   async pay(@Param("label") label: string, @Param("token") token: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     res.setHeader("Cache-Control", "no-store");
-    const { storeId, orderId } = await this.orders.orderIdByToken(label, token);
+    const { storeId, orderId, availability } = await this.orders.orderIdByToken(label, token);
+    this.orders.assertPrepaid(availability);
     const s = await shopperOf(req, this.config, this.auth, storeId);
     return withReturnKey(res, this.config, await this.payments.start(storeId, label, orderId, s.ipKey));
   }
@@ -66,7 +67,8 @@ export class PublicOrdersController {
   @HttpCode(204)
   async receipt(@Param("label") label: string, @Param("token") token: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     res.setHeader("Cache-Control", "no-store");
-    const { storeId, orderId } = await this.orders.orderIdByToken(label, token);
+    const { storeId, orderId, availability } = await this.orders.orderIdByToken(label, token);
+    this.orders.assertPrepaid(availability);
     const s = await shopperOf(req, this.config, this.auth, storeId);
     await this.transfers.submit(storeId, orderId, req.body, receiptFields(req), s.ipKey);
   }
@@ -107,42 +109,41 @@ export class CustomerOrdersController {
     @Inject(CONFIG) private readonly config: ApiConfig,
   ) {}
 
+  /** ADR 0003 (D1): a customer keeps their orders whatever the store's state. */
   private async who(label: string, req: Request, res: Response) {
     res.setHeader("Cache-Control", "no-store");
-    const storeId = await this.orders.liveStoreId(label);
+    const { storeId, availability } = await this.orders.orderStore(label);
     const s = await shopperOf(req, this.config, this.auth, storeId);
     if (!s.customerId) throw new UnauthorizedException();
-    return { storeId, customerId: s.customerId, verified: s.customerVerified === true };
+    return { storeId, availability, customerId: s.customerId, verified: s.customerVerified === true, ipKey: s.ipKey };
   }
 
   @Get()
   async list(@Param("label") label: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const w = await this.who(label, req, res);
-    return this.orders.listMine(w.storeId, w.customerId, w.verified);
+    return this.orders.listMine(w.storeId, w.customerId, w.verified, w.availability);
   }
 
   @Get(":orderId")
   async get(@Param("label") label: string, @Param("orderId") id: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const w = await this.who(label, req, res);
-    return this.orders.getMine(w.storeId, w.customerId, id, w.verified);
+    return this.orders.getMine(w.storeId, w.customerId, id, w.verified, w.availability);
   }
 
   @Post(":orderId/cancel")
   @HttpCode(200)
   async cancel(@Param("label") label: string, @Param("orderId") id: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const w = await this.who(label, req, res);
-    return this.orders.cancelMine(w.storeId, w.customerId, id);
+    return this.orders.cancelMine(w.storeId, w.customerId, id, w.availability);
   }
 
   /** Phase 3.5: paying one of the customer's own unpaid online orders. */
   @Post(":orderId/pay")
   @HttpCode(200)
   async pay(@Param("label") label: string, @Param("orderId") id: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    res.setHeader("Cache-Control", "no-store");
-    const storeId = await this.orders.liveStoreId(label);
-    const s = await shopperOf(req, this.config, this.auth, storeId);
-    if (!s.customerId) throw new UnauthorizedException();
-    return withReturnKey(res, this.config, await this.payments.start(storeId, label, await this.orders.ownOrderId(storeId, s.customerId, id), s.ipKey));
+    const w = await this.who(label, req, res);
+    this.orders.assertPrepaid(w.availability);
+    return withReturnKey(res, this.config, await this.payments.start(w.storeId, label, await this.orders.ownOrderId(w.storeId, w.customerId, id), w.ipKey));
   }
 
   /** D35b-1: a card-to-card receipt for one of the customer's own orders (same body and query as the guest route). */
@@ -150,8 +151,8 @@ export class CustomerOrdersController {
   @HttpCode(204)
   async receipt(@Param("label") label: string, @Param("orderId") id: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const w = await this.who(label, req, res);
-    const s = await shopperOf(req, this.config, this.auth, w.storeId);
-    await this.transfers.submit(w.storeId, await this.orders.ownOrderId(w.storeId, w.customerId, id), req.body, receiptFields(req), s.ipKey);
+    this.orders.assertPrepaid(w.availability);
+    await this.transfers.submit(w.storeId, await this.orders.ownOrderId(w.storeId, w.customerId, id), req.body, receiptFields(req), w.ipKey);
   }
 }
 
@@ -181,7 +182,8 @@ export class PaymentsController {
   @HttpCode(200)
   async verify(@Param("label") label: string, @Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     res.setHeader("Cache-Control", "no-store");
-    const storeId = await this.orders.liveStoreId(label);
+    // ADR 0003: a payment already started is always verified on return (the money may have moved), whatever the store's state now.
+    const { storeId } = await this.orders.orderStore(label);
     const s = await shopperOf(req, this.config, this.auth, storeId);
     const r = await this.payments.verifyReturn(storeId, body, { ipKey: s.ipKey, returnKey: readCookie(req.headers.cookie, payCookieName(this.config)) ?? null, customerId: s.customerId });
     res.setHeader("Referrer-Policy", "no-referrer");

@@ -5,7 +5,7 @@ import { CONFIG } from "../../../config/tokens.js";
 import { readCookie } from "../../../auth/cookie.js";
 import { SessionGuard } from "../../../auth/session.guard.js";
 import { RequirePermission, StoreAccess, StoreAccessGuard, type StoreAccessContext } from "../../access/access.api.js";
-import { resolveLiveStore } from "../../publishing/publishing.api.js";
+import { resolveLiveStore, resolveStoreForOrders } from "../../publishing/publishing.api.js";
 import { CustomerAuthService } from "../application/customer-auth.service.js";
 import { CustomersService } from "../application/customers.service.js";
 import { CUSTOMER_SESSION_SECONDS } from "../domain/otp.js";
@@ -34,6 +34,17 @@ export class CustomerAuthController {
     const live = await resolveLiveStore(label);
     if (!live) throw new NotFoundException();
     return live.storeId;
+  }
+
+  /**
+   * ADR 0003 (D1): signing in with a password, reading the session and signing out stay possible on an offline store, so a customer can
+   * reach their orders; registering and SMS codes (they cost an SMS) need a live store.
+   */
+  private async orderStoreId(label: string): Promise<string> {
+    if (!LABEL_RE.test(label)) throw new NotFoundException();
+    const s = await resolveStoreForOrders(label);
+    if (!s) throw new NotFoundException();
+    return s.storeId;
   }
 
   @Get("status")
@@ -75,7 +86,7 @@ export class CustomerAuthController {
   @Post("login")
   @HttpCode(200)
   async login(@Param("label") label: string, @Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const { customer, token } = await this.auth.login(await this.storeId(label), body, req.ip ?? "unknown");
+    const { customer, token } = await this.auth.login(await this.orderStoreId(label), body, req.ip ?? "unknown");
     this.signedIn(res, token);
     return { customer };
   }
@@ -83,7 +94,7 @@ export class CustomerAuthController {
   @Get("me")
   async me(@Param("label") label: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     res.setHeader("Cache-Control", "no-store");
-    const customer = await this.auth.current(await this.storeId(label), readCookie(req.headers.cookie, customerCookieName(this.config)) ?? undefined);
+    const customer = await this.auth.current(await this.orderStoreId(label), readCookie(req.headers.cookie, customerCookieName(this.config)) ?? undefined);
     if (!customer) throw new UnauthorizedException();
     return { customer };
   }
@@ -91,14 +102,14 @@ export class CustomerAuthController {
   @Post("logout")
   @HttpCode(204)
   async logout(@Param("label") label: string, @Res({ passthrough: true }) res: Response): Promise<void> {
-    await this.storeId(label);
+    await this.orderStoreId(label);
     res.clearCookie(customerCookieName(this.config), { path: "/", secure: this.config.secureCookies, sameSite: "lax", httpOnly: true });
   }
 
   @Post("logout-all")
   @HttpCode(204)
   async logoutAll(@Param("label") label: string, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
-    await this.auth.signOutEverywhere(await this.storeId(label), readCookie(req.headers.cookie, customerCookieName(this.config)) ?? undefined);
+    await this.auth.signOutEverywhere(await this.orderStoreId(label), readCookie(req.headers.cookie, customerCookieName(this.config)) ?? undefined);
     res.clearCookie(customerCookieName(this.config), { path: "/", secure: this.config.secureCookies, sameSite: "lax", httpOnly: true });
   }
 }

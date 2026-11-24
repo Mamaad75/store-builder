@@ -10,7 +10,7 @@ export default async function OrderPage({ params }: { params: Promise<{ label: s
   const { token } = await params;
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) notFound();
   return (
-    <ShopPage params={params}>
+    <ShopPage params={params} orderAccess>
       <OrderTracker token={token} />
     </ShopPage>
   );

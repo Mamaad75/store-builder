@@ -12,7 +12,7 @@ export default async function AqayePardakhtReturnPage({ params, searchParams }: 
   const q = await searchParams;
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
   return (
-    <ShopPage params={params}>
+    <ShopPage params={params} orderAccess>
       <PaymentReturn gateway="AQAYEPARDAKHT" authority={one(q.transid)} status={one(q.status)} />
     </ShopPage>
   );

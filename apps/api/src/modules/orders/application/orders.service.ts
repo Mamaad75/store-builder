@@ -19,6 +19,7 @@ import { draftOrder, type OrderView } from "../domain/orders.js";
 import { CARD_TRANSFER_WINDOW_HOURS } from "@store-builder/shared/modules/orders/card-transfer";
 import { DiscountInvalidError } from "@store-builder/shared/modules/discounts/errors";
 import type { DiscountReason } from "@store-builder/shared/modules/discounts/discounts";
+import { OPEN_STORE, type StoreAvailability } from "@store-builder/shared/modules/stores/availability";
 import type { CheckoutPort, Limiter, OrderListPage, OrderStore, OrderTokens, Shopper, StockHold, TransferInfo } from "./ports.js";
 
 /** Phase 3.5 / D35b-1: what placing and showing a prepaid order needs from the payment side. */
@@ -48,6 +49,8 @@ export interface ShopperOrder {
   canPay: boolean;
   /** D35b-1: card-to-card details (single-order answers only; null in lists and for other methods). */
   transfer: TransferInfo | null;
+  /** ADR 0003: the store takes new orders now (false = unpublished or suspended; the shopper still follows this order). */
+  storeOpen: boolean;
 }
 
 /**
@@ -68,28 +71,42 @@ export class OrdersService {
     private readonly prepaid: PrepaidGate | null = null,
   ) {}
 
-  /** The store id of a live store (same 404 for missing and unpublished). */
+  /** The store id of a live store (same 404 for missing and unpublished): for NEW business only. */
   liveStoreId(label: string): Promise<string> {
     return this.checkout.liveStoreId(label);
   }
 
-  private shopperView(order: OrderView): ShopperOrder {
-    const canPay = order.paymentMethod === "ONLINE" && order.status === "AWAITING_PAYMENT" && order.paymentDeadline !== null && new Date(order.paymentDeadline) > this.clock();
-    const canCancel = canTransition("CUSTOMER", order.status, "CANCELLED") && (order.paymentMethod === "COD" || order.status === "AWAITING_PAYMENT");
-    return { order, canCancel, canPay, transfer: null };
+  /** ADR 0003 (D1): the store for its shoppers' EXISTING orders, whatever its state, and what is allowed there now. */
+  orderStore(label: string): Promise<{ storeId: string; availability: StoreAvailability }> {
+    return this.checkout.orderStore(label);
   }
 
-  /** A single-order answer: with the card-to-card details; a receipt under review cannot be cancelled by the shopper. */
-  private async full(storeId: string, v: ShopperOrder): Promise<ShopperOrder> {
-    const transfer = this.prepaid ? await this.prepaid.transferInfo(storeId, v.order) : null;
+  private shopperView(order: OrderView, av: StoreAvailability = OPEN_STORE): ShopperOrder {
+    const canPay = av.prepaidActions && order.paymentMethod === "ONLINE" && order.status === "AWAITING_PAYMENT" && order.paymentDeadline !== null && new Date(order.paymentDeadline) > this.clock();
+    const canCancel = canTransition("CUSTOMER", order.status, "CANCELLED") && (order.paymentMethod === "COD" || order.status === "AWAITING_PAYMENT");
+    return { order, canCancel, canPay, transfer: null, storeOpen: av.newBusiness };
+  }
+
+  /**
+   * A single-order answer: with the card-to-card details; a receipt under review cannot be cancelled by the shopper. ADR 0003: when the
+   * store may not take payments (suspended), its card numbers are not shown and no receipt can be sent.
+   */
+  private async full(storeId: string, v: ShopperOrder, av: StoreAvailability = OPEN_STORE): Promise<ShopperOrder> {
+    const info = this.prepaid ? await this.prepaid.transferInfo(storeId, v.order) : null;
+    const transfer = info && !av.prepaidActions ? { ...info, cards: [], canSubmit: false } : info;
     const reviewing = transfer?.receipts.some((r) => r.status === "SUBMITTED") ?? false;
     return { ...v, transfer, canCancel: v.canCancel && !reviewing };
   }
 
-  /** Phase 3.5: the order behind a guest's access token (for starting its payment). */
-  async orderIdByToken(label: string, token: string): Promise<{ storeId: string; orderId: string }> {
-    const { storeId, order } = await this.byToken(label, token);
-    return { storeId, orderId: order.id };
+  /** ADR 0003: paying an existing order (new online session, card-to-card receipt) is refused while the store may not take payments. */
+  assertPrepaid(av: StoreAvailability): void {
+    if (!av.prepaidActions) throw new PaymentUnavailableError("store");
+  }
+
+  /** Phase 3.5: the order behind a guest's access token (for starting its payment or sending a receipt). */
+  async orderIdByToken(label: string, token: string): Promise<{ storeId: string; orderId: string; availability: StoreAvailability }> {
+    const { storeId, order, availability } = await this.byToken(label, token);
+    return { storeId, orderId: order.id, availability };
   }
 
   /** Phase 3.5: a signed-in customer's own order (for starting its payment). */
@@ -175,52 +192,53 @@ export class OrdersService {
 
   // ---------- shoppers ----------
 
-  private async byToken(label: string, token: string): Promise<{ storeId: string; order: OrderView }> {
-    const storeId = await this.checkout.liveStoreId(label);
+  /** ADR 0003 (D1): an order link keeps working whatever the store's state (unpublished, suspended). */
+  private async byToken(label: string, token: string): Promise<{ storeId: string; order: OrderView; availability: StoreAvailability }> {
+    const { storeId, availability } = await this.checkout.orderStore(label);
     const hash = typeof token === "string" ? this.tokens.hash(token) : null;
     const order = hash ? await this.orders.getByTokenHash(storeId, hash) : null;
     if (!order) throw new NotFoundError();
-    return { storeId, order };
+    return { storeId, order, availability };
   }
 
   async getByToken(label: string, token: string): Promise<ShopperOrder> {
-    const { storeId, order } = await this.byToken(label, token);
-    return this.full(storeId, this.shopperView(order));
+    const { storeId, order, availability } = await this.byToken(label, token);
+    return this.full(storeId, this.shopperView(order, availability), availability);
   }
 
   async cancelByToken(label: string, token: string, s: Shopper): Promise<ShopperOrder> {
-    const { storeId, order } = await this.byToken(label, token);
-    return this.full(storeId, this.shopperView(await this.cancelAsCustomer(storeId, order.id, s.customerId)));
+    const { storeId, order, availability } = await this.byToken(label, token);
+    return this.full(storeId, this.shopperView(await this.cancelAsCustomer(storeId, order.id, s.customerId), availability), availability);
   }
 
   /**
    * The signed-in customer's orders. Orders attached to their phone from guest checkouts are included only when the phone is verified by
    * an SMS code (phase 3.3b): a password account alone never proves the phone.
    */
-  async listMine(storeId: string, customerId: string, verified = false): Promise<ShopperOrder[]> {
+  async listMine(storeId: string, customerId: string, verified = false, av: StoreAvailability = OPEN_STORE): Promise<ShopperOrder[]> {
     const all = await this.orders.listForCustomer(storeId, customerId, 50, verified);
     // Orders attached only by phone are shown read-only: the phone on an order may be a gift recipient's (review 3.3b).
     const own = verified ? new Set((await this.orders.listForCustomer(storeId, customerId, 50, false)).map((o) => o.id)) : null;
     // In lists the receipts are not loaded: a card-to-card order is cancelled from its own page (which knows whether one is under review).
     const listed = (o: OrderView): ShopperOrder => {
-      const v = this.shopperView(o);
+      const v = this.shopperView(o, av);
       return o.paymentMethod === "CARD_TRANSFER" ? { ...v, canCancel: false } : v;
     };
-    return all.map((o) => (own && !own.has(o.id) ? { order: o, canCancel: false, canPay: false, transfer: null } : listed(o)));
+    return all.map((o) => (own && !own.has(o.id) ? { order: o, canCancel: false, canPay: false, transfer: null, storeOpen: av.newBusiness } : listed(o)));
   }
 
-  async getMine(storeId: string, customerId: string, id: string, verified = false): Promise<ShopperOrder> {
+  async getMine(storeId: string, customerId: string, id: string, verified = false, av: StoreAvailability = OPEN_STORE): Promise<ShopperOrder> {
     const o = ID_RE.test(id) ? await this.orders.getForCustomer(storeId, customerId, id, verified) : null;
     if (!o) throw new NotFoundError();
     const own = !verified || (await this.orders.getForCustomer(storeId, customerId, id, false)) !== null;
-    return own ? this.full(storeId, this.shopperView(o)) : { order: o, canCancel: false, canPay: false, transfer: null };
+    return own ? this.full(storeId, this.shopperView(o, av), av) : { order: o, canCancel: false, canPay: false, transfer: null, storeOpen: av.newBusiness };
   }
 
   /** Only orders placed while signed in to this account (phone-attached ones are cancelled with their order link, by whoever placed them). */
-  async cancelMine(storeId: string, customerId: string, id: string): Promise<ShopperOrder> {
+  async cancelMine(storeId: string, customerId: string, id: string, av: StoreAvailability = OPEN_STORE): Promise<ShopperOrder> {
     const own = ID_RE.test(id) ? await this.orders.getForCustomer(storeId, customerId, id, false) : null;
     if (!own) throw new NotFoundError();
-    return this.full(storeId, this.shopperView(await this.cancelAsCustomer(storeId, id, customerId)));
+    return this.full(storeId, this.shopperView(await this.cancelAsCustomer(storeId, id, customerId), av), av);
   }
 
   private async cancelAsCustomer(storeId: string, id: string, customerId: string | null): Promise<OrderView> {

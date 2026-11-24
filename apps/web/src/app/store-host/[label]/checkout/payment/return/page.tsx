@@ -12,7 +12,7 @@ export default async function PaymentReturnPage({ params, searchParams }: { para
   const q = await searchParams;
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
   return (
-    <ShopPage params={params}>
+    <ShopPage params={params} orderAccess>
       <PaymentReturn authority={one(q.Authority)} status={one(q.Status)} />
     </ShopPage>
   );

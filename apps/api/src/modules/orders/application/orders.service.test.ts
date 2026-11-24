@@ -1,3 +1,4 @@
+import { OPEN_STORE, storeAvailability, type StoreAvailability } from "@store-builder/shared/modules/stores/availability";
 import { describe, expect, it } from "vitest";
 import { PaymentUnavailableError, OrderNotReadyError, OrderRateLimitedError, OrderTransitionError } from "@store-builder/shared/modules/orders/errors";
 import { ReservationLostError } from "@store-builder/shared/modules/inventory/errors";
@@ -52,12 +53,13 @@ class MemoryOrders implements OrderStore {
   }
 }
 
-function setup(o: { summary?: ReadySummary; allow?: boolean } = {}) {
+function setup(o: { summary?: ReadySummary; allow?: boolean; availability?: StoreAvailability } = {}) {
   const orders = new MemoryOrders();
   const held: string[] = [];
   const released: string[] = [];
   const checkout: CheckoutPort = {
     liveStoreId: async (label) => { if (label !== "shop") throw new NotFoundError(); return "s1"; },
+    orderStore: async (label) => { if (label !== "shop") throw new NotFoundError(); return { storeId: "s1", availability: o.availability ?? OPEN_STORE }; },
     prepareOrder: async () => ({ storeId: "s1", summary: o.summary ?? ready, address, cartId: "c1", weights: new Map() }),
   };
   const stock: StockHold = { reserve: async (_s, ref) => void held.push(ref), release: async (_s, ref) => { released.push(ref); return 1; } };
@@ -149,5 +151,21 @@ describe("following and cancelling", () => {
     await expect(svc.cancelMine("s1", "c2", "o1")).rejects.toBeInstanceOf(NotFoundError);
     await expect(svc.transition({ storeId: "s1", actorId: "u1" }, "o1", { to: "DELIVERED" })).rejects.toBeInstanceOf(OrderTransitionError);
     expect((await svc.cancelMine("s1", "c1", "o1")).order.status).toBe("CANCELLED");
+  });
+});
+
+describe("ADR 0003: an order link works whatever the store's state", () => {
+  it("an unpublished store: the shopper still reads and cancels the order; the store is reported closed", async () => {
+    const { svc } = setup({ availability: storeAvailability({ published: false, adminSuspended: false, billingRestricted: false }) });
+    const { accessToken } = await svc.place("shop", guest, body); // placed while live (liveStoreId)
+    const r = await svc.getByToken("shop", accessToken);
+    expect([r.order.number, r.storeOpen, r.canCancel]).toEqual([1, false, true]);
+    expect((await svc.cancelByToken("shop", accessToken, guest)).order.status).toBe("CANCELLED");
+    expect(() => svc.assertPrepaid(storeAvailability({ published: false, adminSuspended: false, billingRestricted: false }))).not.toThrow();
+  });
+
+  it("a suspended store refuses paying an existing order (no reason disclosed)", () => {
+    const { svc } = setup();
+    expect(() => svc.assertPrepaid(storeAvailability({ published: true, adminSuspended: true, billingRestricted: false }))).toThrow(PaymentUnavailableError);
   });
 });

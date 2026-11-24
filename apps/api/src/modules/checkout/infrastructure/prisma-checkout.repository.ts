@@ -5,7 +5,7 @@ import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
 import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import { db } from "../../../lib/db.js";
 import { log } from "../../../logging/json-logger.js";
-import { livePricesOf, loadPublishedSnapshot, resolveLiveStore, withLivePrices } from "../../publishing/publishing.api.js";
+import { livePricesOf, loadPublishedSnapshot, resolveLiveStore, resolveStoreForOrders, withLivePrices } from "../../publishing/publishing.api.js";
 import type { AddressStore, CartRow, CartStore, CheckoutReads, SavedAddress, ShippingStore } from "../application/ports.js";
 import { stockKey, type CartLine, type StockFact } from "../domain/quote.js";
 
@@ -172,6 +172,10 @@ export class PrismaCheckoutReads implements CheckoutReads {
   async liveStore(label: string) {
     const live = await resolveLiveStore(label);
     return live ? { storeId: live.storeId, versionId: live.versionId } : null;
+  }
+
+  orderStore(label: string) {
+    return resolveStoreForOrders(label);
   }
 
   async publishedProducts(storeId: string, versionId: string): Promise<StorefrontProduct[] | null> {

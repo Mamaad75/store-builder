@@ -21279,6 +21279,10 @@
                       ],
                       "description": "card-to-card orders, single-order answers only"
                     },
+                    "storeOpen": {
+                      "type": "boolean",
+                      "description": "ADR 0003: the store takes new orders now (false: offline; the shopper still follows this order)"
+                    },
                     "accessToken": {
                       "type": "string",
                       "description": "follow or cancel the order with it (keep it secret: it is the order link)"
@@ -21289,6 +21293,7 @@
                     "canCancel",
                     "canPay",
                     "transfer",
+                    "storeOpen",
                     "accessToken"
                   ],
                   "additionalProperties": false
@@ -21831,13 +21836,18 @@
                         }
                       ],
                       "description": "card-to-card orders, single-order answers only"
+                    },
+                    "storeOpen": {
+                      "type": "boolean",
+                      "description": "ADR 0003: the store takes new orders now (false: offline; the shopper still follows this order)"
                     }
                   },
                   "required": [
                     "order",
                     "canCancel",
                     "canPay",
-                    "transfer"
+                    "transfer",
+                    "storeOpen"
                   ],
                   "additionalProperties": false
                 }
@@ -22379,13 +22389,18 @@
                         }
                       ],
                       "description": "card-to-card orders, single-order answers only"
+                    },
+                    "storeOpen": {
+                      "type": "boolean",
+                      "description": "ADR 0003: the store takes new orders now (false: offline; the shopper still follows this order)"
                     }
                   },
                   "required": [
                     "order",
                     "canCancel",
                     "canPay",
-                    "transfer"
+                    "transfer",
+                    "storeOpen"
                   ],
                   "additionalProperties": false
                 }
@@ -25037,13 +25052,18 @@
                           }
                         ],
                         "description": "card-to-card orders, single-order answers only"
+                      },
+                      "storeOpen": {
+                        "type": "boolean",
+                        "description": "ADR 0003: the store takes new orders now (false: offline; the shopper still follows this order)"
                       }
                     },
                     "required": [
                       "order",
                       "canCancel",
                       "canPay",
-                      "transfer"
+                      "transfer",
+                      "storeOpen"
                     ],
                     "additionalProperties": false
                   }
@@ -25586,13 +25606,18 @@
                         }
                       ],
                       "description": "card-to-card orders, single-order answers only"
+                    },
+                    "storeOpen": {
+                      "type": "boolean",
+                      "description": "ADR 0003: the store takes new orders now (false: offline; the shopper still follows this order)"
                     }
                   },
                   "required": [
                     "order",
                     "canCancel",
                     "canPay",
-                    "transfer"
+                    "transfer",
+                    "storeOpen"
                   ],
                   "additionalProperties": false
                 }
@@ -26134,13 +26159,18 @@
                         }
                       ],
                       "description": "card-to-card orders, single-order answers only"
+                    },
+                    "storeOpen": {
+                      "type": "boolean",
+                      "description": "ADR 0003: the store takes new orders now (false: offline; the shopper still follows this order)"
                     }
                   },
                   "required": [
                     "order",
                     "canCancel",
                     "canPay",
-                    "transfer"
+                    "transfer",
+                    "storeOpen"
                   ],
                   "additionalProperties": false
                 }

@@ -265,3 +265,24 @@ describe("card-to-card (D35b-1)", () => {
     expect((await send(me, t, undefined, Buffer.from("not an image"))).status).toBe(409);
   });
 });
+
+describe("ADR 0003 (D1): a merchant unpublishes the store", () => {
+  it("shoppers keep their order link, card numbers and receipt upload; new business is refused", async () => {
+    const { s, me, placed } = await transferOrder();
+    expect((await merchantCall(s.merchant, "POST", `/stores/${s.storeId}/unpublish`)).status).toBe(204);
+    const t = placed.accessToken;
+    const view = await me.call("GET", `/checkout/orders/${t}`);
+    expect(view.status).toBe(200);
+    expect([view.json.storeOpen, view.json.transfer.cards.length > 0, view.json.transfer.canSubmit]).toEqual([false, true, true]);
+    expect((await send(me, t)).status).toBe(204); // the merchant chose to close; shoppers can still pay what they ordered
+    // new business: the cart and a new order are the same 404 as a missing store
+    expect((await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 })).status).toBe(404);
+    expect((await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "CARD_TRANSFER" })).status).toBe(404);
+    // the merchant still reviews the receipt and the order goes on
+    const rid = (await merchantCall(s.merchant, "GET", `/stores/${s.storeId}/orders/${placed.order.id}/receipts`)).json[0].id;
+    expect((await merchantCall(s.merchant, "POST", `/stores/${s.storeId}/orders/${placed.order.id}/receipts/${rid}/review`, { decision: "approve" })).status).toBe(200);
+    expect((await me.call("GET", `/checkout/orders/${t}`)).json.order.status).toBe("PLACED");
+    // an unknown label is still 404
+    expect((await shopper("nope").call("GET", `/checkout/orders/${t}`)).status).toBe(404);
+  });
+});

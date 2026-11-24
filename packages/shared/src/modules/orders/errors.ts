@@ -29,9 +29,12 @@ export class OrderRateLimitedError extends Error {
 
 /** Phase 3.5: online payment is not available for this store (off on the platform, or no merchant id), or not for this amount. */
 export class PaymentUnavailableError extends Error {
-  constructor(public readonly reason: "off" | "amount" | "no_cards") {
+  /** "store": the store does not take payments now (ADR 0003: an administrative suspension; no reason is disclosed to shoppers). */
+  constructor(public readonly reason: "off" | "amount" | "no_cards" | "store") {
     super(
-      reason === "amount"
+      reason === "store"
+        ? "این فروشگاه در حال حاضر پرداخت نمی‌پذیرد."
+        : reason === "amount"
         ? "مبلغ این سفارش در محدوده‌ی پرداخت این درگاه نیست؛ درگاه یا روش پرداخت دیگری را انتخاب کنید."
         : reason === "no_cards"
           ? "پرداخت کارت به کارت در این فروشگاه فعال نیست."

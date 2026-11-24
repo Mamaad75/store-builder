@@ -394,3 +394,28 @@ describe("security review 3.3b regressions", () => {
     expect(await from("198.51.100.9")("a-good-password")).toBe(200);
   });
 });
+
+describe("ADR 0003 (D1): a customer keeps their orders when the merchant unpublishes", () => {
+  it("password sign-in, session, my orders and cancelling work; registering and the cart do not", async () => {
+    const s = await liveStore("shop");
+    const me = shopper("shop");
+    expect((await me.call("POST", "/customer/register", { phone: "09121112233", name: "مریم", password: "a-good-password" })).status).toBe(200);
+    await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const placed = placedOrderDto.parse((await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "COD" })).json);
+    expect((await merchantCall(s.merchant, "POST", `/stores/${s.storeId}/unpublish`)).status).toBe(204);
+
+    const list = await me.call("GET", "/customer/orders");
+    expect(list.status).toBe(200);
+    expect(list.json.map((o: any) => [o.order.id, o.storeOpen])).toEqual([[placed.order.id, false]]);
+    expect((await me.call("GET", "/customer/me")).status).toBe(200);
+    // a fresh device signs in with the password and sees the order
+    const again = shopper("shop");
+    expect((await again.call("POST", "/customer/login", { phone: "09121112233", password: "a-good-password" })).status).toBe(200);
+    expect((await again.call("GET", `/customer/orders/${placed.order.id}`)).json.order.id).toBe(placed.order.id);
+    expect((await again.call("POST", `/customer/orders/${placed.order.id}/cancel`)).json.order.status).toBe("CANCELLED");
+    // new business stays closed
+    expect((await shopper("shop").call("POST", "/customer/register", { phone: "09125550000", name: "سارا", password: "a-good-password" })).status).toBe(404);
+    expect((await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 })).status).toBe(404);
+    expect((await me.call("GET", "/customer/orders")).status).toBe(200);
+  });
+});

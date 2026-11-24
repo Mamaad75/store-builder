@@ -6,7 +6,7 @@ export const metadata = shopMetadata("حساب کاربری");
 
 export default function AccountPage({ params }: { params: Promise<{ label: string }> }) {
   return (
-    <ShopPage params={params}>
+    <ShopPage params={params} orderAccess>
       <AccountView />
     </ShopPage>
   );

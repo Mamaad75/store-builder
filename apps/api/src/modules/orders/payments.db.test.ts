@@ -515,3 +515,25 @@ describe("Aghaye Pardakht and the choice of gateway (D35c-1)", () => {
     expect((await prisma.order.findUniqueOrThrow({ where: { id: placed.order.id } })).status).toBe("AWAITING_PAYMENT");
   });
 });
+
+describe("ADR 0003 (D1): online payment when the merchant unpublishes", () => {
+  it("a payment started before unpublishing is verified on return; the order can still be paid from its link", async () => {
+    const { s, me, placed } = await onlineOrder();
+    const t = placed.accessToken;
+    expect((await me.call("POST", `/checkout/orders/${t}/pay`)).status).toBe(200);
+    expect((await merchantCall(s.merchant, "POST", `/stores/${s.storeId}/unpublish`)).status).toBe(204);
+    const back = await me.call("POST", "/checkout/payments/verify", { authority: `S${"1".padStart(35, "0")}`, status: "OK" });
+    expect(paymentReturnDto.parse(back.json)).toEqual({ outcome: "paid", accessToken: t });
+    const view = shopperOrderDto.parse((await me.call("GET", `/checkout/orders/${t}`)).json);
+    expect([view.order.status, view.storeOpen]).toEqual(["PLACED", false]);
+  });
+
+  it("an unpaid order on an unpublished store: pay works from the link; payment-methods (new business) is 404", async () => {
+    const { s, me, placed } = await onlineOrder();
+    expect((await merchantCall(s.merchant, "POST", `/stores/${s.storeId}/unpublish`)).status).toBe(204);
+    const view = shopperOrderDto.parse((await me.call("GET", `/checkout/orders/${placed.accessToken}`)).json);
+    expect([view.canPay, view.storeOpen]).toEqual([true, false]);
+    expect((await me.call("POST", `/checkout/orders/${placed.accessToken}/pay`)).status).toBe(200);
+    expect((await me.call("GET", "/checkout/payment-methods")).status).toBe(404);
+  });
+});

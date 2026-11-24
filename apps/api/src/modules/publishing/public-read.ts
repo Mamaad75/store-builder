@@ -2,6 +2,7 @@ import { db } from "../../lib/db.js";
 import { storefrontDataSchema, type StorefrontData } from "@store-builder/shared/templates/storefront-data";
 import { SNAPSHOT_CACHE_BYTES } from "./constants.js";
 import { ByteLru } from "./lru.js";
+import { storeAvailability, type StoreAvailability } from "@store-builder/shared/modules/stores/availability";
 
 /**
  * Everything the PUBLIC side may read, in one place. It touches only Domain, Store (status and live pointer),
@@ -24,6 +25,19 @@ export async function resolveLiveStore(label: string): Promise<LiveStore | null>
     FROM "Domain" d JOIN "Store" s ON s."id" = d."storeId"
     WHERE d."kind" = 'SUBDOMAIN' AND d."host" = ${label} AND s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL`;
   return rows[0] ?? null;
+}
+
+/**
+ * ADR 0003 (D1): the store behind a subdomain for its shoppers' EXISTING orders, whatever its state (unpublished stores included), with
+ * the availability computed from its independent conditions. Never used to show the storefront or to start new business.
+ */
+export async function resolveStoreForOrders(label: string): Promise<{ storeId: string; availability: StoreAvailability } | null> {
+  const rows = await db.$queryRaw<{ storeId: string; published: boolean }[]>`
+    SELECT s."id" AS "storeId", (s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL) AS "published"
+    FROM "Domain" d JOIN "Store" s ON s."id" = d."storeId"
+    WHERE d."kind" = 'SUBDOMAIN' AND d."host" = ${label}`;
+  const r = rows[0];
+  return r ? { storeId: r.storeId, availability: storeAvailability({ published: r.published, adminSuspended: false, billingRestricted: false }) } : null;
 }
 
 /**

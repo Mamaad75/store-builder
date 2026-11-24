@@ -1,3 +1,4 @@
+import { OPEN_STORE } from "@store-builder/shared/modules/stores/availability";
 import { describe, expect, it } from "vitest";
 import { MAX_CART_LINES, shippingMethodInputSchema, type AddressInput, type ShippingMethod, type ShippingMethodInput } from "@store-builder/shared/modules/checkout/checkout";
 import { CartLimitError, CartRateLimitedError } from "@store-builder/shared/modules/checkout/errors";
@@ -65,6 +66,7 @@ function setup(o: { allowCreate?: boolean; products?: StorefrontProduct[]; stock
   const stock = o.stock ?? new Map<string, StockFact>([[stockKey("p1", null), { productActive: true, available: 10 }], [stockKey("p2", "v1"), { productActive: true, available: 2 }]]);
   const reads: CheckoutReads = {
     liveStore: async (label) => (label === "shop" ? { storeId: "s1", versionId: "ver1" } : null),
+    orderStore: async (label) => (label === "shop" ? { storeId: "s1", availability: OPEN_STORE } : null),
     publishedProducts: async () => products,
     stock: async () => stock,
     enabledShippingMethods: async () => o.methods ?? [],

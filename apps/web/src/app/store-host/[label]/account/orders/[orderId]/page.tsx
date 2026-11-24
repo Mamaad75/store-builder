@@ -9,7 +9,7 @@ export default async function MyOrderPage({ params }: { params: Promise<{ label:
   const { orderId } = await params;
   if (!/^[a-z0-9]{1,64}$/.test(orderId)) notFound();
   return (
-    <ShopPage params={params}>
+    <ShopPage params={params} orderAccess>
       <MyOrder orderId={orderId} />
     </ShopPage>
   );

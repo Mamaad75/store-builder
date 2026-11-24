@@ -231,6 +231,7 @@ export const shopperOrderDto = z.object({
   canCancel: z.boolean(),
   canPay: z.boolean().describe("an unpaid online order still within its payment window"),
   transfer: transferInfoDto.nullable().describe("card-to-card orders, single-order answers only"),
+  storeOpen: z.boolean().describe("ADR 0003: the store takes new orders now (false: offline; the shopper still follows this order)"),
 });
 // ---- phase 3.5: online payment
 export const paymentStartDto = z.object({ url: z.string().describe("the Zarinpal page to send the buyer to") });

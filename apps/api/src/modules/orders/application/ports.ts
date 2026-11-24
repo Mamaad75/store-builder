@@ -1,3 +1,4 @@
+import type { StoreAvailability } from "@store-builder/shared/modules/stores/availability";
 import type { Gateway, OrderActor, OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 import type { DiscountCart } from "@store-builder/shared/modules/discounts/discounts";
 import type { AddressInput } from "@store-builder/shared/modules/checkout/checkout";
@@ -15,6 +16,8 @@ export interface Shopper {
 /** The checkout (phase 3.3): orders are priced exactly like the checkout summary, by the checkout module itself. */
 export interface CheckoutPort {
   liveStoreId(label: string): Promise<string>;
+  /** ADR 0003 (D1): the store for its shoppers' existing orders, whatever its state. */
+  orderStore(label: string): Promise<{ storeId: string; availability: StoreAvailability }>;
   prepareOrder(
     label: string,
     s: Shopper,
