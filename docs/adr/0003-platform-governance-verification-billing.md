@@ -1,10 +1,64 @@
 # ADR 0003 — Platform governance: store suspension, merchant verification, SaaS plans and billing
 
-* **Status:** Proposed (design only, 2026-11-24). No code, schema or migration has been written for it.
+* **Status:** Proposed (design, 2026-11-24). **Amended 2026-11-24 with the owner's decisions (§0)**; phases G1 and G2 approved for
+  implementation. Billing, verification, Torob and Emalls are not approved yet.
 * **Context documents:** ADR 0002 §6 (phase 6 "platform business"), `docs/production/PRODUCTION_READINESS_CHECKLIST.md` (§K, §BL, §MO, §SEC,
   §G), `docs/commerce.md`, `docs/security.md`.
 * **Labels used below:** **[EXISTS]** = in the code at commit `e44c982`; **[PROPOSED]** = this design; **[CONFIRM]** = legal or provider
   requirement not yet confirmed; **[DECIDE]** = owner decision needed.
+
+---
+
+## 0. Owner decisions and architecture correction (2026-11-24) — these override anything below
+
+### 0.1 Decisions
+
+| # | Question | Decision |
+|---|---|---|
+| D1 | Shopper access when a merchant unpublishes | **Yes.** Shoppers keep their existing orders, order details, payment status and tracking links (`/orders/<token>`, `/o/<token>`, signed-in "my orders") whatever the store's state. |
+| D2 | Account-level restriction | **Not by default.** Suspension applies to one store; other stores of the same owner are unaffected. The design keeps room for a separate, explicit platform **account restriction** for serious abuse/fraud (not built in G2). |
+| D3 | Admin deletion | **Soft deletion first** (not built in G2). Orders, payments, invoices and other legally relevant records are never permanently deleted outside an explicit retention policy that follows legal requirements. |
+| D4 | Responses | Merchant API: **`403` with code `STORE_SUSPENDED`** for prohibited operations; viewing and managing existing orders stay available. Storefront: the same generic unavailable answer as any offline store, **no reason disclosed**. Private admin notes are never exposed to merchants or shoppers. |
+
+### 0.2 Three independent conditions (replaces the single-status idea)
+
+Availability is **computed** from three conditions that are stored separately and changed only by their own workflow. No workflow writes
+another workflow's field.
+
+| Condition | Stored as | Changed only by | Never changed by |
+|---|---|---|---|
+| **Publishing** (merchant) | `Store.status` + `publishedVersionId` [EXISTS] | Merchant publish / unpublish / republish | Admin suspension, billing |
+| **Administrative suspension** (platform) | `Store.suspendedAt` + `StoreSuspension` rows [G2] | Platform admin suspend / restore | Merchant republish, payment |
+| **Billing restriction** | Subscription state [future, B2] | Billing lifecycle job / payment settlement | Merchant republish, admin restore |
+
+```
+storefrontLive = published ∧ ¬adminSuspended ∧ ¬billingRestricted
+newBusiness    = storefrontLive                       (cart, checkout, placing orders, OTP codes, payment-methods)
+orderAccess    = store exists (always)                (order view, tracking links, my orders, payment return, shopper cancel)
+prepaidActions = ¬adminSuspended                      (start a new online payment, send a card-to-card receipt, see the card numbers)
+```
+
+Consequences (each one is a test):
+* Paying an overdue subscription clears only the billing restriction; an admin suspension stays.
+* Merchant republish while suspended is refused (`403 STORE_SUSPENDED`), and even a published status never makes a suspended store live.
+* Restoring a suspension does **not** publish an unpublished store and does **not** lift a billing restriction.
+* Unpublishing (merchant) keeps `prepaidActions`: the merchant chose to close, but shoppers with pending card-to-card or online orders can
+  still pay and the merchant still fulfils (D1). A suspension removes them (fraud risk: card numbers shown on our domain).
+* An online payment **already started** is always verified on return (money may have moved); the reconciler is unchanged.
+
+The rule lives in one pure function (`storeAvailability`) in `packages/shared`, used by the API gates; the billing input is fixed to
+"not restricted" until billing exists.
+
+### 0.3 Suspension is not content takedown
+
+Product and store images are in a **public bucket**; suspending a store removes nothing from it and does not block direct image URLs.
+Published snapshots and media rows are kept. Content takedown (media purge, provider-side deletion, evidence preservation) is a separate,
+later capability; nothing in G1/G2 may assume suspension hides stored assets.
+
+### 0.4 Scope of the approved phase
+G1: order access when a store is offline. G2: platform suspension with audit history, authorization and tenant-isolation tests.
+Not in scope: billing, verification, account restriction, admin deletion, content takedown, emergency CLI (manual SQL procedure documented
+instead; CLI later).
 
 ---
 
