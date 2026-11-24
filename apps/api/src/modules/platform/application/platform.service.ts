@@ -2,7 +2,20 @@ import { normalizeUsername } from "@store-builder/shared/modules/auth/schemas";
 import { PlatformAdminConflictError, PlatformForbiddenError } from "@store-builder/shared/modules/platform/errors";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { revokeRefusal, type PlatformRole } from "../domain/platform.js";
-import type { PlatformAdminView, PlatformOverview, PlatformRepository, PlatformStoreRow } from "./ports.js";
+import { restoreStoreSchema, suspendStoreSchema } from "@store-builder/shared/modules/platform/suspension";
+import { StoreSuspensionConflictError } from "@store-builder/shared/modules/platform/errors";
+import type { z } from "zod";
+import type { MerchantSuspensionView, PlatformAdminView, PlatformOverview, PlatformRepository, PlatformStoreRow, StoreSuspensionView } from "./ports.js";
+
+const storeIdOf = (v: unknown): string => {
+  if (typeof v !== "string" || !/^[a-z0-9]{1,64}$/.test(v)) throw new NotFoundError();
+  return v;
+};
+function parse<T extends z.ZodType>(schema: T, input: unknown): z.infer<T> {
+  const r = schema.safeParse(input ?? {});
+  if (!r.success) throw new ValidationError(r.error.flatten().fieldErrors as Record<string, string[]>);
+  return r.data;
+}
 
 /**
  * Platform administration (phase 3.1, D31-1). Every method takes the acting super admin (resolved by the guard from the database on each
@@ -29,6 +42,40 @@ export class PlatformService {
       if (Number.isNaN(before.getTime())) throw new ValidationError({ before: ["تاریخ نامعتبر است"] });
     }
     return this.repo.stores({ before, limit });
+  }
+
+  // ---- ADR 0003 (G2): platform store suspension ----
+
+  async suspend(actorId: string, storeId: unknown, body: unknown): Promise<void> {
+    const r = await this.repo.suspend(storeIdOf(storeId), parse(suspendStoreSchema, body), actorId);
+    if (r === "missing") throw new NotFoundError();
+    if (r === "forbidden") throw new PlatformForbiddenError();
+    if (r === "already_suspended") throw new StoreSuspensionConflictError("already_suspended");
+  }
+
+  async amend(actorId: string, storeId: unknown, body: unknown): Promise<void> {
+    const r = await this.repo.amend(storeIdOf(storeId), parse(suspendStoreSchema, body), actorId);
+    if (r === "missing") throw new NotFoundError();
+    if (r === "forbidden") throw new PlatformForbiddenError();
+    if (r === "not_suspended") throw new StoreSuspensionConflictError("not_suspended");
+  }
+
+  async restore(actorId: string, storeId: unknown, body: unknown): Promise<void> {
+    const r = await this.repo.restore(storeIdOf(storeId), parse(restoreStoreSchema, body).note, actorId);
+    if (r === "missing") throw new NotFoundError();
+    if (r === "forbidden") throw new PlatformForbiddenError();
+    if (r === "not_suspended") throw new StoreSuspensionConflictError("not_suspended");
+  }
+
+  async suspensions(storeId: unknown): Promise<StoreSuspensionView[]> {
+    const rows = await this.repo.suspensions(storeIdOf(storeId));
+    if (!rows) throw new NotFoundError();
+    return rows;
+  }
+
+  /** For the store's own staff (store access already checked): the public message only. */
+  merchantSuspension(a: { storeId: string }): Promise<MerchantSuspensionView> {
+    return this.repo.merchantSuspension(a.storeId);
   }
 
   admins(): Promise<PlatformAdminView[]> {

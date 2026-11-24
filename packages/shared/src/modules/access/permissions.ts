@@ -47,3 +47,11 @@ export const INVITATION_TTL_DAYS = 14;
 export const AUDIT_RETENTION_DAYS = 365;
 /** Upper bound of staff per store (members + pending invitations). */
 export const MAX_STAFF_PER_STORE = 20;
+
+/**
+ * ADR 0003 (D4): what store staff may still do while the platform suspends a store. Reads (GET) stay allowed for whatever the role allows;
+ * of the writes, only managing EXISTING orders (fulfil, cancel, review receipts) is allowed, to protect shoppers. Everything else - publishing,
+ * catalog, pages, theme, settings, subdomain, staff, secrets and bank cards, discounts, deleting the store - is refused with STORE_SUSPENDED.
+ */
+export const SUSPENDED_WRITE_PERMISSIONS: readonly Permission[] = ["orders.manage"];
+export const allowedWhileSuspended = (permission: Permission, write: boolean): boolean => !write || SUSPENDED_WRITE_PERMISSIONS.includes(permission);

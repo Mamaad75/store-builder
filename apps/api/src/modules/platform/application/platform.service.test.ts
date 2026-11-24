@@ -12,6 +12,11 @@ function memory() {
     roleOf: async (id) => (admins.has(id) ? "SUPER_ADMIN" : null),
     admins: async () => [...admins].map(([userId, grantedAt]) => ({ userId, username: users.get(userId)!, name: users.get(userId)!, role: "SUPER_ADMIN" as const, grantedAt })),
     countAdmins: async () => admins.size,
+    suspend: async () => "ok",
+    amend: async () => "ok",
+    restore: async () => "ok",
+    suspensions: async () => [],
+    merchantSuspension: async () => ({ suspended: false, publicMessage: null, since: null }),
     userIdByUsername: async (u) => [...users].find(([, n]) => n === u)?.[0] ?? null,
     grant: async (id, _r, a) => {
       if (a.actorId && !admins.has(a.actorId)) return "forbidden";

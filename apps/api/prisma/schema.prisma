@@ -116,6 +116,9 @@ model Store {
   // What the merchant sells (a label; validated against the application's category registry, NOT a DB allowlist).
   // Independent of the visual theme (templateVersionId); the renderer never reads it.
   businessCategory   String      @default("general")
+  /// ADR 0003 (G2): platform administrative suspension, independent of the merchant's `status`. NULL = not suspended. Set and cleared only
+  /// by platform admins, in the same transaction as the open/closed StoreSuspension row. Never written by publishing or billing.
+  suspendedAt        DateTime?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
@@ -1063,4 +1066,38 @@ model DiscountRedemption {
   @@unique([storeId, orderId])
   @@index([discountId, released])
   @@index([storeId, phone])
+}
+
+/// ADR 0003 (G2): why a store is suspended by the platform.
+enum SuspensionReason {
+  FRAUD
+  PROHIBITED_GOODS
+  PHISHING_OR_IMPERSONATION
+  LEGAL_ORDER
+  PAYMENT_PROVIDER_REQUEST
+  CUSTOMER_COMPLAINTS
+  SECURITY_INCIDENT
+  OTHER
+}
+
+/// ADR 0003 (G2): the history of platform suspensions of a store (platform data: never shown to store staff except `publicMessage` of the
+/// open one). At most ONE open row per store (partial unique index); `Store.suspendedAt` mirrors the open row, written in the same
+/// transaction. No foreign key on purpose: the history outlives the store (evidence), like OutboxEvent. CHECKs in the migration SQL.
+model StoreSuspension {
+  id                    String           @id @default(cuid())
+  storeId               String
+  reason                SuspensionReason
+  /// Shown to the store's owner and staff in the dashboard. Never to shoppers.
+  publicMessage         String           @db.VarChar(300)
+  /// Platform admins only. Never in AuditEvent rows of the store, never in a merchant or shopper answer.
+  internalNote          String           @db.VarChar(2000)
+  /// The merchant's publishing status when the suspension started (for the record; restoring never changes it).
+  merchantStatusAtStart StoreStatus
+  suspendedById         String?
+  suspendedAt           DateTime         @default(now())
+  liftedById            String?
+  liftedAt              DateTime?
+  liftNote              String?          @db.VarChar(2000)
+
+  @@index([storeId, suspendedAt])
 }

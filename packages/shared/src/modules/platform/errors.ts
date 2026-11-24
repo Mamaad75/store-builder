@@ -13,3 +13,11 @@ export class PlatformForbiddenError extends Error {
     this.name = "PlatformForbiddenError";
   }
 }
+
+/** ADR 0003 (G2): suspending a store that is already suspended, or restoring / amending one that is not. */
+export class StoreSuspensionConflictError extends Error {
+  constructor(public readonly reason: "already_suspended" | "not_suspended") {
+    super(reason === "already_suspended" ? "این فروشگاه از قبل معلق است." : "این فروشگاه معلق نیست.");
+    this.name = "StoreSuspensionConflictError";
+  }
+}

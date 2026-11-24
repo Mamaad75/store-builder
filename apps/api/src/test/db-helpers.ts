@@ -7,7 +7,7 @@ useDb(prisma); // the domain modules read through the shared `db` handle
 
 export async function resetDb() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE "AuditEvent","OutboxEvent","RateLimitBucket","SubdomainReservation","Domain","Product","ProductCategory","Media","Page","Store","StoreVersion","User","TemplateVersion","Template" RESTART IDENTITY CASCADE`,
+    `TRUNCATE "AuditEvent","OutboxEvent","StoreSuspension","RateLimitBucket","SubdomainReservation","Domain","Product","ProductCategory","Media","Page","Store","StoreVersion","User","TemplateVersion","Template" RESTART IDENTITY CASCADE`,
   );
   await seedTemplates(prisma);
 }

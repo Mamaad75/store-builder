@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { restoreStoreSchema, suspendStoreSchema } from "../modules/platform/suspension.js";
 import type { Permission } from "../modules/access/permissions.js";
 import { inviteSchema, roleSchema } from "../modules/access/schemas.js";
 import { changePasswordSchema, loginSchema, registerSchema } from "../modules/auth/schemas.js";
@@ -215,12 +216,17 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", st("/payment-settings"), "Online payment state (phase 3.5): platform switch, sandbox, whether the merchant id is set, the return address", { permission: "secrets.manage", response: S.paymentSettingsViewDto }),
   r("GET", st("/orders/:orderId/payments"), "The order's online payment attempts (phase 3.5): status, reference number, masked card", { permission: "orders.view", response: z.array(S.paymentAttemptDto) }),
   r("POST", st("/orders/:orderId/status"), "Confirm, ship, deliver or cancel an order (cancelling gives the stock back)", { permission: "orders.manage", status: 200, body: orderTransitionSchema, response: S.orderDto }),
+  r("GET", st("/suspension"), "ADR 0003: whether the platform suspended this store, with its public message", { permission: "store.view", response: S.merchantSuspensionDto }),
   r("GET", st("/customers"), "The store's customers, newest first", { permission: "customers.view", query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.customerListItemDto) }),
 
   // ---- phase 3.1: platform operators (super admins; the role is checked in the database on every request)
   r("GET", "/api/platform/me", "The signed-in operator", { platform: true, response: z.object({ userId: z.string(), username: z.string(), role: z.enum(["SUPER_ADMIN"]) }) }),
   r("GET", "/api/platform/overview", "Platform counts", { platform: true, response: S.platformOverviewDto }),
   r("GET", "/api/platform/stores", "Every store, newest first", { platform: true, query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.platformStoreDto) }),
+  r("POST", "/api/platform/stores/:id/suspend", "ADR 0003: suspend a store (storefront offline, staff writes refused except order management)", { platform: true, status: 204, body: suspendStoreSchema }),
+  r("POST", "/api/platform/stores/:id/suspension/amend", "ADR 0003: change the reason or notes of the open suspension", { platform: true, status: 204, body: suspendStoreSchema }),
+  r("POST", "/api/platform/stores/:id/restore", "ADR 0003: lift the suspension (never publishes the store or changes anything else)", { platform: true, status: 204, body: restoreStoreSchema }),
+  r("GET", "/api/platform/stores/:id/suspensions", "ADR 0003: the store's suspension history with internal notes", { platform: true, response: z.array(S.storeSuspensionDto) }),
   r("GET", "/api/platform/admins", "Super admins", { platform: true, response: z.array(S.platformAdminDto) }),
   r("POST", "/api/platform/admins", "Make an existing account a super admin", { platform: true, status: 201, body: doc({ username: z.string().max(64) }), bodyDoc: true, response: z.object({ userId: z.string() }) }),
   r("POST", "/api/platform/admins/:userId/revoke", "Revoke a super admin (never oneself or the last one)", { platform: true, status: 204 }),

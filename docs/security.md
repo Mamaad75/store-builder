@@ -47,6 +47,24 @@ Caddy replaces `X-Forwarded-For` with the connecting address and removes `X-Forw
 * Staff join only by accepting an invitation addressed to their own account (D23-2); invitations expire after 14 days and are consumed atomically (`DELETE ... RETURNING`), so a double accept cannot create two memberships.
 * The audit log stores identifiers and small facts only (no request bodies, no secrets), records the real actor, and is visible to OWNER and MANAGER; 365-day retention.
 
+## Platform store suspension (ADR 0003, G2)
+
+* Availability is computed by one pure function (`packages/shared/src/modules/stores/availability.ts`) from three independent
+  conditions: the merchant's publishing status, the platform suspension (`Store.suspendedAt`) and billing (not built: always "allowed").
+  No workflow writes another's field: republishing cannot lift a suspension, restoring never publishes, paying (later) never restores.
+* Public side: the two public SQL resolvers (`resolveLiveStore`, `resolveProductRedirect`) require `suspendedAt IS NULL`, so the storefront,
+  sitemap, cart, checkout, customer registration and SMS codes see a suspended store exactly like a missing one (neutral 404, no reason).
+  Existing orders use `resolveStoreForOrders` (order links, `/o/` links, my orders, payment return, shopper cancel): they keep working.
+  While suspended, no new online payment session and no card-to-card receipt is accepted (`PaymentUnavailableError` reason `store`) and the
+  store's card numbers are not shown; a payment session opened before the suspension is still verified on return.
+* Dashboard: `StoreAccessGuard` passes the HTTP method; on a suspended store every write except `orders.manage` answers
+  `403 StoreSuspendedError` with payload `{ code: "STORE_SUSPENDED" }`, after the role check (strangers still get 404). Reads stay allowed.
+* Only super admins suspend, amend and restore (`/api/v1/platform/stores/:id/...`), in one transaction under the store row lock
+  (`withDraftLockTimeout`), re-checking the actor's role. History in `StoreSuspension` (no FK: outlives the store; one open row per store
+  by a partial unique index). Two audit rows per action: platform (`storeId` null) and store (reason code only). The internal note exists
+  only in `StoreSuspension` and in the platform history answer.
+* **Suspension is not content takedown:** public images in the bucket stay reachable by direct URL; snapshots and media are kept.
+
 ## Store secrets (phase 2.4, D24-1)
 
 * Envelope encryption (`apps/api/src/platform/crypto/envelope.ts`): AES-256-GCM, a random 256-bit data key per record wrapped by an environment master key, 96-bit random IVs, associated data binding each record to `store + name`; tampering, a wrong key or a moved record all fail with one generic `EnvelopeError`. Data keys are zeroed after use.

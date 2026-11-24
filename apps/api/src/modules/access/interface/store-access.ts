@@ -43,7 +43,8 @@ export class StoreAccessGuard implements CanActivate {
     if (!permission) throw new Error(`route ${ctx.getClass().name}.${ctx.getHandler().name} has no @RequirePermission`); // fail closed
     const req = ctx.switchToHttp().getRequest<StoreAccessRequest>();
     if (!req.sessionUser) throw new ApiProblem(401, { code: "unauthenticated" });
-    req.storeAccess = await this.access.resolve(req.sessionUser.id, req.params.storeId, permission);
+    const write = req.method !== "GET" && req.method !== "HEAD";
+    req.storeAccess = await this.access.resolve(req.sessionUser.id, req.params.storeId, permission, write);
     return true;
   }
 }

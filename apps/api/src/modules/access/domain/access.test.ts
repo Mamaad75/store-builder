@@ -3,9 +3,9 @@ import { invitationExpiry, inviteRefusal, roleOf } from "./access.js";
 
 describe("store access rules", () => {
   it("the owner is OWNER, a member has their staff role, anyone else has no role", () => {
-    expect(roleOf({ ownerId: "o", memberRole: null }, "o")).toBe("OWNER");
-    expect(roleOf({ ownerId: "o", memberRole: "OPERATOR" }, "m")).toBe("OPERATOR");
-    expect(roleOf({ ownerId: "o", memberRole: null }, "x")).toBeNull();
+    expect(roleOf({ ownerId: "o", memberRole: null, suspended: false }, "o")).toBe("OWNER");
+    expect(roleOf({ ownerId: "o", memberRole: "OPERATOR", suspended: false }, "m")).toBe("OPERATOR");
+    expect(roleOf({ ownerId: "o", memberRole: null, suspended: false }, "x")).toBeNull();
   });
 
   it("an invitation is valid for 14 days", () => {

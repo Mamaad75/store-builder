@@ -12,3 +12,8 @@ export const revokePlatformAdmin = (userId: string) => send("POST", `${P}/admins
 // phase 3.2b: rates
 export const enterRate = (code: "USD" | "GOLD18", rateToman: number) => send("POST", `${P}/rates`, { body: { code, rateToman } });
 export const decideRate = (id: string, to: "confirm" | "reject") => send("POST", `${P}/rates/${enc(id)}/${to}`);
+// ADR 0003 (G2): platform store suspension
+export const suspendStore = (storeId: string, body: { reason: string; publicMessage: string; internalNote: string }) => send("POST", `${P}/stores/${enc(storeId)}/suspend`, { body });
+export const restoreStore = (storeId: string, note: string) => send("POST", `${P}/stores/${enc(storeId)}/restore`, { body: { note } });
+export type SuspensionRow = { id: string; reason: string; publicMessage: string; internalNote: string; merchantStatusAtStart: string; suspendedAt: string; liftedAt: string | null; liftNote: string | null };
+export const getSuspensions = (storeId: string) => send<SuspensionRow[]>("GET", `${P}/stores/${enc(storeId)}/suspensions`);

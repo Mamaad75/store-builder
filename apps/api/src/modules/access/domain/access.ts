@@ -5,6 +5,8 @@ export interface StoreAccessFacts {
   ownerId: string;
   /** The user's staff role, or null when the user is not a member. */
   memberRole: StaffRole | null;
+  /** ADR 0003 (G2): the platform suspended the store (Store.suspendedAt is set). */
+  suspended: boolean;
 }
 
 /** The user's role in the store: OWNER by Store.ownerId, else the staff row; null = no access at all (treated as "not found"). */

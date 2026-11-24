@@ -45,6 +45,32 @@ export class PlatformController {
     return this.platform.stores({ before, limit });
   }
 
+  // ---- ADR 0003 (G2): platform store suspension (audited in the repository transaction) ----
+
+  @Post("stores/:id/suspend")
+  @HttpCode(204)
+  async suspend(@CurrentUser() user: SafeUser, @Param("id") storeId: string, @Body() body: unknown): Promise<void> {
+    await this.platform.suspend(user.id, storeId, body);
+  }
+
+  @Post("stores/:id/suspension/amend")
+  @HttpCode(204)
+  async amendSuspension(@CurrentUser() user: SafeUser, @Param("id") storeId: string, @Body() body: unknown): Promise<void> {
+    await this.platform.amend(user.id, storeId, body);
+  }
+
+  @Post("stores/:id/restore")
+  @HttpCode(204)
+  async restore(@CurrentUser() user: SafeUser, @Param("id") storeId: string, @Body() body: unknown): Promise<void> {
+    await this.platform.restore(user.id, storeId, body);
+  }
+
+  /** The whole suspension history of a store, with the internal notes (platform admins only). */
+  @Get("stores/:id/suspensions")
+  suspensions(@Param("id") storeId: string) {
+    return this.platform.suspensions(storeId);
+  }
+
   @Get("admins")
   admins() {
     return this.platform.admins();
@@ -86,3 +112,4 @@ export class PlatformController {
     await this.settings.removeSecret(user.id, name);
   }
 }
+

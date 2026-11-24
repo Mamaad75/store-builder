@@ -1,3 +1,4 @@
+import type { SuspendStoreInput, SuspensionReason } from "@store-builder/shared/modules/platform/suspension";
 import type { PlatformRole } from "../domain/platform.js";
 
 export interface PlatformAdminView {
@@ -24,6 +25,29 @@ export interface PlatformStoreRow {
   subdomain: string | null;
   products: number;
   createdAt: Date;
+  /** ADR 0003: platform suspension (independent of `status`). */
+  suspended: boolean;
+}
+
+/** ADR 0003 (G2): one suspension of a store, as platform admins see it (internal note included). */
+export interface StoreSuspensionView {
+  id: string;
+  reason: SuspensionReason;
+  publicMessage: string;
+  internalNote: string;
+  merchantStatusAtStart: "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
+  suspendedById: string | null;
+  suspendedAt: Date;
+  liftedById: string | null;
+  liftedAt: Date | null;
+  liftNote: string | null;
+}
+
+/** ADR 0003 (G2): what store staff see about a suspension: the public message only. */
+export interface MerchantSuspensionView {
+  suspended: boolean;
+  publicMessage: string | null;
+  since: Date | null;
 }
 
 export interface PlatformAudit {
@@ -48,4 +72,14 @@ export interface PlatformRepository {
   overview(): Promise<PlatformOverview>;
   /** Newest first; `before` = createdAt of the last row seen. */
   stores(o: { before?: Date; limit: number }): Promise<PlatformStoreRow[]>;
+  /**
+   * ADR 0003 (G2). Each in ONE transaction under the store row's lock: the actor must still be a super admin, the open StoreSuspension row and
+   * Store.suspendedAt change together, and two audit rows are written (platform: storeId null; store: storeId set, reason code only - never
+   * the notes). Nothing here touches the merchant's publishing status.
+   */
+  suspend(storeId: string, input: SuspendStoreInput, actorId: string): Promise<"ok" | "missing" | "already_suspended" | "forbidden">;
+  amend(storeId: string, input: SuspendStoreInput, actorId: string): Promise<"ok" | "missing" | "not_suspended" | "forbidden">;
+  restore(storeId: string, note: string, actorId: string): Promise<"ok" | "missing" | "not_suspended" | "forbidden">;
+  suspensions(storeId: string): Promise<StoreSuspensionView[] | null>;
+  merchantSuspension(storeId: string): Promise<MerchantSuspensionView>;
 }

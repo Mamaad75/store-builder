@@ -279,6 +279,7 @@ export const platformStoreDto = z.object({
   subdomain: z.string().nullable(),
   products: z.number(),
   createdAt: iso,
+  suspended: z.boolean().describe("ADR 0003: suspended by the platform (independent of the merchant status)"),
 });
 export const platformAdminDto = z.object({ userId: z.string(), username: z.string(), name: z.string(), role: z.enum(["SUPER_ADMIN"]), grantedAt: iso });
 
@@ -401,4 +402,24 @@ export const discountDto = z.object({
   active: z.boolean(),
   used: z.number().describe("uses by orders that are not cancelled or expired"),
   createdAt: z.string(),
+});
+
+// ---- ADR 0003 (G2): platform store suspension
+const suspensionReason = z.enum(["FRAUD", "PROHIBITED_GOODS", "PHISHING_OR_IMPERSONATION", "LEGAL_ORDER", "PAYMENT_PROVIDER_REQUEST", "CUSTOMER_COMPLAINTS", "SECURITY_INCIDENT", "OTHER"]);
+export const storeSuspensionDto = z.object({
+  id: z.string(),
+  reason: suspensionReason,
+  publicMessage: z.string().describe("shown to the store's staff"),
+  internalNote: z.string().describe("platform admins only"),
+  merchantStatusAtStart: storeStatus,
+  suspendedById: z.string().nullable(),
+  suspendedAt: iso,
+  liftedById: z.string().nullable(),
+  liftedAt: iso.nullable(),
+  liftNote: z.string().nullable(),
+});
+export const merchantSuspensionDto = z.object({
+  suspended: z.boolean(),
+  publicMessage: z.string().nullable().describe("the platform's message to the store (never the reason details or internal notes)"),
+  since: iso.nullable(),
 });

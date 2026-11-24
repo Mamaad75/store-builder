@@ -463,7 +463,12 @@ describe("architecture guard: media release after a committed change never fails
     expect(del).toMatch(/withDraftLockTimeout\(this\.client/);
     // no other Store write exists outside withStoreMutation / the publishing lock / these timeout-wrapped writers
     const offenders = prodFiles().filter((f) => /store\.(update|updateMany|delete|deleteMany)\(/.test(read(f)));
-    expect(rel(offenders)).toEqual(["src/modules/media/repository.ts", "src/modules/publishing/repository.ts", "src/modules/stores/mutation.ts", "src/modules/stores/repository.ts"]);
+    // ADR 0003 (G2): the platform suspension writes only Store.suspendedAt, inside withDraftLockTimeout (checked below).
+    expect(rel(offenders)).toEqual(["src/modules/media/repository.ts", "src/modules/platform/infrastructure/prisma-platform.repository.ts", "src/modules/publishing/repository.ts", "src/modules/stores/mutation.ts", "src/modules/stores/repository.ts"]);
+    const platform = read("src/modules/platform/infrastructure/prisma-platform.repository.ts");
+    expect(platform.match(/store\.update\(/g)).toHaveLength(2);
+    expect(platform.match(/withDraftLockTimeout\(db,/g)).toHaveLength(3);
+    expect(platform).not.toMatch(/store\.update\(\{[^}]*\}, data: \{ (?!suspendedAt)/);
   });
 });
 

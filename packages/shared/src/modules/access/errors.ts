@@ -23,3 +23,15 @@ export class StaffLimitError extends Error {
     this.name = "StaffLimitError";
   }
 }
+
+/**
+ * ADR 0003 (D4): the store is suspended by the platform and this operation is not allowed while it is (HTTP 403). Machine-readable `code`;
+ * the reason and the platform's notes are never part of it (the dashboard reads the store's public message separately).
+ */
+export class StoreSuspendedError extends Error {
+  public readonly code = "STORE_SUSPENDED" as const;
+  constructor() {
+    super("این فروشگاه توسط پلتفرم معلق شده است؛ این کار تا رفع تعلیق ممکن نیست.");
+    this.name = "StoreSuspendedError";
+  }
+}

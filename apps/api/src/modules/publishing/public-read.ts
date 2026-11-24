@@ -18,12 +18,12 @@ export interface LiveStore {
   liveSince: Date;
 }
 
-/** The live version of the store that owns this subdomain, or null (unknown, never published, unpublished, released). */
+/** The live version of the store that owns this subdomain, or null (unknown, never published, unpublished, suspended, released). */
 export async function resolveLiveStore(label: string): Promise<LiveStore | null> {
   const rows = await db.$queryRaw<LiveStore[]>`
     SELECT s."id" AS "storeId", s."publishedVersionId" AS "versionId", COALESCE(s."publishedAt", now()) AS "liveSince"
     FROM "Domain" d JOIN "Store" s ON s."id" = d."storeId"
-    WHERE d."kind" = 'SUBDOMAIN' AND d."host" = ${label} AND s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL`;
+    WHERE d."kind" = 'SUBDOMAIN' AND d."host" = ${label} AND s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL AND s."suspendedAt" IS NULL`;
   return rows[0] ?? null;
 }
 
@@ -32,12 +32,12 @@ export async function resolveLiveStore(label: string): Promise<LiveStore | null>
  * the availability computed from its independent conditions. Never used to show the storefront or to start new business.
  */
 export async function resolveStoreForOrders(label: string): Promise<{ storeId: string; availability: StoreAvailability } | null> {
-  const rows = await db.$queryRaw<{ storeId: string; published: boolean }[]>`
-    SELECT s."id" AS "storeId", (s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL) AS "published"
+  const rows = await db.$queryRaw<{ storeId: string; published: boolean; suspended: boolean }[]>`
+    SELECT s."id" AS "storeId", (s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL) AS "published", (s."suspendedAt" IS NOT NULL) AS "suspended"
     FROM "Domain" d JOIN "Store" s ON s."id" = d."storeId"
     WHERE d."kind" = 'SUBDOMAIN' AND d."host" = ${label}`;
   const r = rows[0];
-  return r ? { storeId: r.storeId, availability: storeAvailability({ published: r.published, adminSuspended: false, billingRestricted: false }) } : null;
+  return r ? { storeId: r.storeId, availability: storeAvailability({ published: r.published, adminSuspended: r.suspended, billingRestricted: false }) } : null;
 }
 
 /**
@@ -52,7 +52,7 @@ export async function resolveProductRedirect(label: string, slug: string): Promi
   const rows = await db.$queryRaw<{ to: string }[]>`
     SELECT t."slug" AS "to"
     FROM "Domain" d
-    JOIN "Store" s ON s."id" = d."storeId" AND s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL
+    JOIN "Store" s ON s."id" = d."storeId" AND s."status" = 'PUBLISHED' AND s."publishedVersionId" IS NOT NULL AND s."suspendedAt" IS NULL
     JOIN "PublishedSlug" ps ON ps."storeId" = s."id" AND ps."slug" = ${slug}
     JOIN "StoreVersionProduct" t ON t."versionId" = s."publishedVersionId" AND t."productId" = ps."productId"
     WHERE d."kind" = 'SUBDOMAIN' AND d."host" = ${label} AND t."slug" <> ${slug}

@@ -65,6 +65,14 @@ Live only in `.env.production` on the server (mode 600) and in the provider cons
 * **S3 keys**: create the new key pair at the provider, update `.env.production`, `$DC up -d app scheduler`, check `/api/ready` (it lists the bucket with the new key), revoke the old key.
 * A suspected leak: rotate first, investigate second.
 
+## Suspending a store (ADR 0003)
+Normal path: `/platform/stores` → «تعلیق» (reason, message to the merchant, internal note) → «رفع تعلیق» with a note. Effective on the
+next request (no cache). Emergency without the web UI (database access only), in ONE transaction, then record it in the incident log:
+`BEGIN; INSERT INTO "StoreSuspension" ("id","storeId","reason","publicMessage","internalNote","merchantStatusAtStart") SELECT
+'manual-' || md5(random()::text), "id", 'SECURITY_INCIDENT', '<message>', '<note>', "status" FROM "Store" WHERE "id" = '<storeId>';
+UPDATE "Store" SET "suspendedAt" = now() WHERE "id" = '<storeId>'; COMMIT;` (restore through the UI afterwards). Suspension does not
+remove public images (content takedown is a separate procedure).
+
 ## Incidents: first five minutes
 1. `curl -fsS https://<root>/api/ready` and `$DC ps`. `503` names the failing dependency (`database` / `storage`).
 2. `$DC logs --since 15m app | grep '"level":"error"'`; `startup.refused` lines name the invalid variable. Caddy: `$DC logs caddy`.

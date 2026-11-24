@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { InvitationTargetError, PermissionDeniedError, StaffLimitError } from "@store-builder/shared/modules/access/errors";
-import { MAX_STAFF_PER_STORE, type StaffRole } from "@store-builder/shared/modules/access/permissions";
+import { InvitationTargetError, PermissionDeniedError, StaffLimitError, StoreSuspendedError } from "@store-builder/shared/modules/access/errors";
+import { MAX_STAFF_PER_STORE, PERMISSIONS, type StaffRole } from "@store-builder/shared/modules/access/permissions";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { AccessService } from "./access.service.js";
 import { DuplicateInvitationError, type AccessRepository, type AuditInput, type AuditRepository } from "./ports.js";
@@ -10,6 +10,7 @@ interface Inv { id: string; storeId: string; invitedUserId: string; role: StaffR
 
 class Memory implements AccessRepository, AuditRepository {
   stores = new Map([["s1", "owner"], ["s2", "other"]]);
+  suspended = new Set<string>();
   users = new Map([["owner", "owner"], ["ali", "u-ali"], ["sara", "u-sara"], ["other", "other"]]);
   staff: { storeId: string; userId: string; role: StaffRole }[] = [];
   invites: Inv[] = [];
@@ -18,7 +19,7 @@ class Memory implements AccessRepository, AuditRepository {
   async facts(storeId: string, userId: string) {
     const ownerId = this.stores.get(storeId);
     if (!ownerId) return null;
-    return { ownerId, memberRole: this.staff.find((m) => m.storeId === storeId && m.userId === userId)?.role ?? null };
+    return { ownerId, memberRole: this.staff.find((m) => m.storeId === storeId && m.userId === userId)?.role ?? null, suspended: this.suspended.has(storeId) };
   }
   async userIdByUsername(u: string) { return this.users.get(u.toLowerCase()) ?? null; }
   async isMember(s: string, u: string) { return this.staff.some((m) => m.storeId === s && m.userId === u); }
@@ -129,5 +130,30 @@ describe("staff changes", () => {
     await svc.leave("u-ali", "s1");
     await expect(svc.resolve("u-ali", "s1", "store.view")).rejects.toBeInstanceOf(NotFoundError);
     expect(mem.events.map((e) => e.action)).toEqual(["staff.role_changed", "staff.removed", "staff.left"]);
+  });
+});
+
+describe("ADR 0003 (G2): a suspended store", () => {
+  it("allows reads for what the role allows and only order management among writes; the role check comes first", async () => {
+    mem.suspended.add("s1");
+    try {
+      for (const p of PERMISSIONS) {
+        expect((await svc.resolve("owner", "s1", p, false)).role).toBe("OWNER"); // every read stays possible
+        const w = await svc.resolve("owner", "s1", p, true).catch((x: unknown) => x);
+        if (p === "orders.manage") expect(w).toMatchObject({ role: "OWNER" });
+        else expect(w).toBeInstanceOf(StoreSuspendedError);
+      }
+      expect(((await svc.resolve("owner", "s1", "publish").catch((x: unknown) => x)) as StoreSuspendedError).code).toBe("STORE_SUSPENDED");
+      // a stranger still gets 404 and a staff member without the permission still gets PermissionDenied (no state leak)
+      await expect(svc.resolve("u-sara", "s1", "publish")).rejects.toBeInstanceOf(NotFoundError);
+      mem.staff.push({ storeId: "s1", userId: "u-ali", role: "OPERATOR" });
+      await expect(svc.resolve("u-ali", "s1", "publish")).rejects.toBeInstanceOf(PermissionDeniedError);
+      await expect(svc.resolve("u-ali", "s1", "catalog.write")).rejects.toBeInstanceOf(StoreSuspendedError);
+      expect((await svc.resolve("u-ali", "s1", "catalog.write", false)).role).toBe("OPERATOR");
+      // other stores of the same platform are unaffected
+      expect((await svc.resolve("other", "s2", "publish")).role).toBe("OWNER");
+    } finally {
+      mem.suspended.delete("s1");
+    }
   });
 });

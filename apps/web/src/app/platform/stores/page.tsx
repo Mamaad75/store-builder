@@ -7,6 +7,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { TextLink } from "@/components/NextLinks";
 import { getPlatformStores } from "@/gateway/platform";
+import StoreSuspension from "@/components/platform/StoreSuspension";
 
 const STATUS: Record<string, string> = { DRAFT: "پیش‌نویس", PUBLISHED: "منتشرشده", UNPUBLISHED: "غیرفعال" };
 
@@ -33,6 +34,7 @@ export default async function PlatformStores({ searchParams }: { searchParams: P
                 <TableCell scope="col">زیردامنه</TableCell>
                 <TableCell scope="col">محصولات</TableCell>
                 <TableCell scope="col">ساخته‌شده</TableCell>
+                <TableCell scope="col">تعلیق پلتفرم</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -44,6 +46,7 @@ export default async function PlatformStores({ searchParams }: { searchParams: P
                   <TableCell dir="ltr">{s.subdomain ?? "—"}</TableCell>
                   <TableCell>{s.products.toLocaleString("fa-IR")}</TableCell>
                   <TableCell>{new Date(s.createdAt).toLocaleDateString("fa-IR")}</TableCell>
+                  <TableCell><StoreSuspension storeId={s.id} storeName={s.name} suspended={s.suspended} /></TableCell>
                 </TableRow>
               ))}
             </TableBody>

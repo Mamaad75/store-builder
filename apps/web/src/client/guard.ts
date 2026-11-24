@@ -1,6 +1,7 @@
 import { UNAVAILABLE_ERROR } from "@/app/actions-auth";
 import { ApiUnavailableError, UnauthenticatedError } from "./http";
 import { hardGo } from "./nav";
+import { StoreSuspendedError } from "@store-builder/shared/modules/access/errors";
 
 /**
  * Failures that belong to no particular form: a missing/revoked session sends the person to /login, an unreachable API becomes the
@@ -12,6 +13,8 @@ export function transportState(e: unknown): { error?: string } | null {
     return {};
   }
   if (e instanceof ApiUnavailableError) return { error: UNAVAILABLE_ERROR };
+  // ADR 0003 (G2): the platform suspended the store; every form shows the same explanation (403 STORE_SUSPENDED).
+  if (e instanceof StoreSuspendedError) return { error: e.message };
   return null;
 }
 

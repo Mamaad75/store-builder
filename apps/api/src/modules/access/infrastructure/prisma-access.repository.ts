@@ -20,8 +20,8 @@ import type { StoreAccessFacts } from "../domain/access.js";
 
 export class PrismaAccessRepository implements AccessRepository {
   async facts(storeId: string, userId: string): Promise<StoreAccessFacts | null> {
-    const s = await db.store.findUnique({ where: { id: storeId }, select: { ownerId: true, members: { where: { userId }, select: { role: true } } } });
-    return s ? { ownerId: s.ownerId, memberRole: (s.members[0]?.role as StaffRole | undefined) ?? null } : null;
+    const s = await db.store.findUnique({ where: { id: storeId }, select: { ownerId: true, suspendedAt: true, members: { where: { userId }, select: { role: true } } } });
+    return s ? { ownerId: s.ownerId, memberRole: (s.members[0]?.role as StaffRole | undefined) ?? null, suspended: s.suspendedAt !== null } : null;
   }
 
   async userIdByUsername(username: string): Promise<string | null> {

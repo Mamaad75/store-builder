@@ -55,7 +55,15 @@ Product and store images are in a **public bucket**; suspending a store removes 
 Published snapshots and media rows are kept. Content takedown (media purge, provider-side deletion, evidence preservation) is a separate,
 later capability; nothing in G1/G2 may assume suspension hides stored assets.
 
-### 0.4 Scope of the approved phase
+### 0.4 Implementation status (2026-11-24)
+* **G1 done:** `resolveStoreForOrders` + `storeAvailability`; order links, `/o/` links, my orders, password sign-in, payment return and
+  paying existing orders work on offline stores; order pages render in a neutral frame without the theme.
+* **G2 done:** migration `20261203090000_g2_store_suspension` (`Store.suspendedAt`, `StoreSuspension`, `SuspensionReason`); public gates;
+  `403 STORE_SUSPENDED` in `AccessService.resolve`; platform endpoints suspend / amend / restore / history; merchant `GET
+  stores/:storeId/suspension`; audit rows on both sides; `/platform/stores` UI and the dashboard banner. The emergency path is a documented
+  SQL procedure (docs/runbook.md), not a CLI.
+
+### 0.5 Scope of the approved phase
 G1: order access when a store is offline. G2: platform suspension with audit history, authorization and tenant-isolation tests.
 Not in scope: billing, verification, account restriction, admin deletion, content takedown, emergency CLI (manual SQL procedure documented
 instead; CLI later).

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { InvitationTargetError, PermissionDeniedError, StaffLimitError } from "@store-builder/shared/modules/access/errors";
-import { MAX_STAFF_PER_STORE, can, type Permission } from "@store-builder/shared/modules/access/permissions";
+import { InvitationTargetError, PermissionDeniedError, StaffLimitError, StoreSuspendedError } from "@store-builder/shared/modules/access/errors";
+import { MAX_STAFF_PER_STORE, allowedWhileSuspended, can, type Permission } from "@store-builder/shared/modules/access/permissions";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { storeIdSchema } from "@store-builder/shared/modules/stores/schemas";
 import { inviteSchema, roleSchema } from "@store-builder/shared/modules/access/schemas";
@@ -42,12 +42,18 @@ export class AccessService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async resolve(userId: string, storeId: unknown, permission: Permission): Promise<StoreAccessContext> {
+  /**
+   * `write` = the request changes something (any method but GET/HEAD). ADR 0003: on a suspended store, writes other than managing existing
+   * orders are refused with StoreSuspendedError (after the role check, so a member without the permission still gets PermissionDenied and a
+   * stranger still gets 404).
+   */
+  async resolve(userId: string, storeId: unknown, permission: Permission, write = true): Promise<StoreAccessContext> {
     const sid = idOrNotFound(storeId);
     const facts = await this.repo.facts(sid, userId);
     const role = facts ? roleOf(facts, userId) : null;
     if (!facts || !role) throw new NotFoundError();
     if (!can(role, permission)) throw new PermissionDeniedError(permission);
+    if (facts.suspended && !allowedWhileSuspended(permission, write)) throw new StoreSuspendedError();
     return { storeId: sid, ownerId: facts.ownerId, actorId: userId, role };
   }
 
