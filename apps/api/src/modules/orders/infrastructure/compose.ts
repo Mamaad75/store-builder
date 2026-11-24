@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { ZARINPAL_MERCHANT_SECRET } from "@store-builder/shared/modules/orders/orders";
+import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 import { PaymentUnavailableError } from "@store-builder/shared/modules/orders/errors";
 import { rateLimitKey } from "../../../lib/rate-limit.js";
 import { createCheckoutService } from "../../checkout/checkout.api.js";
@@ -14,6 +14,7 @@ import { PrismaOrderStore } from "./prisma-orders.repository.js";
 import { PrismaPaymentStore } from "./prisma-payments.repository.js";
 import { orderTokens } from "./tokens.js";
 import { ZarinpalGateway } from "./zarinpal.js";
+import { AqayePardakhtGateway } from "./aqayepardakht.js";
 
 interface RateLimiterLike {
   consume(key: string, rule: { limit: number; windowSeconds: number }): Promise<{ allowed: boolean; retryAfterSeconds: number }>;
@@ -25,7 +26,7 @@ const limiterOf = (o: RateLimiterLike): Limiter => ({ consume: (key, rule) => o.
 
 /** What online payment reads from elsewhere: the platform settings (switch, sandbox) and the store's secret (its merchant id). */
 export interface PaymentSources {
-  paymentSettings(): Promise<{ zarinpalEnabled: boolean; sandbox: boolean }>;
+  paymentSettings(): Promise<{ zarinpalEnabled: boolean; aqayepardakhtEnabled: boolean; sandbox: boolean }>;
   reveal(storeId: string, name: string): Promise<string | null>;
   secretsReady(): boolean;
 }
@@ -36,28 +37,41 @@ export function createPaymentsService(o: {
   limiter: RateLimiterLike;
   sources: PaymentSources;
   storeOrigin: (label: string) => string;
-  gateway?: PaymentGateway | null;
+  /** Tests: fakes per gateway (a single object is the Zarinpal fake, as in phase 3.5). */
+  gateway?: PaymentGateway | Partial<Record<Gateway, PaymentGateway>> | null;
   devBaseUrl?: string;
+  /** Development only: a local fake Aghaye Pardakht. */
+  devAqayeBaseUrl?: string;
 }): PaymentsService {
   const config: PaymentConfig = {
     // Read on every use (one small row): switching payments off or to sandbox applies at once, also to sessions being opened.
     platform: async () => {
       const p = await o.sources.paymentSettings();
-      return { enabled: p.zarinpalEnabled, sandbox: p.sandbox };
+      return { enabled: { ZARINPAL: p.zarinpalEnabled, AQAYEPARDAKHT: p.aqayepardakhtEnabled }, sandbox: p.sandbox };
     },
     secretsReady: () => o.sources.secretsReady(),
-    fingerprint: (id) => sha256(id.trim().toLowerCase()),
+    fingerprint: (g, id) => sha256(g === "ZARINPAL" ? id.trim().toLowerCase() : id.trim()), // the pin is case-sensitive (review D35c-1)
     newReturnKey: () => {
       const key = randomBytes(32).toString("base64url");
       return { key, hash: sha256(key) };
     },
     hashReturnKey: (key) => (/^[A-Za-z0-9_-]{43}$/.test(key) ? sha256(key) : null),
-    merchantId: async (storeId) => (await o.sources.reveal(storeId, ZARINPAL_MERCHANT_SECRET))?.trim().toLowerCase() ?? null,
+    credential: async (storeId, g) => {
+      const v = (await o.sources.reveal(storeId, GATEWAY_SECRETS[g]))?.trim() ?? null;
+      return v === null ? null : g === "ZARINPAL" ? v.toLowerCase() : v; // Zarinpal ids are case-insensitive UUIDs; pins are kept as typed
+    },
   };
-  const gateway = o.gateway ?? new ZarinpalGateway(o.devBaseUrl ? { baseUrlOverride: o.devBaseUrl } : {});
+  const fakes: Partial<Record<Gateway, PaymentGateway>> =
+    o.gateway && typeof (o.gateway as PaymentGateway).request === "function" ? { ZARINPAL: o.gateway as PaymentGateway } : ((o.gateway ?? {}) as Partial<Record<Gateway, PaymentGateway>>);
+  const gateways: Record<Gateway, PaymentGateway> = {
+    ZARINPAL: fakes.ZARINPAL ?? new ZarinpalGateway(o.devBaseUrl ? { baseUrlOverride: o.devBaseUrl } : {}),
+    AQAYEPARDAKHT: fakes.AQAYEPARDAKHT ?? new AqayePardakhtGateway(o.devAqayeBaseUrl ? { baseUrlOverride: o.devAqayeBaseUrl } : {}),
+  };
+  // Each gateway returns to its own page of the store (the return carries different parameters).
+  const returnPath: Record<Gateway, string> = { ZARINPAL: "/checkout/payment/return", AQAYEPARDAKHT: "/checkout/payment/return/aqayepardakht" };
   return new PaymentsService(
-    new PrismaPaymentStore(), gateway, config, orderTokens(o.authSecret), limiterOf(o.limiter),
-    (label) => `${o.storeOrigin(label)}/checkout/payment/return`, newId,
+    new PrismaPaymentStore(), gateways, config, orderTokens(o.authSecret), limiterOf(o.limiter),
+    (label, g) => `${o.storeOrigin(label)}${returnPath[g]}`, newId,
   );
 }
 
@@ -77,13 +91,13 @@ export function createOrdersService(o: { authSecret: string; limiter: RateLimite
     new PrismaOrderStore(), createCheckoutService({ limiter: o.limiter }), stock, orderTokens(o.authSecret), limiterOf(o.limiter), newId,
     () => new Date(),
     {
-      assertCanPay: async (storeId, total, method) => {
+      assertCanPay: async (storeId, total, method, gateway) => {
         if (method === "CARD_TRANSFER") {
           if (!o.transfers) throw new PaymentUnavailableError("no_cards");
           return o.transfers.assertAvailable(storeId);
         }
         if (!o.payments) throw new PaymentUnavailableError("off");
-        return o.payments.assertCanPay(storeId, total);
+        return o.payments.assertCanPay(storeId, total, gateway ?? "ZARINPAL");
       },
       transferInfo: (storeId, order) => (o.transfers ? o.transfers.shopperInfo(storeId, order) : Promise.resolve(null)),
     },

@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { GATEWAYS, GATEWAY_AUTO_REFUNDS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 import { db } from "../../../lib/db.js";
 import { recordEvent } from "../../../platform/outbox/outbox.js";
 import { restockReservationInTx } from "../../inventory/inventory.api.js";
@@ -7,13 +8,15 @@ import type { ClaimResult, OrderForPayment, PaymentAttempt, PaymentStore } from 
 // Phase 3.5 (D35-1): the Payment table. Lock order everywhere: the Order row first, then its Payment rows (as orders do with stock rows).
 
 const TX = { timeout: 10_000, maxWait: 5_000 } as const;
+/** Review D35c-1: only attempts of gateways that refund unverified payments by themselves may be closed without being verified. */
+const AUTO_REFUND = GATEWAYS.filter((g) => GATEWAY_AUTO_REFUNDS[g]);
 type Tx = Prisma.TransactionClient;
 
 const attemptSelect = {
-  id: true, storeId: true, orderId: true, sandbox: true, authority: true, amountRial: true, status: true, createdAt: true, claimedAt: true,
+  id: true, storeId: true, orderId: true, provider: true, sandbox: true, authority: true, amountRial: true, status: true, createdAt: true, claimedAt: true,
   verifySentAt: true, merchantFingerprint: true, returnKeyHash: true, checks: true,
 } satisfies Prisma.PaymentSelect;
-const toAttempt = (r: Prisma.PaymentGetPayload<{ select: typeof attemptSelect }>): PaymentAttempt => ({ ...r, amountRial: Number(r.amountRial) });
+const toAttempt = (r: Prisma.PaymentGetPayload<{ select: typeof attemptSelect }>): PaymentAttempt => ({ ...r, provider: r.provider as Gateway, amountRial: Number(r.amountRial) });
 
 async function lockOrder(tx: Tx, storeId: string, orderId: string) {
   const [row] = await tx.$queryRaw<{ status: string; method: string; paymentDeadline: Date | null; number: number }[]>`
@@ -42,10 +45,10 @@ export class PrismaPaymentStore implements PaymentStore {
   async orderForPayment(storeId: string, orderId: string): Promise<OrderForPayment | null> {
     const o = await db.order.findFirst({
       where: { storeId, id: orderId },
-      select: { number: true, status: true, total: true, phone: true, paymentDeadline: true, customerId: true, linkedByPhone: true, store: { select: { name: true } } },
+      select: { number: true, status: true, paymentMethod: true, total: true, phone: true, paymentGateway: true, paymentDeadline: true, customerId: true, linkedByPhone: true, store: { select: { name: true } } },
     });
     return o
-      ? { number: o.number, status: o.status, total: Number(o.total), phone: o.phone, deadline: o.paymentDeadline, storeName: o.store.name, customerId: o.customerId, linkedByPhone: o.linkedByPhone }
+      ? { number: o.number, gateway: (o.paymentGateway as Gateway | null) ?? (o.paymentMethod === "ONLINE" ? "ZARINPAL" : null), status: o.status, total: Number(o.total), phone: o.phone, deadline: o.paymentDeadline, storeName: o.store.name, customerId: o.customerId, linkedByPhone: o.linkedByPhone }
       : null;
   }
 
@@ -57,14 +60,14 @@ export class PrismaPaymentStore implements PaymentStore {
   }
 
   async record(
-    a: { id: string; storeId: string; orderId: string; sandbox: boolean; authority: string; amountRial: number; merchantFingerprint: string; returnKeyHash: string },
+    a: { id: string; storeId: string; orderId: string; provider: Gateway; sandbox: boolean; authority: string; amountRial: number; merchantFingerprint: string; returnKeyHash: string },
     now: Date,
     maxAttempts: number,
   ) {
     return db.$transaction(async (tx) => {
       const o = await lockOrder(tx, a.storeId, a.orderId);
       const r = startable(o, await lockAttempts(tx, a.storeId, a.orderId), now, maxAttempts);
-      if (r === "ok") await tx.payment.create({ data: { ...a, provider: "ZARINPAL", amountRial: BigInt(a.amountRial) } });
+      if (r === "ok") await tx.payment.create({ data: { ...a, amountRial: BigInt(a.amountRial) } });
       return r;
     }, TX);
   }
@@ -74,7 +77,7 @@ export class PrismaPaymentStore implements PaymentStore {
     return r ? toAttempt(r) : null;
   }
 
-  async claim(storeId: string, authority: string, now: Date, staleBefore: Date): Promise<ClaimResult> {
+  async claim(storeId: string, authority: string, now: Date, staleBefore: Date, force = false): Promise<ClaimResult> {
     const p = await db.payment.findFirst({ where: { storeId, authority }, select: { id: true, orderId: true } });
     if (!p) return { ok: false, reason: "not_found" };
     return db.$transaction(async (tx) => {
@@ -87,8 +90,9 @@ export class PrismaPaymentStore implements PaymentStore {
       // One verification per order at a time; one interrupted long ago (claimedAt before staleBefore) may be taken over.
       const live = (a: LockedAttempt) => a.status === "VERIFYING" && a.claimedAt !== null && a.claimedAt >= staleBefore;
       if (attempts.some(live)) return { ok: false as const, reason: "busy" as const };
-      // A lost verify answer may mean captured money: such an attempt is verified again whatever happened to the order since.
-      if (me.verifySentAt === null) {
+      // A lost verify answer may mean captured money: such an attempt is verified again whatever happened to the order since. So is every
+      // attempt of a gateway that does not refund unverified payments (`force`, review D35c-1): captured money becomes REFUND_REQUIRED.
+      if (me.verifySentAt === null && !force) {
         if (attempts.some((a) => a.status === "PAID")) return { ok: false as const, reason: "paid" as const };
         if (o.status !== "AWAITING_PAYMENT") return { ok: false as const, reason: "closed" as const };
       }
@@ -116,7 +120,7 @@ export class PrismaPaymentStore implements PaymentStore {
       await tx.orderEvent.create({ data: { storeId: p.storeId, orderId: p.orderId, fromStatus: "AWAITING_PAYMENT", toStatus: "PLACED", actor: "SYSTEM", actorId: null, note: "پرداخت اینترنتی تأیید شد" } });
       await recordEvent({ tx }, { type: "order.placed", storeId: p.storeId, payload: { orderId: p.orderId, number: o.number } });
       // Other attempts that never sent a verify are closed (Zarinpal refunds any money in them); one with a lost answer stays open.
-      await tx.payment.updateMany({ where: { storeId: p.storeId, orderId: p.orderId, status: "CREATED", verifySentAt: null }, data: { status: "EXPIRED" } });
+      await tx.payment.updateMany({ where: { storeId: p.storeId, orderId: p.orderId, status: "CREATED", verifySentAt: null, provider: { in: AUTO_REFUND } }, data: { status: "EXPIRED" } });
       return "placed" as const;
     }, TX);
   }
@@ -175,7 +179,8 @@ export class PrismaPaymentStore implements PaymentStore {
       if ((await lockAttempts(tx, storeId, orderId)).some(holdsMoney)) return false;
       // D35b-1: a card-to-card receipt waiting for the merchant keeps the order (the shopper may already have paid).
       if (await tx.transferReceipt.count({ where: { storeId, orderId, status: "SUBMITTED" } })) return false;
-      await tx.payment.updateMany({ where: { storeId, orderId, status: "CREATED" }, data: { status: "EXPIRED" } });
+      // Attempts of gateways that refund by themselves are closed; the others stay open and are still verified (review D35c-1).
+      await tx.payment.updateMany({ where: { storeId, orderId, status: "CREATED", provider: { in: AUTO_REFUND } }, data: { status: "EXPIRED" } });
       await tx.order.update({ where: { storeId_id: { storeId, id: orderId } }, data: { status: "EXPIRED" } });
       await tx.orderEvent.create({ data: { storeId, orderId, fromStatus: "AWAITING_PAYMENT", toStatus: "EXPIRED", actor: "SYSTEM", actorId: null, note: "مهلت پرداخت تمام شد" } });
       await restockReservationInTx({ tx }, storeId, orderId);

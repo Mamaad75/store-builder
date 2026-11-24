@@ -3020,6 +3020,21 @@
                               "CARD_TRANSFER"
                             ]
                           },
+                          "paymentGateway": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ZARINPAL",
+                                  "AQAYEPARDAKHT"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "the online gateway (ONLINE orders)"
+                          },
                           "paymentDeadline": {
                             "anyOf": [
                               {
@@ -3201,6 +3216,7 @@
                           "address",
                           "shipping",
                           "paymentMethod",
+                          "paymentGateway",
                           "paymentDeadline",
                           "payment",
                           "subtotal",
@@ -3446,6 +3462,21 @@
                         "CARD_TRANSFER"
                       ]
                     },
+                    "paymentGateway": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ZARINPAL",
+                            "AQAYEPARDAKHT"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "the online gateway (ONLINE orders)"
+                    },
                     "paymentDeadline": {
                       "anyOf": [
                         {
@@ -3627,6 +3658,7 @@
                     "address",
                     "shipping",
                     "paymentMethod",
+                    "paymentGateway",
                     "paymentDeadline",
                     "payment",
                     "subtotal",
@@ -4380,6 +4412,21 @@
                             "CARD_TRANSFER"
                           ]
                         },
+                        "paymentGateway": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "ZARINPAL",
+                                "AQAYEPARDAKHT"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the online gateway (ONLINE orders)"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -4561,6 +4608,7 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentGateway",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -4830,6 +4878,21 @@
                         "CARD_TRANSFER"
                       ]
                     },
+                    "paymentGateway": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ZARINPAL",
+                            "AQAYEPARDAKHT"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "the online gateway (ONLINE orders)"
+                    },
                     "paymentDeadline": {
                       "anyOf": [
                         {
@@ -5011,6 +5074,7 @@
                     "address",
                     "shipping",
                     "paymentMethod",
+                    "paymentGateway",
                     "paymentDeadline",
                     "payment",
                     "subtotal",
@@ -7251,9 +7315,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "platformEnabled": {
-                      "type": "boolean"
-                    },
                     "sandbox": {
                       "type": "boolean"
                     },
@@ -7261,32 +7322,56 @@
                       "type": "boolean",
                       "description": "false: the server cannot store secrets (no master keys)"
                     },
-                    "merchantConfigured": {
-                      "type": "boolean"
-                    },
-                    "merchantValid": {
-                      "type": "boolean"
-                    },
-                    "active": {
-                      "type": "boolean",
-                      "description": "shoppers can pay online now"
-                    },
-                    "callbackUrl": {
-                      "description": "its domain must be the one registered for the Zarinpal terminal",
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                    "gateways": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "gateway": {
+                            "type": "string",
+                            "enum": [
+                              "ZARINPAL",
+                              "AQAYEPARDAKHT"
+                            ]
+                          },
+                          "platformEnabled": {
+                            "type": "boolean"
+                          },
+                          "configured": {
+                            "type": "boolean",
+                            "description": "the store's credential (merchant id / pin) is set"
+                          },
+                          "valid": {
+                            "type": "boolean"
+                          },
+                          "active": {
+                            "type": "boolean",
+                            "description": "shoppers can pay through it now"
+                          },
+                          "callbackUrl": {
+                            "description": "its domain must be the one registered for the gateway",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "gateway",
+                          "platformEnabled",
+                          "configured",
+                          "valid",
+                          "active",
+                          "callbackUrl"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "platformEnabled",
                     "sandbox",
                     "secretsReady",
-                    "merchantConfigured",
-                    "merchantValid",
-                    "active",
-                    "callbackUrl"
+                    "gateways"
                   ],
                   "additionalProperties": false
                 }
@@ -17257,12 +17342,17 @@
                             "zarinpalEnabled": {
                               "type": "boolean"
                             },
+                            "aqayepardakhtEnabled": {
+                              "default": false,
+                              "type": "boolean"
+                            },
                             "sandbox": {
                               "type": "boolean"
                             }
                           },
                           "required": [
                             "zarinpalEnabled",
+                            "aqayepardakhtEnabled",
                             "sandbox"
                           ],
                           "additionalProperties": false
@@ -17660,12 +17750,17 @@
                         "zarinpalEnabled": {
                           "type": "boolean"
                         },
+                        "aqayepardakhtEnabled": {
+                          "default": false,
+                          "type": "boolean"
+                        },
                         "sandbox": {
                           "type": "boolean"
                         }
                       },
                       "required": [
                         "zarinpalEnabled",
+                        "aqayepardakhtEnabled",
                         "sandbox"
                       ],
                       "additionalProperties": false
@@ -19008,6 +19103,13 @@
                       "CARD_TRANSFER"
                     ]
                   },
+                  "gateway": {
+                    "type": "string",
+                    "enum": [
+                      "ZARINPAL",
+                      "AQAYEPARDAKHT"
+                    ]
+                  },
                   "note": {
                     "type": "string"
                   }
@@ -19126,6 +19228,21 @@
                             "ONLINE",
                             "CARD_TRANSFER"
                           ]
+                        },
+                        "paymentGateway": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "ZARINPAL",
+                                "AQAYEPARDAKHT"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the online gateway (ONLINE orders)"
                         },
                         "paymentDeadline": {
                           "anyOf": [
@@ -19308,6 +19425,7 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentGateway",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -19651,6 +19769,21 @@
                             "CARD_TRANSFER"
                           ]
                         },
+                        "paymentGateway": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "ZARINPAL",
+                                "AQAYEPARDAKHT"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the online gateway (ONLINE orders)"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -19832,6 +19965,7 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentGateway",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -20170,6 +20304,21 @@
                             "CARD_TRANSFER"
                           ]
                         },
+                        "paymentGateway": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "ZARINPAL",
+                                "AQAYEPARDAKHT"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the online gateway (ONLINE orders)"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -20351,6 +20500,7 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentGateway",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -20833,6 +20983,16 @@
                     "online": {
                       "type": "boolean"
                     },
+                    "gateways": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "ZARINPAL",
+                          "AQAYEPARDAKHT"
+                        ]
+                      }
+                    },
                     "cardTransfer": {
                       "type": "boolean"
                     }
@@ -20840,6 +21000,7 @@
                   "required": [
                     "cod",
                     "online",
+                    "gateways",
                     "cardTransfer"
                   ],
                   "additionalProperties": false
@@ -20933,7 +21094,7 @@
     "/api/v1/store/stores/{label}/checkout/payments/verify": {
       "post": {
         "operationId": "postApiV1StoreStoresLabelCheckoutPaymentsVerify",
-        "summary": "The buyer is back from Zarinpal: the payment is verified server-side (phase 3.5)",
+        "summary": "The buyer is back from a gateway (Zarinpal: Authority/Status; Aghaye Pardakht: transid/status): verified server-side",
         "tags": [
           "store"
         ],
@@ -20955,13 +21116,23 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "gateway": {
+                    "default": "ZARINPAL",
+                    "type": "string",
+                    "enum": [
+                      "ZARINPAL",
+                      "AQAYEPARDAKHT"
+                    ]
+                  },
                   "authority": {
                     "type": "string",
-                    "pattern": "^[AS][0-9A-Za-z]{35}$"
+                    "maxLength": 64
                   },
                   "status": {
                     "type": "string",
                     "enum": [
+                      "0",
+                      "1",
                       "OK",
                       "NOK"
                     ]
@@ -22708,6 +22879,21 @@
                               "CARD_TRANSFER"
                             ]
                           },
+                          "paymentGateway": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ZARINPAL",
+                                  "AQAYEPARDAKHT"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "the online gateway (ONLINE orders)"
+                          },
                           "paymentDeadline": {
                             "anyOf": [
                               {
@@ -22889,6 +23075,7 @@
                           "address",
                           "shipping",
                           "paymentMethod",
+                          "paymentGateway",
                           "paymentDeadline",
                           "payment",
                           "subtotal",
@@ -23228,6 +23415,21 @@
                             "CARD_TRANSFER"
                           ]
                         },
+                        "paymentGateway": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "ZARINPAL",
+                                "AQAYEPARDAKHT"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the online gateway (ONLINE orders)"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -23409,6 +23611,7 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentGateway",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -23747,6 +23950,21 @@
                             "CARD_TRANSFER"
                           ]
                         },
+                        "paymentGateway": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "ZARINPAL",
+                                "AQAYEPARDAKHT"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the online gateway (ONLINE orders)"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -23928,6 +24146,7 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentGateway",
                         "paymentDeadline",
                         "payment",
                         "subtotal",

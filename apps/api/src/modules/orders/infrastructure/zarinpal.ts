@@ -134,6 +134,7 @@ export class ZarinpalGateway implements PaymentGateway {
       return { outcome: "paid" as const, code, refId: String(refId), cardPan: pan, fee: toInt(d.fee) };
     }
     if (code !== null && DEFINITE_VERIFY_FAILURES.has(code)) return { outcome: "failed" as const, code };
+    if (code === -51) return { outcome: "pending" as const, code }; // "not paid": nothing captured (the buyer may still be paying)
     return { outcome: "unknown" as const, code };
   }
 

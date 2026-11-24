@@ -4,7 +4,7 @@ import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch
 import { enc, send } from "./http";
 import type { z } from "zod";
 import type { bankCardDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
-import { ZARINPAL_MERCHANT_SECRET } from "@store-builder/shared/modules/orders/orders";
+import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
 const store = (id: string) => `/api/stores/${enc(id)}`;
@@ -69,8 +69,9 @@ export const getOrder = (storeId: string, orderId: string) => send<OrderDto>("GE
 export type PaymentSettingsView = z.infer<typeof paymentSettingsViewDto>;
 export type PaymentAttempt = z.infer<typeof paymentAttemptDto>;
 export const getPaymentSettings = (storeId: string) => send<PaymentSettingsView>("GET", `${store(storeId)}/payment-settings`);
-export const setZarinpalMerchant = (storeId: string, value: string) => send("PUT", `${store(storeId)}/secrets/${enc(ZARINPAL_MERCHANT_SECRET)}`, { body: { value } });
-export const deleteZarinpalMerchant = (storeId: string) => send("POST", `${store(storeId)}/secrets/${enc(ZARINPAL_MERCHANT_SECRET)}/delete`);
+/** D35c-1: a gateway's credential is a write-only store secret (Zarinpal merchant id, Aghaye Pardakht pin). */
+export const setGatewayCredential = (storeId: string, g: Gateway, value: string) => send("PUT", `${store(storeId)}/secrets/${enc(GATEWAY_SECRETS[g])}`, { body: { value } });
+export const deleteGatewayCredential = (storeId: string, g: Gateway) => send("POST", `${store(storeId)}/secrets/${enc(GATEWAY_SECRETS[g])}/delete`);
 export const getOrderPayments = (storeId: string, orderId: string) => send<PaymentAttempt[]>("GET", `${store(storeId)}/orders/${enc(orderId)}/payments`);
 // D35b-1: card-to-card (bank cards, receipts and their review)
 export type BankCard = z.infer<typeof bankCardDto>;

@@ -45,7 +45,9 @@ export const paymentSettingsSchema = z
   .object({
     /** Zarinpal for the stores' shoppers (each store enters its own merchant id; phase 3.5). Off by default. */
     zarinpalEnabled: z.boolean(),
-    /** Every payment goes to Zarinpal's sandbox (tests, staging). */
+    /** D35c-1: Aghaye Pardakht for the stores' shoppers (each store enters its own gateway pin). Off by default (older values lack it). */
+    aqayepardakhtEnabled: z.boolean().default(false),
+    /** Every payment goes to the gateways' sandboxes (tests, staging). */
     sandbox: z.boolean(),
   })
   .strict();
@@ -94,7 +96,7 @@ export interface PlatformSettings {
 
 export const PLATFORM_SETTING_DEFAULTS: PlatformSettings = {
   sms: { provider: "kavenegar", customerOtpEnabled: false, otpTemplate: "" },
-  payment: { zarinpalEnabled: false, sandbox: true },
+  payment: { zarinpalEnabled: false, aqayepardakhtEnabled: false, sandbox: true },
   ai: { enabled: false, provider: "openai_compatible", baseUrl: "", model: "" },
   rates: { provider: "off", maxAgeHours: 6, jumpPercent: 10, providerUnit: "toman", allowInsecureHttp: false },
 };

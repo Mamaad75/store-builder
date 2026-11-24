@@ -19,7 +19,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ store
       <Box sx={{ display: "grid", gap: 3, maxWidth: 720 }}>
         <BankCardsEditor storeId={storeId} />
         <Box>
-          <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700, mb: 1 }}>پرداخت اینترنتی (زرین‌پال)</Typography>
+          <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700, mb: 1 }}>پرداخت اینترنتی (درگاه‌ها)</Typography>
           <PaymentSettings storeId={storeId} />
         </Box>
       </Box>

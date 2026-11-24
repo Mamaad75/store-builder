@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PROVINCES } from "@store-builder/shared/modules/checkout/provinces";
 import { LINE_PROBLEM_MESSAGES } from "@store-builder/shared/modules/checkout/checkout";
+import { GATEWAY_LABELS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 import { ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { OrderNotReadyError } from "@store-builder/shared/modules/orders/errors";
 import { goToGateway, me, myAddresses, payOrder, paymentMethods, placeOrder, problemText, quote, saveAddress, type CheckoutSummary, type CustomerProfile, type SavedAddress } from "@/client/shop";
@@ -20,7 +21,9 @@ const BLOCKERS: Record<string, string> = {
   cod_unavailable: "پرداخت در محل برای این روش ارسال و نشانی ممکن نیست.",
 };
 
-type Method = "COD" | "ONLINE" | "CARD_TRANSFER";
+/** The shopper's choice: cash on delivery, card-to-card, or one of the store's online gateways (D35c-1). */
+type Method = "COD" | "CARD_TRANSFER" | Gateway;
+const isGateway = (m: Method): m is Gateway => m === "ZARINPAL" || m === "AQAYEPARDAKHT";
 type Address = { recipientName: string; phone: string; province: string; city: string; line: string; postalCode: string };
 const EMPTY: Address = { recipientName: "", phone: "", province: "", city: "", line: "", postalCode: "" };
 const FIELDS: { key: keyof Address; label: string; autoComplete: string; inputMode?: "numeric" | "tel" }[] = [
@@ -32,7 +35,7 @@ const FIELDS: { key: keyof Address; label: string; autoComplete: string; inputMo
 
 /**
  * Checkout (phases 3.3/3.4): the delivery address, then the shipping methods the store offers for that province with their cost, then the
- * order: cash on delivery, or (phase 3.5) online through Zarinpal when the store has it: the order is placed first (awaiting payment, stock
+ * order: cash on delivery, card-to-card, or (phase 3.5, D35c-1) online through one of the store's gateways: the order is placed first (awaiting payment, stock
  * held for 20 minutes), then the buyer is sent to the gateway. Every number shown comes from the server; nothing the page computes is sent.
  */
 export default function CheckoutForm({ requestKey }: { requestKey: string }) {
@@ -50,7 +53,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   const [selectedId, setSelectedId] = useState<string>("new");
   const [saveNew, setSaveNew] = useState(true);
   // Phase 3.5: the payment method; online only when the store takes it.
-  const [online, setOnline] = useState(false);
+  const [gateways, setGateways] = useState<Gateway[]>([]);
   const [cardTransfer, setCardTransfer] = useState(false);
   const [method, setMethod] = useState<Method>("COD");
   const cod = method === "COD";
@@ -59,9 +62,9 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   useEffect(() => {
     quote({ cashOnDelivery: true }).then(setSummary).catch((e) => setError(problemText(e)));
     paymentMethods().then((m) => {
-      setOnline(m.online);
+      setGateways(m.gateways);
       setCardTransfer(m.cardTransfer);
-      if (m.online) setMethod("ONLINE");
+      if (m.gateways.length) setMethod(m.gateways[0]!);
     }).catch(() => undefined);
     me().then((c) => {
       if (!c) return;
@@ -130,7 +133,8 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
     if (!shippingMethodId) return;
     const r = await run(async () => {
       if (customer && !usingSaved && saveNew) await saveAddress(address); // kept for the next purchase
-      return placeOrder({ requestKey, ...addressBody(), shippingMethodId, paymentMethod: method, note });
+      const payment = isGateway(method) ? { paymentMethod: "ONLINE", gateway: method } : { paymentMethod: method };
+      return placeOrder({ requestKey, ...addressBody(), shippingMethodId, ...payment, note });
     });
     if (!r) return;
     const orderPage = `/orders/${encodeURIComponent(r.accessToken)}`;
@@ -260,15 +264,15 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
               </fieldset>
 
               <h2 className={s.lineName}>پرداخت</h2>
-              {online || cardTransfer ? (
+              {gateways.length > 0 || cardTransfer ? (
                 <fieldset className={s.options}>
                   <legend className={s.muted}>روش پرداخت</legend>
-                  {online && (
-                    <label className={s.option}>
-                      <input type="radio" name="payment" checked={method === "ONLINE"} onChange={() => pickMethod("ONLINE")} disabled={busy} />
-                      <span><strong>پرداخت اینترنتی</strong> — با همه‌ی کارت‌های بانکی عضو شتاب (درگاه امن زرین‌پال)</span>
+                  {gateways.map((g) => (
+                    <label key={g} className={s.option}>
+                      <input type="radio" name="payment" checked={method === g} onChange={() => pickMethod(g)} disabled={busy} />
+                      <span><strong>پرداخت اینترنتی — {GATEWAY_LABELS[g]}</strong> — با همه‌ی کارت‌های بانکی عضو شتاب</span>
                     </label>
-                  )}
+                  ))}
                   {cardTransfer && (
                     <label className={s.option}>
                       <input type="radio" name="payment" checked={method === "CARD_TRANSFER"} onChange={() => pickMethod("CARD_TRANSFER")} disabled={busy} />
@@ -297,7 +301,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
               </div>
               {!summary.ready && summary.blockers.length > 0 && <p className={s.alert}>{summary.blockers.map((b) => BLOCKERS[b] ?? b).join(" ")}</p>}
               <div className={s.actions}>
-                <button className={s.button} type="button" onClick={onPlace} disabled={busy || !summary.ready}>{busy ? "در حال ثبت…" : method === "ONLINE" ? "ثبت سفارش و پرداخت" : method === "CARD_TRANSFER" ? "ثبت سفارش و دریافت شماره کارت" : "ثبت سفارش"}</button>
+                <button className={s.button} type="button" onClick={onPlace} disabled={busy || !summary.ready}>{busy ? "در حال ثبت…" : isGateway(method) ? "ثبت سفارش و پرداخت" : method === "CARD_TRANSFER" ? "ثبت سفارش و دریافت شماره کارت" : "ثبت سفارش"}</button>
               </div>
             </section>
           )}

@@ -123,7 +123,7 @@ describe("online payment (phase 3.5)", () => {
   it("is offered only when the platform has it on AND the store has a well-formed merchant id", async () => {
     const s = await liveStore("shop", { online: false });
     const me = shopper("shop");
-    expect((await me.call("GET", "/checkout/payment-methods")).json).toEqual({ cod: true, online: false, cardTransfer: false });
+    expect((await me.call("GET", "/checkout/payment-methods")).json).toEqual({ cod: true, online: false, gateways: [], cardTransfer: false });
     await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
     const refused = await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "ONLINE" });
     expect(refused.status).toBe(422);
@@ -136,7 +136,10 @@ describe("online payment (phase 3.5)", () => {
     await merchantCall(s.merchant, "PUT", `/stores/${s.storeId}/secrets/payment.zarinpal.merchant_id`, { value: "not-a-merchant-id" });
     expect((await me.call("GET", "/checkout/payment-methods")).json.online).toBe(false);
     const v = await merchantCall(s.merchant, "GET", `/stores/${s.storeId}/payment-settings`);
-    expect(paymentSettingsViewDto.parse(v.json)).toMatchObject({ platformEnabled: true, merchantConfigured: true, merchantValid: false, active: false, callbackUrl: "http://shop.localhost:3000/checkout/payment/return" });
+    expect(paymentSettingsViewDto.parse(v.json).gateways).toEqual([
+      { gateway: "ZARINPAL", platformEnabled: true, configured: true, valid: false, active: false, callbackUrl: "http://shop.localhost:3000/checkout/payment/return" },
+      { gateway: "AQAYEPARDAKHT", platformEnabled: false, configured: false, valid: false, active: false, callbackUrl: "http://shop.localhost:3000/checkout/payment/return/aqayepardakht" },
+    ]);
     expect(JSON.stringify(v.json)).not.toContain("not-a-merchant-id");
     await merchantCall(s.merchant, "PUT", `/stores/${s.storeId}/secrets/payment.zarinpal.merchant_id`, { value: MERCHANT_ID });
     expect((await me.call("GET", "/checkout/payment-methods")).json.online).toBe(true);
@@ -198,7 +201,7 @@ describe("online payment (phase 3.5)", () => {
     expect(zp.verifies).toHaveLength(0);
     expect((await prisma.payment.findUniqueOrThrow({ where: { authority: a1 } })).status).toBe("CREATED");
 
-    zp.verifyResult = () => ({ outcome: "unknown", code: -51 });
+    zp.verifyResult = () => ({ outcome: "pending", code: -51 });
     expect((await me.call("POST", "/checkout/payments/verify", { authority: a1, status: "OK" })).json.outcome).toBe("failed");
     expect(await prisma.payment.findUniqueOrThrow({ where: { authority: a1 } })).toMatchObject({ status: "CREATED", lastCode: -51, verifySentAt: null });
     // the buyer really pays afterwards and comes back: verified
@@ -297,7 +300,9 @@ describe("online payment (phase 3.5)", () => {
     const a1 = `S${"1".padStart(35, "0")}`;
     zp.verifyResult = () => ({ outcome: "unknown", code: -12 }); // an answer that settles nothing (too many attempts)
     expect((await me.call("POST", "/checkout/payments/verify", { authority: a1, status: "OK" })).json.outcome).toBe("pending");
-    expect(await prisma.payment.findUniqueOrThrow({ where: { authority: a1 } })).toMatchObject({ status: "CREATED", verifySentAt: null });
+    const open = await prisma.payment.findUniqueOrThrow({ where: { authority: a1 } });
+    expect(open.status).toBe("CREATED");
+    expect(open.verifySentAt).not.toBeNull(); // review D35c-1: an unknown answer proves nothing: the order cannot expire meanwhile
 
     const svc = app!.get(PaymentsService);
     zp.inquiryStatus = "IN_BANK";
@@ -369,5 +374,144 @@ describe("online payment (phase 3.5)", () => {
     for (const bad of [{}, { authority: "x", status: "OK" }, { authority: a, status: "MAYBE" }, { authority: a, status: "OK", amount: 1 }]) {
       expect((await me.call("POST", "/checkout/payments/verify", bad)).status, JSON.stringify(bad)).toBe(400);
     }
+  });
+});
+
+describe("Aghaye Pardakht and the choice of gateway (D35c-1)", () => {
+  class FakeAqaye implements PaymentGateway {
+    requests: GatewayRequest[] = [];
+    verifies: GatewayVerify[] = [];
+    n = 0;
+    verifyResult: () => VerifyResult = () => ({ outcome: "paid", code: 1, refId: "AP" + String(this.n).padStart(10, "0"), cardPan: null, fee: null });
+    startUrl(sandbox: boolean, t: string) {
+      return `https://panel.aqayepardakht.ir/startpay/${sandbox ? "sandbox/" : ""}${t}`;
+    }
+    async request(r: GatewayRequest) {
+      this.requests.push(r);
+      return { ok: true as const, authority: `AP${String(++this.n).padStart(10, "0")}` };
+    }
+    async verify(v: GatewayVerify) {
+      this.verifies.push(v);
+      return this.verifyResult();
+    }
+  }
+  let ap: FakeAqaye;
+  beforeEach(async () => {
+    await app?.close();
+    ap = new FakeAqaye();
+    ({ app, base } = await listenFetchable(() => createApp(config, { paymentGateway: { ZARINPAL: zp, AQAYEPARDAKHT: ap } })));
+  });
+
+  async function apStore(label = "shop") {
+    const s = await liveStore(label); // Zarinpal on, with a merchant id
+    await prisma.platformSetting.update({ where: { key: "payment" }, data: { value: { zarinpalEnabled: true, aqayepardakhtEnabled: true, sandbox: true } } });
+    expect((await merchantCall(s.merchant, "PUT", `/stores/${s.storeId}/secrets/payment.aqayepardakht.pin`, { value: "D45DE2605E6E6F98" })).status).toBe(204);
+    return s;
+  }
+
+  it("the shopper sees both gateways and pays through the chosen one: toman range checked, GET return, verified server-side", async () => {
+    const s = await apStore();
+    const me = shopper("shop");
+    expect((await me.call("GET", "/checkout/payment-methods")).json).toMatchObject({ online: true, gateways: ["ZARINPAL", "AQAYEPARDAKHT"] });
+    await me.call("POST", "/cart/items", { productId: s.tea, quantity: 2 });
+    const placed = placedOrderDto.parse((await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "ONLINE", gateway: "AQAYEPARDAKHT" })).json);
+    expect(placed.order).toMatchObject({ status: "AWAITING_PAYMENT", paymentMethod: "ONLINE", paymentGateway: "AQAYEPARDAKHT", total: 230_000 });
+    const start = await me.call("POST", `/checkout/orders/${placed.accessToken}/pay`);
+    expect(start.json.url).toBe("https://panel.aqayepardakht.ir/startpay/sandbox/AP0000000001");
+    expect(zp.requests).toHaveLength(0);
+    expect(ap.requests[0]).toMatchObject({ sandbox: true, merchantId: "D45DE2605E6E6F98", amountRial: 2_300_000, callbackUrl: "http://shop.localhost:3000/checkout/payment/return/aqayepardakht", orderRef: "1" });
+    expect(await prisma.payment.findFirstOrThrow()).toMatchObject({ provider: "AQAYEPARDAKHT", authority: "AP0000000001", amountRial: 2_300_000n });
+
+    // status 0 changes nothing; the wrong gateway for this transid is not found; status 1 verifies
+    expect((await me.call("POST", "/checkout/payments/verify", { gateway: "AQAYEPARDAKHT", authority: "AP0000000001", status: "0" })).json.outcome).toBe("failed");
+    expect(ap.verifies).toHaveLength(0);
+    expect((await me.call("POST", "/checkout/payments/verify", { gateway: "ZARINPAL", authority: "AP0000000001", status: "OK" })).status).toBe(400);
+    const back = await me.call("POST", "/checkout/payments/verify", { gateway: "AQAYEPARDAKHT", authority: "AP0000000001", status: "1" });
+    expect(back.json).toEqual({ outcome: "paid", accessToken: placed.accessToken });
+    expect(ap.verifies).toEqual([{ sandbox: true, merchantId: "D45DE2605E6E6F98", amountRial: 2_300_000, authority: "AP0000000001" }]);
+    const view = (await me.call("GET", `/checkout/orders/${placed.accessToken}`)).json;
+    expect([view.order.status, view.order.payment.refId]).toEqual(["PLACED", "AP0000000001"]);
+  });
+
+  it("a gateway is offered only when the platform has it on and the store has a valid credential; amounts outside its range are refused", async () => {
+    const s = await liveStore("shop");
+    const me = shopper("shop");
+    expect((await me.call("GET", "/checkout/payment-methods")).json.gateways).toEqual(["ZARINPAL"]); // Aghaye Pardakht off
+    await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const off = await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "ONLINE", gateway: "AQAYEPARDAKHT" });
+    expect([off.status, off.json.errorName]).toEqual([422, "PaymentUnavailableError"]);
+    await prisma.platformSetting.update({ where: { key: "payment" }, data: { value: { zarinpalEnabled: true, aqayepardakhtEnabled: true, sandbox: true } } });
+    await merchantCall(s.merchant, "PUT", `/stores/${s.storeId}/secrets/payment.aqayepardakht.pin`, { value: "bad pin!" });
+    expect((await me.call("GET", "/checkout/payment-methods")).json.gateways).toEqual(["ZARINPAL"]);
+    // a valid pin turns it on
+    await merchantCall(s.merchant, "PUT", `/stores/${s.storeId}/secrets/payment.aqayepardakht.pin`, { value: "D45DE2605E6E6F98" });
+    expect((await me.call("GET", "/checkout/payment-methods")).json.gateways).toEqual(["ZARINPAL", "AQAYEPARDAKHT"]);
+    const cod = await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "COD", gateway: "ZARINPAL" });
+    expect(cod.status).toBe(400); // a gateway only with ONLINE
+  });
+
+  it("the reconciler verifies Aghaye Pardakht attempts directly (it has no inquiry); 'not paid' leaves them open, with back-off", async () => {
+    const s = await apStore();
+    const me = shopper("shop");
+    await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const placed = (await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "ONLINE", gateway: "AQAYEPARDAKHT" })).json;
+    await me.call("POST", `/checkout/orders/${placed.accessToken}/pay`);
+    await prisma.payment.updateMany({ data: { createdAt: new Date(Date.now() - 5 * 60_000) } });
+    ap.verifyResult = () => ({ outcome: "pending", code: 0 });
+    const svc = app!.get(PaymentsService);
+    expect(await svc.reconcile()).toMatchObject({ paid: 0, unclear: 1 });
+    expect(await prisma.payment.findFirstOrThrow()).toMatchObject({ status: "CREATED", verifySentAt: null, checks: 1 });
+    ap.verifyResult = () => ({ outcome: "paid", code: 2, refId: "AP0000000001", cardPan: null, fee: null }); // verified before
+    await prisma.payment.updateMany({ data: { nextCheckAt: new Date(0) } });
+    expect((await svc.reconcile()).paid).toBe(1);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: placed.order.id } })).status).toBe("PLACED");
+  });
+
+  it("review D35c-1: Aghaye Pardakht attempts are never closed unverified: two paid sessions -> one PAID, one REFUND_REQUIRED", async () => {
+    const s = await apStore();
+    const me = shopper("shop");
+    await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const placed = (await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "ONLINE", gateway: "AQAYEPARDAKHT" })).json;
+    await me.call("POST", `/checkout/orders/${placed.accessToken}/pay`);
+    await me.call("POST", `/checkout/orders/${placed.accessToken}/pay`); // a second tab
+    expect(ap.requests.map((r) => r.attemptRef)).toHaveLength(2);
+    expect(new Set(ap.requests.map((r) => r.attemptRef)).size).toBe(2); // unique invoice per attempt
+    ap.verifyResult = () => ({ outcome: "paid", code: 1, refId: "x", cardPan: null, fee: null });
+    expect((await me.call("POST", "/checkout/payments/verify", { gateway: "AQAYEPARDAKHT", authority: "AP0000000001", status: "1" })).json.outcome).toBe("paid");
+    expect((await prisma.payment.findUniqueOrThrow({ where: { authority: "AP0000000002" } })).status).toBe("CREATED"); // not silently expired
+    // the second one was paid too: verified, recorded for the merchant to refund
+    expect((await me.call("POST", "/checkout/payments/verify", { gateway: "AQAYEPARDAKHT", authority: "AP0000000002", status: "1" })).json.outcome).toBe("refund");
+    expect((await prisma.payment.findUniqueOrThrow({ where: { authority: "AP0000000002" } })).status).toBe("REFUND_REQUIRED");
+  });
+
+  it("review D35c-1: an expired order's Aghaye Pardakht attempt stays open and is still verified by the reconciler", async () => {
+    const s = await apStore();
+    const me = shopper("shop");
+    await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const placed = (await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "ONLINE", gateway: "AQAYEPARDAKHT" })).json;
+    await me.call("POST", `/checkout/orders/${placed.accessToken}/pay`);
+    await prisma.order.update({ where: { id: placed.order.id }, data: { paymentDeadline: new Date(Date.now() - 3600_000) } });
+    await prisma.payment.updateMany({ data: { createdAt: new Date(Date.now() - 3600_000) } });
+    ap.verifyResult = () => ({ outcome: "pending", code: 0 });
+    const svc = app!.get(PaymentsService);
+    expect((await svc.reconcile()).expiredOrders).toBe(1);
+    expect((await prisma.payment.findFirstOrThrow()).status).toBe("CREATED");
+    ap.verifyResult = () => ({ outcome: "paid", code: 1, refId: "x", cardPan: null, fee: null }); // the buyer paid late
+    await prisma.payment.updateMany({ data: { nextCheckAt: new Date(0) } });
+    expect((await svc.reconcile()).paid).toBe(1);
+    expect((await prisma.payment.findFirstOrThrow()).status).toBe("REFUND_REQUIRED");
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: placed.order.id } })).status).toBe("EXPIRED");
+  });
+
+  it("review D35c-1: a sandbox session never places an order once the platform has left sandbox mode", async () => {
+    const s = await apStore();
+    const me = shopper("shop");
+    await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
+    const placed = (await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "ONLINE", gateway: "AQAYEPARDAKHT" })).json;
+    await me.call("POST", `/checkout/orders/${placed.accessToken}/pay`);
+    await prisma.platformSetting.update({ where: { key: "payment" }, data: { value: { zarinpalEnabled: true, aqayepardakhtEnabled: true, sandbox: false } } });
+    expect((await me.call("POST", "/checkout/payments/verify", { gateway: "AQAYEPARDAKHT", authority: "AP0000000001", status: "1" })).json.outcome).toBe("failed");
+    expect(ap.verifies).toHaveLength(0);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: placed.order.id } })).status).toBe("AWAITING_PAYMENT");
   });
 });

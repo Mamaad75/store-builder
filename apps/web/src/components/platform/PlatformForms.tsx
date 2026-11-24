@@ -158,26 +158,29 @@ export function SmsSettingsForm({ initial, secrets, encryptionReady }: { initial
   );
 }
 
-export function PaymentSettingsForm({ initial, secrets, encryptionReady }: { initial: { zarinpalEnabled: boolean; sandbox: boolean }; secrets: Secrets; encryptionReady: boolean }) {
+export function PaymentSettingsForm({ initial, secrets, encryptionReady }: { initial: { zarinpalEnabled: boolean; aqayepardakhtEnabled?: boolean; sandbox: boolean }; secrets: Secrets; encryptionReady: boolean }) {
   const { pending, fb, run } = useSubmit();
   const [enabled, setEnabled] = useState(initial.zarinpalEnabled);
+  const [aqaye, setAqaye] = useState(initial.aqayepardakhtEnabled ?? false);
   const [sandbox, setSandbox] = useState(initial.sandbox);
+  const anyOn = initial.zarinpalEnabled || initial.aqayepardakhtEnabled;
   return (
     <Section
-      title="درگاه پرداخت (زرین‌پال)"
-      description="پرداخت مشتری‌ها مستقیم به حساب هر فروشنده می‌رود (هر فروشگاه مرچنت‌کد خودش را در تنظیمات فروشگاه وارد می‌کند). اینجا روشن یا خاموش بودن درگاه برای همه‌ی فروشگاه‌ها، حالت آزمایشی (sandbox) و مرچنت‌کد خود پلتفرم برای دریافت اشتراک فروشنده‌ها تنظیم می‌شود."
-      badge={<Chip size="small" color={initial.zarinpalEnabled ? "success" : "default"} label={initial.zarinpalEnabled ? "روشن" : "خاموش"} />}
+      title="درگاه‌های پرداخت"
+      description="پرداخت مشتری‌ها مستقیم به حساب هر فروشنده می‌رود (هر فروشگاه کد درگاه خودش را در «روش‌های پرداخت» فروشگاه وارد می‌کند). اینجا روشن یا خاموش بودن هر درگاه برای همه‌ی فروشگاه‌ها، حالت آزمایشی (sandbox) و مرچنت‌کد خود پلتفرم برای دریافت اشتراک فروشنده‌ها تنظیم می‌شود."
+      badge={<Chip size="small" color={anyOn ? "success" : "default"} label={anyOn ? "روشن" : "خاموش"} />}
     >
       <Box
         component="form"
         noValidate
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
-          run(() => updatePlatformSettings("payment", { zarinpalEnabled: enabled, sandbox }), "تنظیمات پرداخت ذخیره شد.");
+          run(() => updatePlatformSettings("payment", { zarinpalEnabled: enabled, aqayepardakhtEnabled: aqaye, sandbox }), "تنظیمات پرداخت ذخیره شد.");
         }}
       >
         <Stack spacing={1}>
           <FormControlLabel control={<Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />} label="پرداخت با زرین‌پال برای فروشگاه‌ها فعال باشد" />
+          <FormControlLabel control={<Switch checked={aqaye} onChange={(e) => setAqaye(e.target.checked)} />} label="پرداخت با آقای پرداخت برای فروشگاه‌ها فعال باشد" />
           <FormControlLabel control={<Switch checked={sandbox} onChange={(e) => setSandbox(e.target.checked)} />} label="حالت آزمایشی (sandbox): هیچ پولی جابه‌جا نمی‌شود" />
           <Box>
             <Button type="submit" variant="contained" disabled={pending}>

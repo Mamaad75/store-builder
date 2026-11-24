@@ -52,6 +52,8 @@ export interface ApiConfig {
    * online-payment flow can be tried end to end offline. Loopback http addresses only; refused at start-up outside development/test.
    */
   zarinpalDevBaseUrl?: string;
+  /** Development and test only (AQAYEPARDAKHT_DEV_BASE_URL, loopback only): a local fake Aghaye Pardakht (D35c-1). */
+  aqayepardakhtDevBaseUrl?: string;
 }
 
 
@@ -212,6 +214,9 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
   const zpDev = env.ZARINPAL_DEV_BASE_URL;
   if (zpDev && !dev) problems.push("ZARINPAL_DEV_BASE_URL is for development and tests only (payments would go to a fake gateway)");
   if (zpDev && !/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(zpDev)) problems.push("ZARINPAL_DEV_BASE_URL must be http://127.0.0.1:PORT or http://localhost:PORT");
+  const apDev = env.AQAYEPARDAKHT_DEV_BASE_URL;
+  if (apDev && !dev) problems.push("AQAYEPARDAKHT_DEV_BASE_URL is for development and tests only (payments would go to a fake gateway)");
+  if (apDev && !/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(apDev)) problems.push("AQAYEPARDAKHT_DEV_BASE_URL must be http://127.0.0.1:PORT or http://localhost:PORT");
   if (problems.length > 0 || !d) throw new EnvError(problems);
 
   const base = `${d.APP_PROTOCOL}://${d.APP_ROOT_DOMAIN}`;
@@ -238,5 +243,6 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     observability,
     customerOtpDevLog: dev && env.CUSTOMER_OTP_DEV_LOG === "true",
     ...(dev && zpDev ? { zarinpalDevBaseUrl: zpDev } : {}),
+    ...(dev && apDev ? { aqayepardakhtDevBaseUrl: apDev } : {}),
   };
 }

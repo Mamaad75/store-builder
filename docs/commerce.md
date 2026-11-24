@@ -283,6 +283,40 @@ redirects refused, 15 s timeout, answers capped at 64 KiB, both error shapes par
 * **Not in this phase:** refunds through `reverse.json` (needs the server IP registered at Zarinpal), `cart_data`, the platform's own
   merchant id (merchant subscriptions), payment SMS (3.6).
 
+## D35c-1: several online gateways; Aghaye Pardakht (2026-11-24)
+
+Read from Aghaye Pardakht's own documentation (API v2: create, startpay, return, verify; plus balance, transaction inquiry, reports,
+payouts, bank accounts, merchant onboarding and referral, which need the merchant's ACCOUNT number and key and are not used).
+
+* **Registry:** `GATEWAYS = ZARINPAL | AQAYEPARDAKHT` (packages/shared). Each has a platform switch (`payment.zarinpalEnabled`,
+  `payment.aqayepardakhtEnabled`; an older stored value without the second reads it as off), a store credential kept as a write-only
+  store secret (`payment.zarinpal.merchant_id` UUID; `payment.aqayepardakht.pin`, letters and digits), an amount range in toman (Zarinpal
+  100..100,000,000; Aghaye Pardakht 1,000..400,000,000) and a session-id shape (Zarinpal authority; Aghaye Pardakht transid). The shopper
+  sees every gateway the store can use (`payment-methods.gateways`) and picks one; the ONLINE order stores it (`Order.paymentGateway`,
+  CHECKed) and every payment attempt records its `provider`. Adding a gateway = one adapter file + one row in each table.
+* **Aghaye Pardakht flow:** `create` with the amount in **toman** (the service passes rial, the adapter divides by 10),
+  `callback_method=GET`, `invoice_id` = order number; the buyer goes to `/startpay/{transid}` (sandbox: `/startpay/sandbox/…` with pin
+  `sandbox`); the return comes to `/checkout/payment/return/aqayepardakht?transid=…&status=1|0`; only transid and status are forwarded,
+  and status 1 only triggers a server-side `verify` (1 = verified now, 2 = verified before: both paid; 0 = not paid yet: the attempt stays
+  open; -8/-10 settle it as failed; anything else is unclear). Verify returns no reference of its own: the transid is the reference.
+* **Referer:** Aghaye Pardakht's payment page refuses a visit whose Referer is not the gateway's registered domain (-16). The browser goes
+  to every gateway through a link with `referrerpolicy="origin"`: the gateway gets the store's origin, never a page path (order pages keep
+  their secret link out of referrers).
+* **Reconciler:** Aghaye Pardakht has no inquiry with the gateway pin, so open attempts are verified directly (harmless when unpaid: code 0
+  leaves them open, with back-off). Its documentation does not say whether an unverified payment is returned to the buyer automatically
+  (Zarinpal's is): see the open question below.
+* **Unverified payments:** a gateway that does not (or does not document that it does) return unverified payments to the buyer —
+  Aghaye Pardakht — is marked `GATEWAY_AUTO_REFUNDS = false`. Its attempts are never closed unverified: they are verified even on an order
+  that was paid by another attempt, cancelled or expired (captured money becomes REFUND_REQUIRED for the merchant), until 24 hours after
+  they were opened. Open question for Aghaye Pardakht support: is an unverified payment returned automatically, and after how long?
+* **Custom domains:** Aghaye Pardakht checks the Referer against the registered domain; the return address is the store's subdomain, so a
+  storefront served on a custom domain needs that domain registered at the gateway instead (to revisit when custom domains go live).
+* **Security review (2026-11-24), fixed with tests:** the High finding was the one above (attempts of a non-refunding gateway closed
+  unverified); also: an unknown verify answer keeps the "verify sent" mark for every gateway; the credential fingerprint keeps the case of
+  Aghaye Pardakht pins; the gateway CHECK accepts an ONLINE order without a gateway (read as Zarinpal) so the migration stays expand-only
+  during a deploy; a sandbox session never places an order after the platform leaves sandbox mode; Aghaye Pardakht invoice ids are unique
+  per attempt; per-gateway amount CHECKs; the pin `sandbox` can never be stored as a store credential.
+
 ## D35b-1: card-to-card payment (2026-11-24)
 
 Owner decisions: shoppers pick among every enabled method; 24 hours to send the receipt; proof = image + bank tracking number + last 4

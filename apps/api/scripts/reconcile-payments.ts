@@ -19,7 +19,8 @@ async function main() {
   const settings = createPlatformSettingsService(k);
   const secrets = createSecretService(k);
   const dev = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
-  const devBase = dev && /^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(process.env.ZARINPAL_DEV_BASE_URL ?? "") ? process.env.ZARINPAL_DEV_BASE_URL : undefined;
+  const loop = (v: string | undefined) => (dev && /^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(v ?? "") ? v : undefined);
+  const devBase = loop(process.env.ZARINPAL_DEV_BASE_URL);
   const payments = createPaymentsService({
     // The job hands out no order links and opens no gateway sessions: neither the token key nor the store origin is used.
     authSecret: process.env.AUTH_SECRET ?? "reconcile-job-issues-no-tokens",
@@ -27,6 +28,7 @@ async function main() {
     sources: { paymentSettings: async () => (await settings.settings()).payment, reveal: (storeId, name) => (k ? secrets.reveal(storeId, name) : Promise.resolve(null)), secretsReady: () => k !== null },
     storeOrigin: () => "",
     devBaseUrl: devBase,
+    devAqayeBaseUrl: loop(process.env.AQAYEPARDAKHT_DEV_BASE_URL),
   });
   const report = await payments.reconcile();
   console.log(JSON.stringify({ event: "payments.reconciled", ...report }));

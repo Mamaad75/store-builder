@@ -1,5 +1,5 @@
 import type { AddressInput, ShippingKind } from "@store-builder/shared/modules/checkout/checkout";
-import type { OrderActor, OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
+import type { Gateway, OrderActor, OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 
 /** Phase 3.4 (D34-1). Pure: no I/O. */
 
@@ -37,6 +37,8 @@ export interface NewOrder {
   address: AddressInput;
   shipping: { methodId: string; name: string; kind: ShippingKind; cost: number };
   paymentMethod: PaymentMethod;
+  /** D35c-1: the gateway of an ONLINE order, else null. */
+  paymentGateway: Gateway | null;
   /** Phase 3.5: online orders only; the order waits for its payment until then. */
   paymentDeadline: Date | null;
   codFee: number;
@@ -61,6 +63,7 @@ export function draftOrder(o: {
   address: AddressInput;
   weights: ReadonlyMap<string, number | null>;
   paymentMethod: PaymentMethod;
+  paymentGateway?: Gateway | null;
   paymentDeadline?: Date | null;
   note: string;
 }): NewOrder {
@@ -87,6 +90,7 @@ export function draftOrder(o: {
     address: o.address,
     shipping: { methodId: shipping.methodId, name: shipping.name, kind: shipping.kind, cost: s.shippingCost },
     paymentMethod: o.paymentMethod,
+    paymentGateway: o.paymentMethod === "ONLINE" ? (o.paymentGateway ?? "ZARINPAL") : null,
     paymentDeadline: o.paymentMethod === "COD" ? null : (o.paymentDeadline ?? null),
     codFee: s.codFee,
     subtotal: s.subtotal,
@@ -106,6 +110,7 @@ export interface OrderView {
   address: AddressInput;
   shipping: { name: string; kind: ShippingKind; cost: number };
   paymentMethod: PaymentMethod;
+  paymentGateway: Gateway | null;
   /** Phase 3.5: until when an unpaid online order can be paid (ISO), null otherwise. */
   paymentDeadline: string | null;
   /** Phase 3.5: the online payment once verified (reference number and masked card), null otherwise. */

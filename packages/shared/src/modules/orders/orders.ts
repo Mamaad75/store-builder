@@ -47,7 +47,31 @@ export const restocksOn = (to: OrderStatus) => to === "CANCELLED" || to === "EXP
 
 export const PAYMENT_METHODS = ["COD", "ONLINE", "CARD_TRANSFER"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
-export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = { COD: "پرداخت در محل", ONLINE: "پرداخت اینترنتی (زرین‌پال)", CARD_TRANSFER: "کارت به کارت" };
+export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = { COD: "پرداخت در محل", ONLINE: "پرداخت اینترنتی", CARD_TRANSFER: "کارت به کارت" };
+
+// ---------- D35c-1: online payment gateways (the shopper picks among those the store has) ----------
+
+export const GATEWAYS = ["ZARINPAL", "AQAYEPARDAKHT"] as const;
+export type Gateway = (typeof GATEWAYS)[number];
+export const GATEWAY_LABELS: Readonly<Record<Gateway, string>> = { ZARINPAL: "زرین‌پال", AQAYEPARDAKHT: "آقای پرداخت" };
+/** Each gateway's amount range in toman (Zarinpal: up to 100,000,000 toman, error -41; Aghaye Pardakht: 1,000 to 400,000,000 toman, error -5). */
+export const GATEWAY_TOMAN_RANGE: Readonly<Record<Gateway, readonly [number, number]>> = { ZARINPAL: [100, 100_000_000], AQAYEPARDAKHT: [1_000, 400_000_000] };
+/** The store secret that holds each gateway's credential (phase 2.4 envelope encryption). */
+export const GATEWAY_SECRETS: Readonly<Record<Gateway, string>> = { ZARINPAL: "payment.zarinpal.merchant_id", AQAYEPARDAKHT: "payment.aqayepardakht.pin" };
+/** The shape of each gateway's credential: a Zarinpal merchant id (UUID); an Aghaye Pardakht gateway pin (letters and digits). */
+export const GATEWAY_CREDENTIAL_RE: Readonly<Record<Gateway, RegExp>> = {
+  ZARINPAL: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  AQAYEPARDAKHT: /^(?!sandbox$)[0-9A-Za-z]{8,64}$/i,
+};
+/**
+ * Whether the gateway returns a payment that is never verified to the buyer by itself (Zarinpal with auto_verify=false does). For a gateway
+ * that does not (or does not document it: Aghaye Pardakht), an attempt is never closed unverified: it is verified even on an order that is
+ * no longer payable (captured money becomes REFUND_REQUIRED for the merchant) until UNVERIFIED_ATTEMPT_TTL_HOURS after it was opened.
+ */
+export const GATEWAY_AUTO_REFUNDS: Readonly<Record<Gateway, boolean>> = { ZARINPAL: true, AQAYEPARDAKHT: false };
+export const UNVERIFIED_ATTEMPT_TTL_HOURS = 24;
+/** A payment session id at each gateway (Zarinpal: authority; Aghaye Pardakht: transid). */
+export const GATEWAY_REF_RE: Readonly<Record<Gateway, RegExp>> = { ZARINPAL: /^[AS][0-9A-Za-z]{35}$/, AQAYEPARDAKHT: /^[0-9A-Za-z]{6,40}$/ };
 /** Paid before the order is placed (the order waits AWAITING_PAYMENT until then). */
 export const isPrepaid = (m: PaymentMethod) => m !== "COD";
 
@@ -57,8 +81,8 @@ export const isPrepaid = (m: PaymentMethod) => m !== "COD";
 export const PAYMENT_WINDOW_MINUTES = 20;
 /** Payment attempts per order (each one is a new gateway session). */
 export const MAX_PAYMENT_ATTEMPTS = 5;
-/** Zarinpal's largest payment: 100,000,000 toman (error -41). */
-export const MAX_ONLINE_TOMAN = 100_000_000;
+/** The largest online payment of any gateway (Aghaye Pardakht: 400,000,000 toman); each gateway has its own range (GATEWAY_TOMAN_RANGE). */
+export const MAX_ONLINE_TOMAN = 400_000_000;
 /** The gateway takes rial; the store works in toman. */
 export const tomanToRial = (toman: number) => toman * 10;
 /** Zarinpal authorities: "A" (live) or "S" (sandbox) and 35 letters/digits. */
@@ -79,9 +103,18 @@ export const PAYMENT_STATUS_LABELS: Readonly<Record<PaymentStatus, string>> = {
   REFUND_REQUIRED: "پرداخت‌شده روی سفارشِ بسته — مبلغ را به خریدار برگردانید",
 };
 
+/**
+ * The buyer's return from a gateway, as the return page forwards it. Zarinpal: Authority + Status OK|NOK; Aghaye Pardakht: transid +
+ * status 1|0 (normalised here to OK|NOK). The status only decides whether a server-side verify is attempted; it proves nothing.
+ */
 export const verifyPaymentSchema = z
-  .object({ authority: z.string().regex(AUTHORITY_RE, "شناسه‌ی پرداخت نامعتبر است"), status: z.enum(["OK", "NOK"]) })
-  .strict();
+  .object({
+    gateway: z.enum(GATEWAYS).default("ZARINPAL"),
+    authority: z.string().max(64),
+    status: z.enum(["OK", "NOK", "1", "0"]).transform((v) => (v === "OK" || v === "1" ? ("OK" as const) : ("NOK" as const))),
+  })
+  .strict()
+  .refine((v) => GATEWAY_REF_RE[v.gateway].test(v.authority), { message: "شناسه‌ی پرداخت نامعتبر است", path: ["authority"] });
 
 /** Placing orders per client network per store per hour, and per phone per store per day (fake cash-on-delivery orders hold stock). */
 export const ORDER_PLACE_RULE = { limit: 20, windowSeconds: 3600 } as const;
@@ -113,9 +146,12 @@ export const placeOrderSchema = z
     addressId: z.string().regex(ID_RE).optional(),
     shippingMethodId: z.string().regex(ID_RE, "روش ارسال را انتخاب کنید"),
     paymentMethod: z.enum(PAYMENT_METHODS, { error: "روش پرداخت را انتخاب کنید" }),
+    /** D35c-1: which gateway, for an ONLINE order (default: Zarinpal, for clients of phase 3.5). */
+    gateway: z.enum(GATEWAYS, { error: "درگاه پرداخت را انتخاب کنید" }).optional(),
     note,
   })
-  .strict();
+  .strict()
+  .refine((v) => v.paymentMethod === "ONLINE" || v.gateway === undefined, { message: "درگاه فقط برای پرداخت اینترنتی است", path: ["gateway"] });
 export type PlaceOrderInput = z.output<typeof placeOrderSchema>;
 
 export const orderTransitionSchema = z.object({ to: z.enum(ORDER_STATUSES, { error: "وضعیت نامعتبر است" }), note }).strict();

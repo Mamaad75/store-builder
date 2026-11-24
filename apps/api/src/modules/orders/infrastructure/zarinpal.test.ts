@@ -20,14 +20,14 @@ function fake(answer: (url: string, body: any) => { status?: number; body: unkno
 describe("Zarinpal v4 adapter (phase 3.5)", () => {
   it("request: fixed live/sandbox hosts, rial, IRR, auto_verify off, JSON headers, no redirects", async () => {
     const { gw, calls } = fake(() => ({ body: { data: { code: 100, message: "Success", authority: AUTH, fee_type: "Merchant", fee: 100 }, errors: [] } }));
-    const r = await gw.request({ sandbox: false, merchantId: MID, amountRial: 2_300_000, description: "x".repeat(600), callbackUrl: "https://shop.example.com/checkout/payment/return", orderRef: "12", mobile: "09123456789" });
+    const r = await gw.request({ sandbox: false, merchantId: MID, amountRial: 2_300_000, description: "x".repeat(600), callbackUrl: "https://shop.example.com/checkout/payment/return", orderRef: "12", attemptRef: "a1b2c3d4", mobile: "09123456789" });
     expect(r).toEqual({ ok: true, authority: AUTH });
     expect(calls[0]!.url).toBe("https://payment.zarinpal.com/pg/v4/payment/request.json");
     expect(calls[0]!.init.redirect).toBe("error");
     expect(calls[0]!.init.headers).toMatchObject({ accept: "application/json", "content-type": "application/json" });
     expect(calls[0]!.body).toMatchObject({ merchant_id: MID, amount: 2_300_000, currency: "IRR", callback_url: "https://shop.example.com/checkout/payment/return", metadata: { auto_verify: false, order_id: "12", mobile: "09123456789" } });
     expect(calls[0]!.body.description).toHaveLength(500);
-    await gw.request({ sandbox: true, merchantId: MID, amountRial: 10_000, description: "d", callbackUrl: "https://x/y", orderRef: "1", mobile: null });
+    await gw.request({ sandbox: true, merchantId: MID, amountRial: 10_000, description: "d", callbackUrl: "https://x/y", orderRef: "1", attemptRef: "a1b2c3d4", mobile: null });
     expect(calls[1]!.url).toBe("https://sandbox.zarinpal.com/pg/v4/payment/request.json");
     expect(calls[1]!.body.metadata).not.toHaveProperty("mobile");
     expect(gw.startUrl(false, AUTH)).toBe(`https://payment.zarinpal.com/pg/StartPay/${AUTH}`);
@@ -42,7 +42,7 @@ describe("Zarinpal v4 adapter (phase 3.5)", () => {
       () => ({ raw: "<html>gateway</html>" }),
     ];
     const out = [];
-    for (const a of answers) out.push(await fake(a).gw.request({ sandbox: false, merchantId: MID, amountRial: 10_000, description: "d", callbackUrl: "https://x/y", orderRef: "1", mobile: null }));
+    for (const a of answers) out.push(await fake(a).gw.request({ sandbox: false, merchantId: MID, amountRial: 10_000, description: "d", callbackUrl: "https://x/y", orderRef: "1", attemptRef: "a1b2c3d4", mobile: null }));
     expect(out).toEqual([{ ok: false, code: -9 }, { ok: false, code: 100 }, { ok: false, code: null }, { ok: false, code: null }]);
   });
 
@@ -51,7 +51,7 @@ describe("Zarinpal v4 adapter (phase 3.5)", () => {
     expect(await v({ data: { code: 100, ref_id: 201, card_pan: "502229******5995", card_hash: "h", fee: 0 }, errors: [] })).toEqual({ outcome: "paid", code: 100, refId: "201", cardPan: "502229******5995", fee: 0 });
     expect(await v({ data: { code: 101, ref_id: 201, card_pan: "<b>" }, errors: [] })).toMatchObject({ outcome: "paid", code: 101, cardPan: null });
     expect(await v({ data: { code: 100 }, errors: [] })).toEqual({ outcome: "unknown" }); // a success without a reference is not trusted
-    expect(await v({ data: {}, errors: { code: -51, message: "Session is not valid, session is not active paid try." } })).toEqual({ outcome: "unknown", code: -51 });
+    expect(await v({ data: {}, errors: { code: -51, message: "Session is not valid, session is not active paid try." } })).toEqual({ outcome: "pending", code: -51 }); // not paid (yet): nothing captured
     expect(await v({ data: {}, errors: { code: -53, message: "other merchant" } })).toEqual({ outcome: "unknown", code: -53 });
     expect(await v({ data: {}, errors: { code: -54, message: "Invalid authority." } })).toEqual({ outcome: "failed", code: -54 });
     expect(await v({ data: {}, errors: { code: "-50", message: "amount mismatch" } })).toEqual({ outcome: "failed", code: -50 });

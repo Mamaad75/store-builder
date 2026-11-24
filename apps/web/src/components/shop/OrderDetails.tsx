@@ -1,6 +1,6 @@
 "use client";
 
-import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@store-builder/shared/modules/orders/orders";
+import { GATEWAY_LABELS, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@store-builder/shared/modules/orders/orders";
 import { provinceName } from "@store-builder/shared/modules/checkout/provinces";
 import type { ShopperOrder } from "@/client/shop";
 import { faNumber, toman } from "./format";
@@ -37,7 +37,7 @@ export default function OrderDetails({
       {error && <p className={s.alert} role="alert">{error}</p>}
       <div className={s.card}>
         <p>وضعیت: <span className={s.status}>{ORDER_STATUS_LABELS[o.status]}</span></p>
-        <p className={s.muted}>ثبت در {date(o.createdAt)} — {PAYMENT_METHOD_LABELS[o.paymentMethod]}</p>
+        <p className={s.muted}>ثبت در {date(o.createdAt)} — {PAYMENT_METHOD_LABELS[o.paymentMethod]}{o.paymentGateway ? ` (${GATEWAY_LABELS[o.paymentGateway]})` : ""}</p>
         {o.payment && <p className={s.muted}>پرداخت‌شده — کد پیگیری <span className={s.num}>{o.payment.refId}</span>{o.payment.cardPan ? <> — کارت <span className={s.num} dir="ltr">{o.payment.cardPan}</span></> : null}</p>}
         {o.paymentMethod === "ONLINE" && o.status === "AWAITING_PAYMENT" && o.paymentDeadline && (
           <p className={data.canPay ? s.alert : s.muted}>

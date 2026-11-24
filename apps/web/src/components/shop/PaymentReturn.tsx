@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AUTHORITY_RE } from "@store-builder/shared/modules/orders/orders";
+import { GATEWAY_REF_RE, type Gateway } from "@store-builder/shared/modules/orders/orders";
 import { problemText, verifyPayment } from "@/client/shop";
 import s from "./shop.module.css";
 
@@ -18,20 +18,20 @@ const TEXT = {
 } as const;
 
 /** Phase 3.5: the buyer's return from the gateway. The server verifies the payment; this page shows the outcome and links to the order. */
-export default function PaymentReturn({ authority, status }: { authority: string; status: string }) {
+export default function PaymentReturn({ gateway = "ZARINPAL", authority, status }: { gateway?: Gateway; authority: string; status: string }) {
   const router = useRouter();
-  const valid = AUTHORITY_RE.test(authority) && (status === "OK" || status === "NOK");
+  const valid = GATEWAY_REF_RE[gateway].test(authority) && (gateway === "ZARINPAL" ? status === "OK" || status === "NOK" : status === "1" || status === "0");
   const [state, setState] = useState<State>(valid ? { kind: "loading" } : { kind: "error", text: "نشانی بازگشت از درگاه نامعتبر است." });
 
   useEffect(() => {
     if (!valid) return;
-    verifyPayment(authority, status)
+    verifyPayment(gateway, authority, status)
       .then((r) => {
         setState({ kind: "done", outcome: r.outcome, token: r.accessToken });
         if (r.outcome === "paid" && r.accessToken) router.replace(`/orders/${encodeURIComponent(r.accessToken)}`);
       })
       .catch((e) => setState({ kind: "error", text: problemText(e) }));
-  }, [authority, status, valid, router]);
+  }, [gateway, authority, status, valid, router]);
 
   return (
     <div className={s.page}>

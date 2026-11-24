@@ -9,7 +9,7 @@ import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { nextStatuses, PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, type OrderStatus } from "@store-builder/shared/modules/orders/orders";
+import { GATEWAY_LABELS, nextStatuses, PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, type OrderStatus } from "@store-builder/shared/modules/orders/orders";
 import { provinceName } from "@store-builder/shared/modules/checkout/provinces";
 import { formatIranMobile } from "@store-builder/shared/lib/phone";
 import { changeOrderStatus, getOrder, getOrderPayments, type OrderDto, type PaymentAttempt } from "@/client/api";
@@ -35,7 +35,7 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
     const paidOnline = order?.paymentMethod === "ONLINE" && order.payment !== null;
     const paidTransfer = order?.paymentMethod === "CARD_TRANSFER" && order.status !== "AWAITING_PAYMENT";
     const ask = paidOnline
-      ? "این سفارش آنلاین پرداخت شده است. با لغو، موجودی برمی‌گردد اما مبلغ خودکار برگردانده نمی‌شود: آن را خودتان از پنل زرین‌پال به خریدار برگردانید. لغو شود؟"
+      ? "این سفارش آنلاین پرداخت شده است. با لغو، موجودی برمی‌گردد اما مبلغ خودکار برگردانده نمی‌شود: آن را خودتان از پنل درگاه به خریدار برگردانید. لغو شود؟"
       : paidTransfer
       ? "واریز کارت به کارت این سفارش تأیید شده است. با لغو، موجودی برمی‌گردد؛ مبلغ را خودتان به حساب خریدار برگردانید. لغو شود؟"
       : "سفارش لغو شود؟ موجودی کالاها برمی‌گردد.";
@@ -59,7 +59,7 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
         <Typography variant="h6" component="h2" sx={{ fontWeight: 800 }}>سفارش #{order.number.toLocaleString("fa-IR")}</Typography>
         <Chip color={STATUS_COLOR[order.status]} label={ORDER_STATUS_LABELS[order.status]} />
-        <Typography variant="body2" color="text.secondary">{date(order.createdAt)} — {PAYMENT_METHOD_LABELS[order.paymentMethod]}</Typography>
+        <Typography variant="body2" color="text.secondary">{date(order.createdAt)} — {PAYMENT_METHOD_LABELS[order.paymentMethod]}{order.paymentGateway ? ` (${GATEWAY_LABELS[order.paymentGateway]})` : ""}</Typography>
       </Box>
       {error && <Alert severity="error">{error}</Alert>}
 

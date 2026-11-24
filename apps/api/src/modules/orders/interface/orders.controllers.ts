@@ -173,7 +173,8 @@ export class PaymentsController {
   async methods(@Param("label") label: string, @Res({ passthrough: true }) res: Response) {
     res.setHeader("Cache-Control", "no-store");
     const storeId = await this.orders.liveStoreId(label);
-    return { cod: true, online: await this.payments.available(storeId), cardTransfer: await this.transfers.available(storeId) };
+    const gateways = await this.payments.available(storeId);
+    return { cod: true, online: gateways.length > 0, gateways, cardTransfer: await this.transfers.available(storeId) };
   }
 
   @Post("payments/verify")

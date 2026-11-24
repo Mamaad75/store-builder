@@ -16,7 +16,7 @@ import { CustomerOrdersController, PaymentsController, PublicOrdersController, S
   providers: [
     {
       provide: PaymentsService,
-      useFactory: (config: ApiConfig, limiter: RateLimiter, settings: PlatformSettingsService, secrets: SecretService, gateway: PaymentGateway | null) =>
+      useFactory: (config: ApiConfig, limiter: RateLimiter, settings: PlatformSettingsService, secrets: SecretService, gateway: PaymentGateway | Record<string, PaymentGateway> | null) =>
         createPaymentsService({
           authSecret: config.authSecret,
           limiter,
@@ -24,6 +24,7 @@ import { CustomerOrdersController, PaymentsController, PublicOrdersController, S
           storeOrigin: (label) => `${config.protocol}://${label}.${config.rootDomain}`,
           gateway,
           devBaseUrl: config.zarinpalDevBaseUrl,
+          devAqayeBaseUrl: config.aqayepardakhtDevBaseUrl,
         }),
       inject: [CONFIG, RATE_LIMITER, PlatformSettingsService, SecretService, PAYMENT_GATEWAY],
     },

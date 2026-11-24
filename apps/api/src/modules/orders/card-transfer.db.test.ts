@@ -115,7 +115,7 @@ describe("card-to-card (D35b-1)", () => {
   it("bank cards: validated (Luhn, at most 5, no duplicates), bank name from the number, store.view to read; offered only with cards", async () => {
     const s = await liveStore("shop", { cards: false });
     const me = shopper("shop");
-    expect((await me.call("GET", "/checkout/payment-methods")).json).toEqual({ cod: true, online: false, cardTransfer: false });
+    expect((await me.call("GET", "/checkout/payment-methods")).json).toEqual({ cod: true, online: false, gateways: [], cardTransfer: false });
     await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
     const refused = await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "CARD_TRANSFER" });
     expect([refused.status, refused.json.errorName]).toEqual([422, "PaymentUnavailableError"]);

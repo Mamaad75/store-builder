@@ -1,9 +1,13 @@
 import {
-  MAX_ONLINE_TOMAN,
+  GATEWAYS,
+  GATEWAY_AUTO_REFUNDS,
+  GATEWAY_CREDENTIAL_RE,
+  UNVERIFIED_ATTEMPT_TTL_HOURS,
+  GATEWAY_TOMAN_RANGE,
   MAX_PAYMENT_ATTEMPTS,
-  ZARINPAL_MERCHANT_ID_RE,
   tomanToRial,
   verifyPaymentSchema,
+  type Gateway,
 } from "@store-builder/shared/modules/orders/orders";
 import { OrderRateLimitedError, PaymentGatewayError, PaymentNotAllowedError, PaymentUnavailableError } from "@store-builder/shared/modules/orders/errors";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
@@ -45,32 +49,43 @@ export type ReturnOutcome = "paid" | "pending" | "failed" | "closed" | "refund";
 export class PaymentsService {
   constructor(
     private readonly store: PaymentStore,
-    private readonly gateway: PaymentGateway,
+    /** D35c-1: every gateway the platform knows (a store uses those it has a credential for and the platform has switched on). */
+    private readonly gateways: Readonly<Partial<Record<Gateway, PaymentGateway>>>,
     private readonly config: PaymentConfig,
     private readonly tokens: OrderTokens,
     private readonly limiter: Limiter,
-    /** The store's own return address, e.g. https://label.example.com/checkout/payment/return (Zarinpal checks its domain: error -14). */
-    private readonly callbackUrl: (label: string) => string,
+    /** The store's own return address per gateway (each gateway checks its domain: Zarinpal -14, Aghaye Pardakht -15). */
+    private readonly callbackUrl: (label: string, gateway: Gateway) => string,
     private readonly newId: () => string,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
-  private async merchant(storeId: string): Promise<{ merchantId: string; sandbox: boolean } | null> {
+  private gw(g: Gateway): PaymentGateway {
+    const x = this.gateways[g];
+    if (!x) throw new PaymentUnavailableError("off");
+    return x;
+  }
+
+  /** The store's credential for a gateway, when the platform has the gateway on and the credential is well-formed. */
+  private async merchant(storeId: string, g: Gateway): Promise<{ merchantId: string; sandbox: boolean } | null> {
     const p = await this.config.platform();
-    if (!p.enabled) return null;
-    const id = await this.config.merchantId(storeId).catch(() => null);
-    return id && ZARINPAL_MERCHANT_ID_RE.test(id) ? { merchantId: id, sandbox: p.sandbox } : null;
+    if (!p.enabled[g] || !this.gateways[g]) return null;
+    const id = await this.config.credential(storeId, g).catch(() => null);
+    return id && GATEWAY_CREDENTIAL_RE[g].test(id) ? { merchantId: id, sandbox: p.sandbox } : null;
   }
 
-  /** Whether this store can take online payments now (for the checkout page). */
-  async available(storeId: string): Promise<boolean> {
-    return (await this.merchant(storeId)) !== null;
+  /** The gateways this store can take payments through now (for the checkout page), in a fixed order. */
+  async available(storeId: string): Promise<Gateway[]> {
+    const out: Gateway[] = [];
+    for (const g of GATEWAYS) if (await this.merchant(storeId, g)) out.push(g);
+    return out;
   }
 
-  /** Placing an ONLINE order: refused unless the store can take online payments and the amount is within Zarinpal's range. */
-  async assertCanPay(storeId: string, totalToman: number): Promise<void> {
-    if (!(await this.merchant(storeId))) throw new PaymentUnavailableError("off");
-    if (totalToman > MAX_ONLINE_TOMAN || tomanToRial(totalToman) < 1000) throw new PaymentUnavailableError("amount");
+  /** Placing an ONLINE order: refused unless the store can take this gateway's payments and the amount is within the gateway's range. */
+  async assertCanPay(storeId: string, totalToman: number, g: Gateway = "ZARINPAL"): Promise<void> {
+    if (!(await this.merchant(storeId, g))) throw new PaymentUnavailableError("off");
+    const [min, max] = GATEWAY_TOMAN_RANGE[g];
+    if (totalToman < min || totalToman > max) throw new PaymentUnavailableError("amount");
   }
 
   private async limit(key: string, rule: { limit: number; windowSeconds: number }) {
@@ -81,37 +96,41 @@ export class PaymentsService {
   /** A new gateway session for the order: the address to send the buyer to, and the return key to give ONLY to this browser. */
   async start(storeId: string, label: string, orderId: string, ipKey: string): Promise<{ url: string; returnKey: string }> {
     await this.limit(`pay-start:${storeId}:ip:${ipKey}`, PAY_START_RULE);
-    const m = await this.merchant(storeId);
-    if (!m) throw new PaymentUnavailableError("off");
     const o = await this.store.orderForPayment(storeId, orderId);
     if (!o) throw new NotFoundError();
+    if (!o.gateway) throw new PaymentNotAllowedError("closed"); // not an online order
+    const g = o.gateway;
+    const m = await this.merchant(storeId, g);
+    if (!m) throw new PaymentUnavailableError("off");
     const can = await this.store.canStart(storeId, orderId, this.clock(), MAX_PAYMENT_ATTEMPTS);
     if (can === "busy") throw new PaymentNotAllowedError("busy");
     if (can !== "ok") throw new PaymentNotAllowedError("closed");
-    if (o.total > MAX_ONLINE_TOMAN) throw new PaymentUnavailableError("amount");
+    if (o.total < GATEWAY_TOMAN_RANGE[g][0] || o.total > GATEWAY_TOMAN_RANGE[g][1]) throw new PaymentUnavailableError("amount");
     const amountRial = tomanToRial(o.total);
-    const r = await this.gateway.request({
+    const attemptId = this.newId();
+    const r = await this.gw(g).request({
       sandbox: m.sandbox,
       merchantId: m.merchantId,
       amountRial,
       description: paymentDescription(o.storeName, o.number),
-      callbackUrl: this.callbackUrl(label),
+      callbackUrl: this.callbackUrl(label, g),
       orderRef: String(o.number),
+      attemptRef: attemptId.slice(0, 8),
       mobile: /^\+989\d{9}$/.test(o.phone) ? `0${o.phone.slice(3)}` : /^09\d{9}$/.test(o.phone) ? o.phone : null, // Zarinpal: 09xxxxxxxxx
     });
     if (!r.ok) throw new PaymentGatewayError();
-    // An authority from the wrong environment would never verify: refuse it now rather than send the buyer to a dead session.
-    if (r.authority.startsWith("S") !== m.sandbox) throw new PaymentGatewayError();
+    // A Zarinpal authority from the wrong environment would never verify: refuse it now rather than send the buyer to a dead session.
+    if (g === "ZARINPAL" && r.authority.startsWith("S") !== m.sandbox) throw new PaymentGatewayError();
     const rk = this.config.newReturnKey();
     // Checked again under the lock: a session opened meanwhile for a paid, expired or saturated order is never recorded nor verified.
     const recorded = await this.store.record(
-      { id: this.newId(), storeId, orderId, sandbox: m.sandbox, authority: r.authority, amountRial, merchantFingerprint: this.config.fingerprint(m.merchantId), returnKeyHash: rk.hash },
+      { id: attemptId, storeId, orderId, provider: g, sandbox: m.sandbox, authority: r.authority, amountRial, merchantFingerprint: this.config.fingerprint(g, m.merchantId), returnKeyHash: rk.hash },
       this.clock(),
       MAX_PAYMENT_ATTEMPTS,
     );
     if (recorded === "busy") throw new PaymentNotAllowedError("busy");
     if (recorded !== "ok") throw new PaymentNotAllowedError("closed");
-    return { url: this.gateway.startUrl(m.sandbox, r.authority), returnKey: rk.key };
+    return { url: this.gw(g).startUrl(m.sandbox, r.authority), returnKey: rk.key };
   }
 
   /**
@@ -128,7 +147,7 @@ export class PaymentsService {
     if (!q.success) throw new ValidationError({ authority: ["شناسه‌ی پرداخت نامعتبر است"] });
     await this.limit(`pay-verify:${storeId}:ip:${who.ipKey}`, PAY_VERIFY_RULE);
     const a = await this.store.byAuthority(storeId, q.data.authority);
-    if (!a) throw new NotFoundError();
+    if (!a || a.provider !== q.data.gateway) throw new NotFoundError();
     const o = await this.store.orderForPayment(storeId, a.orderId);
     const keyHash = who.returnKey ? this.config.hashReturnKey(who.returnKey) : null;
     const bound = (keyHash !== null && keyHash === a.returnKeyHash) || (who.customerId !== null && o?.customerId === who.customerId && !o.linkedByPhone);
@@ -141,19 +160,28 @@ export class PaymentsService {
     return { outcome: await this.verifyAttempt(storeId, q.data.authority), accessToken };
   }
 
+  /** An attempt of a gateway that does not refund unverified payments may be closed unverified only once it is this old. */
+  private mayCloseUnverified(a: PaymentAttempt, now: Date): boolean {
+    return GATEWAY_AUTO_REFUNDS[a.provider] || now.getTime() - a.createdAt.getTime() > UNVERIFIED_ATTEMPT_TTL_HOURS * 3600_000;
+  }
+
   /** Claim -> verify -> settle. */
   private async verifyAttempt(storeId: string, authority: string): Promise<ReturnOutcome> {
     const now = this.clock();
-    const c = await this.store.claim(storeId, authority, now, new Date(now.getTime() - STALE_VERIFY_MS));
+    const before = await this.store.byAuthority(storeId, authority);
+    if (!before) throw new NotFoundError();
+    // Review D35c-1: a gateway that does not refund unverified payments is verified even on a closed order (until the TTL).
+    const force = !this.mayCloseUnverified(before, now);
+    const c = await this.store.claim(storeId, authority, now, new Date(now.getTime() - STALE_VERIFY_MS), force);
     if (!c.ok) {
       const a = await this.store.byAuthority(storeId, authority);
       if (c.reason === "paid") {
         if (a?.status === "PAID") return "paid";
-        if (a) await this.store.settleUnpaid(a.id, "EXPIRED", null); // never verified: Zarinpal refunds it (no-op if a verify answer was lost)
+        if (a && this.mayCloseUnverified(a, now)) await this.store.settleUnpaid(a.id, "EXPIRED", null); // never verified: refunded by the gateway
         return "paid";
       }
       if (c.reason === "closed") {
-        if (a) await this.store.settleUnpaid(a.id, "EXPIRED", null);
+        if (a && this.mayCloseUnverified(a, now)) await this.store.settleUnpaid(a.id, "EXPIRED", null);
         return "closed";
       }
       if (c.reason === "busy") return "pending";
@@ -162,13 +190,18 @@ export class PaymentsService {
     }
     const a = c.attempt;
     const claimedAt = a.claimedAt!;
-    const m = await this.config.merchantId(storeId).catch(() => null);
-    // Only the merchant id that opened the session can verify it (review 3.5: a changed id must not turn into a "failed" payment).
-    if (!m || this.config.fingerprint(m) !== a.merchantFingerprint) {
+    // Review D35c-1: a sandbox session never places an order once the platform has left sandbox mode.
+    if (a.sandbox && !(await this.config.platform()).sandbox) {
+      await this.store.settleUnpaid(a.id, "FAILED", null, claimedAt);
+      return "failed";
+    }
+    const m = await this.config.credential(storeId, a.provider).catch(() => null);
+    // Only the credential that opened the session can verify it (review 3.5: a changed id must not turn into a "failed" payment).
+    if (!m || this.config.fingerprint(a.provider, m) !== a.merchantFingerprint || !this.gateways[a.provider]) {
       await this.store.release(a.id, claimedAt, null, a.verifySentAt?.getTime() === claimedAt.getTime()); // nothing was sent this time
       return "pending";
     }
-    const v = await this.gateway.verify({ sandbox: a.sandbox, merchantId: m, amountRial: a.amountRial, authority: a.authority });
+    const v = await this.gw(a.provider).verify({ sandbox: a.sandbox, merchantId: m, amountRial: a.amountRial, authority: a.authority });
     if (v.outcome === "paid") {
       const r = await this.store.settlePaid(a.id, claimedAt, { refId: v.refId, cardPan: v.cardPan, fee: v.fee, code: v.code }, this.clock());
       return r === "refund" ? "refund" : r === "placed" ? "paid" : "pending";
@@ -177,25 +210,32 @@ export class PaymentsService {
       await this.store.settleUnpaid(a.id, "FAILED", v.code, claimedAt);
       return "failed";
     }
-    // An answer with a code settled nothing (e.g. -51 not paid yet): nothing was captured. No answer at all: keep the "verify sent" mark.
-    await this.store.release(a.id, claimedAt, v.code ?? null, typeof v.code === "number");
-    return v.code === -51 ? "failed" : "pending";
+    if (v.outcome === "pending") {
+      // "Not paid (yet)" (Zarinpal -51, Aghaye Pardakht 0): nothing captured; the attempt stays open (a forged early return cannot fail it).
+      await this.store.release(a.id, claimedAt, v.code, true);
+      const o = await this.store.orderForPayment(storeId, a.orderId);
+      return o && o.status !== "AWAITING_PAYMENT" ? "closed" : "failed";
+    }
+    // Any other answer (no answer, an unknown code) proves nothing either way: the "verify sent" mark stays (review D35c-1).
+    await this.store.release(a.id, claimedAt, v.code ?? null, false);
+    return "pending";
   }
 
   /** One open attempt, from the reconciler. */
   private async check(a: PaymentAttempt, now: Date): Promise<"paid" | "failed" | "expired" | "unclear"> {
     const o = await this.store.orderForPayment(a.storeId, a.orderId);
-    if (o && o.status !== "AWAITING_PAYMENT" && a.verifySentAt === null && a.status === "CREATED") {
+    if (o && o.status !== "AWAITING_PAYMENT" && a.verifySentAt === null && a.status === "CREATED" && this.mayCloseUnverified(a, now)) {
       await this.store.settleUnpaid(a.id, "EXPIRED", null); // paid by another attempt, cancelled or expired: never verified (refunded)
       return "expired";
     }
-    if (a.status === "CREATED") {
-      const m = await this.config.merchantId(a.storeId).catch(() => null);
-      if (!m || this.config.fingerprint(m) !== a.merchantFingerprint) {
+    const gateway = this.gateways[a.provider];
+    if (a.status === "CREATED" && gateway?.inquiry) {
+      const m = await this.config.credential(a.storeId, a.provider).catch(() => null);
+      if (!m || this.config.fingerprint(a.provider, m) !== a.merchantFingerprint) {
         await this.store.defer(a.id, new Date(now.getTime() + backoffMs(a.checks)));
         return "unclear";
       }
-      const s = (await this.gateway.inquiry({ sandbox: a.sandbox, merchantId: m, authority: a.authority })).status;
+      const s = (await gateway.inquiry({ sandbox: a.sandbox, merchantId: m, authority: a.authority })).status;
       if (s === "FAILED" || s === "REVERSED") {
         await this.store.settleUnpaid(a.id, "FAILED", null);
         return "failed";
@@ -205,7 +245,15 @@ export class PaymentsService {
         return "unclear";
       }
     }
+    // Gateways without an inquiry (Aghaye Pardakht) are verified directly: harmless when unpaid ("not paid" leaves the attempt open).
     const r = await this.verifyAttempt(a.storeId, a.authority);
+    if (r === "failed" || r === "pending" || r === "closed") {
+      const still = await this.store.byAuthority(a.storeId, a.authority);
+      if (still?.status === "CREATED") {
+        await this.store.defer(a.id, new Date(now.getTime() + backoffMs(a.checks)));
+        return "unclear";
+      }
+    }
     return r === "paid" || r === "refund" ? "paid" : r === "failed" ? "failed" : r === "closed" ? "expired" : "unclear";
   }
 
@@ -245,22 +293,26 @@ export class PaymentsService {
   }
 
   /**
-   * The merchant's view of online payment (no secret value, only whether one is set): the platform switch, sandbox mode, whether the
-   * store's merchant id is set and well-formed, and the return address whose domain must be the one registered at Zarinpal.
+   * The merchant's view of online payment (no secret value, only whether one is set), per gateway: the platform switch, whether the
+   * store's credential is set and well-formed, and the return address whose domain must be the one registered at the gateway.
    */
   async settingsView(storeId: string) {
     const p = await this.config.platform();
-    const id = await this.config.merchantId(storeId).catch(() => null);
     const label = await this.store.labelOf(storeId);
-    return {
-      platformEnabled: p.enabled,
-      sandbox: p.sandbox,
-      secretsReady: this.config.secretsReady(),
-      merchantConfigured: id !== null,
-      merchantValid: id !== null && ZARINPAL_MERCHANT_ID_RE.test(id),
-      active: p.enabled && id !== null && ZARINPAL_MERCHANT_ID_RE.test(id),
-      callbackUrl: label ? this.callbackUrl(label) : null,
-    };
+    const gateways = [];
+    for (const g of GATEWAYS) {
+      const id = await this.config.credential(storeId, g).catch(() => null);
+      const valid = id !== null && GATEWAY_CREDENTIAL_RE[g].test(id);
+      gateways.push({
+        gateway: g,
+        platformEnabled: p.enabled[g] && Boolean(this.gateways[g]),
+        configured: id !== null,
+        valid,
+        active: p.enabled[g] && Boolean(this.gateways[g]) && valid,
+        callbackUrl: label ? this.callbackUrl(label, g) : null,
+      });
+    }
+    return { sandbox: p.sandbox, secretsReady: this.config.secretsReady(), gateways };
   }
 
   /** The attempts of one order (merchant's order page): status, reference and masked card only. */

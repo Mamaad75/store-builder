@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { restocksOn, type OrderStatus, type PaymentMethod } from "@store-builder/shared/modules/orders/orders";
+import { restocksOn, type Gateway, type OrderStatus, type PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 import type { ShippingKind } from "@store-builder/shared/modules/checkout/checkout";
 import { PaymentNotAllowedError } from "@store-builder/shared/modules/orders/errors";
 import { db } from "../../../lib/db.js";
@@ -19,7 +19,7 @@ const prismaCode = (e: unknown) => (typeof e === "object" && e !== null ? (e as 
 const orderSelect = {
   id: true, number: true, status: true, createdAt: true, customerId: true,
   recipientName: true, phone: true, province: true, city: true, addressLine: true, postalCode: true,
-  shippingName: true, shippingKind: true, shippingCost: true, paymentMethod: true, paymentDeadline: true, codFee: true, subtotal: true, total: true, itemCount: true, note: true,
+  shippingName: true, shippingKind: true, shippingCost: true, paymentMethod: true, paymentGateway: true, paymentDeadline: true, codFee: true, subtotal: true, total: true, itemCount: true, note: true,
   items: { select: { productId: true, variantId: true, name: true, variantLabel: true, unitPrice: true, quantity: true, lineTotal: true, weightGrams: true }, orderBy: { position: "asc" as const } },
   payments: { where: { status: "PAID" as const }, select: { refId: true, cardPan: true, verifiedAt: true }, take: 1 },
   events: { select: { fromStatus: true, toStatus: true, actor: true, note: true, createdAt: true }, orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }] },
@@ -36,6 +36,7 @@ function toView(r: OrderRow): OrderView {
     address: { recipientName: r.recipientName, phone: r.phone, province: r.province, city: r.city, line: r.addressLine, postalCode: r.postalCode },
     shipping: { name: r.shippingName, kind: r.shippingKind as ShippingKind, cost: Number(r.shippingCost) },
     paymentMethod: r.paymentMethod as PaymentMethod,
+    paymentGateway: (r.paymentGateway as Gateway | null) ?? null,
     paymentDeadline: r.paymentDeadline?.toISOString() ?? null,
     payment: r.payments[0] ? { refId: r.payments[0].refId!, cardPan: r.payments[0].cardPan, paidAt: r.payments[0].verifiedAt!.toISOString() } : null,
     subtotal: Number(r.subtotal),
@@ -125,7 +126,7 @@ export class PrismaOrderStore implements OrderStore {
             id: o.id, storeId: o.storeId, number: counter!.n, status: first, customerId, linkedByPhone, requestKey: o.requestKey, accessTokenHash: o.accessTokenHash,
             recipientName: o.address.recipientName, phone: o.address.phone, province: o.address.province, city: o.address.city, addressLine: o.address.line, postalCode: o.address.postalCode,
             shippingMethodId: o.shipping.methodId, shippingName: o.shipping.name, shippingKind: o.shipping.kind, shippingCost: BigInt(o.shipping.cost),
-            paymentMethod: o.paymentMethod, paymentDeadline: o.paymentDeadline, codFee: BigInt(o.codFee), subtotal: BigInt(o.subtotal), total: BigInt(o.total), itemCount: o.itemCount, note: o.note,
+            paymentMethod: o.paymentMethod, paymentGateway: o.paymentGateway, paymentDeadline: o.paymentDeadline, codFee: BigInt(o.codFee), subtotal: BigInt(o.subtotal), total: BigInt(o.total), itemCount: o.itemCount, note: o.note,
           },
         });
         await tx.orderItem.createMany({ data: o.items.map((i) => ({ ...i, storeId: o.storeId, orderId: o.id, lineTotal: BigInt(i.lineTotal) })) });

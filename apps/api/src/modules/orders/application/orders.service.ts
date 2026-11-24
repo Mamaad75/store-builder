@@ -5,6 +5,7 @@ import {
   ORDER_PLACE_RULE,
   PAYMENT_WINDOW_MINUTES,
   canTransition,
+  type Gateway,
   orderListQuerySchema,
   orderTransitionSchema,
   placeOrderSchema,
@@ -21,7 +22,7 @@ import type { CheckoutPort, Limiter, OrderListPage, OrderStore, OrderTokens, Sho
 /** Phase 3.5 / D35b-1: what placing and showing a prepaid order needs from the payment side. */
 export interface PrepaidGate {
   /** Throws PaymentUnavailableError when the store cannot take this method (or this amount) now. */
-  assertCanPay(storeId: string, totalToman: number, method: "ONLINE" | "CARD_TRANSFER"): Promise<void>;
+  assertCanPay(storeId: string, totalToman: number, method: "ONLINE" | "CARD_TRANSFER", gateway?: Gateway): Promise<void>;
   /** For card-to-card orders: the cards, the receipts and whether another can be sent; null for other methods. */
   transferInfo(storeId: string, order: OrderView): Promise<TransferInfo | null>;
 }
@@ -120,7 +121,7 @@ export class OrdersService {
     if (!prep.summary.ready || !prep.address) throw new OrderNotReadyError(prep.summary.blockers.length ? prep.summary.blockers : ["no_address"]);
     if (q.paymentMethod !== "COD") {
       if (!this.prepaid) throw new PaymentUnavailableError(q.paymentMethod === "CARD_TRANSFER" ? "no_cards" : "off");
-      await this.prepaid.assertCanPay(storeId, prep.summary.total, q.paymentMethod);
+      await this.prepaid.assertCanPay(storeId, prep.summary.total, q.paymentMethod, q.gateway);
     }
     await this.limit(`order-place:${storeId}:ip:${s.ipKey}`, ORDER_PLACE_RULE);
     await this.limit(`order-place:${storeId}:phone:${prep.address.phone}`, ORDER_PHONE_RULE);
@@ -130,7 +131,7 @@ export class OrdersService {
     const token = this.tokens.tokenFor(id);
     const order = draftOrder({
       id, storeId, customerId: s.customerId, requestKey, accessTokenHash: this.tokens.hash(token)!,
-      summary: prep.summary, address: prep.address, weights: prep.weights, paymentMethod: q.paymentMethod, note: q.note,
+      summary: prep.summary, address: prep.address, weights: prep.weights, paymentMethod: q.paymentMethod, paymentGateway: q.gateway ?? null, note: q.note,
       paymentDeadline:
         q.paymentMethod === "ONLINE"
           ? new Date(this.clock().getTime() + PAYMENT_WINDOW_MINUTES * 60_000)

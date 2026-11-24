@@ -1,4 +1,4 @@
-import type { OrderActor, OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
+import type { Gateway, OrderActor, OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 import type { AddressInput } from "@store-builder/shared/modules/checkout/checkout";
 import type { NewOrder, OrderView, ReadySummary } from "../domain/orders.js";
 
@@ -88,8 +88,10 @@ export interface GatewayRequest {
   amountRial: number;
   description: string;
   callbackUrl: string;
-  /** Shown in the merchant's Zarinpal panel: the order number. */
+  /** Shown in the merchant's gateway panel: the order number. */
   orderRef: string;
+  /** Unique per attempt (Aghaye Pardakht's invoice id: several attempts of one order must not reuse one). */
+  attemptRef: string;
   mobile: string | null;
 }
 export interface GatewayVerify {
@@ -106,26 +108,29 @@ export interface GatewayInquiry {
 export type VerifyResult =
   | { outcome: "paid"; code: number; refId: string; cardPan: string | null; fee: number | null }
   | { outcome: "failed"; code: number }
+  /** The gateway answered "not paid (yet)": nothing was captured; the attempt stays open (the buyer may still pay). */
+  | { outcome: "pending"; code: number }
   /** No answer, an answer we do not understand, or a temporary error: the attempt is checked again later (never settled on a guess). */
   | { outcome: "unknown"; code?: number | null };
 
-/** The payment provider (Zarinpal REST v4). Never throws: every failure is a result. */
+/** A payment gateway (Zarinpal REST v4, Aghaye Pardakht API v2). Never throws: every failure is a result. Amounts are given in rial. */
 export interface PaymentGateway {
   startUrl(sandbox: boolean, authority: string): string;
   request(r: GatewayRequest): Promise<{ ok: true; authority: string } | { ok: false; code: number | null }>;
   verify(v: GatewayVerify): Promise<VerifyResult>;
-  inquiry(q: GatewayInquiry): Promise<{ status: "VERIFIED" | "PAID" | "IN_BANK" | "FAILED" | "REVERSED" | "unknown" }>;
+  /** A status-only question (never used instead of verify); gateways without one (Aghaye Pardakht: needs account keys) are verified directly. */
+  inquiry?(q: GatewayInquiry): Promise<{ status: "VERIFIED" | "PAID" | "IN_BANK" | "FAILED" | "REVERSED" | "unknown" }>;
 }
 
-/** What decides whether a store can take online payments: the platform switch, sandbox mode, and the store's own merchant id. */
+/** What decides whether a store can take a gateway's payments: the platform switch per gateway, sandbox mode, the store's own credential. */
 export interface PaymentConfig {
-  platform(): Promise<{ enabled: boolean; sandbox: boolean }>;
-  /** The store's Zarinpal merchant id, or null (not set, or secrets not configured on this server). */
-  merchantId(storeId: string): Promise<string | null>;
+  platform(): Promise<{ enabled: Readonly<Record<Gateway, boolean>>; sandbox: boolean }>;
+  /** The store's credential for a gateway (Zarinpal merchant id, Aghaye Pardakht pin), or null (not set, or no secrets on this server). */
+  credential(storeId: string, gateway: Gateway): Promise<string | null>;
   /** false when the server has no master keys: no merchant id can be stored. */
   secretsReady(): boolean;
-  /** SHA-256 hex of a merchant id (an attempt is verified only with the merchant id it was opened with). */
-  fingerprint(merchantId: string): string;
+  /** SHA-256 hex of a gateway credential (an attempt is verified only with the credential it was opened with; case kept where it matters). */
+  fingerprint(gateway: Gateway, credential: string): string;
   /** A random return key for the paying browser and its SHA-256 hex (only the hash is stored). */
   newReturnKey(): { key: string; hash: string };
   /** SHA-256 hex of a presented return key; null when it is not shaped like one. */
@@ -137,6 +142,7 @@ export type AttemptStatus = "CREATED" | "VERIFYING" | "PAID" | "FAILED" | "EXPIR
 export interface PaymentAttempt {
   id: string;
   storeId: string;
+  provider: Gateway;
   orderId: string;
   sandbox: boolean;
   authority: string;
@@ -163,6 +169,8 @@ export type ClaimResult =
 
 export interface OrderForPayment {
   number: number;
+  /** The gateway the shopper chose (ONLINE orders), else null. */
+  gateway: Gateway | null;
   status: string;
   total: number;
   phone: string;
@@ -179,13 +187,14 @@ export interface PaymentStore {
   canStart(storeId: string, orderId: string, now: Date, maxAttempts: number): Promise<"ok" | "closed" | "too_many" | "busy">;
   /** The same checks again under the lock, then the attempt is written (a refused one is never verified: Zarinpal refunds it). */
   record(
-    a: { id: string; storeId: string; orderId: string; sandbox: boolean; authority: string; amountRial: number; merchantFingerprint: string; returnKeyHash: string },
+    a: { id: string; storeId: string; orderId: string; provider: Gateway; sandbox: boolean; authority: string; amountRial: number; merchantFingerprint: string; returnKeyHash: string },
     now: Date,
     maxAttempts: number,
   ): Promise<"ok" | "closed" | "too_many" | "busy">;
   byAuthority(storeId: string, authority: string): Promise<PaymentAttempt | null>;
   /** ONE transaction, order row locked first: CREATED (or a VERIFYING one claimed before `staleBefore`) -> VERIFYING, verify marked as sent. */
-  claim(storeId: string, authority: string, now: Date, staleBefore: Date): Promise<ClaimResult>;
+  /** `force`: claim even on an order no longer payable or paid by another attempt (gateways that do not refund unverified payments). */
+  claim(storeId: string, authority: string, now: Date, staleBefore: Date, force?: boolean): Promise<ClaimResult>;
   /**
    * ONE transaction: an order still awaiting payment -> the attempt PAID and the order PLACED (history, "order.placed"), its other
    * attempts that never sent a verify closed; an order no longer payable -> the attempt REFUND_REQUIRED (captured money the merchant must

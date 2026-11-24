@@ -8,25 +8,53 @@ import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { ZARINPAL_MERCHANT_ID_RE } from "@store-builder/shared/modules/orders/orders";
-import { deleteZarinpalMerchant, getPaymentSettings, setZarinpalMerchant, type PaymentSettingsView } from "@/client/api";
+import { GATEWAY_CREDENTIAL_RE, GATEWAY_LABELS, type Gateway } from "@store-builder/shared/modules/orders/orders";
+import { deleteGatewayCredential, getPaymentSettings, setGatewayCredential, type PaymentSettingsView } from "@/client/api";
 import { failText } from "./labels";
 
+/** What each gateway calls its credential and where the merchant finds it. */
+const CREDENTIAL: Record<Gateway, { label: string; where: string; shape: string; caseSensitive: boolean }> = {
+  ZARINPAL: { label: "مرچنت‌کد (۳۶ نویسه)", where: "پنل زرین‌پال، بخش «درگاه‌های پرداخت»", shape: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", caseSensitive: false },
+  AQAYEPARDAKHT: { label: "پین درگاه", where: "پنل آقای پرداخت، بخش «درگاه‌های پرداخت»", shape: "حروف انگلیسی و عدد، دست‌کم ۸ نویسه", caseSensitive: true },
+};
+
+type GatewayState = PaymentSettingsView["gateways"][number];
+
 /**
- * Phase 3.5: the store's Zarinpal merchant id (write-only: stored encrypted, never shown again) and whether shoppers can pay online now.
- * The return address's domain must be the domain registered for the merchant's Zarinpal terminal, or Zarinpal refuses the payment.
+ * Phase 3.5 / D35c-1: one card per online gateway. The credential is write-only (stored encrypted, never shown again). The return
+ * address's domain must be the domain registered for the merchant's gateway, or the gateway refuses the payment.
  */
 export default function PaymentSettings({ storeId }: { storeId: string }) {
   const [view, setView] = useState<PaymentSettingsView | null>(null);
-  const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
   const load = useCallback(() => getPaymentSettings(storeId).then(setView).catch((e) => setError(failText(e))), [storeId]);
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (!view) return error ? <Alert severity="error">{error}</Alert> : <Typography color="text.secondary">در حال بارگذاری…</Typography>;
+  return (
+    <Box sx={{ display: "grid", gap: 2 }}>
+      {view.sandbox && <Alert severity="warning">پلتفرم در حالت آزمایشی (سندباکس) است: پرداخت واقعی انجام نمی‌شود.</Alert>}
+      {!view.secretsReady && <Alert severity="warning">ذخیره‌ی امن کلیدها روی این سرور پیکربندی نشده است؛ فعلاً ثبت کد درگاه ممکن نیست.</Alert>}
+      <Typography variant="body2" color="text.secondary">اگر چند درگاه فعال باشد، خریدار در صفحه‌ی خرید یکی را انتخاب می‌کند.</Typography>
+      {view.gateways.map((g) => (
+        <GatewayCard key={g.gateway} storeId={storeId} g={g} secretsReady={view.secretsReady} onChange={load} />
+      ))}
+    </Box>
+  );
+}
+
+function GatewayCard({ storeId, g, secretsReady, onChange }: { storeId: string; g: GatewayState; secretsReady: boolean; onChange: () => Promise<unknown> }) {
+  const c = CREDENTIAL[g.gateway];
+  const name = GATEWAY_LABELS[g.gateway];
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const trimmed = value.trim();
+  const valid = GATEWAY_CREDENTIAL_RE[g.gateway].test(trimmed);
+  const domain = g.callbackUrl ? new URL(g.callbackUrl).host : null;
 
   async function act(f: () => Promise<unknown>, ok: string) {
     setBusy(true);
@@ -36,7 +64,7 @@ export default function PaymentSettings({ storeId }: { storeId: string }) {
       await f();
       setValue("");
       setDone(ok);
-      await load();
+      await onChange();
     } catch (e) {
       setError(failText(e));
     } finally {
@@ -44,66 +72,45 @@ export default function PaymentSettings({ storeId }: { storeId: string }) {
     }
   }
 
-  const trimmed = value.trim();
-  const valid = ZARINPAL_MERCHANT_ID_RE.test(trimmed);
-  if (!view) return error ? <Alert severity="error">{error}</Alert> : <Typography color="text.secondary">در حال بارگذاری…</Typography>;
-  const domain = view.callbackUrl ? new URL(view.callbackUrl).host : null;
-
   return (
-    <Box sx={{ display: "grid", gap: 2, maxWidth: 720 }}>
+    <Paper variant="outlined" sx={{ p: 2, display: "grid", gap: 1.5 }}>
+      <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+        <Typography sx={{ fontWeight: 700 }}>{name}</Typography>
+        {g.active ? <Chip size="small" color="success" label="فعال" /> : <Chip size="small" label="غیرفعال" />}
+      </Box>
       {error && <Alert severity="error">{error}</Alert>}
       {done && <Alert severity="success">{done}</Alert>}
-
-      <Paper variant="outlined" sx={{ p: 2, display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap" }}>
-        <Typography sx={{ fontWeight: 700 }}>وضعیت:</Typography>
-        {view.active ? <Chip color="success" label="فعال — خریداران می‌توانند آنلاین پرداخت کنند" /> : <Chip label="غیرفعال" />}
-        {view.platformEnabled && view.sandbox && <Chip color="warning" variant="outlined" label="حالت آزمایشی (سندباکس): پرداخت واقعی انجام نمی‌شود" />}
-      </Paper>
-
-      {!view.platformEnabled && <Alert severity="info">پرداخت آنلاین هنوز از طرف پلتفرم فعال نشده است. می‌توانید مرچنت‌کد را از همین حالا ثبت کنید.</Alert>}
-      {!view.secretsReady && <Alert severity="warning">ذخیره‌ی امن کلیدها روی این سرور پیکربندی نشده است؛ فعلاً ثبت مرچنت‌کد ممکن نیست.</Alert>}
-      {view.merchantConfigured && !view.merchantValid && <Alert severity="error">مرچنت‌کد ثبت‌شده معتبر نیست (۳۶ نویسه مثل xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx). دوباره واردش کنید.</Alert>}
-
-      <Paper variant="outlined" sx={{ p: 2, display: "grid", gap: 1.5 }}>
-        <Typography sx={{ fontWeight: 700 }}>مرچنت‌کد زرین‌پال</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {view.merchantConfigured ? "مرچنت‌کد ثبت شده است (برای امنیت نمایش داده نمی‌شود). برای تغییر، مقدار جدید را وارد کنید." : "مرچنت‌کد را از پنل زرین‌پال، بخش «درگاه‌های پرداخت»، کپی کنید."}
-        </Typography>
-        <TextField
-          label="مرچنت‌کد (۳۶ نویسه)"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          error={trimmed.length > 0 && !valid}
-          helperText={trimmed.length > 0 && !valid ? "قالب درست: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" : " "}
-          slotProps={{ htmlInput: { dir: "ltr", maxLength: 64, autoComplete: "off", spellCheck: false } }}
-          size="small"
-          disabled={!view.secretsReady}
-        />
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          <Button variant="contained" disabled={busy || !valid || !view.secretsReady} onClick={() => act(() => setZarinpalMerchant(storeId, trimmed.toLowerCase()), "مرچنت‌کد ذخیره شد.")}>ذخیره</Button>
-          {view.merchantConfigured && (
-            <Button
-              variant="outlined"
-              color="error"
-              disabled={busy}
-              onClick={() => window.confirm("مرچنت‌کد حذف شود؟ پرداخت آنلاین فروشگاه خاموش می‌شود.") && act(() => deleteZarinpalMerchant(storeId), "مرچنت‌کد حذف شد؛ پرداخت آنلاین خاموش است.")}
-            >
-              حذف
-            </Button>
-          )}
-        </Box>
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: 2, display: "grid", gap: 1 }}>
-        <Typography sx={{ fontWeight: 700 }}>دامنه‌ی درگاه</Typography>
-        <Typography variant="body2">
-          زرین‌پال فقط به دامنه‌ای که هنگام ساخت درگاه ثبت کرده‌اید برمی‌گرداند. دامنه‌ی ثبت‌شده‌ی درگاهتان باید این باشد:
-        </Typography>
-        {domain ? <Typography dir="ltr" sx={{ fontFamily: "monospace", fontWeight: 700 }}>{domain}</Typography> : <Typography color="text.secondary">فروشگاه هنوز نشانی ندارد.</Typography>}
-        <Typography variant="body2" color="text.secondary">
-          اگر دامنه‌ی درگاه با این نشانی یکی نباشد، پرداخت با خطای «دامنه‌ی بازگشت نامعتبر» رد می‌شود. پرداخت‌های تأییدنشده ظرف حداکثر ۷۲ ساعت به خریدار برمی‌گردند.
-        </Typography>
-      </Paper>
-    </Box>
+      {!g.platformEnabled && <Alert severity="info">پرداخت با {name} هنوز از طرف پلتفرم فعال نشده است. می‌توانید کد درگاه را از همین حالا ثبت کنید.</Alert>}
+      {g.configured && !g.valid && <Alert severity="error">کد ثبت‌شده معتبر نیست ({c.shape}). دوباره واردش کنید.</Alert>}
+      <Typography variant="body2" color="text.secondary">
+        {g.configured ? "کد درگاه ثبت شده است (برای امنیت نمایش داده نمی‌شود). برای تغییر، مقدار جدید را وارد کنید." : `${c.label} را از ${c.where} کپی کنید.`}
+      </Typography>
+      <TextField
+        label={c.label}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        error={trimmed.length > 0 && !valid}
+        helperText={trimmed.length > 0 && !valid ? `قالب درست: ${c.shape}` : " "}
+        slotProps={{ htmlInput: { dir: "ltr", maxLength: 64, autoComplete: "off", spellCheck: false } }}
+        size="small"
+        disabled={!secretsReady}
+      />
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+        <Button variant="contained" disabled={busy || !valid || !secretsReady} onClick={() => act(() => setGatewayCredential(storeId, g.gateway, c.caseSensitive ? trimmed : trimmed.toLowerCase()), "کد درگاه ذخیره شد.")}>ذخیره</Button>
+        {g.configured && (
+          <Button
+            variant="outlined"
+            color="error"
+            disabled={busy}
+            onClick={() => window.confirm(`کد ${name} حذف شود؟ پرداخت با این درگاه خاموش می‌شود.`) && act(() => deleteGatewayCredential(storeId, g.gateway), "کد درگاه حذف شد؛ این درگاه خاموش است.")}
+          >
+            حذف
+          </Button>
+        )}
+      </Box>
+      <Typography variant="body2">
+        دامنه‌ی ثبت‌شده‌ی درگاه باید این باشد: {domain ? <Box component="span" dir="ltr" sx={{ fontFamily: "monospace", fontWeight: 700 }}>{domain}</Box> : "فروشگاه هنوز نشانی ندارد."}
+      </Typography>
+    </Paper>
   );
 }

@@ -808,6 +808,8 @@ model Order {
   shippingKind     ShippingKind
   shippingCost     BigInt
   paymentMethod    OrderPaymentMethod
+  /// D35c-1: the online gateway the shopper chose (ONLINE orders only): ZARINPAL | AQAYEPARDAKHT.
+  paymentGateway   String?            @db.VarChar(20)
   /// Phase 3.5: an online order not paid by then expires (stock back). Null for cash on delivery.
   paymentDeadline  DateTime?
   codFee           BigInt             @default(0)

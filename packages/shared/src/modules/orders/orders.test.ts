@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { can } from "../access/permissions.js";
-import { AUTHORITY_RE, MAX_ONLINE_TOMAN, ORDER_STATUSES, ZARINPAL_MERCHANT_ID_RE, canTransition, nextStatuses, orderTransitionSchema, placeOrderSchema, restocksOn, tomanToRial, verifyPaymentSchema } from "./orders.js";
+import { AUTHORITY_RE, GATEWAY_CREDENTIAL_RE, GATEWAY_TOMAN_RANGE, MAX_ONLINE_TOMAN, ORDER_STATUSES, ZARINPAL_MERCHANT_ID_RE, canTransition, nextStatuses, orderTransitionSchema, placeOrderSchema, restocksOn, tomanToRial, verifyPaymentSchema } from "./orders.js";
 
 describe("order life cycle", () => {
   it("the merchant moves PLACED -> CONFIRMED -> SHIPPED -> DELIVERED and can cancel until shipped", () => {
@@ -57,7 +57,7 @@ describe("order input", () => {
 describe("online payment helpers (phase 3.5)", () => {
   it("rial for the gateway, Zarinpal's limits and formats", () => {
     expect(tomanToRial(125_000)).toBe(1_250_000);
-    expect(tomanToRial(MAX_ONLINE_TOMAN)).toBe(1_000_000_000);
+    expect(tomanToRial(MAX_ONLINE_TOMAN)).toBe(4_000_000_000);
     expect(AUTHORITY_RE.test("A0000000000000000000000000000wwOGYpd")).toBe(true);
     expect(AUTHORITY_RE.test("S0000000000000000000000000000wwOGYpd")).toBe(true);
     expect(AUTHORITY_RE.test("B0000000000000000000000000000wwOGYpd")).toBe(false);
@@ -66,5 +66,19 @@ describe("online payment helpers (phase 3.5)", () => {
     expect(ZARINPAL_MERCHANT_ID_RE.test("not-a-uuid")).toBe(false);
     expect(verifyPaymentSchema.safeParse({ authority: "A0000000000000000000000000000wwOGYpd", status: "OK" }).success).toBe(true);
     expect(verifyPaymentSchema.safeParse({ authority: "A0000000000000000000000000000wwOGYpd", status: "MAYBE" }).success).toBe(false);
+  });
+
+  it("D35c-1: gateways: return forms, credentials and amount ranges", () => {
+    expect(verifyPaymentSchema.parse({ authority: "A0000000000000000000000000000wwOGYpd", status: "OK" })).toEqual({ gateway: "ZARINPAL", authority: "A0000000000000000000000000000wwOGYpd", status: "OK" });
+    expect(verifyPaymentSchema.parse({ gateway: "AQAYEPARDAKHT", authority: "62B827B7E1ECBLLAZ555", status: "1" }).status).toBe("OK");
+    expect(verifyPaymentSchema.parse({ gateway: "AQAYEPARDAKHT", authority: "62B827B7E1ECBLLAZ555", status: "0" }).status).toBe("NOK");
+    expect(verifyPaymentSchema.safeParse({ gateway: "AQAYEPARDAKHT", authority: "A0000000000000000000000000000wwOGYpd!", status: "1" }).success).toBe(false);
+    expect(verifyPaymentSchema.safeParse({ gateway: "ZARINPAL", authority: "62B827B7E1ECBLLAZ555", status: "OK" }).success).toBe(false);
+    expect(verifyPaymentSchema.safeParse({ gateway: "PAYPAL", authority: "62B827B7E1ECBLLAZ555", status: "OK" }).success).toBe(false);
+    expect(GATEWAY_CREDENTIAL_RE.AQAYEPARDAKHT.test("D45DE2605E6E6F98")).toBe(true);
+    expect(GATEWAY_CREDENTIAL_RE.AQAYEPARDAKHT.test("pin with space")).toBe(false);
+    expect(GATEWAY_TOMAN_RANGE.AQAYEPARDAKHT).toEqual([1_000, 400_000_000]);
+    expect(placeOrderSchema.safeParse({ requestKey: "r".repeat(20), shippingMethodId: "m1", paymentMethod: "COD", gateway: "ZARINPAL" }).success).toBe(false);
+    expect(placeOrderSchema.safeParse({ requestKey: "r".repeat(20), shippingMethodId: "m1", paymentMethod: "ONLINE", gateway: "AQAYEPARDAKHT" }).success).toBe(true);
   });
 });

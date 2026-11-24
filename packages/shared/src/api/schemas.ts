@@ -203,6 +203,7 @@ export const orderDto = z.object({
   address: z.object({ recipientName: z.string(), phone: z.string(), province: z.string(), city: z.string(), line: z.string(), postalCode: z.string() }),
   shipping: z.object({ name: z.string(), kind: z.enum(["FLAT", "WEIGHT", "PICKUP"]), cost: z.number() }),
   paymentMethod: z.enum(["COD", "ONLINE", "CARD_TRANSFER"]),
+  paymentGateway: z.enum(["ZARINPAL", "AQAYEPARDAKHT"]).nullable().describe("the online gateway (ONLINE orders)"),
   paymentDeadline: iso.nullable().describe("online orders: the order can be paid until then (then it expires and the stock goes back)"),
   payment: z.object({ refId: z.string(), cardPan: z.string().nullable().describe("masked"), paidAt: iso }).nullable().describe("the verified online payment"),
   subtotal: z.number(),
@@ -234,13 +235,18 @@ export const paymentReturnDto = z.object({
   accessToken: z.string().nullable().describe("the order link: only for the browser that opened the payment (return-key cookie) or the order's signed-in customer"),
 });
 export const paymentSettingsViewDto = z.object({
-  platformEnabled: z.boolean(),
   sandbox: z.boolean(),
   secretsReady: z.boolean().describe("false: the server cannot store secrets (no master keys)"),
-  merchantConfigured: z.boolean(),
-  merchantValid: z.boolean(),
-  active: z.boolean().describe("shoppers can pay online now"),
-  callbackUrl: z.string().nullable().describe("its domain must be the one registered for the Zarinpal terminal"),
+  gateways: z.array(
+    z.object({
+      gateway: z.enum(["ZARINPAL", "AQAYEPARDAKHT"]),
+      platformEnabled: z.boolean(),
+      configured: z.boolean().describe("the store's credential (merchant id / pin) is set"),
+      valid: z.boolean(),
+      active: z.boolean().describe("shoppers can pay through it now"),
+      callbackUrl: z.string().nullable().describe("its domain must be the one registered for the gateway"),
+    }),
+  ),
 });
 export const paymentAttemptDto = z.object({ status: z.enum(["CREATED", "VERIFYING", "PAID", "FAILED", "EXPIRED", "REFUND_REQUIRED"]), refId: z.string().nullable(), cardPan: z.string().nullable(), createdAt: iso, verifiedAt: iso.nullable() });
 export const placedOrderDto = shopperOrderDto.extend({ accessToken: z.string().describe("follow or cancel the order with it (keep it secret: it is the order link)") });

@@ -32,7 +32,7 @@ export class PaymentUnavailableError extends Error {
   constructor(public readonly reason: "off" | "amount" | "no_cards") {
     super(
       reason === "amount"
-        ? "پرداخت اینترنتی برای مبلغ بیش از ۱۰۰ میلیون تومان ممکن نیست؛ پرداخت در محل را انتخاب کنید."
+        ? "مبلغ این سفارش در محدوده‌ی پرداخت این درگاه نیست؛ درگاه یا روش پرداخت دیگری را انتخاب کنید."
         : reason === "no_cards"
           ? "پرداخت کارت به کارت در این فروشگاه فعال نیست."
           : "پرداخت اینترنتی در این فروشگاه فعال نیست.",
