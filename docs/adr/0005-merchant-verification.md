@@ -33,6 +33,8 @@
 | **D-19** | **Production refuses payment sandbox mode** at the API and at the configuration boundary (not only in the UI); rejected attempts audited; tested. | §16.1.6 |
 | **D-20** | **SUPER_ADMIN re-enters the password before an early cooling-off lift**; reason required; atomic audit with before/after; merchant notified; platform security alert. Password re-entry is **not** MFA and not phishing-resistant (§16.3). | §16.1.7 |
 | **D-2s** | **Cooling-off blocks exactly:** payout settings (bank cards, gateway credentials) and verified-phone changes. **Stays available:** password change, sign out everywhere, and every ordinary operation. | §16.1.5 |
+| **D-24** | **Every qualifying security event restarts the 24-hour cooling-off from that event; a new event never shortens an existing period.** New end = `max(current end, event time + 24 h)`. Only the events listed in §17.1 qualify; ordinary activity and other security events do not; every trigger and extension is audited; concurrent events are applied atomically. *(Approved 2026-11-24.)* | §17.1 |
+| **D-19 (revision)** | Production is identified by an explicit, validated deployment environment (`development` / `test` / `staging` / `production`), not by `NODE_ENV`; production categorically refuses sandbox payment mode whatever the database says; missing or invalid environment identity refuses start-up. *(Owner instruction 2026-11-24.)* | §17.2 |
 | **D-22** (finding V0-6) | **Only the store OWNER receives full bank-card numbers** in merchant APIs; MANAGER and OPERATOR get masked values (last 4) from the backend. The one business exception: shoppers see the store's card numbers on their own unpaid card-to-card orders (existing, hidden while the store is suspended). | §16.1.2 |
 
 ### 0.2 Recommended (architect; needs explicit owner confirmation)
@@ -41,9 +43,11 @@
 
 | ID | Recommendation | Status |
 |---|---|---|
-| D-23 | Staging may use the gateway sandbox only through an explicit server environment flag (`PAYMENT_SANDBOX_ALLOWED=true`) that must never be set on production; see the conflict in §16.4-2 | Recommended — confirm |
-| D-24 | Repeated cooling-off triggers **restart** the 24 h from the latest trigger and never shorten an existing period | Recommended — confirm |
-| D-25 | Security events (refused payout attempts, lift attempts) visible to the store OWNER and platform admins, not to MANAGER | Recommended — confirm |
+| ~~D-23~~ | ~~`PAYMENT_SANDBOX_ALLOWED` flag~~ — **superseded** by the D-19 revision (explicit deployment environment, §17.2) | Superseded |
+| D-25 | Security events visible to the store OWNER and platform admins only, not to MANAGER (§17.4) | **Pending** |
+| D-26 | Additional qualifying cooling-off events beyond the approved ones: (a) receiving store ownership (future), (b) a platform admin replacing a merchant's verified phone outside manual recovery (future, if ever built) — §17.1 | **Pending** |
+| D-27 | Shopper card-number exception also requires the payment deadline not to have passed (today only the order status is checked) — §17.5 | **Pending** (recommended) |
+| D-28 | Owner SMS notices delivered through the existing transactional outbox; in-app notices written in the business transaction — §17.6 | **Pending** (recommended) |
 
 ### 0.3 Pending (owner decision required)
 
@@ -394,8 +398,8 @@ Existing stores never go offline because of verification. The grace period has n
 
 ## 13. Open decisions (owner approval needed)
 
-**Pending:** D-1, D-5, D-7, D-8, D-9, D-14, D-16, D-17, D-18, D-21. **Recommended (confirm):** D-23, D-24, D-25.
-**Approved:** D-2, D-2a, D-2s, D-3, D-4, D-6, D-10, D-11, D-12, D-12c, D-13, D-15, D-19, D-20, D-22. See §0.
+**Pending:** D-1, D-5, D-7, D-8, D-9, D-14, D-16, D-17, D-18, D-21, D-25, D-26, D-27, D-28. **Superseded:** D-23.
+**Approved:** D-2, D-2a, D-2s, D-3, D-4, D-6, D-10, D-11, D-12, D-12c, D-13, D-15, D-19 (with revision), D-20, D-22, D-24. See §0.
 
 ---
 
@@ -697,7 +701,8 @@ interface PayoutGuard {
   prisma-secret.repository.ts`). Architecture test: no other code writes `StoreBankCard` or a `GATEWAY_SECRETS` name.
 * **Start:** commit time of the trigger, database clock (`now()`). **Triggers:** completed verified-phone change (V1), completed
   self-service recovery (V2), completed manual recovery (V4). First-time phone verification and password change are **not** triggers.
-* **End:** `start + 24 h`. **Repeated triggers (D-24 Recommended):** `sensitiveLockUntil = GREATEST(sensitiveLockUntil, now() + 24 h)`.
+* **End:** `start + 24 h`. **Repeated triggers (D-24, Approved):** `sensitiveLockUntil = GREATEST(sensitiveLockUntil, event time + 24 h)`; exact
+  event list and clock in §17.1 (supersedes this bullet where they differ).
 * **Concurrency:** triggers update the user row under `FOR UPDATE`; the guard reads it under `FOR SHARE` inside the payout transaction,
   so a payout change and a phone change serialise: either the payout commits before the lock exists or it is refused after.
 * **Blocked (D-2s):** `PUT bank-cards`, gateway secret set/remove, verified-phone change. **Allowed:** password change, sign out
@@ -711,8 +716,8 @@ interface PayoutGuard {
 4. Not a path: `ZARINPAL_DEV_BASE_URL` / `AQAYEPARDAKHT_DEV_BASE_URL` are already refused outside development/test (`config/env.ts:231-236`).
 
 Required:
-* **Configuration boundary:** a server flag `paymentSandboxAllowed` from the environment — true only in development/test, or in a
-  staging deployment that sets `PAYMENT_SANDBOX_ALLOWED=true` (D-23). Read once at start-up; immutable at runtime.
+* **Configuration boundary:** *superseded by §17.2* (explicit deployment environment `APP_ENV`; sandbox allowed only outside
+  production). Read once at start-up; immutable at runtime.
 * **Read boundary (defence in depth):** the effective sandbox used by payments (`modules/orders/infrastructure/compose.ts:47-50`) is
   `stored.sandbox && paymentSandboxAllowed`. A stored `true` (default, old row, direct edit) has no effect in production.
 * **API boundary:** `PATCH settings/payment` with `sandbox: true` when not allowed → 422 domain error; recorded as
@@ -793,15 +798,14 @@ the enforcement switch for new merchants (D-16) exists but stays off.
 * Notices are in-app only until V1 has verified phones and the provider is configured at deployment; real SMS delivery is untested by
   design (ADR 0004).
 * Stateless sessions: a stolen token stays valid until `authVersion` changes or it expires (7 days); no per-session list or revocation.
-* Assumption: staging and production both run `NODE_ENV=production`; only the absence of `PAYMENT_SANDBOX_ALLOWED` distinguishes them.
+* Assumption (revised): staging and production both run `NODE_ENV=production` and are distinguished by `APP_ENV` (§17.2).
 
 ### 16.4 Conflicts between approved decisions and the current code
 
 1. **Default sandbox is `true`** (`packages/shared/src/modules/platform/settings.ts:102`) — conflicts with D-19. Resolution: default
    `false`, effective sandbox ANDed with the server flag (16.1.6); existing rows are harmless after that.
-2. **Staging vs production cannot be told apart by `NODE_ENV`** — D-19 says "production must refuse"; the code can only refuse unless an
-   explicit server flag is set. Resolution D-23 (Recommended): `PAYMENT_SANDBOX_ALLOWED` is never set on production (deployment checklist
-   item), reported by `/api/ready` or a start-up log line so a mistake is visible.
+2. **Staging vs production cannot be told apart by `NODE_ENV`** — resolved by the D-19 revision (§17.2): an explicit, validated
+   deployment environment, fixed in the production compose file, with the remaining operational risk stated there.
 3. **D-12c vs a global `authVersion`** — a bump alone would sign out the current session too. Resolution: bump + re-issue in the same
    response with compare-and-set (16.2.6). Approved behaviour holds; no session table needed.
 4. **Cooling-off moves earlier than V2:** D-2s makes a phone change (V1) a trigger, and V0's guard must read the lock. The lock column
@@ -849,3 +853,158 @@ and the bank-card masking land together).
 | Architecture | only `PayoutGuard` callers write `StoreBankCard` or gateway secrets; only `CoolingOff` writes `sensitiveLockUntil`; no route returns `cardNumber` except the OWNER read and the shopper view; development flags refused at start-up (`env.test.ts`) |
 | E2E (Playwright, development) | owner changes cards → notice; manager sees masked cards and cannot save; owner verifies phone with the dev-log code; owner changes phone → other browser signed out, current stays; payout change blocked for 24 h with a clear message; SUPER_ADMIN lifts with password + reason |
 | Deferred to deployment (ADR 0004) | real SMS for codes and notices on real phones |
+
+---
+
+## 17. Final corrections before V0/V1 (2026-11-24)
+
+**Specification only — nothing here is implemented or tested.** Where §17 differs from §15–§16, §17 wins.
+
+### 17.1 Cooling-off events (D-24, Approved)
+
+**Rule.** For a qualifying event at time *t*: `newEnd = max(currentEnd ?? -∞, t + 24 h)`. A qualifying event never shortens the period.
+The **only** way to shorten it is the D-2a/D-20 early lift by a SUPER_ADMIN, which is not an event in this list and is audited
+separately.
+
+| Event | Classification | Basis |
+|---|---|---|
+| Verified phone number changed (V1, `POST /api/me/phone/change` committed) | **Qualifying** | D-2, D-24 (Approved) |
+| Self-service account recovery completed (V2, password reset via OTP to the verified phone committed) | **Qualifying** | D-2 "after account recovery" (Approved) |
+| Manual account recovery completed (V4, D-10 committed by a reviewer) | **Qualifying** | D-2 "after account recovery" (Approved) |
+| Store ownership received (future ownership transfer, for the new owner) | Proposed qualifying | **D-26a Pending** |
+| Platform admin replaces a merchant's verified phone outside manual recovery (no such feature exists or is planned) | Proposed qualifying if ever built | **D-26b Pending** |
+| First-time phone verification | **Not** qualifying (no previous trusted channel to protect) | D-2s scope (Approved) |
+| Password change while signed in | **Not** qualifying — it is the owner's remedy and must stay available | D-2s (Approved) |
+| Sign out everywhere | **Not** qualifying | D-2s (Approved) |
+| Failed or refused attempts (wrong OTP, refused payout change, wrong password re-entry) | **Not** qualifying — extending on failures would let an attacker lock the owner out indefinitely | Recommendation (part of D-26, Pending) |
+| Sign-in, catalog, orders, publishing, settings, staff changes | **Not** qualifying | D-24 "ordinary activity" (Approved) |
+| Early lift (D-20) | Not an event; sets the end to now | D-2a, D-20 (Approved) |
+
+**Clock and atomicity.** The event time is the database's `clock_timestamp()` taken **after** the user row is locked inside the
+triggering transaction (not `now()`, which is the transaction *start* time and would make a long transaction compute an earlier end).
+Statement: `UPDATE "User" SET "sensitiveLockUntil" = GREATEST(COALESCE("sensitiveLockUntil", '-infinity'), clock_timestamp() + interval '24 hours') WHERE "id" = $1 RETURNING "sensitiveLockUntil"`,
+executed while holding `SELECT … FOR UPDATE` on the same row. Two concurrent qualifying events serialise on the row lock; the second
+reads the first's committed end, so no update is lost and the result is never smaller. The audit row `account.cooling_off_started`
+`{ trigger, previousEnd, newEnd }` is written in the same transaction (immutable).
+
+**Enforcement points (server-side, inside the mutation transaction, through `PayoutGuard` / the phone-change service):**
+`PUT /api/stores/:storeId/bank-cards`; `PUT /api/stores/:storeId/secrets/:name` and `POST …/secrets/:name/delete` for names in
+`GATEWAY_SECRETS`; `POST /api/me/phone/change`. The guard compares `sensitiveLockUntil` with `clock_timestamp()` while holding
+`FOR SHARE` on the owner's user row.
+
+**API behaviour.** A blocked request returns `403` with domain error `CoolingOffActiveError` `{ endsAt }` (no reason, no trigger
+details). `GET /api/me/security` (V1) returns `{ coolingOffUntil }` so the dashboard can show the end time. Nothing else changes.
+
+### 17.2 Deployment environment identity (D-19 revision)
+
+**Problem.** Staging and production both run `NODE_ENV=production` (`docker-compose.prod.yml:14,37`), so the code cannot tell them apart.
+
+**Design.**
+* New required variable `APP_ENV ∈ {development, test, staging, production}`, validated at start-up by **both** the API and the worker
+  (the worker reconciles payments). Rules:
+  * `NODE_ENV=development|test` → `APP_ENV` unset or equal to `NODE_ENV`.
+  * `NODE_ENV=production` → `APP_ENV` must be `staging` or `production`; **missing or any other value refuses start-up** (fail-closed),
+    naming only the variable.
+* **Effective sandbox** = `storedSetting.sandbox && APP_ENV ∈ {development, test, staging}`. With `APP_ENV=production` it is `false`
+  whatever the database contains (default, old row or manual edit). The value is read on every use as today
+  (`modules/orders/infrastructure/compose.ts:47-50`); the environment part is fixed at start-up and cannot be changed at runtime.
+* **API boundary:** with `APP_ENV=production`, `PATCH /api/v1/platform/settings/payment` with `sandbox: true` returns `422` and records
+  `security.sandbox_refused` (actor, no payload).
+* **Default:** the shared default becomes `sandbox: false`.
+* **Visibility:** start-up log line `environment=<APP_ENV>`; `/api/ready` includes `environment`; the platform pages show a "STAGING"
+  banner when not production.
+
+**How the deployment guarantees production is identified (and its limits).**
+* The production compose file sets `APP_ENV: production` as a literal in its shared environment blocks (`x-api-env` and the app/worker
+  blocks), not from `.env.production`, so an env-file mistake cannot change it. Staging uses its own compose override that sets
+  `APP_ENV: staging` (to be created with the staging setup, phase 14).
+* Cross-check: a `PRODUCTION_ROOT_DOMAIN` constant (the real domain, decided at purchase, checklist A4) is compared at start-up:
+  `APP_ENV=staging` with `APP_ROOT_DOMAIN == PRODUCTION_ROOT_DOMAIN` refuses to start (a staging config pointed at the real domain), and
+  `APP_ENV=production` with a different root domain logs a warning.
+* **Not fully solved by a variable:** an operator who edits the production compose file can still mislabel the deployment. The
+  remaining controls are the release checklist step "verify `/api/ready` reports `environment=production`", the visible staging banner,
+  and code review of compose changes. This residual risk is accepted and recorded.
+
+**Tests:** env validation table (every `NODE_ENV × APP_ENV` combination, missing, invalid, domain cross-check); effective sandbox is
+`false` for `APP_ENV=production` with stored `true`; `PATCH sandbox:true` refused + audited in production, accepted in staging; worker
+refuses the same invalid configurations.
+
+### 17.3 D-12c failure case (recorded)
+
+If the phone-change transaction commits but the response carrying the re-issued token is lost (network drop, client crash, proxy
+timeout), the device keeps the old token, whose `authVersion` is now stale, and is **signed out** on its next request. The phone change
+and the cooling-off remain in force; the owner signs in again with the password. This fail-safe outcome is **accepted for the initial
+implementation**. Tests: simulate commit + dropped response → old token `401`, password sign-in works, new phone and cooling-off present.
+
+### 17.4 Security-event visibility (D-25 Pending)
+
+**Current behaviour:** `GET /api/stores/:storeId/audit` (`modules/access/interface/access.controllers.ts:51-60`) requires `audit.view`,
+which OWNER **and MANAGER** hold, and returns every store-scoped `AuditEvent` row. Once V0 writes `security.*` rows (refused payout
+attempts by staff, cooling-off events), a MANAGER would see security events about the account and about their own refused attempts.
+
+**Recommended policy (pending approval):**
+* `security.*` and `account.*` rows: OWNER of the store and platform admins only; filtered in the query, not in the UI.
+* MANAGER keeps business rows (`payout.*` with masked data, orders, catalog).
+* Security events never contain secrets, full card numbers, OTPs, passwords or IP addresses in clear.
+* Test: MANAGER's audit list contains no `security.*` / `account.*` rows; OWNER's does.
+
+### 17.5 Shopper card-number exception (D-22) — strict conditions
+
+Card numbers reach a shopper **only** when **all** of these hold (current code in brackets):
+1. The order is resolved for **this** store's label: a guest presents the 43-character order access token whose SHA-256 hash matches
+   the order **in that store** [`getByTokenHash(storeId, hash)`, `modules/orders/infrastructure/prisma-orders.repository.ts:72`], or a
+   signed-in customer of that store reads an order placed **while signed in to that account** [`getMine`, phone-linked orders return
+   `transfer: null`, `modules/orders/application/orders.service.ts:230-234`].
+2. `paymentMethod = CARD_TRANSFER` and `status = AWAITING_PAYMENT` [`transfers.service.ts:62-68`].
+3. **The payment deadline has not passed** — **not checked today** (only the status is; cards remain visible between the deadline and the
+   expiry job). Proposed fix: D-27 (Pending).
+4. The store is not suspended (`prepaidActions`) [existing, ADR 0003].
+5. Single-order answers only; lists never carry card numbers [existing, `listMine`].
+6. Answers are `Cache-Control: no-store` and `Referrer-Policy: no-referrer` on the token route [existing].
+7. The cards are the order's own store's cards [`store.cards(storeId)`].
+
+**Tests:** another store's label with a valid token → 404; a token of another order → 404; a customer's phone-linked (not own) order →
+no cards; COD / online orders → no cards; PLACED / CANCELLED / EXPIRED → no cards; deadline passed (after D-27) → no cards; suspended
+store → no cards; list endpoints never contain a card number; response headers present.
+
+### 17.6 Owner notifications through the transactional outbox (D-28 Pending, recommended)
+
+The repository already has a transactional outbox (`OutboxEvent`, `recordEvent(scope, …)` in `platform/outbox/outbox.ts:34`, relay to
+BullMQ, at-least-once handlers) and an idempotent SMS pattern (`SmsMessage` unique on `(eventId, kind)`, `prisma/schema.prisma`).
+
+Recommended:
+* **In-app notice:** `OwnerNotice` written in the **same** transaction as the business change (same database; no outbox needed).
+* **SMS notice:** `recordEvent(scope, { type: "account.security_notice", … })` in the same transaction; the worker handler sends through
+  `TemplateSender` to the owner's **verified** phone.
+* **Duplicate prevention:** a delivery row unique on `(eventId, channel)`; a redelivered event finds it and stops.
+* **Retries:** the existing queue retry policy with backoff; a provider failure is recorded (`failed`, reason code) and retried; after the
+  final attempt it stays recorded as failed and raises an operator alert; never marked delivered.
+* **Rate limiting / coalescing** in the handler: at most one SMS per owner per notice kind per hour, plus the shared per-phone daily SMS
+  budget; in-app coalescing as in §16.1.4.
+* **Before provider configuration:** development uses the log sender; production without a provider records `not_sent:
+  provider_not_configured` (ADR 0004), never "sent".
+
+### 17.7 Test matrix additions
+
+| Area | Tests |
+|---|---|
+| D-24 rule | unit: `newEnd = max(current, t + 24 h)` for null, past, future and equal ends; property test over random event sequences: the end never decreases except through the D-20 lift |
+| D-24 concurrency | two qualifying events on one account in parallel (e.g. phone change and recovery) → both audited, final end = later event + 24 h; long-running transaction does not produce an earlier end (`clock_timestamp`); payout change racing an event → committed before or refused after |
+| D-24 classification | each non-qualifying action (first verification, password change, sign out everywhere, failed OTP, refused payout attempt, catalog/order writes) leaves `sensitiveLockUntil` unchanged |
+| D-24 enforcement | every enforcement point refuses with `CoolingOffActiveError { endsAt }` during the period and succeeds after it; architecture test: only the cooling-off service writes the column |
+| D-19 revision | §17.2 tests |
+| D-12c failure | §17.3 test |
+| D-25 | §17.4 test (once decided) |
+| Shopper exception | §17.5 tests |
+| Outbox notices | duplicate event → one SMS; provider failure → retried then recorded failed; production without provider → `not_sent`; coalescing limit |
+
+### 17.8 Remaining contradictions and assumptions
+
+* D-2 says cooling-off follows "account recovery"; manual recovery (V4) therefore qualifies — classified Approved on that basis; if the
+  owner intended only self-service recovery, D-26 should say so.
+* `PRODUCTION_ROOT_DOMAIN` cannot be set until the domain is purchased (checklist A4); until then only the compose literal protects
+  production identity.
+* Requiring `APP_ENV` changes the start-up contract: existing deployment files and the smoke compose file must set it in the same change,
+  or they will (correctly) refuse to start.
+* `logout` remains cookie-only for stateless tokens; unchanged by V0/V1.
+* Card numbers remain visible to shoppers between the deadline and the expiry job until D-27 is decided.
