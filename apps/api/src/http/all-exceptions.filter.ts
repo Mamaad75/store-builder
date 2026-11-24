@@ -2,7 +2,8 @@ import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpSta
 import type { Request, Response } from "express";
 import type { ErrorReporter } from "@store-builder/shared/observability/error-report";
 import { domainErrorPayload, isDomainError, statusOfDomainError } from "@store-builder/shared/errors/registry";
-import { ERROR_REPORTER, LOGGER } from "../config/tokens.js";
+import { CONFIG, ERROR_REPORTER, LOGGER } from "../config/tokens.js";
+import type { ApiConfig } from "../config/env.js";
 import { routeLabel } from "../platform/observability/metrics.js";
 import { currentRequestId } from "../platform/observability/request-context.js";
 import type { ApiErrorV1 } from "@store-builder/shared/api/schemas";
@@ -35,7 +36,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
   constructor(
     @Inject(LOGGER) private readonly logger: JsonLogger,
     @Inject(ERROR_REPORTER) private readonly reporter: ErrorReporter,
+    @Inject(CONFIG) private readonly config: ApiConfig,
   ) {}
+
+  /**
+   * Development and tests only: the message and where it was thrown, so an unexpected 500 can be traced from the log. Never in
+   * production (messages can carry personal data; production reports go through the scrubbing error reporter instead).
+   */
+  private devDetail(e: unknown): Record<string, unknown> {
+    if (this.config.production || !(e instanceof Error)) return {};
+    const frames = (e.stack ?? "").split("\n").slice(1).map((l) => l.trim()).filter((l) => !l.includes("node_modules") && !l.includes("node:")).slice(0, 5);
+    return { devMessage: e.message.slice(0, 300), devStack: frames };
+  }
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const res = host.switchToHttp().getResponse<Response>();
@@ -58,7 +70,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
     const status = exception instanceof HttpException ? exception.getStatus() : (exception as { status?: number; statusCode?: number })?.status ?? (exception as { statusCode?: number })?.statusCode ?? HttpStatus.INTERNAL_SERVER_ERROR;
     const code = typeof status === "number" && status >= 400 && status <= 599 ? status : 500;
-    if (code >= 500) this.logger.event("error", "api.error", { statusCode: code, errorClass: exception instanceof Error ? exception.name : "UnknownError" });
+    if (code >= 500) this.logger.event("error", "api.error", { statusCode: code, errorClass: exception instanceof Error ? exception.name : "UnknownError", ...this.devDetail(exception) });
     // Error tracking (phase 2.6): only UNEXPECTED failures (a bug or a broken dependency). A deliberate HttpException or ApiProblem and
     // every domain error are expected outcomes, already answered and logged. Tags: route template and method only, never the URL.
     if (code >= 500 && !(exception instanceof HttpException)) {
