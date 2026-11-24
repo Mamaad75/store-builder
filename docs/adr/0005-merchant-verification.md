@@ -612,6 +612,9 @@ recorded as "not sent (provider not configured)", never as delivered.
 V0-1, V0-2, V0-3, V0-4 (D-19), CO-1 with V2, V1 phone verification, V2 self-service recovery, SE-1 (D-12 behaviour). Real SMS delivery
 of these notices is verified at deployment (ADR 0004).
 
+*Amended 2026-11-24:* these are the blockers for **public onboarding**. A limited invited pilot may start earlier under the conditions of
+§18 (D-PILOT); none of the blockers above is removed.
+
 ### 15.9 Safely deferred
 
 V0-6, V0-7, DOC-2, DOC-1 (until V4), admin 2FA (before public launch, checklist SEC3), manual recovery (V4, D-10), business
@@ -1008,3 +1011,44 @@ Recommended:
   or they will (correctly) refuse to start.
 * `logout` remains cookie-only for stateless tokens; unchanged by V0/V1.
 * Card numbers remain visible to shoppers between the deadline and the expiry job until D-27 is decided.
+
+---
+
+## 18. Controlled pilot exception (D-PILOT, conditionally approved 2026-11-24)
+
+**Nature:** a time- and scope-limited exception for an invited pilot. It does **not** remove, weaken or postpone any production
+requirement in this ADR. Phone verification (V1), cooling-off (D-2, D-2s, D-24, D-20), self-service recovery (V2), notices and SUPER_ADMIN
+MFA remain mandatory for public launch (roadmap G-PUBLIC).
+
+### 18.1 Preconditions (all required before the first invited merchant)
+
+| # | Condition | How it is satisfied | Status |
+|---|---|---|---|
+| P-1 | M3 payment-safety fixes completed and verified | D-3 `payout.manage` OWNER-only, D-22 masking, transactional payout audit, D-19 (`APP_ENV`, effective sandbox, API refusal) — §16.1, §17.2 | Not implemented |
+| P-2 | Only trusted, explicitly invited merchants | Invite-only registration: public sign-up closed by a platform switch; single-use invitation codes issued by a SUPER_ADMIN (today `POST /api/auth/register` is public) | Not implemented |
+| P-3 | Limited scale and transaction exposure | A written pilot register (merchants, stores, enabled payment methods); a cap on the number of pilot stores; online payment only where the PSP accepts the store (roadmap §0.1); per-order amount cap **D-PILOT-CAP Pending** (implementation vs. monitoring) | Partly decision |
+| P-4 | OWNER-only payout configuration | = P-1 (D-3) | Not implemented |
+| P-5 | Manual identity / account recovery reviewed by the platform administrator | Identity of each invited merchant checked **out of band** at invitation (no documents stored in the application, D-6 storage not built); recovery by a server-side command that sets a temporary password, bumps `authVersion` and writes an audit row, used only after the out-of-band check | Command not implemented |
+| P-6 | Immediate suspension of a pilot store or the whole pilot | Per-store suspension exists (ADR 0003 G2, browser-verified); platform payment switches exist; a runbook "stop the pilot" procedure is added | Mostly exists; runbook step missing |
+| P-7 | No sensitive capability without its mandatory controls | Disabled for the pilot: identity verification and document upload (V3–V4), card-to-card **gating** questions stay as D-1 Pending, ownership transfer (not built), any capability marked P0 in the roadmap until fixed | Policy |
+
+### 18.2 Relation to approved decisions
+
+* **D-10** (manual recovery only for identity-verified users) is not contradicted: during the pilot, "identity-verified" is satisfied by
+  the out-of-band identity check performed at invitation and recorded in the pilot register (not in the application). This interpretation
+  applies **only** to invited pilot merchants; after the pilot, D-10 requires V4.
+* **D-13** (grace for existing stores) is unchanged.
+* **D-STAGING-SMS / ADR 0004:** no development OTP logging on staging; pilot SMS exist only once Kavenegar is configured on production.
+
+### 18.3 Residual risks accepted for the pilot
+
+* A stolen merchant password is not slowed by cooling-off and not reported by SMS until M6; mitigated by OWNER-only payouts, the audit
+  trail, small scale and direct contact with each merchant.
+* No self-service recovery; recovery depends on the administrator and the out-of-band check (social-engineering risk, mitigated by
+  knowing each merchant personally).
+* SUPER_ADMIN without MFA (password only).
+
+### 18.4 Exit
+
+The exception ends at G-PUBLIC or when the owner stops the pilot. Public registration stays closed until every G-PUBLIC control is
+implemented and tested.

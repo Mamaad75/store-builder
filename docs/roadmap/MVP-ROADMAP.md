@@ -1,12 +1,38 @@
 # Store Builder — MVP roadmap (product-first, security proportional to release risk)
 
-* **Status:** proposal for owner review, 2026-11-24. Analysis and documentation only; no code, schema or behaviour was changed.
+* **Status:** **approved direction** (owner, 2026-11-24) with the decisions in §0. Documentation only; implementation starts after the
+  owner approves the first M1/M2 tasks (§11).
 * **Inspected:** branch `claude/confident-davinci-mcf5d0`, commit `961c804`.
 * **Relationship to other documents:**
   * `docs/roadmap.md` (historical phases 1–15) and ADR 0002 §6 (phases 1–7) remain the record of what was done.
   * This document orders the remaining work.
   * ADR 0005 decisions are preserved unchanged. Only their **timing** is proposed here.
 * **Correction to the brief:** the stack does **not** use Auth.js. Authentication is the project's own HS256 session token issued by the NestJS API (`apps/api/src/auth/*`, ADR 0001); there is no `next-auth` / `@auth/*` dependency.
+
+---
+
+## 0. Owner decisions (2026-11-24)
+
+| ID | Decision | Status |
+|---|---|---|
+| Direction | Complete the product first; implement the security controls each release genuinely requires | Approved |
+| Order | M1 → M2 → M3 → M4 → M5 → M6 → M7; M1 and M2 in parallel where safe; **M3 before any real money** | Approved |
+| **D-PILOT** | A limited, invited pilot may run before phone verification, recovery and cooling-off (M6), **only** under the conditions in ADR 0005 §18 (M3 done, invited merchants only, limited scale and exposure, OWNER-only payouts, manual admin recovery review, immediate stop, no sensitive capability without its controls) | **Conditionally approved** |
+| **D-STAGING-SMS** | Staging sends no real SMS; development OTP logging is **not** enabled on staging; automated tests use mocked senders; Kavenegar and real delivery are deployment-stage tasks (ADR 0004) | Approved |
+| **D-PILOT-BILLING** | The pilot is free; billing is implemented and tested before charging merchants | Approved |
+| **D-DOMAINS** | Platform subdomains suffice for the MVP and pilot; custom domains after MVP **provided** they do not block gateway activation, eNamad or other legal/operational requirements — investigation in §0.1 | **Conditionally approved** |
+
+### 0.1 D-DOMAINS investigation (status: open, not finalised)
+
+| Question | What the code shows | External status | Consequence |
+|---|---|---|---|
+| Can a merchant activate Zarinpal / Aghaye Pardakht for a store on `<label>.<platform domain>`? | The return address is the store subdomain (`http(s)://<label>.<root>/checkout/payment/return`, shown to the merchant in payment settings) | **Needs provider consultation** (checklist P1–P2): whether a terminal's registered site may be a subdomain of a store builder, and whether the merchant must own the domain | If not allowed, pilot stores use **COD and card-to-card only** until custom domains exist; online payment stays off for them |
+| Does a merchant need eNamad on their own domain to get a gateway? | — | **Needs consultation** (checklist L4) | Same as above |
+| Platform's own eNamad (on the platform domain) | — | **Needs consultation** (checklist L3) | Required before public launch if confirmed; not a pilot blocker for COD |
+| Other operational needs (Torob/Emalls listing per domain) | Not built | Post-MVP | None for the pilot |
+
+**Rule until answered:** the deferral of custom domains is provisional. The pilot does not depend on online payment; if providers
+require own domains, custom domains move before G-PUBLIC (or before enabling online payment for affected merchants).
 
 ---
 
@@ -177,7 +203,7 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
 
 ## 6. Milestones
 
-### M1 — Commerce journey locked down (quality)
+### M1 — Commerce journey locked down (quality) — **next**
 * **Objective:** prove the money path works end to end and keep it working.
 * **Value:** confidence to demo and pilot; protects every later change.
 * **Features:**
@@ -187,6 +213,11 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
 * **Dependencies:** none.
 * **Security controls:** none new; the specs include the isolation checks (another store's token → 404).
 * **Tests:** the new E2E specs; existing suites unchanged.
+* **Technical constraint found:** the E2E API runs as a production build with `NODE_ENV=production`
+  (`apps/e2e/playwright.config.ts:41-58`). The local fake gateway (`ZARINPAL_DEV_BASE_URL`) is refused outside development/test
+  (`apps/api/src/config/env.ts:231-236`), and gateway credentials need `SECRETS_MASTER_KEYS` (not set for E2E). The production refusal
+  must **not** be weakened. Online-payment E2E therefore needs a separate, test-only API instance (`NODE_ENV=test`, test master key,
+  fake gateway on loopback) used only by the payment spec, or it stays covered by the existing DB tests. Decision recorded in §11.
 * **Definition of Done:** the specs pass in CI three runs in a row with no flaky retries; e2e typecheck is a CI step.
 * **Deferred:** real gateway sandboxes (M4).
 
@@ -239,9 +270,25 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
   * Restore drill.
   * Sandbox payment E2E on staging.
 * **Definition of Done:** checklist §5 steps 3–12 are recorded.
-* **Deferred:** Kavenegar (production only, ADR 0004). Staging runs with `NODE_ENV=production`, so the dev SMS log is refused there and staging sends **no** SMS; order SMS stays recorded as skipped.
+* **Deferred:** Kavenegar (production only, ADR 0004). **D-STAGING-SMS (Approved):** staging sends no SMS, development OTP logging is
+  not enabled there (it is refused anyway under `NODE_ENV=production`), order SMS are recorded as skipped, and SMS behaviour is covered
+  by automated tests with mocked senders.
 
-### M5 — Pilot (G-PILOT): first real merchants
+### M5 — Limited invited pilot (G-PILOT)
+
+**Pilot controls that do not exist today (verified) and must ship in M5, before the first invited merchant:**
+* **Invite-only registration:** `POST /api/auth/register` is public (`apps/api/src/auth/auth.controller.ts`); a platform switch that
+  closes public sign-up plus single-use invitation codes issued by a SUPER_ADMIN.
+* **Administrator-assisted recovery:** no tool exists to reset a merchant's password. A server-side command (like
+  `pnpm platform:admin`) that sets a temporary password, bumps `authVersion` (all sessions end) and writes an audit row; used only after
+  the out-of-band identity check of ADR 0005 §18.
+* **Exposure limits:** see ADR 0005 §18 (number of stores, payment methods, per-order cap decision).
+* **Immediate stop:** exists — per-store suspension (ADR 0003 G2) and the platform payment switches; add a documented "stop the pilot"
+  runbook step.
+
+The original M5 text follows.
+
+### M5 (original text) — Pilot (G-PILOT): first real merchants
 * **Objective:** a few real stores with real orders.
 * **Features:**
   * Production deployment (checklist C).
@@ -322,11 +369,50 @@ No existing test is removed or weakened; every milestone ends with all suites gr
 
 | # | Item | Proposal |
 |---|---|---|
-| D-PILOT | Can the pilot run with only bucket B (no phone verification, recovery or cooling-off), using a small known merchant group and manual support? | Yes, with written pilot terms. **Needs approval**; ADR 0005 §15.8 said otherwise |
-| D-STAGING-SMS | Staging sends no SMS (dev log refused under `NODE_ENV=production`; Kavenegar only in production per ADR 0004) | Accept; test SMS flows in development and at production deployment |
-| D-PILOT-BILLING | Pilot is free; billing before charging | Confirm |
-| D-DOMAINS | Custom domains post-MVP | Confirm (affects merchants who need their own eNamad) |
+| D-PILOT | Pilot before M6 | **Conditionally approved** (§0, ADR 0005 §18) |
+| D-STAGING-SMS | No real SMS on staging | **Approved** |
+| D-PILOT-BILLING | Free pilot | **Approved** |
+| D-DOMAINS | Subdomains for MVP | **Conditionally approved**; provider/legal questions open (§0.1) |
+| D-PILOT-CAP | Per-order amount cap during the pilot (implementation) or an operational limit only (monitoring)? | **Pending** |
+| D-E2E-PAY | Online-payment E2E through a separate test-only API instance, or keep online payment covered by DB tests only | **Pending** (recommended: separate instance) |
 | A-1 | Real gateway behaviour was never exercised (fake gateways only) | Risk until M4 sandbox runs |
 | A-2 | Manual browser checks are not regression protection | Addressed by M1 |
 | A-3 | `APP_ENV` changes the start-up contract of every deployment file | Must land atomically in M3 |
 | A-4 | Stack description in the brief (Auth.js) does not match the code | Documented in the header |
+
+---
+
+## 11. First implementation tasks (awaiting approval)
+
+### M1 — Purchase-flow E2E reliability
+
+1. **M1-1 Test fixtures:** an E2E helper that creates a published store through the real API (owner, product with stock, shipping method
+   with cash on delivery, subdomain, publish) and a shopper browser context on `<label>.localhost:3100`. Reuse `apps/e2e/e2e/helpers.ts`;
+   no direct DB writes except reading results.
+2. **M1-2 COD journey spec** (`e2e/checkout.spec.ts`): add to cart → cart page → checkout with address and shipping → place COD order →
+   order page with access token → merchant dashboard confirms, ships, delivers → shopper sees each status; stock decremented once.
+3. **M1-3 Card-to-card spec:** owner adds a bank card → shopper orders with card-to-card → sees card and amount → uploads a receipt image →
+   merchant approves → order becomes PLACED; a second store's label with the same token → 404.
+4. **M1-4 Discount spec:** a percentage code applied at checkout → line and total shown → order snapshot shows the discount; an invalid
+   code shows the error and blocks ordering.
+5. **M1-5 Offline-store order access spec:** merchant unpublishes → shopper order link still works with the notice; platform suspends →
+   order page works, card numbers hidden, storefront 404.
+6. **M1-6 CI typecheck for e2e:** add `@store-builder/e2e` typecheck to the root `typecheck` script (CI runs it).
+7. **M1-7 Online payment (after D-E2E-PAY):** test-only API instance with the fake gateway, or document the DB-test coverage.
+
+Acceptance: specs green in CI three consecutive runs; no existing test removed or weakened; no production configuration rule relaxed.
+
+### M2 — Merchant sales overview
+
+1. **M2-1 Aggregation service + endpoint** `GET /api/stores/:storeId/overview` (`orders.view`): orders and revenue for today / 7 days /
+   30 days (paid or COD orders counted by an explicit rule, cancelled/expired excluded), counts of receipts awaiting review, orders
+   PLACED (to confirm) and CONFIRMED (to ship), products with low stock (threshold constant). Store-scoped SQL; no new table.
+2. **M2-2 Contract, schema, OpenAPI** entries.
+3. **M2-3 DB tests:** numbers match seeded orders across statuses and dates; other store's data excluded; OPERATOR refused (403),
+   stranger 404; suspended store still readable (GET).
+4. **M2-4 Dashboard home section** on `/dashboard/stores/[storeId]` showing the figures and links to the filtered lists; empty state for
+   new stores.
+5. **M2-5 E2E:** after M1-2's order, the overview shows one order and its revenue.
+
+Open product choices for M2 (defaults if not decided): revenue counts delivered + confirmed + shipped + placed paid orders (not
+cancelled/expired/awaiting payment); low-stock threshold 3.
