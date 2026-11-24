@@ -6,7 +6,7 @@ import { PROVINCES } from "@store-builder/shared/modules/checkout/provinces";
 import { LINE_PROBLEM_MESSAGES } from "@store-builder/shared/modules/checkout/checkout";
 import { ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { OrderNotReadyError } from "@store-builder/shared/modules/orders/errors";
-import { me, myAddresses, placeOrder, problemText, quote, saveAddress, type CheckoutSummary, type CustomerProfile, type SavedAddress } from "@/client/shop";
+import { goToGateway, me, myAddresses, payOrder, paymentMethods, placeOrder, problemText, quote, saveAddress, type CheckoutSummary, type CustomerProfile, type SavedAddress } from "@/client/shop";
 import { faNumber, toman } from "./format";
 import s from "./shop.module.css";
 
@@ -31,7 +31,8 @@ const FIELDS: { key: keyof Address; label: string; autoComplete: string; inputMo
 
 /**
  * Checkout (phases 3.3/3.4): the delivery address, then the shipping methods the store offers for that province with their cost, then the
- * order (cash on delivery until online payment arrives). Every number shown comes from the server; nothing the page computes is sent.
+ * order: cash on delivery, or (phase 3.5) online through Zarinpal when the store has it: the order is placed first (awaiting payment, stock
+ * held for 20 minutes), then the buyer is sent to the gateway. Every number shown comes from the server; nothing the page computes is sent.
  */
 export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   const router = useRouter();
@@ -47,10 +48,18 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   const [saved, setSaved] = useState<SavedAddress[]>([]);
   const [selectedId, setSelectedId] = useState<string>("new");
   const [saveNew, setSaveNew] = useState(true);
+  // Phase 3.5: the payment method; online only when the store takes it.
+  const [online, setOnline] = useState(false);
+  const [method, setMethod] = useState<"COD" | "ONLINE">("COD");
+  const cod = method === "COD";
 
   // The cart part of the summary before any address (shows what is being bought), and who is shopping.
   useEffect(() => {
     quote({ cashOnDelivery: true }).then(setSummary).catch((e) => setError(problemText(e)));
+    paymentMethods().then((m) => {
+      setOnline(m.online);
+      if (m.online) setMethod("ONLINE");
+    }).catch(() => undefined);
     me().then((c) => {
       if (!c) return;
       setCustomer(c);
@@ -95,26 +104,44 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
 
   async function onQuote(e: React.FormEvent) {
     e.preventDefault();
-    const r = await run(() => quote({ ...addressBody(), ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: true }));
+    const r = await run(() => quote({ ...addressBody(), ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: cod }));
     if (r) {
       setSummary(r);
       if (r.shippingMethodId === null && r.shippingOptions.length === 1) choose(r.shippingOptions[0]!.methodId);
     }
   }
 
-  async function choose(id: string) {
+  async function choose(id: string, m: "COD" | "ONLINE" = method) {
     setShippingMethodId(id);
-    const r = await run(() => quote({ ...addressBody(), shippingMethodId: id, cashOnDelivery: true }));
+    const r = await run(() => quote({ ...addressBody(), shippingMethodId: id, cashOnDelivery: m === "COD" }));
     if (r) setSummary(r);
+  }
+
+  /** The cash-on-delivery fee depends on the method: the summary is asked for again. */
+  function pickMethod(m: "COD" | "ONLINE") {
+    setMethod(m);
+    if (shippingMethodId) void choose(shippingMethodId, m);
   }
 
   async function onPlace() {
     if (!shippingMethodId) return;
     const r = await run(async () => {
       if (customer && !usingSaved && saveNew) await saveAddress(address); // kept for the next purchase
-      return placeOrder({ requestKey, ...addressBody(), shippingMethodId, paymentMethod: "COD", note });
+      return placeOrder({ requestKey, ...addressBody(), shippingMethodId, paymentMethod: method, note });
     });
-    if (r) router.push(`/orders/${encodeURIComponent(r.accessToken)}`);
+    if (!r) return;
+    const orderPage = `/orders/${encodeURIComponent(r.accessToken)}`;
+    if (r.order.status === "AWAITING_PAYMENT") {
+      setBusy(true);
+      try {
+        const p = await payOrder(r.accessToken);
+        if (goToGateway(p.url)) return;
+      } catch {
+        // the order exists and waits for its payment: its page has a "pay" button
+      }
+      setBusy(false);
+    }
+    router.push(orderPage);
   }
 
   const err = (k: string) => fieldErrors[k]?.[0];
@@ -230,7 +257,21 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
               </fieldset>
 
               <h2 className={s.lineName}>پرداخت</h2>
-              <p className={s.muted}>پرداخت در محل (هنگام تحویل). پرداخت آنلاین به‌زودی اضافه می‌شود.</p>
+              {online ? (
+                <fieldset className={s.options}>
+                  <legend className={s.muted}>روش پرداخت</legend>
+                  <label className={s.option}>
+                    <input type="radio" name="payment" checked={method === "ONLINE"} onChange={() => pickMethod("ONLINE")} disabled={busy} />
+                    <span><strong>پرداخت اینترنتی</strong> — با همه‌ی کارت‌های بانکی عضو شتاب (درگاه امن زرین‌پال)</span>
+                  </label>
+                  <label className={s.option}>
+                    <input type="radio" name="payment" checked={method === "COD"} onChange={() => pickMethod("COD")} disabled={busy} />
+                    <span><strong>پرداخت در محل</strong> — هنگام تحویل</span>
+                  </label>
+                </fieldset>
+              ) : (
+                <p className={s.muted}>پرداخت در محل (هنگام تحویل).</p>
+              )}
 
               <label className={s.field}>
                 یادداشت برای فروشگاه (اختیاری)
@@ -245,7 +286,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
               </div>
               {!summary.ready && summary.blockers.length > 0 && <p className={s.alert}>{summary.blockers.map((b) => BLOCKERS[b] ?? b).join(" ")}</p>}
               <div className={s.actions}>
-                <button className={s.button} type="button" onClick={onPlace} disabled={busy || !summary.ready}>{busy ? "در حال ثبت…" : "ثبت سفارش"}</button>
+                <button className={s.button} type="button" onClick={onPlace} disabled={busy || !summary.ready}>{busy ? "در حال ثبت…" : method === "ONLINE" ? "ثبت سفارش و پرداخت" : "ثبت سفارش"}</button>
               </div>
             </section>
           )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OrderNotReadyError, OrderRateLimitedError, OrderTransitionError } from "@store-builder/shared/modules/orders/errors";
+import { PaymentUnavailableError, OrderNotReadyError, OrderRateLimitedError, OrderTransitionError } from "@store-builder/shared/modules/orders/errors";
 import { ReservationLostError } from "@store-builder/shared/modules/inventory/errors";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import type { OrderStatus } from "@store-builder/shared/modules/orders/orders";
@@ -25,7 +25,7 @@ class MemoryOrders implements OrderStore {
   createResult: "hold_lost" | "duplicate" | null = null;
   private view(o: NewOrder, n: number): OrderView {
     return {
-      id: o.id, number: n, status: "PLACED", createdAt: "2026-01-01T00:00:00.000Z", customerId: o.customerId, address: o.address,
+      id: o.id, number: n, status: o.paymentMethod === "ONLINE" ? "AWAITING_PAYMENT" : "PLACED", paymentDeadline: o.paymentDeadline?.toISOString() ?? null, payment: null, createdAt: "2026-01-01T00:00:00.000Z", customerId: o.customerId, address: o.address,
       shipping: { name: o.shipping.name, kind: o.shipping.kind, cost: o.shipping.cost }, paymentMethod: o.paymentMethod, subtotal: o.subtotal, codFee: o.codFee,
       total: o.total, itemCount: o.itemCount, note: o.note, items: o.items.map((i) => ({ productId: i.productId, variantId: i.variantId, name: i.name, variantLabel: i.variantLabel, unitPrice: i.unitPrice, quantity: i.quantity, lineTotal: i.lineTotal, weightGrams: i.weightGrams })), history: [{ from: null, to: "PLACED", actor: "CUSTOMER", note: "", at: "" }],
     };
@@ -43,10 +43,10 @@ class MemoryOrders implements OrderStore {
   async listForCustomer(storeId: string, c: string) { return this.rows.filter((r) => r.storeId === storeId && r.customerId === c); }
   async list() { return { items: this.rows, nextCursor: null }; }
   async customerStats() { return []; }
-  async transition(storeId: string, id: string, to: OrderStatus, check: (s: OrderStatus) => void) {
+  async transition(storeId: string, id: string, to: OrderStatus, check: (s: OrderStatus, m: "COD" | "ONLINE") => void) {
     const r = this.rows.find((x) => x.storeId === storeId && x.id === id);
     if (!r) return null;
-    check(r.status);
+    check(r.status, r.paymentMethod);
     r.status = to;
     return r;
   }
@@ -108,10 +108,12 @@ describe("placing an order", () => {
     expect(released).toEqual(["o1"]);
   });
 
-  it("is rate limited, validated, and refuses online payment and prices for now", async () => {
+  it("is rate limited, validated, refuses client prices, and refuses online payment without a payment service", async () => {
     await expect(setup({ allow: false }).svc.place("shop", guest, body)).rejects.toBeInstanceOf(OrderRateLimitedError);
-    const { svc } = setup();
-    await expect(svc.place("shop", guest, { ...body, paymentMethod: "ONLINE" })).rejects.toBeInstanceOf(ValidationError);
+    const { svc, held } = setup();
+    await expect(svc.place("shop", guest, { ...body, paymentMethod: "ONLINE" })).rejects.toBeInstanceOf(PaymentUnavailableError);
+    await expect(svc.place("shop", guest, { ...body, paymentMethod: "CARD" })).rejects.toBeInstanceOf(ValidationError);
+    expect(held).toEqual([]);
     await expect(svc.place("shop", guest, { ...body, total: 1 })).rejects.toBeInstanceOf(ValidationError);
     await expect(svc.place("nope", guest, body)).rejects.toBeInstanceOf(NotFoundError);
   });

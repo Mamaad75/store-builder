@@ -3,7 +3,8 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { orderDto, orderListDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import { ZARINPAL_MERCHANT_SECRET } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
 const store = (id: string) => `/api/stores/${enc(id)}`;
@@ -64,6 +65,13 @@ export type OrderListDto = z.infer<typeof orderListDto>;
 export type ShippingMethodDto = z.infer<typeof shippingMethodDto>;
 export const listOrders = (storeId: string, query: { status?: string; customerId?: string; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
 export const getOrder = (storeId: string, orderId: string) => send<OrderDto>("GET", `${store(storeId)}/orders/${enc(orderId)}`);
+// phase 3.5: online payment (the merchant id is a write-only store secret)
+export type PaymentSettingsView = z.infer<typeof paymentSettingsViewDto>;
+export type PaymentAttempt = z.infer<typeof paymentAttemptDto>;
+export const getPaymentSettings = (storeId: string) => send<PaymentSettingsView>("GET", `${store(storeId)}/payment-settings`);
+export const setZarinpalMerchant = (storeId: string, value: string) => send("PUT", `${store(storeId)}/secrets/${enc(ZARINPAL_MERCHANT_SECRET)}`, { body: { value } });
+export const deleteZarinpalMerchant = (storeId: string) => send("POST", `${store(storeId)}/secrets/${enc(ZARINPAL_MERCHANT_SECRET)}/delete`);
+export const getOrderPayments = (storeId: string, orderId: string) => send<PaymentAttempt[]>("GET", `${store(storeId)}/orders/${enc(orderId)}/payments`);
 export const changeOrderStatus = (storeId: string, orderId: string, to: string, note: string) => send<OrderDto>("POST", `${store(storeId)}/orders/${enc(orderId)}/status`, { body: { to, note } });
 export const listShippingMethods = (storeId: string) => send<ShippingMethodDto[]>("GET", `${store(storeId)}/shipping-methods`);
 export const replaceShippingMethods = (storeId: string, methods: unknown[]) => send<ShippingMethodDto[]>("PUT", `${store(storeId)}/shipping-methods`, { body: { methods } });

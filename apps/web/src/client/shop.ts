@@ -19,6 +19,26 @@ export const setCartLine = (productId: string, variantId: string | null, quantit
 export const quote = (body: unknown) => send<CheckoutSummary>("POST", "/api/shop/checkout/quote", { body });
 export const placeOrder = (body: unknown) => send<PlacedOrder>("POST", "/api/shop/checkout/orders", { body });
 export const getOrder = (token: string) => send<ShopperOrder>("GET", `/api/shop/checkout/orders/${encodeURIComponent(token)}`);
+// Phase 3.5: online payment (Zarinpal). The answer's url is the gateway page; the return page sends back only Authority and Status.
+export const paymentMethods = () => send<{ cod: boolean; online: boolean }>("GET", "/api/shop/checkout/payment-methods");
+export const payOrder = (token: string) => send<{ url: string }>("POST", `/api/shop/checkout/orders/${encodeURIComponent(token)}/pay`);
+export const payMyOrder = (id: string) => send<{ url: string }>("POST", `/api/shop/customer/orders/${encodeURIComponent(id)}/pay`);
+export const verifyPayment = (authority: string, status: string) =>
+  send<{ outcome: "paid" | "pending" | "failed" | "closed" | "refund"; accessToken: string | null }>("POST", "/api/shop/checkout/payments/verify", { body: { authority, status } });
+/** Only the two Zarinpal hosts (live, sandbox) and, in development, a loopback fake gateway are followed. */
+export function goToGateway(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  const ok = (u.protocol === "https:" && (u.host === "payment.zarinpal.com" || u.host === "sandbox.zarinpal.com")) ||
+    (process.env.NODE_ENV !== "production" && u.protocol === "http:" && (u.hostname === "127.0.0.1" || u.hostname === "localhost"));
+  if (!ok || !u.pathname.startsWith("/pg/StartPay/")) return false;
+  window.location.assign(u.toString());
+  return true;
+}
 export const cancelOrder = (token: string) => send<ShopperOrder>("POST", `/api/shop/checkout/orders/${encodeURIComponent(token)}/cancel`);
 
 /** A Persian sentence for any failure of a shop call (domain errors carry their own Persian message). */

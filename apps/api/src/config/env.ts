@@ -47,6 +47,11 @@ export interface ApiConfig {
    * so the SMS sign-in can be tried without an SMS account. Refused at start-up outside development/test.
    */
   customerOtpDevLog?: boolean;
+  /**
+   * Development and test only (ZARINPAL_DEV_BASE_URL=http://127.0.0.1:PORT): payments go to a LOCAL fake gateway instead of Zarinpal, so the
+   * online-payment flow can be tried end to end offline. Loopback http addresses only; refused at start-up outside development/test.
+   */
+  zarinpalDevBaseUrl?: string;
 }
 
 
@@ -204,6 +209,9 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
   if (secrets && "error" in secrets) problems.push(secrets.error); // half or invalid configuration refuses to start, in every environment
   const observability = readObservability(env, dev, problems, d?.API_PORT);
   if (env.CUSTOMER_OTP_DEV_LOG && !dev) problems.push("CUSTOMER_OTP_DEV_LOG is for development and tests only (sign-in codes would be written to the log)");
+  const zpDev = env.ZARINPAL_DEV_BASE_URL;
+  if (zpDev && !dev) problems.push("ZARINPAL_DEV_BASE_URL is for development and tests only (payments would go to a fake gateway)");
+  if (zpDev && !/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(zpDev)) problems.push("ZARINPAL_DEV_BASE_URL must be http://127.0.0.1:PORT or http://localhost:PORT");
   if (problems.length > 0 || !d) throw new EnvError(problems);
 
   const base = `${d.APP_PROTOCOL}://${d.APP_ROOT_DOMAIN}`;
@@ -229,5 +237,6 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     secrets: secrets && !("error" in secrets) ? secrets : null,
     observability,
     customerOtpDevLog: dev && env.CUSTOMER_OTP_DEV_LOG === "true",
+    ...(dev && zpDev ? { zarinpalDevBaseUrl: zpDev } : {}),
   };
 }

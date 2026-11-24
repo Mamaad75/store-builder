@@ -26,3 +26,27 @@ export class OrderRateLimitedError extends Error {
     this.name = "OrderRateLimitedError";
   }
 }
+
+/** Phase 3.5: online payment is not available for this store (off on the platform, or no merchant id), or not for this amount. */
+export class PaymentUnavailableError extends Error {
+  constructor(public readonly reason: "off" | "amount") {
+    super(reason === "amount" ? "پرداخت اینترنتی برای مبلغ بیش از ۱۰۰ میلیون تومان ممکن نیست؛ پرداخت در محل را انتخاب کنید." : "پرداخت اینترنتی در این فروشگاه فعال نیست.");
+    this.name = "PaymentUnavailableError";
+  }
+}
+
+/** Phase 3.5: the payment gateway could not be reached or refused the request (nothing about the provider is shown). */
+export class PaymentGatewayError extends Error {
+  constructor() {
+    super("ارتباط با درگاه پرداخت برقرار نشد؛ کمی بعد دوباره تلاش کنید.");
+    this.name = "PaymentGatewayError";
+  }
+}
+
+/** Phase 3.5: the order cannot be paid now (already paid, cancelled, expired, or too many attempts). */
+export class PaymentNotAllowedError extends Error {
+  constructor(public readonly reason: "closed" | "busy" = "closed") {
+    super(reason === "busy" ? "پرداخت این سفارش در حال تأیید است؛ چند دقیقه بعد دوباره ببینید." : "این سفارش در حال حاضر قابل پرداخت نیست.");
+    this.name = "PaymentNotAllowedError";
+  }
+}

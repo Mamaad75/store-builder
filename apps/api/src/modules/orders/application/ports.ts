@@ -1,4 +1,4 @@
-import type { OrderActor, OrderStatus } from "@store-builder/shared/modules/orders/orders";
+import type { OrderActor, OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 import type { AddressInput } from "@store-builder/shared/modules/checkout/checkout";
 import type { NewOrder, OrderView, ReadySummary } from "../domain/orders.js";
 
@@ -52,7 +52,8 @@ export interface OrderStore {
     storeId: string,
     id: string,
     to: OrderStatus,
-    check: (current: OrderStatus) => void,
+    /** Throws when the move is not allowed; gets the current status and the order's payment method. */
+    check: (current: OrderStatus, paymentMethod: PaymentMethod) => void,
     by: { actor: OrderActor; actorId: string | null; note: string },
   ): Promise<OrderView | null>;
 }
@@ -77,4 +78,140 @@ export interface OrderTokens {
 
 export interface Limiter {
   consume(key: string, rule: { limit: number; windowSeconds: number }): Promise<{ allowed: boolean; retryAfterSeconds: number }>;
+}
+
+// ---------- phase 3.5 (D35-1): online payment ----------
+
+export interface GatewayRequest {
+  sandbox: boolean;
+  merchantId: string;
+  amountRial: number;
+  description: string;
+  callbackUrl: string;
+  /** Shown in the merchant's Zarinpal panel: the order number. */
+  orderRef: string;
+  mobile: string | null;
+}
+export interface GatewayVerify {
+  sandbox: boolean;
+  merchantId: string;
+  amountRial: number;
+  authority: string;
+}
+export interface GatewayInquiry {
+  sandbox: boolean;
+  merchantId: string;
+  authority: string;
+}
+export type VerifyResult =
+  | { outcome: "paid"; code: number; refId: string; cardPan: string | null; fee: number | null }
+  | { outcome: "failed"; code: number }
+  /** No answer, an answer we do not understand, or a temporary error: the attempt is checked again later (never settled on a guess). */
+  | { outcome: "unknown"; code?: number | null };
+
+/** The payment provider (Zarinpal REST v4). Never throws: every failure is a result. */
+export interface PaymentGateway {
+  startUrl(sandbox: boolean, authority: string): string;
+  request(r: GatewayRequest): Promise<{ ok: true; authority: string } | { ok: false; code: number | null }>;
+  verify(v: GatewayVerify): Promise<VerifyResult>;
+  inquiry(q: GatewayInquiry): Promise<{ status: "VERIFIED" | "PAID" | "IN_BANK" | "FAILED" | "REVERSED" | "unknown" }>;
+}
+
+/** What decides whether a store can take online payments: the platform switch, sandbox mode, and the store's own merchant id. */
+export interface PaymentConfig {
+  platform(): Promise<{ enabled: boolean; sandbox: boolean }>;
+  /** The store's Zarinpal merchant id, or null (not set, or secrets not configured on this server). */
+  merchantId(storeId: string): Promise<string | null>;
+  /** false when the server has no master keys: no merchant id can be stored. */
+  secretsReady(): boolean;
+  /** SHA-256 hex of a merchant id (an attempt is verified only with the merchant id it was opened with). */
+  fingerprint(merchantId: string): string;
+  /** A random return key for the paying browser and its SHA-256 hex (only the hash is stored). */
+  newReturnKey(): { key: string; hash: string };
+  /** SHA-256 hex of a presented return key; null when it is not shaped like one. */
+  hashReturnKey(key: string): string | null;
+}
+
+export type AttemptStatus = "CREATED" | "VERIFYING" | "PAID" | "FAILED" | "EXPIRED" | "REFUND_REQUIRED";
+
+export interface PaymentAttempt {
+  id: string;
+  storeId: string;
+  orderId: string;
+  sandbox: boolean;
+  authority: string;
+  amountRial: number;
+  status: AttemptStatus;
+  createdAt: Date;
+  claimedAt: Date | null;
+  /** A verify call was sent and its answer was lost: the attempt is never closed without a definite answer (review 3.5). */
+  verifySentAt: Date | null;
+  merchantFingerprint: string;
+  returnKeyHash: string;
+  checks: number;
+}
+
+/** Claiming an attempt for verification: only one attempt of an order is verified at a time. */
+export type ClaimResult =
+  | { ok: true; attempt: PaymentAttempt }
+  /**
+   * paid: the order is paid (by this attempt, or by another: then this one is closed unverified and Zarinpal refunds it);
+   * closed: the order was cancelled or expired; busy: another verification of this order is running; failed: this attempt is settled unpaid.
+   * An attempt whose verify answer was lost is claimed even on a closed order (its money may already be captured).
+   */
+  | { ok: false; reason: "not_found" | "paid" | "busy" | "closed" | "failed" };
+
+export interface OrderForPayment {
+  number: number;
+  status: string;
+  total: number;
+  phone: string;
+  deadline: Date | null;
+  storeName: string;
+  customerId: string | null;
+  linkedByPhone: boolean;
+}
+
+export interface PaymentStore {
+  /** What a payment needs from the order (null = no such order in this store). */
+  orderForPayment(storeId: string, orderId: string): Promise<OrderForPayment | null>;
+  /** Locks the order: AWAITING_PAYMENT, before the deadline, fewer than `maxAttempts` attempts, none being verified -> may start. */
+  canStart(storeId: string, orderId: string, now: Date, maxAttempts: number): Promise<"ok" | "closed" | "too_many" | "busy">;
+  /** The same checks again under the lock, then the attempt is written (a refused one is never verified: Zarinpal refunds it). */
+  record(
+    a: { id: string; storeId: string; orderId: string; sandbox: boolean; authority: string; amountRial: number; merchantFingerprint: string; returnKeyHash: string },
+    now: Date,
+    maxAttempts: number,
+  ): Promise<"ok" | "closed" | "too_many" | "busy">;
+  byAuthority(storeId: string, authority: string): Promise<PaymentAttempt | null>;
+  /** ONE transaction, order row locked first: CREATED (or a VERIFYING one claimed before `staleBefore`) -> VERIFYING, verify marked as sent. */
+  claim(storeId: string, authority: string, now: Date, staleBefore: Date): Promise<ClaimResult>;
+  /**
+   * ONE transaction: an order still awaiting payment -> the attempt PAID and the order PLACED (history, "order.placed"), its other
+   * attempts that never sent a verify closed; an order no longer payable -> the attempt REFUND_REQUIRED (captured money the merchant must
+   * return). false = the attempt was not ours to settle (claim lost).
+   */
+  settlePaid(attemptId: string, claimedAt: Date, r: { refId: string; cardPan: string | null; fee: number | null; code: number }, now: Date): Promise<"placed" | "refund" | false>;
+  /** The attempt -> FAILED (a definite answer) or EXPIRED (never used). With `claimedAt`: only while that claim holds. */
+  settleUnpaid(attemptId: string, status: "FAILED" | "EXPIRED", code: number | null, claimedAt?: Date | null): Promise<void>;
+  /** Back to CREATED after an answer that settles nothing; `answered` = the gateway answered (the verify did not capture: sent-mark cleared). */
+  release(attemptId: string, claimedAt: Date, code: number | null, answered: boolean): Promise<void>;
+  /** Reconciler back-off: check this attempt again at `next`. */
+  defer(attemptId: string, next: Date): Promise<void>;
+  /** Reconciler: CREATED attempts due (created before `olderThan`, nextCheckAt passed), and VERIFYING ones claimed before `staleBefore`. */
+  pending(now: Date, olderThan: Date, staleBefore: Date, limit: number): Promise<PaymentAttempt[]>;
+  /** The open (CREATED/VERIFYING) attempts of one order. */
+  openAttempts(storeId: string, orderId: string): Promise<PaymentAttempt[]>;
+  /** Reconciler: unpaid online orders whose deadline passed before `before`. */
+  expirable(before: Date, limit: number): Promise<{ storeId: string; orderId: string }[]>;
+  /**
+   * ONE transaction, order row locked: still AWAITING_PAYMENT, deadline before `before`, no attempt being verified or with a lost verify
+   * answer -> EXPIRED (history by SYSTEM, stock back, "order.status_changed"), its open attempts -> EXPIRED (never verified, so Zarinpal
+   * returns any money). false = not expired.
+   */
+  expire(storeId: string, orderId: string, before: Date): Promise<boolean>;
+  /** The store's subdomain label (its storefront address, also the payment return address), null if none. */
+  labelOf(storeId: string): Promise<string | null>;
+  /** Per order, for the order pages. */
+  forOrder(storeId: string, orderId: string): Promise<{ status: AttemptStatus; refId: string | null; cardPan: string | null; createdAt: Date; verifiedAt: Date | null }[]>;
 }

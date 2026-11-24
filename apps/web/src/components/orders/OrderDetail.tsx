@@ -9,10 +9,10 @@ import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { nextStatuses, PAYMENT_METHOD_LABELS, type OrderStatus } from "@store-builder/shared/modules/orders/orders";
+import { nextStatuses, PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, type OrderStatus } from "@store-builder/shared/modules/orders/orders";
 import { provinceName } from "@store-builder/shared/modules/checkout/provinces";
 import { formatIranMobile } from "@store-builder/shared/lib/phone";
-import { changeOrderStatus, getOrder, type OrderDto } from "@/client/api";
+import { changeOrderStatus, getOrder, getOrderPayments, type OrderDto, type PaymentAttempt } from "@/client/api";
 import { ACTION_LABEL, ORDER_STATUS_LABELS, STATUS_COLOR, date, failText, toman } from "./labels";
 
 /** One order for the merchant (phase 3.4): items, delivery, history and the next steps (cancelling gives the stock back). */
@@ -21,13 +21,21 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [attempts, setAttempts] = useState<PaymentAttempt[]>([]);
 
   useEffect(() => {
-    getOrder(storeId, orderId).then(setOrder).catch((e) => setError(failText(e)));
+    getOrder(storeId, orderId).then((o) => {
+      setOrder(o);
+      if (o.paymentMethod === "ONLINE") getOrderPayments(storeId, orderId).then(setAttempts).catch(() => undefined);
+    }).catch((e) => setError(failText(e)));
   }, [storeId, orderId]);
 
   async function move(to: OrderStatus) {
-    if (to === "CANCELLED" && !window.confirm("سفارش لغو شود؟ موجودی کالاها برمی‌گردد.")) return;
+    const paidOnline = order?.paymentMethod === "ONLINE" && order.payment !== null;
+    const ask = paidOnline
+      ? "این سفارش آنلاین پرداخت شده است. با لغو، موجودی برمی‌گردد اما مبلغ خودکار برگردانده نمی‌شود: آن را خودتان از پنل زرین‌پال به خریدار برگردانید. لغو شود؟"
+      : "سفارش لغو شود؟ موجودی کالاها برمی‌گردد.";
+    if (to === "CANCELLED" && !window.confirm(ask)) return;
     setBusy(true);
     setError(null);
     try {
@@ -78,6 +86,29 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
         {order.codFee > 0 && <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>کارمزد پرداخت در محل</span><span>{toman(order.codFee)}</span></Box>}
         <Box sx={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}><span>مبلغ کل</span><span>{toman(order.total)}</span></Box>
       </Paper>
+
+      {order.paymentMethod === "ONLINE" && (
+        <Paper variant="outlined" sx={{ p: 2, display: "grid", gap: 0.5 }}>
+          <Typography sx={{ fontWeight: 700 }}>پرداخت اینترنتی</Typography>
+          {order.payment ? (
+            <Typography>پرداخت‌شده در {date(order.payment.paidAt)} — کد پیگیری <span dir="ltr">{order.payment.refId}</span>{order.payment.cardPan ? <> — کارت <span dir="ltr">{order.payment.cardPan}</span></> : null}</Typography>
+          ) : order.status === "AWAITING_PAYMENT" && order.paymentDeadline ? (
+            <Typography color="text.secondary">هنوز پرداخت نشده؛ مهلت پرداخت تا {date(order.paymentDeadline)}. پس از آن سفارش منقضی و موجودی آزاد می‌شود.</Typography>
+          ) : (
+            <Typography color="text.secondary">پرداختی تأیید نشده است.</Typography>
+          )}
+          {attempts.some((a) => a.status === "REFUND_REQUIRED") && (
+            <Alert severity="warning">
+              یک پرداخت روی این سفارش تأیید شد در حالی که سفارش دیگر قابل پرداخت نبود (کد پیگیری: {attempts.filter((a) => a.status === "REFUND_REQUIRED").map((a) => a.refId).join("، ")}). مبلغ آن را از پنل زرین‌پال به خریدار برگردانید.
+            </Alert>
+          )}
+          {attempts.length > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              تلاش‌ها: {attempts.map((a) => `${date(a.createdAt)} (${PAYMENT_STATUS_LABELS[a.status]})`).join("، ")}
+            </Typography>
+          )}
+        </Paper>
+      )}
 
       <Paper variant="outlined" sx={{ p: 2, display: "grid", gap: 0.5 }}>
         <Typography sx={{ fontWeight: 700 }}>تحویل</Typography>

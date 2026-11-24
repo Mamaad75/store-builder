@@ -193,7 +193,7 @@ export const savedAddressDto = z.object({
   postalCode: z.string(),
 });
 // ---- phase 3.4: orders (money in toman; the snapshot taken at checkout)
-const orderStatus = z.enum(["PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"]);
+const orderStatus = z.enum(["AWAITING_PAYMENT", "PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED", "EXPIRED"]);
 export const orderDto = z.object({
   id: z.string(),
   number: z.number().describe("gap-free per store; also the invoice number"),
@@ -202,7 +202,9 @@ export const orderDto = z.object({
   customerId: z.string().nullable(),
   address: z.object({ recipientName: z.string(), phone: z.string(), province: z.string(), city: z.string(), line: z.string(), postalCode: z.string() }),
   shipping: z.object({ name: z.string(), kind: z.enum(["FLAT", "WEIGHT", "PICKUP"]), cost: z.number() }),
-  paymentMethod: z.enum(["COD"]),
+  paymentMethod: z.enum(["COD", "ONLINE"]),
+  paymentDeadline: iso.nullable().describe("online orders: the order can be paid until then (then it expires and the stock goes back)"),
+  payment: z.object({ refId: z.string(), cardPan: z.string().nullable().describe("masked"), paidAt: iso }).nullable().describe("the verified online payment"),
   subtotal: z.number(),
   codFee: z.number(),
   total: z.number(),
@@ -211,7 +213,23 @@ export const orderDto = z.object({
   items: z.array(z.object({ productId: z.string(), variantId: z.string().nullable(), name: z.string(), variantLabel: z.string(), unitPrice: z.number(), quantity: z.number(), lineTotal: z.number(), weightGrams: z.number().nullable() })),
   history: z.array(z.object({ from: orderStatus.nullable(), to: orderStatus, actor: z.enum(["CUSTOMER", "MERCHANT", "SYSTEM"]), note: z.string(), at: iso })),
 });
-export const shopperOrderDto = z.object({ order: orderDto, canCancel: z.boolean() });
+export const shopperOrderDto = z.object({ order: orderDto, canCancel: z.boolean(), canPay: z.boolean().describe("an unpaid online order still within its payment window") });
+// ---- phase 3.5: online payment
+export const paymentStartDto = z.object({ url: z.string().describe("the Zarinpal page to send the buyer to") });
+export const paymentReturnDto = z.object({
+  outcome: z.enum(["paid", "pending", "failed", "closed", "refund"]).describe("pending = not settled yet (checked again shortly); closed = the order was cancelled or expired; refund = captured on an order no longer payable (the store returns it)"),
+  accessToken: z.string().nullable().describe("the order link: only for the browser that opened the payment (return-key cookie) or the order's signed-in customer"),
+});
+export const paymentSettingsViewDto = z.object({
+  platformEnabled: z.boolean(),
+  sandbox: z.boolean(),
+  secretsReady: z.boolean().describe("false: the server cannot store secrets (no master keys)"),
+  merchantConfigured: z.boolean(),
+  merchantValid: z.boolean(),
+  active: z.boolean().describe("shoppers can pay online now"),
+  callbackUrl: z.string().nullable().describe("its domain must be the one registered for the Zarinpal terminal"),
+});
+export const paymentAttemptDto = z.object({ status: z.enum(["CREATED", "VERIFYING", "PAID", "FAILED", "EXPIRED", "REFUND_REQUIRED"]), refId: z.string().nullable(), cardPan: z.string().nullable(), createdAt: iso, verifiedAt: iso.nullable() });
 export const placedOrderDto = shopperOrderDto.extend({ accessToken: z.string().describe("follow or cancel the order with it (keep it secret: it is the order link)") });
 export const orderListDto = z.object({ items: z.array(orderDto), nextCursor: z.string().nullable() });
 export const shippingMethodDto = z.object({

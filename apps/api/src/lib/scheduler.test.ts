@@ -49,9 +49,12 @@ describe("status and health", () => {
   it("rates are refreshed (and linked prices recomputed) every hour (owner decision, phase 3.2b)", () => {
     expect(JOBS.find((j) => j.name === "rates-refresh")?.intervalMs).toBe(60 * MINUTE);
   });
+  it("online payments are reconciled every 5 minutes (phase 3.5): well inside the 20-minute payment window", () => {
+    expect(JOBS.find((j) => j.name === "payments-reconcile")?.intervalMs).toBe(5 * MINUTE);
+  });
   it("each job runs the SAME script as its package.json command, through tsx directly (no pnpm wrapper in the process tree)", () => {
     const scripts = (JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
-    for (const [job, pnpmScript] of [["media-cleanup", "media:cleanup"], ["db-cleanup", "db:cleanup"], ["rates-refresh", "rates:refresh"]] as const) {
+    for (const [job, pnpmScript] of [["media-cleanup", "media:cleanup"], ["db-cleanup", "db:cleanup"], ["rates-refresh", "rates:refresh"], ["payments-reconcile", "payments:reconcile"]] as const) {
       const [bin, ...args] = JOBS.find((j) => j.name === job)!.command;
       expect(bin, job).toBe(TSX_BIN);
       expect(`tsx ${args.join(" ")}`, job).toBe(scripts[pnpmScript]);

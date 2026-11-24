@@ -2,20 +2,24 @@ import { domainErrorMessage } from "@store-builder/shared/errors/registry";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@store-builder/shared/modules/orders/orders";
 
 export const STATUS_COLOR: Record<OrderStatus, "default" | "info" | "warning" | "success" | "error"> = {
+  AWAITING_PAYMENT: "default",
   PLACED: "warning",
   CONFIRMED: "info",
   SHIPPED: "info",
   DELIVERED: "success",
   CANCELLED: "default",
+  EXPIRED: "default",
 };
 export { ORDER_STATUS_LABELS };
 /** The merchant's button text for moving an order to a status. */
 export const ACTION_LABEL: Record<OrderStatus, string> = {
+  AWAITING_PAYMENT: "در انتظار پرداخت",
   PLACED: "ثبت",
   CONFIRMED: "تأیید سفارش",
   SHIPPED: "ثبت ارسال",
   DELIVERED: "ثبت تحویل",
   CANCELLED: "لغو سفارش",
+  EXPIRED: "منقضی",
 };
 export const toman = (n: number) => `${n.toLocaleString("fa-IR")} تومان`;
 export const date = (iso: string) => new Date(iso).toLocaleString("fa-IR", { dateStyle: "medium", timeStyle: "short" });

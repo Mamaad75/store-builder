@@ -8,7 +8,7 @@ import { secretValueSchema } from "../modules/secrets/schemas.js";
 import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
 import { customerLoginSchema, customerRegisterSchema } from "../modules/customers/schemas.js";
-import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema } from "../modules/orders/orders.js";
+import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
 import { RATE_CODES, priceLinkInputSchema } from "../modules/pricing/pricing.js";
 import { createStoreSchema, switchThemeSchema, updateBusinessCategorySchema, updateStoreSchema } from "../modules/stores/schemas.js";
 import * as S from "./schemas.js";
@@ -183,15 +183,21 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", st("/shipping-methods"), "The store's shipping methods", { permission: "store.view", response: z.array(S.shippingMethodDto) }),
   r("PUT", st("/shipping-methods"), "Replace the shipping methods (applies to checkout at once, no publish)", { permission: "store.settings", body: replaceShippingMethodsSchema, response: z.array(S.shippingMethodDto) }),
   // ---- phase 3.4: orders (shoppers place and follow them on the store's own host; merchants manage them)
-  r("POST", "/api/public/stores/:label/checkout/orders", "Place the order from the cart (cash on delivery for now; the same requestKey returns the same order)", { auth: "public", body: placeOrderSchema, response: S.placedOrderDto }),
+  r("POST", "/api/public/stores/:label/checkout/orders", "Place the order from the cart (cash on delivery, or online: the order then awaits its payment; the same requestKey returns the same order)", { auth: "public", body: placeOrderSchema, response: S.placedOrderDto }),
   r("GET", "/api/public/stores/:label/checkout/orders/:token", "Follow an order with its access token (guests)", { auth: "public", response: S.shopperOrderDto }),
   r("POST", "/api/public/stores/:label/checkout/orders/:token/cancel", "Cancel an order with its access token, until the store confirms it", { auth: "public", status: 200, response: S.shopperOrderDto }),
+  r("POST", "/api/public/stores/:label/checkout/orders/:token/pay", "Open a Zarinpal payment for an unpaid online order (phase 3.5); answers where to send the buyer", { auth: "public", status: 200, response: S.paymentStartDto }),
+  r("GET", "/api/public/stores/:label/checkout/payment-methods", "Which payment methods the store takes now (phase 3.5)", { auth: "public", response: z.object({ cod: z.boolean(), online: z.boolean() }) }),
+  r("POST", "/api/public/stores/:label/checkout/payments/verify", "The buyer is back from Zarinpal: the payment is verified server-side (phase 3.5)", { auth: "public", status: 200, body: verifyPaymentSchema, response: S.paymentReturnDto }),
   r("GET", "/api/public/stores/:label/customer/orders", "The signed-in customer's orders in this store, newest first (customer cookie; 401 without)", { auth: "public", response: z.array(S.shopperOrderDto) }),
   r("GET", "/api/public/stores/:label/customer/orders/:orderId", "One of the signed-in customer's orders", { auth: "public", response: S.shopperOrderDto }),
   r("POST", "/api/public/stores/:label/customer/orders/:orderId/cancel", "Cancel one of the signed-in customer's orders, until the store confirms it", { auth: "public", status: 200, response: S.shopperOrderDto }),
+  r("POST", "/api/public/stores/:label/customer/orders/:orderId/pay", "Open a Zarinpal payment for one of the signed-in customer's unpaid online orders (phase 3.5)", { auth: "public", status: 200, response: S.paymentStartDto }),
   r("GET", st("/orders"), "The store's orders, newest first (keyset: pass nextCursor as before)", { permission: "orders.view", query: orderListQuerySchema, response: S.orderListDto }),
   r("GET", st("/orders/customer-stats"), "Order count, spending (not cancelled) and last order per customer (phase 3.3b; ids=comma list, at most 100)", { permission: "customers.view", query: z.object({ ids: z.string().max(6600).optional() }), response: z.array(z.object({ customerId: z.string(), orders: z.number(), spent: z.number(), lastOrderAt: z.string().nullable() })) }),
   r("GET", st("/orders/:orderId"), "One order with its items and history", { permission: "orders.view", response: S.orderDto }),
+  r("GET", st("/payment-settings"), "Online payment state (phase 3.5): platform switch, sandbox, whether the merchant id is set, the return address", { permission: "secrets.manage", response: S.paymentSettingsViewDto }),
+  r("GET", st("/orders/:orderId/payments"), "The order's online payment attempts (phase 3.5): status, reference number, masked card", { permission: "orders.view", response: z.array(S.paymentAttemptDto) }),
   r("POST", st("/orders/:orderId/status"), "Confirm, ship, deliver or cancel an order (cancelling gives the stock back)", { permission: "orders.manage", status: 200, body: orderTransitionSchema, response: S.orderDto }),
   r("GET", st("/customers"), "The store's customers, newest first", { permission: "customers.view", query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.customerListItemDto) }),
 

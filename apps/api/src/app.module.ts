@@ -5,7 +5,7 @@ import { AuthService } from "./auth/auth.service.js";
 import type { RateLimiter, UserRepository } from "./auth/ports.js";
 import { SessionGuard } from "./auth/session.guard.js";
 import type { ApiConfig } from "./config/env.js";
-import { CONFIG, DATABASE, ERROR_REPORTER, LOGGER, METRICS, PRISMA_CLIENT, RATE_LIMITER, USERS } from "./config/tokens.js";
+import { CONFIG, DATABASE, ERROR_REPORTER, LOGGER, METRICS, PAYMENT_GATEWAY, PRISMA_CLIENT, RATE_LIMITER, USERS } from "./config/tokens.js";
 import { NO_REPORTER, type ErrorReporter } from "@store-builder/shared/observability/error-report";
 import type { ApiMetrics } from "./platform/observability/metrics.js";
 import { type Database, PrismaDatabase } from "./database/database.js";
@@ -41,6 +41,8 @@ export interface AppOverrides {
   extraControllers?: Type<unknown>[];
   errorReporter?: ErrorReporter;
   metrics?: ApiMetrics | null;
+  /** Phase 3.5: a fake payment gateway (the real one is Zarinpal). */
+  paymentGateway?: unknown;
 }
 
 @Module({})
@@ -52,6 +54,7 @@ export class AppModule {
       { provide: LOGGER, useValue: overrides.logger ?? new JsonLogger() },
       { provide: ERROR_REPORTER, useValue: overrides.errorReporter ?? NO_REPORTER },
       { provide: METRICS, useValue: overrides.metrics ?? null },
+      { provide: PAYMENT_GATEWAY, useValue: overrides.paymentGateway ?? null },
       overrides.database ? { provide: DATABASE, useValue: overrides.database } : { provide: DATABASE, useClass: PrismaDatabase },
       overrides.users ? { provide: USERS, useValue: overrides.users } : { provide: USERS, useClass: PrismaUserRepository },
       overrides.rateLimiter ? { provide: RATE_LIMITER, useValue: overrides.rateLimiter } : { provide: RATE_LIMITER, useClass: PostgresRateLimiter },
@@ -78,7 +81,7 @@ export class AppModule {
       imports: [AccessModule, CategoriesModule, SecretsModule, CustomersModule, PlatformModule, InventoryModule, PricingModule, CheckoutModule, OrdersModule],
       controllers: [HealthController, AuthController, StoresController, CatalogController, PagesController, MediaController, PublishingController, PublicStoresController, ...(overrides.extraControllers ?? [])],
       providers,
-      exports: [CONFIG, LOGGER, DATABASE, RATE_LIMITER, AuthService, SessionGuard],
+      exports: [CONFIG, LOGGER, DATABASE, RATE_LIMITER, PAYMENT_GATEWAY, AuthService, SessionGuard],
     };
   }
 }

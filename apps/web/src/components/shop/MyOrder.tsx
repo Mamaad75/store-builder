@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cancelMyOrder, myOrder, problemText, type ShopperOrder } from "@/client/shop";
+import { cancelMyOrder, goToGateway, myOrder, payMyOrder, problemText, type ShopperOrder } from "@/client/shop";
 import OrderDetails from "./OrderDetails";
 import s from "./shop.module.css";
 
@@ -28,6 +28,19 @@ export default function MyOrder({ orderId }: { orderId: string }) {
     }
   }
 
+  async function pay() {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await payMyOrder(orderId);
+      if (goToGateway(r.url)) return;
+      setError("ارتباط با درگاه پرداخت برقرار نشد؛ کمی بعد دوباره تلاش کنید.");
+    } catch (e) {
+      setError(problemText(e));
+    }
+    setBusy(false);
+  }
+
   if (!data) return <div className={s.page}>{error ? <p className={s.alert} role="alert">{error}</p> : <p className={s.muted}>در حال بارگذاری…</p>}</div>;
-  return <OrderDetails data={data} error={error} busy={busy} cancel={cancel} back={{ href: "/account", label: "بازگشت به حساب کاربری" }} />;
+  return <OrderDetails data={data} error={error} busy={busy} cancel={cancel} pay={pay} back={{ href: "/account", label: "بازگشت به حساب کاربری" }} />;
 }

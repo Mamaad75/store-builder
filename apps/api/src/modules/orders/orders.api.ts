@@ -5,3 +5,6 @@
 export { OrdersService } from "./application/orders.service.js";
 export type { OrderView } from "./domain/orders.js";
 export { createOrdersService } from "./infrastructure/compose.js";
+// Phase 3.5: online payment (the reconciliation job, scripts/reconcile-payments.ts).
+export { PaymentsService } from "./application/payments.service.js";
+export { createPaymentsService } from "./infrastructure/compose.js";

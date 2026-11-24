@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { restocksOn, type OrderStatus, type PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 import type { ShippingKind } from "@store-builder/shared/modules/checkout/checkout";
+import { PaymentNotAllowedError } from "@store-builder/shared/modules/orders/errors";
 import { db } from "../../../lib/db.js";
 import { recordEvent } from "../../../platform/outbox/outbox.js";
 import { clearCartInTx } from "../../checkout/checkout.api.js";
@@ -18,8 +19,9 @@ const prismaCode = (e: unknown) => (typeof e === "object" && e !== null ? (e as 
 const orderSelect = {
   id: true, number: true, status: true, createdAt: true, customerId: true,
   recipientName: true, phone: true, province: true, city: true, addressLine: true, postalCode: true,
-  shippingName: true, shippingKind: true, shippingCost: true, paymentMethod: true, codFee: true, subtotal: true, total: true, itemCount: true, note: true,
+  shippingName: true, shippingKind: true, shippingCost: true, paymentMethod: true, paymentDeadline: true, codFee: true, subtotal: true, total: true, itemCount: true, note: true,
   items: { select: { productId: true, variantId: true, name: true, variantLabel: true, unitPrice: true, quantity: true, lineTotal: true, weightGrams: true }, orderBy: { position: "asc" as const } },
+  payments: { where: { status: "PAID" as const }, select: { refId: true, cardPan: true, verifiedAt: true }, take: 1 },
   events: { select: { fromStatus: true, toStatus: true, actor: true, note: true, createdAt: true }, orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }] },
 } satisfies Prisma.OrderSelect;
 type OrderRow = Prisma.OrderGetPayload<{ select: typeof orderSelect }>;
@@ -34,6 +36,8 @@ function toView(r: OrderRow): OrderView {
     address: { recipientName: r.recipientName, phone: r.phone, province: r.province, city: r.city, line: r.addressLine, postalCode: r.postalCode },
     shipping: { name: r.shippingName, kind: r.shippingKind as ShippingKind, cost: Number(r.shippingCost) },
     paymentMethod: r.paymentMethod as PaymentMethod,
+    paymentDeadline: r.paymentDeadline?.toISOString() ?? null,
+    payment: r.payments[0] ? { refId: r.payments[0].refId!, cardPan: r.payments[0].cardPan, paidAt: r.payments[0].verifiedAt!.toISOString() } : null,
     subtotal: Number(r.subtotal),
     codFee: Number(r.codFee),
     total: Number(r.total),
@@ -80,7 +84,7 @@ export class PrismaOrderStore implements OrderStore {
       _count: { _all: true },
       _max: { createdAt: true },
     });
-    const spent = await db.order.groupBy({ by: ["customerId"], where: { storeId, customerId: { in: customerIds }, status: { not: "CANCELLED" } }, _sum: { total: true } });
+    const spent = await db.order.groupBy({ by: ["customerId"], where: { storeId, customerId: { in: customerIds }, status: { notIn: ["CANCELLED", "EXPIRED", "AWAITING_PAYMENT"] } }, _sum: { total: true } });
     const spentBy = new Map(spent.map((r) => [r.customerId, Number(r._sum.total ?? 0n)]));
     return rows.map((r) => ({ customerId: r.customerId!, orders: r._count._all, spent: spentBy.get(r.customerId) ?? 0, lastOrderAt: r._max.createdAt?.toISOString() ?? null }));
   }
@@ -113,19 +117,21 @@ export class PrismaOrderStore implements OrderStore {
           INSERT INTO "StoreCounter" ("storeId", "lastOrderNumber") VALUES (${o.storeId}, 1)
           ON CONFLICT ("storeId") DO UPDATE SET "lastOrderNumber" = "StoreCounter"."lastOrderNumber" + 1
           RETURNING "lastOrderNumber" AS n`;
-        // 3. the snapshot
+        // 3. the snapshot. Phase 3.5: an online order waits for its payment (AWAITING_PAYMENT, with a deadline); "order.placed" is
+        // recorded only once the payment is verified (PaymentStore.settlePaid), so nothing is sent for an order nobody paid.
+        const first = o.paymentMethod === "ONLINE" ? "AWAITING_PAYMENT" : "PLACED";
         await tx.order.create({
           data: {
-            id: o.id, storeId: o.storeId, number: counter!.n, status: "PLACED", customerId, linkedByPhone, requestKey: o.requestKey, accessTokenHash: o.accessTokenHash,
+            id: o.id, storeId: o.storeId, number: counter!.n, status: first, customerId, linkedByPhone, requestKey: o.requestKey, accessTokenHash: o.accessTokenHash,
             recipientName: o.address.recipientName, phone: o.address.phone, province: o.address.province, city: o.address.city, addressLine: o.address.line, postalCode: o.address.postalCode,
             shippingMethodId: o.shipping.methodId, shippingName: o.shipping.name, shippingKind: o.shipping.kind, shippingCost: BigInt(o.shipping.cost),
-            paymentMethod: o.paymentMethod, codFee: BigInt(o.codFee), subtotal: BigInt(o.subtotal), total: BigInt(o.total), itemCount: o.itemCount, note: o.note,
+            paymentMethod: o.paymentMethod, paymentDeadline: o.paymentDeadline, codFee: BigInt(o.codFee), subtotal: BigInt(o.subtotal), total: BigInt(o.total), itemCount: o.itemCount, note: o.note,
           },
         });
         await tx.orderItem.createMany({ data: o.items.map((i) => ({ ...i, storeId: o.storeId, orderId: o.id, lineTotal: BigInt(i.lineTotal) })) });
-        await tx.orderEvent.create({ data: { storeId: o.storeId, orderId: o.id, fromStatus: null, toStatus: "PLACED", actor: "CUSTOMER", actorId: linkedByPhone ? null : customerId } });
+        await tx.orderEvent.create({ data: { storeId: o.storeId, orderId: o.id, fromStatus: null, toStatus: first, actor: "CUSTOMER", actorId: linkedByPhone ? null : customerId } });
         // 4. consumers (order SMS, 3.6) re-read the order; the event carries ids only, never personal data
-        await recordEvent(scope, { type: "order.placed", storeId: o.storeId, payload: { orderId: o.id, number: counter!.n } });
+        if (first === "PLACED") await recordEvent(scope, { type: "order.placed", storeId: o.storeId, payload: { orderId: o.id, number: counter!.n } });
         // 5. the cart is emptied with the order
         if (cartId) await clearCartInTx(scope, o.storeId, cartId);
       }, TX);
@@ -142,14 +148,22 @@ export class PrismaOrderStore implements OrderStore {
     storeId: string,
     id: string,
     to: OrderStatus,
-    check: (current: OrderStatus) => void,
+    check: (current: OrderStatus, paymentMethod: PaymentMethod) => void,
     by: { actor: "CUSTOMER" | "MERCHANT" | "SYSTEM"; actorId: string | null; note: string },
   ): Promise<OrderView | null> {
     const done = await db.$transaction(async (tx) => {
       // Lock order: the order row first, then (cancellation) product rows and reservation rows, as the stock ledger does.
-      const [row] = await tx.$queryRaw<{ status: OrderStatus }[]>`SELECT status::text AS status FROM "Order" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`;
+      const [row] = await tx.$queryRaw<{ status: OrderStatus; method: PaymentMethod }[]>`
+        SELECT status::text AS status, "paymentMethod"::text AS method FROM "Order" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`;
       if (!row) return false;
-      check(row.status);
+      check(row.status, row.method);
+      // Phase 3.5: an unpaid order whose payment may hold money right now (being verified, or a verify answer was lost) cannot be cancelled.
+      if (row.status === "AWAITING_PAYMENT") {
+        const busy = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "Payment" WHERE "storeId" = ${storeId} AND "orderId" = ${id}
+            AND (status IN ('VERIFYING', 'PAID') OR (status = 'CREATED' AND "verifySentAt" IS NOT NULL)) FOR UPDATE`;
+        if (busy.length) throw new PaymentNotAllowedError("busy");
+      }
       await tx.order.updateMany({ where: { id, storeId, status: row.status }, data: { status: to } });
       await tx.orderEvent.create({ data: { storeId, orderId: id, fromStatus: row.status, toStatus: to, actor: by.actor, actorId: by.actorId, note: by.note } });
       if (restocksOn(to)) await restockReservationInTx({ tx }, storeId, id);

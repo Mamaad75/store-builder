@@ -9,7 +9,7 @@ import s from "./shop.module.css";
 const date = (iso: string) => new Date(iso).toLocaleString("fa-IR", { dateStyle: "medium", timeStyle: "short" });
 
 /** One order as the shopper sees it (phase 3.4): status, items, totals, delivery, history, and cancel while allowed. */
-export default function OrderDetails({ data, error, busy, cancel, back }: { data: ShopperOrder; error: string | null; busy: boolean; cancel: () => void; back?: { href: string; label: string } }) {
+export default function OrderDetails({ data, error, busy, cancel, pay, back }: { data: ShopperOrder; error: string | null; busy: boolean; cancel: () => void; pay?: () => void; back?: { href: string; label: string } }) {
   const o = data.order;
   return (
     <div className={s.page}>
@@ -20,6 +20,15 @@ export default function OrderDetails({ data, error, busy, cancel, back }: { data
       <div className={s.card}>
         <p>وضعیت: <span className={s.status}>{ORDER_STATUS_LABELS[o.status]}</span></p>
         <p className={s.muted}>ثبت در {date(o.createdAt)} — {PAYMENT_METHOD_LABELS[o.paymentMethod]}</p>
+        {o.payment && <p className={s.muted}>پرداخت‌شده — کد پیگیری <span className={s.num}>{o.payment.refId}</span>{o.payment.cardPan ? <> — کارت <span className={s.num} dir="ltr">{o.payment.cardPan}</span></> : null}</p>}
+        {o.status === "AWAITING_PAYMENT" && o.paymentDeadline && (
+          <p className={data.canPay ? s.alert : s.muted}>
+            {data.canPay
+              ? `این سفارش هنوز پرداخت نشده است. تا ${date(o.paymentDeadline)} فرصت پرداخت دارید؛ پس از آن سفارش لغو و کالاها آزاد می‌شوند.`
+              : "مهلت پرداخت این سفارش تمام شده است. اگر مبلغی از حساب شما کم شده باشد، حداکثر ظرف ۷۲ ساعت به حساب شما برمی‌گردد."}
+          </p>
+        )}
+        {o.status === "EXPIRED" && <p className={s.muted}>این سفارش پرداخت نشد و منقضی شد. اگر مبلغی از حساب شما کم شده باشد، حداکثر ظرف ۷۲ ساعت به حساب شما برمی‌گردد.</p>}
       </div>
       <section className={s.card} aria-labelledby="ord-items">
         <h2 id="ord-items" className={s.lineName}>کالاها</h2>
@@ -52,7 +61,12 @@ export default function OrderDetails({ data, error, busy, cancel, back }: { data
           {o.history.map((h, n) => <li key={n}>{date(h.at)} — {ORDER_STATUS_LABELS[h.to]}{h.note ? ` (${h.note})` : ""}</li>)}
         </ul>
       </section>
-      {data.canCancel && <div className={s.actions}><button type="button" className={`${s.button} ${s.ghost}`} onClick={cancel} disabled={busy}>لغو سفارش</button></div>}
+      {(data.canCancel || (data.canPay && pay)) && (
+        <div className={s.actions}>
+          {data.canPay && pay && <button type="button" className={s.button} onClick={pay} disabled={busy}>{busy ? "در حال انتقال به درگاه…" : "پرداخت اینترنتی"}</button>}
+          {data.canCancel && <button type="button" className={`${s.button} ${s.ghost}`} onClick={cancel} disabled={busy}>لغو سفارش</button>}
+        </div>
+      )}
     </div>
   );
 }

@@ -2553,11 +2553,13 @@
             "schema": {
               "type": "string",
               "enum": [
+                "AWAITING_PAYMENT",
                 "PLACED",
                 "CONFIRMED",
                 "SHIPPED",
                 "DELIVERED",
-                "CANCELLED"
+                "CANCELLED",
+                "EXPIRED"
               ]
             }
           },
@@ -2620,11 +2622,13 @@
                           "status": {
                             "type": "string",
                             "enum": [
+                              "AWAITING_PAYMENT",
                               "PLACED",
                               "CONFIRMED",
                               "SHIPPED",
                               "DELIVERED",
-                              "CANCELLED"
+                              "CANCELLED",
+                              "EXPIRED"
                             ]
                           },
                           "createdAt": {
@@ -2697,8 +2701,54 @@
                           "paymentMethod": {
                             "type": "string",
                             "enum": [
-                              "COD"
+                              "COD",
+                              "ONLINE"
                             ]
+                          },
+                          "paymentDeadline": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                          },
+                          "payment": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "refId": {
+                                    "type": "string"
+                                  },
+                                  "cardPan": {
+                                    "description": "masked",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "paidAt": {
+                                    "type": "string",
+                                    "description": "ISO 8601 date-time"
+                                  }
+                                },
+                                "required": [
+                                  "refId",
+                                  "cardPan",
+                                  "paidAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "the verified online payment"
                           },
                           "subtotal": {
                             "type": "number"
@@ -2774,11 +2824,13 @@
                                     {
                                       "type": "string",
                                       "enum": [
+                                        "AWAITING_PAYMENT",
                                         "PLACED",
                                         "CONFIRMED",
                                         "SHIPPED",
                                         "DELIVERED",
-                                        "CANCELLED"
+                                        "CANCELLED",
+                                        "EXPIRED"
                                       ]
                                     },
                                     {
@@ -2789,11 +2841,13 @@
                                 "to": {
                                   "type": "string",
                                   "enum": [
+                                    "AWAITING_PAYMENT",
                                     "PLACED",
                                     "CONFIRMED",
                                     "SHIPPED",
                                     "DELIVERED",
-                                    "CANCELLED"
+                                    "CANCELLED",
+                                    "EXPIRED"
                                   ]
                                 },
                                 "actor": {
@@ -2832,6 +2886,8 @@
                           "address",
                           "shipping",
                           "paymentMethod",
+                          "paymentDeadline",
+                          "payment",
                           "subtotal",
                           "codFee",
                           "total",
@@ -2991,11 +3047,13 @@
                     "status": {
                       "type": "string",
                       "enum": [
+                        "AWAITING_PAYMENT",
                         "PLACED",
                         "CONFIRMED",
                         "SHIPPED",
                         "DELIVERED",
-                        "CANCELLED"
+                        "CANCELLED",
+                        "EXPIRED"
                       ]
                     },
                     "createdAt": {
@@ -3068,8 +3126,54 @@
                     "paymentMethod": {
                       "type": "string",
                       "enum": [
-                        "COD"
+                        "COD",
+                        "ONLINE"
                       ]
+                    },
+                    "paymentDeadline": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                    },
+                    "payment": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "refId": {
+                              "type": "string"
+                            },
+                            "cardPan": {
+                              "description": "masked",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "paidAt": {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            }
+                          },
+                          "required": [
+                            "refId",
+                            "cardPan",
+                            "paidAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "the verified online payment"
                     },
                     "subtotal": {
                       "type": "number"
@@ -3145,11 +3249,13 @@
                               {
                                 "type": "string",
                                 "enum": [
+                                  "AWAITING_PAYMENT",
                                   "PLACED",
                                   "CONFIRMED",
                                   "SHIPPED",
                                   "DELIVERED",
-                                  "CANCELLED"
+                                  "CANCELLED",
+                                  "EXPIRED"
                                 ]
                               },
                               {
@@ -3160,11 +3266,13 @@
                           "to": {
                             "type": "string",
                             "enum": [
+                              "AWAITING_PAYMENT",
                               "PLACED",
                               "CONFIRMED",
                               "SHIPPED",
                               "DELIVERED",
-                              "CANCELLED"
+                              "CANCELLED",
+                              "EXPIRED"
                             ]
                           },
                           "actor": {
@@ -3203,6 +3311,8 @@
                     "address",
                     "shipping",
                     "paymentMethod",
+                    "paymentDeadline",
+                    "payment",
                     "subtotal",
                     "codFee",
                     "total",
@@ -3212,6 +3322,182 @@
                     "history"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/orders/{orderId}/payments": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdOrdersOrderIdPayments",
+        "summary": "The order's online payment attempts (phase 3.5): status, reference number, masked card",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "orders.view",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "CREATED",
+                          "VERIFYING",
+                          "PAID",
+                          "FAILED",
+                          "EXPIRED",
+                          "REFUND_REQUIRED"
+                        ]
+                      },
+                      "refId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "cardPan": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "description": "ISO 8601 date-time"
+                      },
+                      "verifiedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "description": "ISO 8601 date-time"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "refId",
+                      "cardPan",
+                      "createdAt",
+                      "verifiedAt"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               }
             }
@@ -3340,11 +3626,13 @@
                   "to": {
                     "type": "string",
                     "enum": [
+                      "AWAITING_PAYMENT",
                       "PLACED",
                       "CONFIRMED",
                       "SHIPPED",
                       "DELIVERED",
-                      "CANCELLED"
+                      "CANCELLED",
+                      "EXPIRED"
                     ]
                   },
                   "note": {
@@ -3377,11 +3665,13 @@
                     "status": {
                       "type": "string",
                       "enum": [
+                        "AWAITING_PAYMENT",
                         "PLACED",
                         "CONFIRMED",
                         "SHIPPED",
                         "DELIVERED",
-                        "CANCELLED"
+                        "CANCELLED",
+                        "EXPIRED"
                       ]
                     },
                     "createdAt": {
@@ -3454,8 +3744,54 @@
                     "paymentMethod": {
                       "type": "string",
                       "enum": [
-                        "COD"
+                        "COD",
+                        "ONLINE"
                       ]
+                    },
+                    "paymentDeadline": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "ISO 8601 date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                    },
+                    "payment": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "refId": {
+                              "type": "string"
+                            },
+                            "cardPan": {
+                              "description": "masked",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "paidAt": {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            }
+                          },
+                          "required": [
+                            "refId",
+                            "cardPan",
+                            "paidAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "the verified online payment"
                     },
                     "subtotal": {
                       "type": "number"
@@ -3531,11 +3867,13 @@
                               {
                                 "type": "string",
                                 "enum": [
+                                  "AWAITING_PAYMENT",
                                   "PLACED",
                                   "CONFIRMED",
                                   "SHIPPED",
                                   "DELIVERED",
-                                  "CANCELLED"
+                                  "CANCELLED",
+                                  "EXPIRED"
                                 ]
                               },
                               {
@@ -3546,11 +3884,13 @@
                           "to": {
                             "type": "string",
                             "enum": [
+                              "AWAITING_PAYMENT",
                               "PLACED",
                               "CONFIRMED",
                               "SHIPPED",
                               "DELIVERED",
-                              "CANCELLED"
+                              "CANCELLED",
+                              "EXPIRED"
                             ]
                           },
                           "actor": {
@@ -3589,6 +3929,8 @@
                     "address",
                     "shipping",
                     "paymentMethod",
+                    "paymentDeadline",
+                    "payment",
                     "subtotal",
                     "codFee",
                     "total",
@@ -5707,6 +6049,162 @@
                   "required": [
                     "changed",
                     "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/payment-settings": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdPaymentSettings",
+        "summary": "Online payment state (phase 3.5): platform switch, sandbox, whether the merchant id is set, the return address",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "secrets.manage",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "platformEnabled": {
+                      "type": "boolean"
+                    },
+                    "sandbox": {
+                      "type": "boolean"
+                    },
+                    "secretsReady": {
+                      "type": "boolean",
+                      "description": "false: the server cannot store secrets (no master keys)"
+                    },
+                    "merchantConfigured": {
+                      "type": "boolean"
+                    },
+                    "merchantValid": {
+                      "type": "boolean"
+                    },
+                    "active": {
+                      "type": "boolean",
+                      "description": "shoppers can pay online now"
+                    },
+                    "callbackUrl": {
+                      "description": "its domain must be the one registered for the Zarinpal terminal",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "platformEnabled",
+                    "sandbox",
+                    "secretsReady",
+                    "merchantConfigured",
+                    "merchantValid",
+                    "active",
+                    "callbackUrl"
                   ],
                   "additionalProperties": false
                 }
@@ -17385,7 +17883,7 @@
     "/api/v1/store/stores/{label}/checkout/orders": {
       "post": {
         "operationId": "postApiV1StoreStoresLabelCheckoutOrders",
-        "summary": "Place the order from the cart (cash on delivery for now; the same requestKey returns the same order)",
+        "summary": "Place the order from the cart (cash on delivery, or online: the order then awaits its payment; the same requestKey returns the same order)",
         "tags": [
           "store"
         ],
@@ -17423,7 +17921,8 @@
                   "paymentMethod": {
                     "type": "string",
                     "enum": [
-                      "COD"
+                      "COD",
+                      "ONLINE"
                     ]
                   },
                   "note": {
@@ -17461,11 +17960,13 @@
                         "status": {
                           "type": "string",
                           "enum": [
+                            "AWAITING_PAYMENT",
                             "PLACED",
                             "CONFIRMED",
                             "SHIPPED",
                             "DELIVERED",
-                            "CANCELLED"
+                            "CANCELLED",
+                            "EXPIRED"
                           ]
                         },
                         "createdAt": {
@@ -17538,8 +18039,54 @@
                         "paymentMethod": {
                           "type": "string",
                           "enum": [
-                            "COD"
+                            "COD",
+                            "ONLINE"
                           ]
+                        },
+                        "paymentDeadline": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                        },
+                        "payment": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "refId": {
+                                  "type": "string"
+                                },
+                                "cardPan": {
+                                  "description": "masked",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "paidAt": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                }
+                              },
+                              "required": [
+                                "refId",
+                                "cardPan",
+                                "paidAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the verified online payment"
                         },
                         "subtotal": {
                           "type": "number"
@@ -17615,11 +18162,13 @@
                                   {
                                     "type": "string",
                                     "enum": [
+                                      "AWAITING_PAYMENT",
                                       "PLACED",
                                       "CONFIRMED",
                                       "SHIPPED",
                                       "DELIVERED",
-                                      "CANCELLED"
+                                      "CANCELLED",
+                                      "EXPIRED"
                                     ]
                                   },
                                   {
@@ -17630,11 +18179,13 @@
                               "to": {
                                 "type": "string",
                                 "enum": [
+                                  "AWAITING_PAYMENT",
                                   "PLACED",
                                   "CONFIRMED",
                                   "SHIPPED",
                                   "DELIVERED",
-                                  "CANCELLED"
+                                  "CANCELLED",
+                                  "EXPIRED"
                                 ]
                               },
                               "actor": {
@@ -17673,6 +18224,8 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentDeadline",
+                        "payment",
                         "subtotal",
                         "codFee",
                         "total",
@@ -17686,6 +18239,10 @@
                     "canCancel": {
                       "type": "boolean"
                     },
+                    "canPay": {
+                      "type": "boolean",
+                      "description": "an unpaid online order still within its payment window"
+                    },
                     "accessToken": {
                       "type": "string",
                       "description": "follow or cancel the order with it (keep it secret: it is the order link)"
@@ -17694,6 +18251,7 @@
                   "required": [
                     "order",
                     "canCancel",
+                    "canPay",
                     "accessToken"
                   ],
                   "additionalProperties": false
@@ -17831,11 +18389,13 @@
                         "status": {
                           "type": "string",
                           "enum": [
+                            "AWAITING_PAYMENT",
                             "PLACED",
                             "CONFIRMED",
                             "SHIPPED",
                             "DELIVERED",
-                            "CANCELLED"
+                            "CANCELLED",
+                            "EXPIRED"
                           ]
                         },
                         "createdAt": {
@@ -17908,8 +18468,54 @@
                         "paymentMethod": {
                           "type": "string",
                           "enum": [
-                            "COD"
+                            "COD",
+                            "ONLINE"
                           ]
+                        },
+                        "paymentDeadline": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                        },
+                        "payment": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "refId": {
+                                  "type": "string"
+                                },
+                                "cardPan": {
+                                  "description": "masked",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "paidAt": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                }
+                              },
+                              "required": [
+                                "refId",
+                                "cardPan",
+                                "paidAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the verified online payment"
                         },
                         "subtotal": {
                           "type": "number"
@@ -17985,11 +18591,13 @@
                                   {
                                     "type": "string",
                                     "enum": [
+                                      "AWAITING_PAYMENT",
                                       "PLACED",
                                       "CONFIRMED",
                                       "SHIPPED",
                                       "DELIVERED",
-                                      "CANCELLED"
+                                      "CANCELLED",
+                                      "EXPIRED"
                                     ]
                                   },
                                   {
@@ -18000,11 +18608,13 @@
                               "to": {
                                 "type": "string",
                                 "enum": [
+                                  "AWAITING_PAYMENT",
                                   "PLACED",
                                   "CONFIRMED",
                                   "SHIPPED",
                                   "DELIVERED",
-                                  "CANCELLED"
+                                  "CANCELLED",
+                                  "EXPIRED"
                                 ]
                               },
                               "actor": {
@@ -18043,6 +18653,8 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentDeadline",
+                        "payment",
                         "subtotal",
                         "codFee",
                         "total",
@@ -18055,11 +18667,16 @@
                     },
                     "canCancel": {
                       "type": "boolean"
+                    },
+                    "canPay": {
+                      "type": "boolean",
+                      "description": "an unpaid online order still within its payment window"
                     }
                   },
                   "required": [
                     "order",
-                    "canCancel"
+                    "canCancel",
+                    "canPay"
                   ],
                   "additionalProperties": false
                 }
@@ -18196,11 +18813,13 @@
                         "status": {
                           "type": "string",
                           "enum": [
+                            "AWAITING_PAYMENT",
                             "PLACED",
                             "CONFIRMED",
                             "SHIPPED",
                             "DELIVERED",
-                            "CANCELLED"
+                            "CANCELLED",
+                            "EXPIRED"
                           ]
                         },
                         "createdAt": {
@@ -18273,8 +18892,54 @@
                         "paymentMethod": {
                           "type": "string",
                           "enum": [
-                            "COD"
+                            "COD",
+                            "ONLINE"
                           ]
+                        },
+                        "paymentDeadline": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                        },
+                        "payment": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "refId": {
+                                  "type": "string"
+                                },
+                                "cardPan": {
+                                  "description": "masked",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "paidAt": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                }
+                              },
+                              "required": [
+                                "refId",
+                                "cardPan",
+                                "paidAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the verified online payment"
                         },
                         "subtotal": {
                           "type": "number"
@@ -18350,11 +19015,13 @@
                                   {
                                     "type": "string",
                                     "enum": [
+                                      "AWAITING_PAYMENT",
                                       "PLACED",
                                       "CONFIRMED",
                                       "SHIPPED",
                                       "DELIVERED",
-                                      "CANCELLED"
+                                      "CANCELLED",
+                                      "EXPIRED"
                                     ]
                                   },
                                   {
@@ -18365,11 +19032,13 @@
                               "to": {
                                 "type": "string",
                                 "enum": [
+                                  "AWAITING_PAYMENT",
                                   "PLACED",
                                   "CONFIRMED",
                                   "SHIPPED",
                                   "DELIVERED",
-                                  "CANCELLED"
+                                  "CANCELLED",
+                                  "EXPIRED"
                                 ]
                               },
                               "actor": {
@@ -18408,6 +19077,8 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentDeadline",
+                        "payment",
                         "subtotal",
                         "codFee",
                         "total",
@@ -18420,11 +19091,436 @@
                     },
                     "canCancel": {
                       "type": "boolean"
+                    },
+                    "canPay": {
+                      "type": "boolean",
+                      "description": "an unpaid online order still within its payment window"
                     }
                   },
                   "required": [
                     "order",
-                    "canCancel"
+                    "canCancel",
+                    "canPay"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/checkout/orders/{token}/pay": {
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCheckoutOrdersTokenPay",
+        "summary": "Open a Zarinpal payment for an unpaid online order (phase 3.5); answers where to send the buyer",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "description": "the Zarinpal page to send the buyer to"
+                    }
+                  },
+                  "required": [
+                    "url"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/checkout/payment-methods": {
+      "get": {
+        "operationId": "getApiV1StoreStoresLabelCheckoutPaymentMethods",
+        "summary": "Which payment methods the store takes now (phase 3.5)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cod": {
+                      "type": "boolean"
+                    },
+                    "online": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "cod",
+                    "online"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/checkout/payments/verify": {
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCheckoutPaymentsVerify",
+        "summary": "The buyer is back from Zarinpal: the payment is verified server-side (phase 3.5)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "authority": {
+                    "type": "string",
+                    "pattern": "^[AS][0-9A-Za-z]{35}$"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "OK",
+                      "NOK"
+                    ]
+                  }
+                },
+                "required": [
+                  "authority",
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "paid",
+                        "pending",
+                        "failed",
+                        "closed",
+                        "refund"
+                      ],
+                      "description": "pending = not settled yet (checked again shortly); closed = the order was cancelled or expired; refund = captured on an order no longer payable (the store returns it)"
+                    },
+                    "accessToken": {
+                      "description": "the order link: only for the browser that opened the payment (return-key cookie) or the order's signed-in customer",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "outcome",
+                    "accessToken"
                   ],
                   "additionalProperties": false
                 }
@@ -20043,11 +21139,13 @@
                           "status": {
                             "type": "string",
                             "enum": [
+                              "AWAITING_PAYMENT",
                               "PLACED",
                               "CONFIRMED",
                               "SHIPPED",
                               "DELIVERED",
-                              "CANCELLED"
+                              "CANCELLED",
+                              "EXPIRED"
                             ]
                           },
                           "createdAt": {
@@ -20120,8 +21218,54 @@
                           "paymentMethod": {
                             "type": "string",
                             "enum": [
-                              "COD"
+                              "COD",
+                              "ONLINE"
                             ]
+                          },
+                          "paymentDeadline": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                          },
+                          "payment": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "refId": {
+                                    "type": "string"
+                                  },
+                                  "cardPan": {
+                                    "description": "masked",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "paidAt": {
+                                    "type": "string",
+                                    "description": "ISO 8601 date-time"
+                                  }
+                                },
+                                "required": [
+                                  "refId",
+                                  "cardPan",
+                                  "paidAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "the verified online payment"
                           },
                           "subtotal": {
                             "type": "number"
@@ -20197,11 +21341,13 @@
                                     {
                                       "type": "string",
                                       "enum": [
+                                        "AWAITING_PAYMENT",
                                         "PLACED",
                                         "CONFIRMED",
                                         "SHIPPED",
                                         "DELIVERED",
-                                        "CANCELLED"
+                                        "CANCELLED",
+                                        "EXPIRED"
                                       ]
                                     },
                                     {
@@ -20212,11 +21358,13 @@
                                 "to": {
                                   "type": "string",
                                   "enum": [
+                                    "AWAITING_PAYMENT",
                                     "PLACED",
                                     "CONFIRMED",
                                     "SHIPPED",
                                     "DELIVERED",
-                                    "CANCELLED"
+                                    "CANCELLED",
+                                    "EXPIRED"
                                   ]
                                 },
                                 "actor": {
@@ -20255,6 +21403,8 @@
                           "address",
                           "shipping",
                           "paymentMethod",
+                          "paymentDeadline",
+                          "payment",
                           "subtotal",
                           "codFee",
                           "total",
@@ -20267,11 +21417,16 @@
                       },
                       "canCancel": {
                         "type": "boolean"
+                      },
+                      "canPay": {
+                        "type": "boolean",
+                        "description": "an unpaid online order still within its payment window"
                       }
                     },
                     "required": [
                       "order",
-                      "canCancel"
+                      "canCancel",
+                      "canPay"
                     ],
                     "additionalProperties": false
                   }
@@ -20409,11 +21564,13 @@
                         "status": {
                           "type": "string",
                           "enum": [
+                            "AWAITING_PAYMENT",
                             "PLACED",
                             "CONFIRMED",
                             "SHIPPED",
                             "DELIVERED",
-                            "CANCELLED"
+                            "CANCELLED",
+                            "EXPIRED"
                           ]
                         },
                         "createdAt": {
@@ -20486,8 +21643,54 @@
                         "paymentMethod": {
                           "type": "string",
                           "enum": [
-                            "COD"
+                            "COD",
+                            "ONLINE"
                           ]
+                        },
+                        "paymentDeadline": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                        },
+                        "payment": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "refId": {
+                                  "type": "string"
+                                },
+                                "cardPan": {
+                                  "description": "masked",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "paidAt": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                }
+                              },
+                              "required": [
+                                "refId",
+                                "cardPan",
+                                "paidAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the verified online payment"
                         },
                         "subtotal": {
                           "type": "number"
@@ -20563,11 +21766,13 @@
                                   {
                                     "type": "string",
                                     "enum": [
+                                      "AWAITING_PAYMENT",
                                       "PLACED",
                                       "CONFIRMED",
                                       "SHIPPED",
                                       "DELIVERED",
-                                      "CANCELLED"
+                                      "CANCELLED",
+                                      "EXPIRED"
                                     ]
                                   },
                                   {
@@ -20578,11 +21783,13 @@
                               "to": {
                                 "type": "string",
                                 "enum": [
+                                  "AWAITING_PAYMENT",
                                   "PLACED",
                                   "CONFIRMED",
                                   "SHIPPED",
                                   "DELIVERED",
-                                  "CANCELLED"
+                                  "CANCELLED",
+                                  "EXPIRED"
                                 ]
                               },
                               "actor": {
@@ -20621,6 +21828,8 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentDeadline",
+                        "payment",
                         "subtotal",
                         "codFee",
                         "total",
@@ -20633,11 +21842,16 @@
                     },
                     "canCancel": {
                       "type": "boolean"
+                    },
+                    "canPay": {
+                      "type": "boolean",
+                      "description": "an unpaid online order still within its payment window"
                     }
                   },
                   "required": [
                     "order",
-                    "canCancel"
+                    "canCancel",
+                    "canPay"
                   ],
                   "additionalProperties": false
                 }
@@ -20774,11 +21988,13 @@
                         "status": {
                           "type": "string",
                           "enum": [
+                            "AWAITING_PAYMENT",
                             "PLACED",
                             "CONFIRMED",
                             "SHIPPED",
                             "DELIVERED",
-                            "CANCELLED"
+                            "CANCELLED",
+                            "EXPIRED"
                           ]
                         },
                         "createdAt": {
@@ -20851,8 +22067,54 @@
                         "paymentMethod": {
                           "type": "string",
                           "enum": [
-                            "COD"
+                            "COD",
+                            "ONLINE"
                           ]
+                        },
+                        "paymentDeadline": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "ISO 8601 date-time"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "online orders: the order can be paid until then (then it expires and the stock goes back)"
+                        },
+                        "payment": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "refId": {
+                                  "type": "string"
+                                },
+                                "cardPan": {
+                                  "description": "masked",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "paidAt": {
+                                  "type": "string",
+                                  "description": "ISO 8601 date-time"
+                                }
+                              },
+                              "required": [
+                                "refId",
+                                "cardPan",
+                                "paidAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "the verified online payment"
                         },
                         "subtotal": {
                           "type": "number"
@@ -20928,11 +22190,13 @@
                                   {
                                     "type": "string",
                                     "enum": [
+                                      "AWAITING_PAYMENT",
                                       "PLACED",
                                       "CONFIRMED",
                                       "SHIPPED",
                                       "DELIVERED",
-                                      "CANCELLED"
+                                      "CANCELLED",
+                                      "EXPIRED"
                                     ]
                                   },
                                   {
@@ -20943,11 +22207,13 @@
                               "to": {
                                 "type": "string",
                                 "enum": [
+                                  "AWAITING_PAYMENT",
                                   "PLACED",
                                   "CONFIRMED",
                                   "SHIPPED",
                                   "DELIVERED",
-                                  "CANCELLED"
+                                  "CANCELLED",
+                                  "EXPIRED"
                                 ]
                               },
                               "actor": {
@@ -20986,6 +22252,8 @@
                         "address",
                         "shipping",
                         "paymentMethod",
+                        "paymentDeadline",
+                        "payment",
                         "subtotal",
                         "codFee",
                         "total",
@@ -20998,11 +22266,146 @@
                     },
                     "canCancel": {
                       "type": "boolean"
+                    },
+                    "canPay": {
+                      "type": "boolean",
+                      "description": "an unpaid online order still within its payment window"
                     }
                   },
                   "required": [
                     "order",
-                    "canCancel"
+                    "canCancel",
+                    "canPay"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/store/stores/{label}/customer/orders/{orderId}/pay": {
+      "post": {
+        "operationId": "postApiV1StoreStoresLabelCustomerOrdersOrderIdPay",
+        "summary": "Open a Zarinpal payment for one of the signed-in customer's unpaid online orders (phase 3.5)",
+        "tags": [
+          "store"
+        ],
+        "parameters": [
+          {
+            "name": "label",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "description": "the Zarinpal page to send the buyer to"
+                    }
+                  },
+                  "required": [
+                    "url"
                   ],
                   "additionalProperties": false
                 }

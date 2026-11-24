@@ -37,6 +37,8 @@ export interface NewOrder {
   address: AddressInput;
   shipping: { methodId: string; name: string; kind: ShippingKind; cost: number };
   paymentMethod: PaymentMethod;
+  /** Phase 3.5: online orders only; the order waits for its payment until then. */
+  paymentDeadline: Date | null;
   codFee: number;
   subtotal: number;
   total: number;
@@ -59,6 +61,7 @@ export function draftOrder(o: {
   address: AddressInput;
   weights: ReadonlyMap<string, number | null>;
   paymentMethod: PaymentMethod;
+  paymentDeadline?: Date | null;
   note: string;
 }): NewOrder {
   const s = o.summary;
@@ -84,6 +87,7 @@ export function draftOrder(o: {
     address: o.address,
     shipping: { methodId: shipping.methodId, name: shipping.name, kind: shipping.kind, cost: s.shippingCost },
     paymentMethod: o.paymentMethod,
+    paymentDeadline: o.paymentMethod === "ONLINE" ? (o.paymentDeadline ?? null) : null,
     codFee: s.codFee,
     subtotal: s.subtotal,
     total: s.total,
@@ -102,6 +106,10 @@ export interface OrderView {
   address: AddressInput;
   shipping: { name: string; kind: ShippingKind; cost: number };
   paymentMethod: PaymentMethod;
+  /** Phase 3.5: until when an unpaid online order can be paid (ISO), null otherwise. */
+  paymentDeadline: string | null;
+  /** Phase 3.5: the online payment once verified (reference number and masked card), null otherwise. */
+  payment: { refId: string; cardPan: string | null; paidAt: string } | null;
   subtotal: number;
   codFee: number;
   total: number;
@@ -109,4 +117,9 @@ export interface OrderView {
   note: string;
   items: Omit<NewOrderItem, "position">[];
   history: { from: OrderStatus | null; to: OrderStatus; actor: OrderActor; note: string; at: string }[];
+}
+
+/** Phase 3.5: the text shown on the Zarinpal page and in the merchant's Zarinpal panel (at most 500 characters). */
+export function paymentDescription(storeName: string, orderNumber: number): string {
+  return `سفارش ${orderNumber} از ${storeName}`.slice(0, 500);
 }

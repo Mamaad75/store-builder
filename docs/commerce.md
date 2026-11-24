@@ -237,6 +237,52 @@ COD orders, and a merchant setting can cap units per order); PLACED orders do no
 cancel of unconfirmed orders after N days is a merchant setting for later); order links are HMACs of the order id under the server secret,
 so rotating that secret invalidates links already sent (a key version will be added before the first rotation).
 
+## 3.5 design (D35-1): online payment with Zarinpal
+
+Read from Zarinpal's own documentation (REST v4, 2026-11-24). No SDK: the official `zarinpal-node-sdk` adds axios; the four calls are plain
+`fetch` in `apps/api/src/modules/orders/infrastructure/zarinpal.ts` (fixed hosts `payment.zarinpal.com` / `sandbox.zarinpal.com`, HTTPS,
+redirects refused, 15 s timeout, answers capped at 64 KiB, both error shapes parsed, no provider text or merchant id in errors or logs).
+
+* **Who gets the money:** each store's OWN Zarinpal terminal. The merchant id is the store secret `payment.zarinpal.merchant_id`
+  (envelope-encrypted, write-only, D24-1), set on the dashboard page "پرداخت آنلاین". Online payment is offered only when the platform
+  switch `payment.zarinpalEnabled` is on AND the store's merchant id is a well-formed UUID. `payment.sandbox` sends every payment to the sandbox.
+* **Order life:** an ONLINE order is placed like a COD one (same pricing, stock consumed, cart emptied, no COD fee) but starts
+  `AWAITING_PAYMENT` with `paymentDeadline` = now + 20 min and **no** `order.placed` event. It becomes `PLACED` (actor SYSTEM, history
+  note, `order.placed`) only in the transaction that records a verified payment, or `EXPIRED` (stock back) 15 min after the deadline.
+  Shoppers and merchants may cancel it while unpaid, except while a payment is being verified (409).
+* **Paying:** `POST checkout/orders/:token/pay` (guests) or `customer/orders/:id/pay` opens a session: amount = the order's stored total
+  × 10 in **rial** (`currency: IRR`; never a client value), `metadata.auto_verify = false`, `order_id` = order number, the mobile, and
+  `callback_url = <protocol>://<label>.<root>/checkout/payment/return`. Its domain must be the domain registered for the merchant's terminal
+  (Zarinpal error -14); the settings page shows it. At most 5 attempts per order, only before the deadline, rate limited per network.
+* **Return:** the page posts `{authority, status}` to `checkout/payments/verify`. `Status=NOK` changes nothing (a forged NOK must not
+  cancel a real payment). `OK` only triggers a server-side verify: the attempt (looked up within this store) is **claimed** under the order
+  row lock (Order → Payment, one verification per order at a time, only while the order awaits payment), verified with the STORED amount,
+  then settled: 100/101 with a reference → PAID + order PLACED in one transaction; -50/-54 → that attempt FAILED (the order stays
+  payable); anything else → back to CREATED, checked again later. A partial unique index allows one PAID payment per order.
+* **Reconciler** (`payments-reconcile`, every 5 min, `pnpm payments:reconcile`): CREATED attempts older than 2 min are asked about
+  (`inquiry`): PAID/VERIFIED → verify and settle; FAILED/REVERSED → FAILED; IN_BANK/no answer → next run. Verifications interrupted for
+  3 min are resumed (101 counts as paid). Attempts of orders already paid, cancelled or expired are closed WITHOUT verifying (unless a
+  verify answer was lost), so Zarinpal returns that money to the buyer by itself. Unpaid orders 15 min past their deadline get a last
+  check of their attempts and expire (stock back).
+* **Security review (2026-11-24), all fixed with regression tests** (`payments.db.test.ts`):
+  * *High — a lost verify answer:* a verify that reached Zarinpal but whose answer was lost could let the order be cancelled or expired
+    with the money captured. The claim now marks `verifySentAt`; an attempt with that mark blocks cancel and expiry and is never closed
+    unverified, until a definite answer (verify 100/101, -50/-54, or inquiry FAILED/REVERSED). Money captured on an order that is no longer
+    payable (cancelled, expired or paid by another attempt) is recorded as `REFUND_REQUIRED` and shown to the merchant, never dropped.
+  * *High — the authority is not a secret:* the order link is returned from the return page only to the browser that opened the payment
+    (`sb_pay` HttpOnly cookie with a random return key; only its SHA-256 is stored) or to the order's own signed-in customer; and -51
+    ("not paid", also what a forged early `OK` gets) no longer fails the attempt (only -50 and -54 do).
+  * *Medium:* the attempt stores the fingerprint of the merchant id that opened it and is verified only with that id (-53 is not final);
+    the reconciler works in a time budget with 4 parallel checks, handles overdue orders first (last check, then expiry), and backs off per
+    attempt (`nextCheckAt`, 1→10 min) so abandoned sessions do not starve new ones; a PAID online order is no longer cancellable by the
+    shopper (the merchant may cancel it, with a warning to refund from the Zarinpal panel).
+  * *Low:* the attempt is re-checked under the order lock when it is recorded (5-attempt cap, no session recorded for a closed order);
+    release and failure are compare-and-set on the claim.
+* **Development:** `ZARINPAL_DEV_BASE_URL=http://127.0.0.1:PORT` (development/test only, loopback only) sends the calls to a local fake
+  gateway; the browser follows only the two Zarinpal hosts (and a loopback one outside production).
+* **Not in this phase:** refunds through `reverse.json` (needs the server IP registered at Zarinpal), `cart_data`, the platform's own
+  merchant id (merchant subscriptions), payment SMS (3.6).
+
 ## Storefront and dashboard screens for 3.3/3.4 (2026-11-25)
 
 * **How the store page reaches the API.** The browser on a STORE host calls `/api/shop/<route>` on that same host. The web proxy

@@ -3,13 +3,14 @@ import {
   ORDER_PHONE_RULE,
   ORDER_STORE_RULE,
   ORDER_PLACE_RULE,
+  PAYMENT_WINDOW_MINUTES,
   canTransition,
   orderListQuerySchema,
   orderTransitionSchema,
   placeOrderSchema,
   type OrderStatus,
 } from "@store-builder/shared/modules/orders/orders";
-import { OrderNotReadyError, OrderRateLimitedError, OrderTransitionError } from "@store-builder/shared/modules/orders/errors";
+import { OrderNotReadyError, OrderRateLimitedError, OrderTransitionError, PaymentUnavailableError } from "@store-builder/shared/modules/orders/errors";
 import { ReservationLostError } from "@store-builder/shared/modules/inventory/errors";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import type { z } from "zod";
@@ -31,6 +32,8 @@ function parse<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
 export interface ShopperOrder {
   order: OrderView;
   canCancel: boolean;
+  /** Phase 3.5: an unpaid online order still within its payment window. */
+  canPay: boolean;
 }
 
 /**
@@ -47,6 +50,8 @@ export class OrdersService {
     /** Order ids: random, lowercase alphanumeric (also the stock-hold reference). */
     private readonly newId: () => string,
     private readonly clock: () => Date = () => new Date(),
+    /** Phase 3.5: online payment (null = ONLINE orders are refused). */
+    private readonly payments: { assertCanPay(storeId: string, totalToman: number): Promise<void> } | null = null,
   ) {}
 
   /** The store id of a live store (same 404 for missing and unpublished). */
@@ -55,7 +60,22 @@ export class OrdersService {
   }
 
   private shopperView(order: OrderView): ShopperOrder {
-    return { order, canCancel: canTransition("CUSTOMER", order.status, "CANCELLED") };
+    const canPay = order.status === "AWAITING_PAYMENT" && order.paymentDeadline !== null && new Date(order.paymentDeadline) > this.clock();
+    const canCancel = canTransition("CUSTOMER", order.status, "CANCELLED") && (order.paymentMethod !== "ONLINE" || order.status === "AWAITING_PAYMENT");
+    return { order, canCancel, canPay };
+  }
+
+  /** Phase 3.5: the order behind a guest's access token (for starting its payment). */
+  async orderIdByToken(label: string, token: string): Promise<{ storeId: string; orderId: string }> {
+    const { storeId, order } = await this.byToken(label, token);
+    return { storeId, orderId: order.id };
+  }
+
+  /** Phase 3.5: a signed-in customer's own order (for starting its payment). */
+  async ownOrderId(storeId: string, customerId: string, id: string): Promise<string> {
+    const own = ID_RE.test(id) ? await this.orders.getForCustomer(storeId, customerId, id, false) : null;
+    if (!own) throw new NotFoundError();
+    return own.id;
   }
 
   private async limit(key: string, rule: { limit: number; windowSeconds: number }) {
@@ -80,6 +100,10 @@ export class OrdersService {
 
     const prep = await this.checkout.prepareOrder(label, s, { address: q.address, addressId: q.addressId, shippingMethodId: q.shippingMethodId, cashOnDelivery: q.paymentMethod === "COD" });
     if (!prep.summary.ready || !prep.address) throw new OrderNotReadyError(prep.summary.blockers.length ? prep.summary.blockers : ["no_address"]);
+    if (q.paymentMethod === "ONLINE") {
+      if (!this.payments) throw new PaymentUnavailableError("off");
+      await this.payments.assertCanPay(storeId, prep.summary.total);
+    }
     await this.limit(`order-place:${storeId}:ip:${s.ipKey}`, ORDER_PLACE_RULE);
     await this.limit(`order-place:${storeId}:phone:${prep.address.phone}`, ORDER_PHONE_RULE);
     await this.limit(`order-place:${storeId}:all`, ORDER_STORE_RULE);
@@ -89,6 +113,7 @@ export class OrdersService {
     const order = draftOrder({
       id, storeId, customerId: s.customerId, requestKey, accessTokenHash: this.tokens.hash(token)!,
       summary: prep.summary, address: prep.address, weights: prep.weights, paymentMethod: q.paymentMethod, note: q.note,
+      paymentDeadline: q.paymentMethod === "ONLINE" ? new Date(this.clock().getTime() + PAYMENT_WINDOW_MINUTES * 60_000) : null,
     });
     const lines = order.items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity }));
     try {
@@ -144,14 +169,14 @@ export class OrdersService {
     const all = await this.orders.listForCustomer(storeId, customerId, 50, verified);
     // Orders attached only by phone are shown read-only: the phone on an order may be a gift recipient's (review 3.3b).
     const own = verified ? new Set((await this.orders.listForCustomer(storeId, customerId, 50, false)).map((o) => o.id)) : null;
-    return all.map((o) => (own && !own.has(o.id) ? { order: o, canCancel: false } : this.shopperView(o)));
+    return all.map((o) => (own && !own.has(o.id) ? { order: o, canCancel: false, canPay: false } : this.shopperView(o)));
   }
 
   async getMine(storeId: string, customerId: string, id: string, verified = false): Promise<ShopperOrder> {
     const o = ID_RE.test(id) ? await this.orders.getForCustomer(storeId, customerId, id, verified) : null;
     if (!o) throw new NotFoundError();
     const own = !verified || (await this.orders.getForCustomer(storeId, customerId, id, false)) !== null;
-    return own ? this.shopperView(o) : { order: o, canCancel: false };
+    return own ? this.shopperView(o) : { order: o, canCancel: false, canPay: false };
   }
 
   /** Only orders placed while signed in to this account (phone-attached ones are cancelled with their order link, by whoever placed them). */
@@ -162,8 +187,10 @@ export class OrdersService {
   }
 
   private async cancelAsCustomer(storeId: string, id: string, customerId: string | null): Promise<OrderView> {
-    const r = await this.orders.transition(storeId, id, "CANCELLED", (from) => {
+    const r = await this.orders.transition(storeId, id, "CANCELLED", (from, method) => {
       if (!canTransition("CUSTOMER", from, "CANCELLED")) throw new OrderTransitionError(from, "CANCELLED");
+      // Review 3.5: a PAID online order is cancelled by the store (which returns the money), never by the shopper alone.
+      if (method === "ONLINE" && from !== "AWAITING_PAYMENT") throw new OrderTransitionError(from, "CANCELLED");
     }, { actor: "CUSTOMER", actorId: customerId, note: "" });
     if (!r) throw new NotFoundError();
     return r;
