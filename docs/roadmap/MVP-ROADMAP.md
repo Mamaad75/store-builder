@@ -416,3 +416,66 @@ Acceptance: specs green in CI three consecutive runs; no existing test removed o
 
 Open product choices for M2 (defaults if not decided): revenue counts delivered + confirmed + shipped + placed paid orders (not
 cancelled/expired/awaiting payment); low-stock threshold 3.
+
+---
+
+## 12. Clarifications approved for M1/M2 (owner, 2026-11-24)
+
+### 12.1 D-E2E-PAY — isolated online-payment test stack (Approved)
+
+**Configuration (compatible with D-19; no production rule changed):**
+
+| Part | Setting |
+|---|---|
+| Fake gateway | A loopback-only Node HTTP server started by Playwright (`127.0.0.1`, fixed test port), implementing only the Zarinpal v4 paths the adapter uses (`/pg/v4/payment/request.json`, `verify.json`, `inquiry.json`, `/pg/StartPay/:authority` → redirect to the callback with `Authority` and `Status=OK`). It accepts only one fixed **test** merchant id and moves no money. |
+| Test API | Second API process with `NODE_ENV=test`, bound to `127.0.0.1`, own port, `ZARINPAL_DEV_BASE_URL=http://127.0.0.1:<fake port>` (accepted only because `NODE_ENV` is `test`, `config/env.ts:231-236`), test-only `AUTH_SECRET`, test-only `SECRETS_MASTER_KEYS` / `SECRETS_ACTIVE_KEY_ID` generated for the suite (not a secret, never reused). |
+| Test database | Its own database whose name ends in `_e2e` (the global setup refuses any other name), created and migrated by the suite. |
+| Test web | Second standalone web server on its own port, bound to loopback, pointing only at the test API. |
+| Payment platform setting | Zarinpal enabled with `sandbox: true` in the **test** database only. |
+
+**Why this does not weaken D-19:** the existing production rule (`ZARINPAL_DEV_BASE_URL` refused unless `NODE_ENV` is `development`
+or `test`) is used as is. Under the future `APP_ENV` rule (ADR 0005 §17.2) this stack runs as `APP_ENV=test`. Production keeps
+rejecting fake gateways and sandbox payments unconditionally. The main E2E stack keeps running the production build with
+`NODE_ENV=production`. No environment rule needs to change, so none is proposed.
+
+**Not exposed:** every process binds to `127.0.0.1`; nothing is published outside the CI job or the developer's machine.
+
+### 12.2 D-PILOT-CAP — server-side pilot order limit (Approved; implemented in M5, not now)
+
+* Platform setting `pilot.maxOrderTotalToman` (integer or `null` = no limit), edited only by SUPER_ADMIN in `/platform/settings`.
+  Changes are audited by the existing `platform.settings_updated` row, with before/after values (as D-19 requires for settings).
+* `OrdersService.place` refuses an order whose server-computed total exceeds the active limit with a domain error (`422`) **before** stock
+  is reserved; the check also covers online and card-to-card orders. The storefront shows the message; the UI is not the control.
+* **Initial value: PENDING (owner).** No amount is assumed.
+
+### 12.3 Pilot admin-assisted recovery (specification for M5; follows D-10, D-20)
+
+* No unrestricted password-reset command. A platform route `POST /api/v1/platform/users/:userId/recovery` for SUPER_ADMIN only, with the
+  admin's password re-entered (D-20), a required reason, and an attestation that identity was checked **outside** the application
+  (D-10, ADR 0005 §18.2).
+* One transaction: issue a single-use, short-lived recovery link (or temporary password that must be changed at the next sign-in), bump
+  the merchant's `authVersion` (every previous session ends), write the platform audit row `platform.account_recovered`
+  `{ userId, reason }`. Never log or store the temporary credential in clear.
+* Notify the account owner (in-app; SMS once V1 provides a verified phone and production SMS exists, ADR 0004).
+* When cooling-off exists (M6), recovery is a qualifying event (D-24).
+
+### 12.4 M2 metrics — exact rules (proposal for approval before the endpoint is built)
+
+Facts in the schema: `OrderStatus = AWAITING_PAYMENT | PLACED | CONFIRMED | SHIPPED | DELIVERED | CANCELLED | EXPIRED`;
+`OrderPaymentMethod = COD | ONLINE | CARD_TRANSFER`. Invariants in the code: an ONLINE order becomes `PLACED` only in the transaction that
+records a verified gateway payment (D35-1); a CARD_TRANSFER order becomes `PLACED` only when the merchant approves a receipt (D35b-1).
+
+| Metric | COD | ONLINE | CARD_TRANSFER |
+|---|---|---|---|
+| **Order value** (valid orders) | status ∈ PLACED, CONFIRMED, SHIPPED, DELIVERED | same (implies verified payment) | same (implies approved receipt) |
+| **Paid revenue** (money received and verified) | status = DELIVERED (cash collected on delivery; the merchant's "delivered" is the only signal available) | status ∈ PLACED…DELIVERED | status ∈ PLACED…DELIVERED |
+| **Pending payments** | status ∈ PLACED, CONFIRMED, SHIPPED (to be collected on delivery) | status = AWAITING_PAYMENT (awaiting the customer) | status = AWAITING_PAYMENT, split into "receipt awaiting your review" (a SUBMITTED receipt exists) and "awaiting the customer" |
+
+* **Excluded everywhere:** `CANCELLED` and `EXPIRED`. A cancelled order whose money was already received is not counted as revenue (the
+  merchant owes it back); payments in `REFUND_REQUIRED` are never revenue. A separate "refunds owed" figure is post-MVP.
+* **Amount:** `Order.total` (after discount, including shipping and the COD fee).
+* **Periods:** today, last 7 days, last 30 days, by order creation time, with day boundaries in `Asia/Tehran`.
+* **Action items:** receipts awaiting review, orders `PLACED` (to confirm), orders `CONFIRMED` (to ship).
+* **Low stock (Approved):** ACTIVE products whose stock is **3 or fewer** (for a product with variants, any variant at 3 or fewer), up
+  to 10 listed.
+* **Assumption to confirm:** COD counts as paid only at DELIVERED; a merchant who marks delivery late shows late revenue.
