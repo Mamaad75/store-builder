@@ -72,7 +72,7 @@ function checkStructure(format: Format, b: Buffer): void {
  * embedded data; transparency is preserved (WebP supports alpha). The output type is always image/webp and
  * its dimensions come from the encoder, never from the client.
  */
-export async function processImage(input: Buffer): Promise<ProcessedImage> {
+export async function processImage(input: Buffer, o: { maxDimension?: number; quality?: number } = {}): Promise<ProcessedImage> {
   if (input.length === 0) throw new MediaValidationError("empty");
   if (input.length > MAX_UPLOAD_BYTES) throw new MediaValidationError("too_large");
   const format = detectFormat(input);
@@ -88,8 +88,8 @@ export async function processImage(input: Buffer): Promise<ProcessedImage> {
 
     const { data, info } = await sharp(input, { ...opts, animated: false })
       .rotate()
-      .resize({ width: MAX_OUTPUT_DIMENSION, height: MAX_OUTPUT_DIMENSION, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 82, alphaQuality: 100, effort: 4 })
+      .resize({ width: o.maxDimension ?? MAX_OUTPUT_DIMENSION, height: o.maxDimension ?? MAX_OUTPUT_DIMENSION, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: o.quality ?? 82, alphaQuality: 100, effort: 4 })
       .toBuffer({ resolveWithObject: true });
 
     if (data.length > MAX_UPLOAD_BYTES) throw new MediaValidationError("output_too_large");

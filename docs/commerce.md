@@ -283,6 +283,34 @@ redirects refused, 15 s timeout, answers capped at 64 KiB, both error shapes par
 * **Not in this phase:** refunds through `reverse.json` (needs the server IP registered at Zarinpal), `cart_data`, the platform's own
   merchant id (merchant subscriptions), payment SMS (3.6).
 
+## D35b-1: card-to-card payment (2026-11-24)
+
+Owner decisions: shoppers pick among every enabled method; 24 hours to send the receipt; proof = image + bank tracking number + last 4
+digits of the paying card.
+
+* **Cards:** the merchant lists up to 5 bank cards (`PUT stores/:id/bank-cards`, `store.settings`, audited): 16 digits with a Luhn check
+  (Persian digits, spaces and dashes accepted), holder name, bank name (filled from the card prefix when empty). A card number is shown to
+  a shopper only on their own unpaid card-to-card order. Card-to-card is offered (`payment-methods.cardTransfer`) only while the store has a card.
+* **Order life:** a `CARD_TRANSFER` order is placed like a COD one (stock consumed, cart emptied, no COD fee) but waits `AWAITING_PAYMENT`
+  with a 24-hour `paymentDeadline` and no `order.placed`. The merchant's approval places it (actor MERCHANT, `order.placed`).
+* **Receipt** (`POST checkout/orders/:token/receipt` or `customer/orders/:id/receipt`): the image is the raw body; the tracking number
+  and the payer's last 4 digits come in the `x-receipt-tracking-code` / `x-receipt-payer-last4` headers (percent-encoded), never in the
+  URL that proxies log. The order's state is checked before any image work. The image goes through the media pipeline (real format from the bytes, no trailing data, no animation,
+  pixel limits, re-encoded WebP ≤ 1600 px: EXIF/GPS stripped) and is stored in PostgreSQL (`TransferReceipt.image`), never in the public
+  bucket. Only one receipt under review at a time, at most 5 per order, 10 per network per store per hour.
+* **Review** (`GET/POST stores/:id/orders/:orderId/receipts…`): the image is served only to the store's staff (`orders.view`) with
+  `private, no-store`, `nosniff` and a sandbox CSP. Approve: under the order lock the receipt becomes APPROVED and the order PLACED.
+  Reject with a note (shown to the shopper): the shopper may send a corrected receipt, and the deadline is moved to at least 24 h from now.
+* **Expiry and cancel:** the reconciler expires unpaid card-to-card orders 15 minutes after the deadline (stock back), except while a receipt
+  waits for the merchant. The shopper cannot cancel while a receipt is under review; the merchant can (the receipt is rejected in the same
+  transaction). An approved card-to-card order is cancelled only by the merchant (who returns the money).
+* **Security review (2026-11-24), fixed with tests:** a gateway session could be opened on a card-to-card order (double payment) — only
+  ONLINE orders reach the gateway now, and approval refuses an order with a gateway payment in progress; no deadline extension after the
+  5th receipt; receipt fields moved out of the URL; state checked before image processing, plus a per-order rate limit; concurrent card
+  saves serialised on the store row; lists no longer offer "cancel" on card-to-card orders.
+* **The shopper sees** their receipts' status, date, payer last-4 and the rejection note, never the tracking number (the order link can be
+  shared).
+
 ## Storefront and dashboard screens for 3.3/3.4 (2026-11-25)
 
 * **How the store page reaches the API.** The browser on a STORE host calls `/api/shop/<route>` on that same host. The web proxy

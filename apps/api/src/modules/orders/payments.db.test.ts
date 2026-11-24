@@ -123,7 +123,7 @@ describe("online payment (phase 3.5)", () => {
   it("is offered only when the platform has it on AND the store has a well-formed merchant id", async () => {
     const s = await liveStore("shop", { online: false });
     const me = shopper("shop");
-    expect((await me.call("GET", "/checkout/payment-methods")).json).toEqual({ cod: true, online: false });
+    expect((await me.call("GET", "/checkout/payment-methods")).json).toEqual({ cod: true, online: false, cardTransfer: false });
     await me.call("POST", "/cart/items", { productId: s.tea, quantity: 1 });
     const refused = await me.call("POST", "/checkout/orders", { requestKey: requestKey(), address, shippingMethodId: s.method, paymentMethod: "ONLINE" });
     expect(refused.status).toBe(422);

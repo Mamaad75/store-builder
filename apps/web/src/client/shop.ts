@@ -20,7 +20,15 @@ export const quote = (body: unknown) => send<CheckoutSummary>("POST", "/api/shop
 export const placeOrder = (body: unknown) => send<PlacedOrder>("POST", "/api/shop/checkout/orders", { body });
 export const getOrder = (token: string) => send<ShopperOrder>("GET", `/api/shop/checkout/orders/${encodeURIComponent(token)}`);
 // Phase 3.5: online payment (Zarinpal). The answer's url is the gateway page; the return page sends back only Authority and Status.
-export const paymentMethods = () => send<{ cod: boolean; online: boolean }>("GET", "/api/shop/checkout/payment-methods");
+export const paymentMethods = () => send<{ cod: boolean; online: boolean; cardTransfer: boolean }>("GET", "/api/shop/checkout/payment-methods");
+// D35b-1: a card-to-card receipt: the image as the raw body; the tracking number and the payer card's last 4 digits in headers (never in
+// the URL, which proxies log), percent-encoded so Persian digits survive.
+type ReceiptFields = { trackingCode: string; payerCardLast4: string };
+const receiptHeaders = (f: ReceiptFields) => ({ "x-receipt-tracking-code": encodeURIComponent(f.trackingCode), "x-receipt-payer-last4": encodeURIComponent(f.payerCardLast4) });
+export const sendReceipt = (token: string, image: Blob, f: ReceiptFields) =>
+  send("POST", `/api/shop/checkout/orders/${encodeURIComponent(token)}/receipt`, { raw: image, headers: receiptHeaders(f) });
+export const sendMyReceipt = (id: string, image: Blob, f: ReceiptFields) =>
+  send("POST", `/api/shop/customer/orders/${encodeURIComponent(id)}/receipt`, { raw: image, headers: receiptHeaders(f) });
 export const payOrder = (token: string) => send<{ url: string }>("POST", `/api/shop/checkout/orders/${encodeURIComponent(token)}/pay`);
 export const payMyOrder = (id: string) => send<{ url: string }>("POST", `/api/shop/customer/orders/${encodeURIComponent(id)}/pay`);
 export const verifyPayment = (authority: string, status: string) =>

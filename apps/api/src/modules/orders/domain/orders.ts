@@ -87,7 +87,7 @@ export function draftOrder(o: {
     address: o.address,
     shipping: { methodId: shipping.methodId, name: shipping.name, kind: shipping.kind, cost: s.shippingCost },
     paymentMethod: o.paymentMethod,
-    paymentDeadline: o.paymentMethod === "ONLINE" ? (o.paymentDeadline ?? null) : null,
+    paymentDeadline: o.paymentMethod === "COD" ? null : (o.paymentDeadline ?? null),
     codFee: s.codFee,
     subtotal: s.subtotal,
     total: s.total,

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put, Query, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
 import type { Request, Response } from "express";
 import type { ApiConfig } from "../../../config/env.js";
 import { CONFIG } from "../../../config/tokens.js";
@@ -9,6 +9,7 @@ import { readCookie } from "../../../auth/cookie.js";
 import { CustomerAuthService } from "../../customers/customers.api.js";
 import { OrdersService } from "../application/orders.service.js";
 import { PaymentsService } from "../application/payments.service.js";
+import { TransfersService } from "../application/transfers.service.js";
 
 /**
  * Placing and following orders on ONE published store (phase 3.4). Guests follow an order with the access token they got when placing it
@@ -20,6 +21,7 @@ export class PublicOrdersController {
   constructor(
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(PaymentsService) private readonly payments: PaymentsService,
+    @Inject(TransfersService) private readonly transfers: TransfersService,
     @Inject(CustomerAuthService) private readonly auth: CustomerAuthService,
     @Inject(CONFIG) private readonly config: ApiConfig,
   ) {}
@@ -55,6 +57,19 @@ export class PublicOrdersController {
     const s = await shopperOf(req, this.config, this.auth, storeId);
     return withReturnKey(res, this.config, await this.payments.start(storeId, label, orderId, s.ipKey));
   }
+
+  /**
+   * D35b-1: a card-to-card receipt: the image is the raw body (application/octet-stream); the tracking number and the payer card's last 4
+   * digits come in headers (review: never in the URL, which proxies and CDNs log).
+   */
+  @Post(":token/receipt")
+  @HttpCode(204)
+  async receipt(@Param("label") label: string, @Param("token") token: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    res.setHeader("Cache-Control", "no-store");
+    const { storeId, orderId } = await this.orders.orderIdByToken(label, token);
+    const s = await shopperOf(req, this.config, this.auth, storeId);
+    await this.transfers.submit(storeId, orderId, req.body, receiptFields(req), s.ipKey);
+  }
 }
 
 /**
@@ -67,12 +82,27 @@ function withReturnKey(res: Response, config: ApiConfig, r: { url: string; retur
   return { url: r.url };
 }
 
+/** D35b-1: the text fields of a receipt, from headers (percent-encoded so Persian digits survive). */
+function receiptFields(req: Request): { trackingCode: unknown; payerCardLast4: unknown } {
+  const one = (name: string) => {
+    const v = req.headers[name];
+    if (typeof v !== "string") return undefined;
+    try {
+      return decodeURIComponent(v);
+    } catch {
+      return "";
+    }
+  };
+  return { trackingCode: one("x-receipt-tracking-code"), payerCardLast4: one("x-receipt-payer-last4") };
+}
+
 /** A signed-in customer's orders in this store. Without a valid session of THIS store: 401. */
 @Controller("public/stores/:label/customer/orders")
 export class CustomerOrdersController {
   constructor(
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(PaymentsService) private readonly payments: PaymentsService,
+    @Inject(TransfersService) private readonly transfers: TransfersService,
     @Inject(CustomerAuthService) private readonly auth: CustomerAuthService,
     @Inject(CONFIG) private readonly config: ApiConfig,
   ) {}
@@ -114,6 +144,15 @@ export class CustomerOrdersController {
     if (!s.customerId) throw new UnauthorizedException();
     return withReturnKey(res, this.config, await this.payments.start(storeId, label, await this.orders.ownOrderId(storeId, s.customerId, id), s.ipKey));
   }
+
+  /** D35b-1: a card-to-card receipt for one of the customer's own orders (same body and query as the guest route). */
+  @Post(":orderId/receipt")
+  @HttpCode(204)
+  async receipt(@Param("label") label: string, @Param("orderId") id: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const w = await this.who(label, req, res);
+    const s = await shopperOf(req, this.config, this.auth, w.storeId);
+    await this.transfers.submit(w.storeId, await this.orders.ownOrderId(w.storeId, w.customerId, id), req.body, receiptFields(req), s.ipKey);
+  }
 }
 
 /**
@@ -125,6 +164,7 @@ export class PaymentsController {
   constructor(
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(PaymentsService) private readonly payments: PaymentsService,
+    @Inject(TransfersService) private readonly transfers: TransfersService,
     @Inject(CustomerAuthService) private readonly auth: CustomerAuthService,
     @Inject(CONFIG) private readonly config: ApiConfig,
   ) {}
@@ -132,7 +172,8 @@ export class PaymentsController {
   @Get("payment-methods")
   async methods(@Param("label") label: string, @Res({ passthrough: true }) res: Response) {
     res.setHeader("Cache-Control", "no-store");
-    return { cod: true, online: await this.payments.available(await this.orders.liveStoreId(label)) };
+    const storeId = await this.orders.liveStoreId(label);
+    return { cod: true, online: await this.payments.available(storeId), cardTransfer: await this.transfers.available(storeId) };
   }
 
   @Post("payments/verify")
@@ -154,7 +195,38 @@ export class StoreOrdersController {
   constructor(
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(PaymentsService) private readonly paymentsSvc: PaymentsService,
+    @Inject(TransfersService) private readonly transfers: TransfersService,
   ) {}
+
+  /** D35b-1: the order's card-to-card receipts (without the images). */
+  @Get(":orderId/receipts")
+  @RequirePermission("orders.view")
+  receipts(@StoreAccess() a: StoreAccessContext, @Param("orderId") id: string) {
+    return this.transfers.receipts(a, id);
+  }
+
+  /** D35b-1: one receipt image (re-encoded WebP), never cached and never a public link. */
+  @Get(":orderId/receipts/:receiptId/image")
+  @RequirePermission("orders.view")
+  async receiptImage(@StoreAccess() a: StoreAccessContext, @Param("orderId") id: string, @Param("receiptId") rid: string, @Res() res: Response) {
+    const img = await this.transfers.image(a, id, rid);
+    res.setHeader("Content-Type", img.mime);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", "inline");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+    res.end(img.bytes);
+  }
+
+  /** D35b-1: approve (the order is placed) or reject with a note (the shopper may send another receipt). */
+  @Post(":orderId/receipts/:receiptId/review")
+  @HttpCode(200)
+  @RequirePermission("orders.manage")
+  @Audit("order.receipt_reviewed", { type: "order", param: "orderId" })
+  async review(@StoreAccess() a: StoreAccessContext, @Param("orderId") id: string, @Param("receiptId") rid: string, @Body() body: unknown) {
+    const result = await this.transfers.review(a, id, rid, body);
+    return { result, order: await this.orders.get(a, id) };
+  }
 
   @Get()
   @RequirePermission("orders.view")
@@ -206,5 +278,25 @@ export class StorePaymentSettingsController {
   @RequirePermission("secrets.manage")
   view(@StoreAccess() a: StoreAccessContext) {
     return this.payments.settingsView(a.storeId);
+  }
+}
+
+/** D35b-1: the store's bank cards for card-to-card payment (shown to shoppers on their unpaid card-to-card orders). */
+@Controller("stores/:storeId/bank-cards")
+@UseGuards(SessionGuard, StoreAccessGuard)
+export class StoreBankCardsController {
+  constructor(@Inject(TransfersService) private readonly transfers: TransfersService) {}
+
+  @Get()
+  @RequirePermission("store.view")
+  list(@StoreAccess() a: StoreAccessContext) {
+    return this.transfers.cards(a.storeId);
+  }
+
+  @Put()
+  @RequirePermission("store.settings")
+  @Audit("store.bank_cards_replaced")
+  replace(@StoreAccess() a: StoreAccessContext, @Body() body: unknown) {
+    return this.transfers.replaceCards(a, body);
   }
 }

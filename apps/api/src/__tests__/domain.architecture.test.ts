@@ -138,9 +138,9 @@ describe("architecture guard: media and object storage", () => {
     expect(inFiles(/from\s+["']@aws-sdk\//)).toEqual(["src/lib/storage/s3.ts"]);
   });
 
-  it("sharp is imported only by the image pipeline, and the pipeline is used only by uploadMedia", () => {
+  it("sharp is imported only by the image pipeline, and the pipeline is used only by uploadMedia (and, D35b-1, the receipt entry of media.api.ts)", () => {
     expect(inFiles(/from\s+["']sharp["']/)).toEqual(["src/modules/media/process.ts"]);
-    expect(inFiles(/from\s+["'][^"']*\/process(?:\.js)?["']|from\s+["']\.\/process(?:\.js)?["']/)).toEqual(["src/modules/media/service.ts"]);
+    expect(inFiles(/from\s+["'][^"']*\/process(?:\.js)?["']|from\s+["']\.\/process(?:\.js)?["']/).sort()).toEqual(["src/modules/media/media.api.ts", "src/modules/media/service.ts"]);
     expect(read("src/modules/media/service.ts").match(/processImage\(/g)).toHaveLength(1);
   });
 

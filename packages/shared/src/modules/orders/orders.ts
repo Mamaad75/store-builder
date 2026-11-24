@@ -45,9 +45,11 @@ export function nextStatuses(actor: "CUSTOMER" | "MERCHANT", from: OrderStatus):
 /** Cancelling or expiring gives the order's stock back; no other change touches stock (it left the shelf when the order was placed). */
 export const restocksOn = (to: OrderStatus) => to === "CANCELLED" || to === "EXPIRED";
 
-export const PAYMENT_METHODS = ["COD", "ONLINE"] as const;
+export const PAYMENT_METHODS = ["COD", "ONLINE", "CARD_TRANSFER"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
-export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = { COD: "پرداخت در محل", ONLINE: "پرداخت اینترنتی (زرین‌پال)" };
+export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = { COD: "پرداخت در محل", ONLINE: "پرداخت اینترنتی (زرین‌پال)", CARD_TRANSFER: "کارت به کارت" };
+/** Paid before the order is placed (the order waits AWAITING_PAYMENT until then). */
+export const isPrepaid = (m: PaymentMethod) => m !== "COD";
 
 // ---------- phase 3.5 (D35-1): online payment ----------
 

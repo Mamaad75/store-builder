@@ -9,6 +9,7 @@ import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
 import { customerLoginSchema, customerRegisterSchema } from "../modules/customers/schemas.js";
 import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
+import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
 import { RATE_CODES, priceLinkInputSchema } from "../modules/pricing/pricing.js";
 import { createStoreSchema, switchThemeSchema, updateBusinessCategorySchema, updateStoreSchema } from "../modules/stores/schemas.js";
 import * as S from "./schemas.js";
@@ -187,15 +188,22 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", "/api/public/stores/:label/checkout/orders/:token", "Follow an order with its access token (guests)", { auth: "public", response: S.shopperOrderDto }),
   r("POST", "/api/public/stores/:label/checkout/orders/:token/cancel", "Cancel an order with its access token, until the store confirms it", { auth: "public", status: 200, response: S.shopperOrderDto }),
   r("POST", "/api/public/stores/:label/checkout/orders/:token/pay", "Open a Zarinpal payment for an unpaid online order (phase 3.5); answers where to send the buyer", { auth: "public", status: 200, response: S.paymentStartDto }),
-  r("GET", "/api/public/stores/:label/checkout/payment-methods", "Which payment methods the store takes now (phase 3.5)", { auth: "public", response: z.object({ cod: z.boolean(), online: z.boolean() }) }),
+  r("GET", "/api/public/stores/:label/checkout/payment-methods", "Which payment methods the store takes now (phase 3.5)", { auth: "public", response: z.object({ cod: z.boolean(), online: z.boolean(), cardTransfer: z.boolean() }) }),
+  r("POST", "/api/public/stores/:label/checkout/orders/:token/receipt", "Send a card-to-card receipt (D35b-1): image as application/octet-stream; headers x-receipt-tracking-code and x-receipt-payer-last4 (percent-encoded)", { auth: "public", status: 204 }),
   r("POST", "/api/public/stores/:label/checkout/payments/verify", "The buyer is back from Zarinpal: the payment is verified server-side (phase 3.5)", { auth: "public", status: 200, body: verifyPaymentSchema, response: S.paymentReturnDto }),
   r("GET", "/api/public/stores/:label/customer/orders", "The signed-in customer's orders in this store, newest first (customer cookie; 401 without)", { auth: "public", response: z.array(S.shopperOrderDto) }),
   r("GET", "/api/public/stores/:label/customer/orders/:orderId", "One of the signed-in customer's orders", { auth: "public", response: S.shopperOrderDto }),
   r("POST", "/api/public/stores/:label/customer/orders/:orderId/cancel", "Cancel one of the signed-in customer's orders, until the store confirms it", { auth: "public", status: 200, response: S.shopperOrderDto }),
   r("POST", "/api/public/stores/:label/customer/orders/:orderId/pay", "Open a Zarinpal payment for one of the signed-in customer's unpaid online orders (phase 3.5)", { auth: "public", status: 200, response: S.paymentStartDto }),
+  r("POST", "/api/public/stores/:label/customer/orders/:orderId/receipt", "Send a card-to-card receipt for one of the signed-in customer's orders (D35b-1; same body and headers)", { auth: "public", status: 204 }),
   r("GET", st("/orders"), "The store's orders, newest first (keyset: pass nextCursor as before)", { permission: "orders.view", query: orderListQuerySchema, response: S.orderListDto }),
   r("GET", st("/orders/customer-stats"), "Order count, spending (not cancelled) and last order per customer (phase 3.3b; ids=comma list, at most 100)", { permission: "customers.view", query: z.object({ ids: z.string().max(6600).optional() }), response: z.array(z.object({ customerId: z.string(), orders: z.number(), spent: z.number(), lastOrderAt: z.string().nullable() })) }),
   r("GET", st("/orders/:orderId"), "One order with its items and history", { permission: "orders.view", response: S.orderDto }),
+  r("GET", st("/orders/:orderId/receipts"), "The order's card-to-card receipts (D35b-1; images separately)", { permission: "orders.view", response: z.array(S.receiptDto) }),
+  r("GET", st("/orders/:orderId/receipts/:receiptId/image"), "One receipt image (image/webp, never cached)", { permission: "orders.view" }),
+  r("POST", st("/orders/:orderId/receipts/:receiptId/review"), "Approve (the order is placed) or reject a card-to-card receipt", { permission: "orders.manage", status: 200, body: reviewReceiptSchema, response: z.object({ result: z.enum(["approved", "rejected"]), order: S.orderDto }) }),
+  r("GET", st("/bank-cards"), "The store's bank cards for card-to-card payment (D35b-1)", { permission: "store.view", response: z.array(S.bankCardDto) }),
+  r("PUT", st("/bank-cards"), "Replace the store's bank cards (at most 5)", { permission: "store.settings", body: replaceBankCardsSchema, response: z.array(S.bankCardDto) }),
   r("GET", st("/payment-settings"), "Online payment state (phase 3.5): platform switch, sandbox, whether the merchant id is set, the return address", { permission: "secrets.manage", response: S.paymentSettingsViewDto }),
   r("GET", st("/orders/:orderId/payments"), "The order's online payment attempts (phase 3.5): status, reference number, masked card", { permission: "orders.view", response: z.array(S.paymentAttemptDto) }),
   r("POST", st("/orders/:orderId/status"), "Confirm, ship, deliver or cancel an order (cancelling gives the stock back)", { permission: "orders.manage", status: 200, body: orderTransitionSchema, response: S.orderDto }),

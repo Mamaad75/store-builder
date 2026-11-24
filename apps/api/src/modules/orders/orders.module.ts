@@ -6,12 +6,13 @@ import { PlatformSettingsService } from "../platform/platform.api.js";
 import { SecretService } from "../secrets/secrets.api.js";
 import { OrdersService } from "./application/orders.service.js";
 import { PaymentsService } from "./application/payments.service.js";
+import { TransfersService } from "./application/transfers.service.js";
 import type { PaymentGateway } from "./application/ports.js";
-import { createOrdersService, createPaymentsService } from "./infrastructure/compose.js";
-import { CustomerOrdersController, PaymentsController, PublicOrdersController, StorePaymentSettingsController, StoreOrdersController } from "./interface/orders.controllers.js";
+import { createOrdersService, createPaymentsService, createTransfersService } from "./infrastructure/compose.js";
+import { CustomerOrdersController, PaymentsController, PublicOrdersController, StoreBankCardsController, StorePaymentSettingsController, StoreOrdersController } from "./interface/orders.controllers.js";
 
 @Module({
-  controllers: [PublicOrdersController, CustomerOrdersController, StoreOrdersController, PaymentsController, StorePaymentSettingsController],
+  controllers: [PublicOrdersController, CustomerOrdersController, StoreOrdersController, PaymentsController, StorePaymentSettingsController, StoreBankCardsController],
   providers: [
     {
       provide: PaymentsService,
@@ -26,10 +27,12 @@ import { CustomerOrdersController, PaymentsController, PublicOrdersController, S
         }),
       inject: [CONFIG, RATE_LIMITER, PlatformSettingsService, SecretService, PAYMENT_GATEWAY],
     },
+    { provide: TransfersService, useFactory: (limiter: RateLimiter) => createTransfersService({ limiter }), inject: [RATE_LIMITER] },
     {
       provide: OrdersService,
-      useFactory: (config: ApiConfig, limiter: RateLimiter, payments: PaymentsService) => createOrdersService({ authSecret: config.authSecret, limiter, payments }),
-      inject: [CONFIG, RATE_LIMITER, PaymentsService],
+      useFactory: (config: ApiConfig, limiter: RateLimiter, payments: PaymentsService, transfers: TransfersService) =>
+        createOrdersService({ authSecret: config.authSecret, limiter, payments, transfers }),
+      inject: [CONFIG, RATE_LIMITER, PaymentsService, TransfersService],
     },
   ],
 })

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cancelOrder, getOrder, goToGateway, payOrder, problemText, type ShopperOrder } from "@/client/shop";
+import { sendReceipt, cancelOrder, getOrder, goToGateway, payOrder, problemText, type ShopperOrder } from "@/client/shop";
 import OrderDetails from "./OrderDetails";
 import s from "./shop.module.css";
 
@@ -42,5 +42,5 @@ export default function OrderTracker({ token }: { token: string }) {
   }
 
   if (!data) return <div className={s.page}>{error ? <p className={s.alert} role="alert">{error}</p> : <p className={s.muted}>در حال بارگذاری…</p>}</div>;
-  return <OrderDetails data={data} error={error} busy={busy} cancel={cancel} pay={pay} />;
+  return <OrderDetails data={data} error={error} busy={busy} cancel={cancel} pay={pay} receipt={{ submit: (img, f) => sendReceipt(token, img, f), reload: () => void getOrder(token).then(setData).catch(() => undefined) }} />;
 }

@@ -215,3 +215,65 @@ export interface PaymentStore {
   /** Per order, for the order pages. */
   forOrder(storeId: string, orderId: string): Promise<{ status: AttemptStatus; refId: string | null; cardPan: string | null; createdAt: Date; verifiedAt: Date | null }[]>;
 }
+
+// ---------- D35b-1: card-to-card ----------
+
+export interface BankCard {
+  cardNumber: string;
+  holderName: string;
+  bankName: string;
+}
+
+export interface ReceiptView {
+  id: string;
+  status: "SUBMITTED" | "APPROVED" | "REJECTED";
+  trackingCode: string;
+  payerCardLast4: string;
+  reviewNote: string;
+  createdAt: string;
+  reviewedAt: string | null;
+}
+
+/** What the shopper sees on a card-to-card order: where to transfer, what was sent, whether another receipt can be sent now. */
+export interface TransferInfo {
+  cards: BankCard[];
+  receipts: Omit<ReceiptView, "id" | "trackingCode">[];
+  canSubmit: boolean;
+}
+
+/** Bank cards and receipts of one store. Every query is bound to the store id. */
+export interface TransferStore {
+  cards(storeId: string): Promise<BankCard[]>;
+  replaceCards(storeId: string, cards: BankCard[]): Promise<BankCard[]>;
+  /** null = no such order in this store. */
+  receipts(storeId: string, orderId: string): Promise<ReceiptView[] | null>;
+  /**
+   * ONE transaction, order row locked: a CARD_TRANSFER order still AWAITING_PAYMENT before its deadline, no receipt under review, fewer
+   * than `max` receipts -> the receipt is written (SUBMITTED).
+   */
+  submit(
+    r: { storeId: string; orderId: string; trackingCode: string; payerCardLast4: string; image: Buffer; width: number; height: number },
+    now: Date,
+    max: number,
+  ): Promise<"ok" | "closed" | "pending" | "too_many">;
+  /** The same checks as submit, without a lock: refuses early before an image is processed (submit checks again under the lock). */
+  canSubmit(storeId: string, orderId: string, now: Date, max: number): Promise<"ok" | "closed" | "pending" | "too_many">;
+  image(storeId: string, orderId: string, receiptId: string): Promise<{ bytes: Buffer; mime: string } | null>;
+  /**
+   * ONE transaction, order row locked. approve: the receipt APPROVED and the order AWAITING_PAYMENT -> PLACED (history by the merchant,
+   * "order.placed"); reject: the receipt REJECTED with the note, the order's deadline moved to at least `resubmitUntil`.
+   */
+  review(
+    storeId: string,
+    orderId: string,
+    receiptId: string,
+    d: { decision: "approve" | "reject"; note: string; actorId: string },
+    now: Date,
+    resubmitUntil: Date,
+    /** No extension once the order has this many receipts (nothing more can be sent). */
+    max: number,
+  ): Promise<"approved" | "rejected" | "not_found" | "not_pending">;
+}
+
+/** Re-encodes an uploaded receipt (no metadata survives); throws MediaValidationError for anything that is not a sane still image. */
+export type ReceiptImageProcessor = (bytes: Buffer) => Promise<{ buffer: Buffer; width: number; height: number }>;

@@ -123,7 +123,7 @@ function buildNav(base: string): Item[] {
       match: (p) => p.startsWith(`${base}/shipping`),
     },
     {
-      label: 'پرداخت آنلاین',
+      label: 'روش‌های پرداخت',
       href: `${base}/payments`,
       icon: <CreditCardOutlined />,
       match: (p) => p.startsWith(`${base}/payments`),
