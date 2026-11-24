@@ -7,6 +7,8 @@ import { recordEvent } from "../../../platform/outbox/outbox.js";
 import { clearCartInTx } from "../../checkout/checkout.api.js";
 import { customerIdForPhoneInTx } from "../../customers/customers.api.js";
 import { consumeReservationInTx, restockReservationInTx } from "../../inventory/inventory.api.js";
+import { redeemDiscountInTx, releaseDiscountInTx } from "../../discounts/discounts.api.js";
+import type { DiscountCart } from "@store-builder/shared/modules/discounts/discounts";
 import type { OrderListPage, OrderStore } from "../application/ports.js";
 import type { NewOrder, OrderView } from "../domain/orders.js";
 
@@ -19,7 +21,7 @@ const prismaCode = (e: unknown) => (typeof e === "object" && e !== null ? (e as 
 const orderSelect = {
   id: true, number: true, status: true, createdAt: true, customerId: true,
   recipientName: true, phone: true, province: true, city: true, addressLine: true, postalCode: true,
-  shippingName: true, shippingKind: true, shippingCost: true, paymentMethod: true, paymentGateway: true, paymentDeadline: true, codFee: true, subtotal: true, total: true, itemCount: true, note: true,
+  shippingName: true, shippingKind: true, shippingCost: true, paymentMethod: true, paymentGateway: true, paymentDeadline: true, codFee: true, discountCode: true, discountAmount: true, subtotal: true, total: true, itemCount: true, note: true,
   items: { select: { productId: true, variantId: true, name: true, variantLabel: true, unitPrice: true, quantity: true, lineTotal: true, weightGrams: true }, orderBy: { position: "asc" as const } },
   payments: { where: { status: "PAID" as const }, select: { refId: true, cardPan: true, verifiedAt: true }, take: 1 },
   events: { select: { fromStatus: true, toStatus: true, actor: true, note: true, createdAt: true }, orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }] },
@@ -37,6 +39,8 @@ function toView(r: OrderRow): OrderView {
     shipping: { name: r.shippingName, kind: r.shippingKind as ShippingKind, cost: Number(r.shippingCost) },
     paymentMethod: r.paymentMethod as PaymentMethod,
     paymentGateway: (r.paymentGateway as Gateway | null) ?? null,
+    discountCode: r.discountCode,
+    discountAmount: Number(r.discountAmount),
     paymentDeadline: r.paymentDeadline?.toISOString() ?? null,
     payment: r.payments[0] ? { refId: r.payments[0].refId!, cardPan: r.payments[0].cardPan, paidAt: r.payments[0].verifiedAt!.toISOString() } : null,
     subtotal: Number(r.subtotal),
@@ -104,7 +108,7 @@ export class PrismaOrderStore implements OrderStore {
     return { items: page, nextCursor: rows.length > q.limit ? page[page.length - 1]!.id : null };
   }
 
-  async create(o: NewOrder, holdLines: number, cartId: string | null, now: Date): Promise<OrderView | "hold_lost" | "duplicate"> {
+  async create(o: NewOrder, holdLines: number, cartId: string | null, now: Date, discountCart?: DiscountCart): Promise<OrderView | "hold_lost" | "duplicate"> {
     try {
       await db.$transaction(async (tx) => {
         const scope = { tx };
@@ -126,10 +130,18 @@ export class PrismaOrderStore implements OrderStore {
             id: o.id, storeId: o.storeId, number: counter!.n, status: first, customerId, linkedByPhone, requestKey: o.requestKey, accessTokenHash: o.accessTokenHash,
             recipientName: o.address.recipientName, phone: o.address.phone, province: o.address.province, city: o.address.city, addressLine: o.address.line, postalCode: o.address.postalCode,
             shippingMethodId: o.shipping.methodId, shippingName: o.shipping.name, shippingKind: o.shipping.kind, shippingCost: BigInt(o.shipping.cost),
-            paymentMethod: o.paymentMethod, paymentGateway: o.paymentGateway, paymentDeadline: o.paymentDeadline, codFee: BigInt(o.codFee), subtotal: BigInt(o.subtotal), total: BigInt(o.total), itemCount: o.itemCount, note: o.note,
+            paymentMethod: o.paymentMethod, paymentGateway: o.paymentGateway, paymentDeadline: o.paymentDeadline,
+            discountCode: o.discount?.code ?? null, discountAmount: BigInt(o.discount?.amount ?? 0), codFee: BigInt(o.codFee), subtotal: BigInt(o.subtotal), total: BigInt(o.total), itemCount: o.itemCount, note: o.note,
           },
         });
         await tx.orderItem.createMany({ data: o.items.map((i) => ({ ...i, storeId: o.storeId, orderId: o.id, lineTotal: BigInt(i.lineTotal) })) });
+        // Phase 5.1: the code's binding use, under its row lock (limits checked again on this order's own cart; any change refuses).
+        if (o.discount) {
+          await redeemDiscountInTx(scope, {
+            storeId: o.storeId, discountId: o.discount.id, orderId: o.id, phone: o.address.phone, customerId,
+            cart: discountCart ?? { lines: [], subtotal: o.subtotal, shippingCost: o.shipping.cost }, expectedAmount: o.discount.amount, now,
+          });
+        }
         await tx.orderEvent.create({ data: { storeId: o.storeId, orderId: o.id, fromStatus: null, toStatus: first, actor: "CUSTOMER", actorId: linkedByPhone ? null : customerId } });
         // 4. consumers (order SMS, 3.6) re-read the order; the event carries ids only, never personal data
         if (first === "PLACED") await recordEvent(scope, { type: "order.placed", storeId: o.storeId, payload: { orderId: o.id, number: counter!.n } });
@@ -175,7 +187,10 @@ export class PrismaOrderStore implements OrderStore {
       }
       await tx.order.updateMany({ where: { id, storeId, status: row.status }, data: { status: to } });
       await tx.orderEvent.create({ data: { storeId, orderId: id, fromStatus: row.status, toStatus: to, actor: by.actor, actorId: by.actorId, note: by.note } });
-      if (restocksOn(to)) await restockReservationInTx({ tx }, storeId, id);
+      if (restocksOn(to)) {
+        await restockReservationInTx({ tx }, storeId, id);
+        await releaseDiscountInTx({ tx }, storeId, id); // phase 5.1: the code's use comes back
+      }
       await recordEvent({ tx }, { type: "order.status_changed", storeId, payload: { orderId: id, from: row.status, to, actor: by.actor } });
       return true;
     }, TX);

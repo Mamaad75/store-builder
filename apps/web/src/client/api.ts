@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { bankCardDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -73,6 +73,17 @@ export const getPaymentSettings = (storeId: string) => send<PaymentSettingsView>
 export const setGatewayCredential = (storeId: string, g: Gateway, value: string) => send("PUT", `${store(storeId)}/secrets/${enc(GATEWAY_SECRETS[g])}`, { body: { value } });
 export const deleteGatewayCredential = (storeId: string, g: Gateway) => send("POST", `${store(storeId)}/secrets/${enc(GATEWAY_SECRETS[g])}/delete`);
 export const getOrderPayments = (storeId: string, orderId: string) => send<PaymentAttempt[]>("GET", `${store(storeId)}/orders/${enc(orderId)}/payments`);
+// phase 5.1: discount codes
+export type DiscountDto = z.infer<typeof discountDto>;
+export const getDiscounts = (storeId: string) => send<DiscountDto[]>("GET", `${store(storeId)}/discounts`);
+export const createDiscount = (storeId: string, body: unknown) => send<DiscountDto>("POST", `${store(storeId)}/discounts`, { body });
+export const updateDiscount = (storeId: string, id: string, body: unknown) => send<DiscountDto>("PUT", `${store(storeId)}/discounts/${enc(id)}`, { body });
+export const deleteDiscount = (storeId: string, id: string) => send("POST", `${store(storeId)}/discounts/${enc(id)}/delete`);
+/** For the discount's product picker: one page of products (search by name). */
+export const searchProducts = (storeId: string, q: string) =>
+  send<{ items: { id: string; name: string }[] }>("GET", `${store(storeId)}/products`, { query: { q: q || undefined, pageSize: "50" } });
+export const getCategories = (storeId: string) => send<{ id: string; name: string }[]>("GET", `${store(storeId)}/categories`);
+
 // phase 3.6: order SMS of the store
 export type StoreSmsView = z.infer<typeof storeSmsSettingsViewDto>;
 export const getSmsSettings = (storeId: string) => send<StoreSmsView>("GET", `${store(storeId)}/sms-settings`);

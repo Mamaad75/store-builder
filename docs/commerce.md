@@ -378,6 +378,27 @@ digits of the paying card.
 * **The shopper sees** their receipts' status, date, payer last-4 and the rejection note, never the tracking number (the order link can be
   shared).
 
+## 5.1 design (D51-1): discount codes (2026-11-24)
+
+Owner decisions: percentage (optional cap), fixed amount, free shipping; start/end dates, minimum order, total usage limit, per-customer
+limit (by phone), product/category scope, first order only; **one code per order**.
+
+* **Rules** (`packages/shared/src/modules/discounts`): `evaluateDiscount` is pure and integer-only. The base is the eligible lines (whole cart,
+  or only the scoped products / categories). Percentage = `floor(base * value / 100)`, capped by `maxAmount`, never above the base; fixed = at
+  most the base; free shipping = the shipping cost (none without a paid shipping method). The COD fee is never discounted. Refusals carry a
+  reason (not_found, inactive, not_started, expired, min_order, exhausted, customer_limit, first_order_only, no_eligible_items, no_shipping,
+  changed) with a Persian message. Codes are normalised (upper case, Persian/Arabic digits to ASCII) and unique per store.
+* **Data**: `Discount` (per store, max 200) and `DiscountRedemption` (one row per order; `releasedAt` when the order is cancelled or expires).
+  `Order.discountCode` / `discountAmount` are a snapshot. CHECKs: value ranges per type, scope shape, and
+  `total = subtotal + shipping + codFee - discountAmount` with the discount at most `subtotal + shipping`.
+* **Checkout**: the quote takes `discountCode`; a refused code gives `discountError` and the `discount_invalid` blocker (no order). Unknown
+  codes are rate limited per network (30 / hour) against guessing. The discount id never leaves the server.
+* **Order**: the amount is computed on the server again when the order is placed. Inside the order's create transaction the discount row is
+  locked (`FOR UPDATE`), usage / per-phone / first-order are counted again, and the order is refused (`changed`) if the amount differs from
+  the summary. Released redemptions do not count, so a cancelled or expired order gives the use back.
+* **Dashboard**: «کدهای تخفیف» (permission `discounts.manage`, owner and manager): list with usage, create/edit dialog with product and
+  category pickers, delete (redemptions keep the order snapshot). All writes are audited.
+
 ## Storefront and dashboard screens for 3.3/3.4 (2026-11-25)
 
 * **How the store page reaches the API.** The browser on a STORE host calls `/api/shop/<route>` on that same host. The web proxy

@@ -88,6 +88,7 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
         <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>جمع کالاها</span><span>{toman(order.subtotal)}</span></Box>
         <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>ارسال ({order.shipping.name})</span><span>{order.shipping.cost === 0 ? "رایگان" : toman(order.shipping.cost)}</span></Box>
         {order.codFee > 0 && <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>کارمزد پرداخت در محل</span><span>{toman(order.codFee)}</span></Box>}
+        {order.discountAmount > 0 && <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>تخفیف (<span dir="ltr">{order.discountCode}</span>)</span><span>− {toman(order.discountAmount)}</span></Box>}
         <Box sx={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}><span>مبلغ کل</span><span>{toman(order.total)}</span></Box>
       </Paper>
 

@@ -216,5 +216,7 @@ export const checkoutQuoteSchema = z
     addressId: id.optional(),
     shippingMethodId: id.optional(),
     cashOnDelivery: z.boolean().default(false),
+    /** Phase 5.1: one discount code (case-insensitive). */
+    discountCode: z.string().max(64).optional(),
   })
   .strict();

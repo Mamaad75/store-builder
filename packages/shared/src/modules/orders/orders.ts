@@ -146,6 +146,8 @@ export const placeOrderSchema = z
     addressId: z.string().regex(ID_RE).optional(),
     shippingMethodId: z.string().regex(ID_RE, "روش ارسال را انتخاب کنید"),
     paymentMethod: z.enum(PAYMENT_METHODS, { error: "روش پرداخت را انتخاب کنید" }),
+    /** Phase 5.1: one discount code (case-insensitive). */
+    discountCode: z.string().max(64).optional(),
     /** D35c-1: which gateway, for an ONLINE order (default: Zarinpal, for clients of phase 3.5). */
     gateway: z.enum(GATEWAYS, { error: "درگاه پرداخت را انتخاب کنید" }).optional(),
     note,

@@ -14,6 +14,10 @@ export interface ReadySummary {
   subtotal: number;
   total: number;
   blockers: string[];
+  /** Phase 5.1: the applied discount code (id for the redemption). */
+  discount?: { id: string; code: string; amount: number } | null;
+  /** Phase 5.1: why the code given does not apply. */
+  discountError?: { reason: string; minOrder?: number } | null;
 }
 
 export interface NewOrderItem {
@@ -47,6 +51,8 @@ export interface NewOrder {
   itemCount: number;
   note: string;
   items: NewOrderItem[];
+  /** Phase 5.1: the discount code, redeemed in the order's own transaction (re-checked there on `discountCart`). */
+  discount: { id: string; code: string; amount: number } | null;
 }
 
 /**
@@ -95,6 +101,7 @@ export function draftOrder(o: {
     codFee: s.codFee,
     subtotal: s.subtotal,
     total: s.total,
+    discount: s.discount ? { id: s.discount.id, code: s.discount.code, amount: s.discount.amount } : null,
     itemCount: items.reduce((n, i) => n + i.quantity, 0),
     note: o.note,
     items,
@@ -113,6 +120,9 @@ export interface OrderView {
   paymentGateway: Gateway | null;
   /** Phase 3.5: until when an unpaid online order can be paid (ISO), null otherwise. */
   paymentDeadline: string | null;
+  /** Phase 5.1: the discount code used and the whole discount (items + shipping); `total` already reflects it. */
+  discountCode: string | null;
+  discountAmount: number;
   /** Phase 3.5: the online payment once verified (reference number and masked card), null otherwise. */
   payment: { refId: string; cardPan: string | null; paidAt: string } | null;
   subtotal: number;

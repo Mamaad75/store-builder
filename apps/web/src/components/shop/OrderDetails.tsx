@@ -72,6 +72,7 @@ export default function OrderDetails({
           <div className={s.totalRow}><span>جمع کالاها</span><span className={s.num}>{toman(o.subtotal)}</span></div>
           <div className={s.totalRow}><span>ارسال ({o.shipping.name})</span><span className={s.num}>{o.shipping.cost === 0 ? "رایگان" : toman(o.shipping.cost)}</span></div>
           {o.codFee > 0 && <div className={s.totalRow}><span>کارمزد پرداخت در محل</span><span className={s.num}>{toman(o.codFee)}</span></div>}
+          {o.discountAmount > 0 && <div className={s.totalRow}><span>تخفیف ({o.discountCode})</span><span className={s.num}>− {toman(o.discountAmount)}</span></div>}
           <div className={`${s.totalRow} ${s.grand}`}><span>مبلغ کل</span><span className={s.num}>{toman(o.total)}</span></div>
         </div>
       </section>

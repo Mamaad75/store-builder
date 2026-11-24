@@ -179,9 +179,11 @@ export const checkoutSummaryDto = z.object({
   shippingCost: z.number(),
   cashOnDelivery: z.boolean(),
   codFee: z.number(),
+  discount: z.object({ code: z.string(), amount: z.number(), itemsDiscount: z.number(), shippingDiscount: z.number() }).nullable().describe("phase 5.1: the applied code"),
+  discountError: z.object({ code: z.string(), reason: z.string(), message: z.string(), minOrder: z.number().optional() }).nullable().describe("phase 5.1: why the code given does not apply"),
   total: z.number(),
   ready: z.boolean().describe("an order could be placed now (phase 3.4)"),
-  blockers: z.array(z.enum(["empty_cart", "line_problems", "no_address", "no_shipping_for_province", "choose_shipping", "shipping_unavailable", "cod_unavailable"])),
+  blockers: z.array(z.enum(["empty_cart", "line_problems", "no_address", "no_shipping_for_province", "choose_shipping", "shipping_unavailable", "cod_unavailable", "discount_invalid"])),
 });
 export const savedAddressDto = z.object({
   id: z.string(),
@@ -204,6 +206,8 @@ export const orderDto = z.object({
   shipping: z.object({ name: z.string(), kind: z.enum(["FLAT", "WEIGHT", "PICKUP"]), cost: z.number() }),
   paymentMethod: z.enum(["COD", "ONLINE", "CARD_TRANSFER"]),
   paymentGateway: z.enum(["ZARINPAL", "AQAYEPARDAKHT"]).nullable().describe("the online gateway (ONLINE orders)"),
+  discountCode: z.string().nullable().describe("phase 5.1: the discount code used"),
+  discountAmount: z.number().describe("phase 5.1: the whole discount in toman (items + shipping); total already reflects it"),
   paymentDeadline: iso.nullable().describe("online orders: the order can be paid until then (then it expires and the stock goes back)"),
   payment: z.object({ refId: z.string(), cardPan: z.string().nullable().describe("masked"), paidAt: iso }).nullable().describe("the verified online payment"),
   subtotal: z.number(),
@@ -375,4 +379,25 @@ export const storeSmsSettingsViewDto = z.object({
   monthlyCap: z.number(),
   usedThisMonth: z.number(),
   available: z.array(smsKind).describe("messages the platform has a template for"),
+});
+
+// ---- phase 5.1: discount codes
+export const discountDto = z.object({
+  id: z.string(),
+  code: z.string(),
+  title: z.string(),
+  type: z.enum(["PERCENT", "FIXED", "FREE_SHIPPING"]),
+  value: z.number(),
+  maxDiscount: z.number().nullable(),
+  minOrder: z.number().nullable(),
+  startsAt: z.string().nullable(),
+  endsAt: z.string().nullable(),
+  usageLimit: z.number().nullable(),
+  perCustomerLimit: z.number().nullable(),
+  firstOrderOnly: z.boolean(),
+  scope: z.enum(["ALL", "PRODUCTS", "CATEGORIES"]),
+  scopeIds: z.array(z.string()),
+  active: z.boolean(),
+  used: z.number().describe("uses by orders that are not cancelled or expired"),
+  createdAt: z.string(),
 });

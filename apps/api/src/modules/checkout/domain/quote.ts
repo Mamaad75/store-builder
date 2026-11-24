@@ -96,6 +96,10 @@ export interface CheckoutSummary {
   shippingCost: number;
   cashOnDelivery: boolean;
   codFee: number;
+  /** Phase 5.1: the applied discount code (items and/or shipping), or null. */
+  discount: AppliedDiscount | null;
+  /** Phase 5.1: why the code the shopper gave does not apply (then the order cannot be placed with it). */
+  discountError: { code: string; reason: string; message: string; minOrder?: number } | null;
   total: number;
   /** Everything needed to place the order is there and valid (phase 3.4 places it). */
   ready: boolean;
@@ -103,7 +107,16 @@ export interface CheckoutSummary {
   blockers: CheckoutBlocker[];
 }
 
-export type CheckoutBlocker = "empty_cart" | "line_problems" | "no_address" | "no_shipping_for_province" | "choose_shipping" | "shipping_unavailable" | "cod_unavailable";
+export type CheckoutBlocker = "empty_cart" | "line_problems" | "no_address" | "no_shipping_for_province" | "choose_shipping" | "shipping_unavailable" | "cod_unavailable" | "discount_invalid";
+
+/** Phase 5.1: a code applied to the summary (the id is for the order's redemption, never sent to the shopper). */
+export interface AppliedDiscount {
+  id: string;
+  code: string;
+  amount: number;
+  itemsDiscount: number;
+  shippingDiscount: number;
+}
 
 export const BLOCKER_MESSAGES: Readonly<Record<CheckoutBlocker, string>> = {
   empty_cart: "سبد خرید خالی است.",
@@ -113,6 +126,7 @@ export const BLOCKER_MESSAGES: Readonly<Record<CheckoutBlocker, string>> = {
   choose_shipping: "روش ارسال را انتخاب کنید.",
   shipping_unavailable: "روش ارسال انتخاب‌شده برای این نشانی در دسترس نیست.",
   cod_unavailable: "پرداخت در محل برای این روش ارسال و نشانی ممکن نیست.",
+  discount_invalid: "کد تخفیف واردشده قابل استفاده نیست؛ آن را اصلاح یا حذف کنید.",
 };
 
 export function summarize(o: {
@@ -158,10 +172,25 @@ export function summarize(o: {
     shippingCost,
     cashOnDelivery: cod,
     codFee,
+    discount: null,
+    discountError: null,
     total: subtotal + shippingCost + codFee,
     ready: blockers.length === 0,
     blockers,
   };
+}
+
+/**
+ * Phase 5.1: the summary with a discount code's result: an applied discount lowers the total (never below zero: the rules cap it at the
+ * eligible items plus shipping); a code that does not apply blocks placing the order until the shopper fixes or removes it.
+ */
+export function withDiscount(s: CheckoutSummary, d: { applied: AppliedDiscount } | { error: { code: string; reason: string; message: string; minOrder?: number } }): CheckoutSummary {
+  if ("error" in d) {
+    const blockers: CheckoutBlocker[] = [...s.blockers, "discount_invalid"];
+    return { ...s, discount: null, discountError: d.error, ready: false, blockers };
+  }
+  const amount = Math.min(d.applied.amount, s.subtotal + s.shippingCost);
+  return { ...s, discount: { ...d.applied, amount }, discountError: null, total: s.subtotal + s.shippingCost + s.codFee - amount };
 }
 
 /** Merging a guest cart into a signed-in customer's cart: quantities add up (capped), new lines go after the existing ones (capped). */

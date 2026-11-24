@@ -19,6 +19,7 @@ const BLOCKERS: Record<string, string> = {
   choose_shipping: "روش ارسال را انتخاب کنید.",
   shipping_unavailable: "روش ارسال انتخاب‌شده برای این نشانی در دسترس نیست.",
   cod_unavailable: "پرداخت در محل برای این روش ارسال و نشانی ممکن نیست.",
+  discount_invalid: "کد تخفیف واردشده قابل استفاده نیست؛ آن را حذف یا اصلاح کنید.",
 };
 
 /** The shopper's choice: cash on delivery, card-to-card, or one of the store's online gateways (D35c-1). */
@@ -57,6 +58,10 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
   const [cardTransfer, setCardTransfer] = useState(false);
   const [method, setMethod] = useState<Method>("COD");
   const cod = method === "COD";
+  // Phase 5.1: one discount code; `code` is what is applied (sent with every summary and the order), `codeInput` what is typed.
+  const [codeInput, setCodeInput] = useState("");
+  const [code, setCode] = useState<string | null>(null);
+  const withCode = (c: string | null = code) => (c ? { discountCode: c } : {});
 
   // The cart part of the summary before any address (shows what is being bought), and who is shopping.
   useEffect(() => {
@@ -110,7 +115,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
 
   async function onQuote(e: React.FormEvent) {
     e.preventDefault();
-    const r = await run(() => quote({ ...addressBody(), ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: cod }));
+    const r = await run(() => quote({ ...addressBody(), ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: cod, ...withCode() }));
     if (r) {
       setSummary(r);
       if (r.shippingMethodId === null && r.shippingOptions.length === 1) choose(r.shippingOptions[0]!.methodId);
@@ -119,7 +124,14 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
 
   async function choose(id: string, m: Method = method) {
     setShippingMethodId(id);
-    const r = await run(() => quote({ ...addressBody(), shippingMethodId: id, cashOnDelivery: m === "COD" }));
+    const r = await run(() => quote({ ...addressBody(), shippingMethodId: id, cashOnDelivery: m === "COD", ...withCode() }));
+    if (r) setSummary(r);
+  }
+
+  /** Phase 5.1: apply or remove the code: the summary is asked for again (the server computes the discount). */
+  async function applyCode(c: string | null) {
+    setCode(c);
+    const r = await run(() => quote({ ...addressBody(), ...(shippingMethodId ? { shippingMethodId } : {}), cashOnDelivery: cod, ...withCode(c) }));
     if (r) setSummary(r);
   }
 
@@ -134,7 +146,7 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
     const r = await run(async () => {
       if (customer && !usingSaved && saveNew) await saveAddress(address); // kept for the next purchase
       const payment = isGateway(method) ? { paymentMethod: "ONLINE", gateway: method } : { paymentMethod: method };
-      return placeOrder({ requestKey, ...addressBody(), shippingMethodId, ...payment, note });
+      return placeOrder({ requestKey, ...addressBody(), shippingMethodId, ...payment, ...withCode(), note });
     });
     if (!r) return;
     const orderPage = `/orders/${encodeURIComponent(r.accessToken)}`;
@@ -293,10 +305,39 @@ export default function CheckoutForm({ requestKey }: { requestKey: string }) {
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
               </label>
 
+              <div className={s.field}>
+                <span>کد تخفیف</span>
+                <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                  <input
+                    value={code ?? codeInput}
+                    onChange={(e) => setCodeInput(e.target.value)}
+                    disabled={busy || code !== null}
+                    dir="ltr"
+                    autoComplete="off"
+                    aria-label="کد تخفیف"
+                    aria-invalid={summary.discountError ? true : undefined}
+                    style={{ flex: "1 1 auto", minWidth: 0 }}
+                  />
+                  {code === null ? (
+                    <button type="button" className={`${s.button} ${s.ghost}`} style={{ flex: "0 0 auto", whiteSpace: "nowrap", minHeight: 44 }} onClick={() => codeInput.trim() && applyCode(codeInput.trim())} disabled={busy || !codeInput.trim()}>اعمال</button>
+                  ) : (
+                    <button type="button" className={`${s.button} ${s.ghost}`} style={{ flex: "0 0 auto", whiteSpace: "nowrap", minHeight: 44 }} onClick={() => { setCodeInput(""); void applyCode(null); }} disabled={busy}>حذف کد</button>
+                  )}
+                </div>
+                {summary.discountError && <span className={s.fieldError} role="alert">{summary.discountError.message}{summary.discountError.minOrder ? ` (حداقل ${toman(summary.discountError.minOrder)})` : ""}</span>}
+                {summary.discount && <span className={s.muted}>کد {summary.discount.code} اعمال شد.</span>}
+              </div>
+
               <div className={s.totals}>
                 <div className={s.totalRow}><span>جمع کالاها</span><span className={s.num}>{toman(summary.subtotal)}</span></div>
                 <div className={s.totalRow}><span>هزینه‌ی ارسال</span><span className={s.num}>{summary.shippingMethodId ? (summary.shippingCost === 0 ? "رایگان" : toman(summary.shippingCost)) : "—"}</span></div>
                 {summary.codFee > 0 && <div className={s.totalRow}><span>کارمزد پرداخت در محل</span><span className={s.num}>{toman(summary.codFee)}</span></div>}
+                {summary.discount && (
+                  <div className={s.totalRow}>
+                    <span>تخفیف ({summary.discount.code}{summary.discount.shippingDiscount > 0 ? "، ارسال رایگان" : ""})</span>
+                    <span className={s.num}>− {toman(summary.discount.amount)}</span>
+                  </div>
+                )}
                 <div className={`${s.totalRow} ${s.grand}`}><span>مبلغ قابل پرداخت</span><span className={s.num}>{toman(summary.total)}</span></div>
               </div>
               {!summary.ready && summary.blockers.length > 0 && <p className={s.alert}>{summary.blockers.map((b) => BLOCKERS[b] ?? b).join(" ")}</p>}

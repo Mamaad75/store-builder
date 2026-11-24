@@ -17,6 +17,8 @@ import { NotFoundError, ValidationError } from "@store-builder/shared/modules/st
 import type { z } from "zod";
 import { draftOrder, type OrderView } from "../domain/orders.js";
 import { CARD_TRANSFER_WINDOW_HOURS } from "@store-builder/shared/modules/orders/card-transfer";
+import { DiscountInvalidError } from "@store-builder/shared/modules/discounts/errors";
+import type { DiscountReason } from "@store-builder/shared/modules/discounts/discounts";
 import type { CheckoutPort, Limiter, OrderListPage, OrderStore, OrderTokens, Shopper, StockHold, TransferInfo } from "./ports.js";
 
 /** Phase 3.5 / D35b-1: what placing and showing a prepaid order needs from the payment side. */
@@ -117,7 +119,9 @@ export class OrdersService {
     const existing = await this.orders.findByRequestKey(storeId, requestKey);
     if (existing) return { ...(await this.full(storeId, this.shopperView(existing))), accessToken: this.tokens.tokenFor(existing.id) };
 
-    const prep = await this.checkout.prepareOrder(label, s, { address: q.address, addressId: q.addressId, shippingMethodId: q.shippingMethodId, cashOnDelivery: q.paymentMethod === "COD" });
+    const prep = await this.checkout.prepareOrder(label, s, { address: q.address, addressId: q.addressId, shippingMethodId: q.shippingMethodId, cashOnDelivery: q.paymentMethod === "COD", discountCode: q.discountCode });
+    // Phase 5.1: a code that does not apply is reported with its own reason (expired, exhausted, minimum order, ...).
+    if (prep.summary.discountError) throw new DiscountInvalidError(prep.summary.discountError.reason as DiscountReason, prep.summary.discountError.minOrder);
     if (!prep.summary.ready || !prep.address) throw new OrderNotReadyError(prep.summary.blockers.length ? prep.summary.blockers : ["no_address"]);
     if (q.paymentMethod !== "COD") {
       if (!this.prepaid) throw new PaymentUnavailableError(q.paymentMethod === "CARD_TRANSFER" ? "no_cards" : "off");
@@ -151,7 +155,7 @@ export class OrdersService {
 
     let created: OrderView | "hold_lost" | "duplicate";
     try {
-      created = await this.orders.create(order, new Set(lines.map((l) => `${l.productId}|${l.variantId ?? "-"}`)).size, prep.cartId, this.clock());
+      created = await this.orders.create(order, new Set(lines.map((l) => `${l.productId}|${l.variantId ?? "-"}`)).size, prep.cartId, this.clock(), prep.discountCart);
     } catch (e) {
       await this.stock.release(storeId, id).catch(() => 0);
       throw e;

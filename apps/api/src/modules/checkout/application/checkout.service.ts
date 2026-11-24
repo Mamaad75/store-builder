@@ -11,8 +11,9 @@ import { CartLimitError, CartRateLimitedError } from "@store-builder/shared/modu
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { z } from "zod";
-import { mergeLines, priceLines, stockKey, summarize, type CartLine, type CheckoutSummary, type PricedLine } from "../domain/quote.js";
-import type { AddressStore, CartRow, CartStore, CartTokens, CheckoutReads, Limiter, SavedAddress } from "./ports.js";
+import { mergeLines, priceLines, stockKey, summarize, withDiscount, type CartLine, type CheckoutSummary, type PricedLine } from "../domain/quote.js";
+import { DISCOUNT_REASON_MESSAGES, DISCOUNT_TRY_RULE, type DiscountCart } from "@store-builder/shared/modules/discounts/discounts";
+import type { AddressStore, CartRow, CartStore, CartTokens, CheckoutReads, DiscountPort, Limiter, SavedAddress } from "./ports.js";
 
 const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ID_RE = /^[a-z0-9]{1,64}$/;
@@ -67,6 +68,8 @@ export class CheckoutService {
     private readonly addresses: AddressStore,
     private readonly tokens: CartTokens,
     private readonly limiter: Limiter,
+    /** Phase 5.1: discount codes (null = codes are not accepted). */
+    private readonly discounts: DiscountPort | null = null,
   ) {}
 
   private async live(label: string): Promise<{ storeId: string; products: StorefrontProduct[] }> {
@@ -187,7 +190,12 @@ export class CheckoutService {
    * Read-only: nothing is held or ordered. `ready` says whether an order could be placed now (phase 3.4).
    */
   async quote(label: string, s: Shopper, body: unknown): Promise<CheckoutSummary> {
-    return (await this.resolve(label, s, parse(checkoutQuoteSchema, body ?? {}))).summary;
+    const summary = (await this.resolve(label, s, parse(checkoutQuoteSchema, body ?? {}))).summary;
+    // The discount's internal id is for the order's redemption only; the shopper sees the code and the amounts.
+    if (!summary.discount) return summary;
+    const { id: _id, ...discount } = summary.discount;
+    void _id;
+    return { ...summary, discount: discount as CheckoutSummary["discount"] };
   }
 
   /**
@@ -197,13 +205,13 @@ export class CheckoutService {
   async prepareOrder(
     label: string,
     s: Shopper,
-    q: { address?: unknown; addressId?: string; shippingMethodId: string; cashOnDelivery: boolean },
-  ): Promise<{ storeId: string; summary: CheckoutSummary; address: AddressInput | null; cartId: string | null; weights: Map<string, number | null> }> {
+    q: { address?: unknown; addressId?: string; shippingMethodId: string; cashOnDelivery: boolean; discountCode?: string },
+  ): Promise<{ storeId: string; summary: CheckoutSummary; address: AddressInput | null; cartId: string | null; weights: Map<string, number | null>; discountCart: DiscountCart }> {
     const r = await this.resolve(label, s, q);
-    return { storeId: r.storeId, summary: r.summary, address: r.address, cartId: r.cartId, weights: new Map(r.products.map((p) => [p.id, p.weightGrams])) };
+    return { storeId: r.storeId, summary: r.summary, address: r.address, cartId: r.cartId, weights: new Map(r.products.map((p) => [p.id, p.weightGrams])), discountCart: r.discountCart };
   }
 
-  private async resolve(label: string, s: Shopper, q: { address?: unknown; addressId?: string; shippingMethodId?: string; cashOnDelivery: boolean }) {
+  private async resolve(label: string, s: Shopper, q: { address?: unknown; addressId?: string; shippingMethodId?: string; cashOnDelivery: boolean; discountCode?: string }) {
     const { storeId, products } = await this.live(label);
     if (q.address !== undefined && q.addressId !== undefined) throw new ValidationError({ address: ["یا نشانی را وارد کنید یا یکی از نشانی‌های ذخیره‌شده را انتخاب کنید"] });
     let address: AddressInput | null = null;
@@ -218,8 +226,34 @@ export class CheckoutService {
     const cart = await this.findCart(storeId, s);
     const lines = await this.price(storeId, products, cart?.lines ?? []);
     const methods = await this.reads.enabledShippingMethods(storeId);
-    const summary = summarize({ lines, published: products, methods, province: address?.province ?? null, shippingMethodId: q.shippingMethodId ?? null, cashOnDelivery: q.cashOnDelivery });
-    return { storeId, products, summary, address, cartId: cart?.id ?? null };
+    let summary = summarize({ lines, published: products, methods, province: address?.province ?? null, shippingMethodId: q.shippingMethodId ?? null, cashOnDelivery: q.cashOnDelivery });
+    // Phase 5.1: the discount is computed on the buyable lines (with their published category) and the chosen shipping cost.
+    const categoryOf = new Map(products.map((p) => [p.id, p.categoryId ?? null]));
+    const discountCart: DiscountCart = {
+      lines: lines.filter((l) => !l.problem).map((l) => ({ productId: l.productId, categoryId: categoryOf.get(l.productId) ?? null, lineTotal: l.lineTotal })),
+      subtotal: summary.subtotal,
+      shippingCost: summary.shippingCost,
+    };
+    const code = q.discountCode?.trim();
+    if (code && this.discounts) {
+      const ev = await this.discounts.evaluate(storeId, code, discountCart, { phone: address?.phone ?? null, customerId: s.customerId });
+      if (!ev.rule) {
+        // Codes must not be guessable by trying: wrong ones are counted per network.
+        const r = await this.limiter.consume(`discount-try:${storeId}:ip:${s.ipKey}`, DISCOUNT_TRY_RULE);
+        if (!r.allowed) throw new CartRateLimitedError(r.retryAfterSeconds);
+      }
+      summary = ev.rule && ev.result.ok
+        ? withDiscount(summary, { applied: { id: ev.rule.id, code: ev.rule.code, amount: ev.result.amount, itemsDiscount: ev.result.itemsDiscount, shippingDiscount: ev.result.shippingDiscount } })
+        : withDiscount(summary, {
+            error: {
+              code: code.toUpperCase().slice(0, 32),
+              reason: ev.result.ok ? "not_found" : ev.result.reason,
+              message: DISCOUNT_REASON_MESSAGES[ev.result.ok ? "not_found" : ev.result.reason],
+              ...(!ev.result.ok && ev.result.minOrder !== undefined ? { minOrder: ev.result.minOrder } : {}),
+            },
+          });
+    }
+    return { storeId, products, summary, address, cartId: cart?.id ?? null, discountCart };
   }
 
   // ---------- saved addresses (signed-in customers of this store) ----------

@@ -1,4 +1,5 @@
 import type { Gateway, OrderActor, OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
+import type { DiscountCart } from "@store-builder/shared/modules/discounts/discounts";
 import type { AddressInput } from "@store-builder/shared/modules/checkout/checkout";
 import type { NewOrder, OrderView, ReadySummary } from "../domain/orders.js";
 
@@ -17,8 +18,16 @@ export interface CheckoutPort {
   prepareOrder(
     label: string,
     s: Shopper,
-    q: { address?: unknown; addressId?: string; shippingMethodId: string; cashOnDelivery: boolean },
-  ): Promise<{ storeId: string; summary: ReadySummary; address: AddressInput | null; cartId: string | null; weights: Map<string, number | null> }>;
+    q: { address?: unknown; addressId?: string; shippingMethodId: string; cashOnDelivery: boolean; discountCode?: string },
+  ): Promise<{
+    storeId: string;
+    summary: ReadySummary;
+    address: AddressInput | null;
+    cartId: string | null;
+    weights: Map<string, number | null>;
+    /** Phase 5.1: what the discount was computed on (re-checked in the order's transaction). */
+    discountCart?: DiscountCart;
+  }>;
 }
 
 export interface OrderListPage {
@@ -35,7 +44,7 @@ export interface OrderStore {
    * with its items and first history entry is written, the "order.placed" event is recorded and the cart is emptied. "hold_lost" = the
    * hold was incomplete (nothing written). A second order with the same request key fails with "duplicate" (nothing written).
    */
-  create(order: NewOrder, holdLines: number, cartId: string | null, now: Date): Promise<OrderView | "hold_lost" | "duplicate">;
+  create(order: NewOrder, holdLines: number, cartId: string | null, now: Date, discountCart?: DiscountCart): Promise<OrderView | "hold_lost" | "duplicate">;
   getById(storeId: string, id: string): Promise<OrderView | null>;
   getByTokenHash(storeId: string, tokenHash: string): Promise<OrderView | null>;
   /** `includePhoneLinked`: also orders attached by phone from guest checkouts (only for a customer whose phone is verified, phase 3.3b). */

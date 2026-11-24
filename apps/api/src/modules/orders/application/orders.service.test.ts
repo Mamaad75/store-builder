@@ -25,7 +25,7 @@ class MemoryOrders implements OrderStore {
   createResult: "hold_lost" | "duplicate" | null = null;
   private view(o: NewOrder, n: number): OrderView {
     return {
-      id: o.id, number: n, status: o.paymentMethod === "ONLINE" ? "AWAITING_PAYMENT" : "PLACED", paymentGateway: o.paymentGateway, paymentDeadline: o.paymentDeadline?.toISOString() ?? null, payment: null, createdAt: "2026-01-01T00:00:00.000Z", customerId: o.customerId, address: o.address,
+      id: o.id, number: n, status: o.paymentMethod === "ONLINE" ? "AWAITING_PAYMENT" : "PLACED", paymentGateway: o.paymentGateway, discountCode: o.discount?.code ?? null, discountAmount: o.discount?.amount ?? 0, paymentDeadline: o.paymentDeadline?.toISOString() ?? null, payment: null, createdAt: "2026-01-01T00:00:00.000Z", customerId: o.customerId, address: o.address,
       shipping: { name: o.shipping.name, kind: o.shipping.kind, cost: o.shipping.cost }, paymentMethod: o.paymentMethod, subtotal: o.subtotal, codFee: o.codFee,
       total: o.total, itemCount: o.itemCount, note: o.note, items: o.items.map((i) => ({ productId: i.productId, variantId: i.variantId, name: i.name, variantLabel: i.variantLabel, unitPrice: i.unitPrice, quantity: i.quantity, lineTotal: i.lineTotal, weightGrams: i.weightGrams })), history: [{ from: null, to: "PLACED", actor: "CUSTOMER", note: "", at: "" }],
     };

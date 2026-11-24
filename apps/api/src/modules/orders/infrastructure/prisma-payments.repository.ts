@@ -3,6 +3,7 @@ import { GATEWAYS, GATEWAY_AUTO_REFUNDS, type Gateway } from "@store-builder/sha
 import { db } from "../../../lib/db.js";
 import { recordEvent } from "../../../platform/outbox/outbox.js";
 import { restockReservationInTx } from "../../inventory/inventory.api.js";
+import { releaseDiscountInTx } from "../../discounts/discounts.api.js";
 import type { ClaimResult, OrderForPayment, PaymentAttempt, PaymentStore } from "../application/ports.js";
 
 // Phase 3.5 (D35-1): the Payment table. Lock order everywhere: the Order row first, then its Payment rows (as orders do with stock rows).
@@ -184,6 +185,7 @@ export class PrismaPaymentStore implements PaymentStore {
       await tx.order.update({ where: { storeId_id: { storeId, id: orderId } }, data: { status: "EXPIRED" } });
       await tx.orderEvent.create({ data: { storeId, orderId, fromStatus: "AWAITING_PAYMENT", toStatus: "EXPIRED", actor: "SYSTEM", actorId: null, note: "مهلت پرداخت تمام شد" } });
       await restockReservationInTx({ tx }, storeId, orderId);
+      await releaseDiscountInTx({ tx }, storeId, orderId); // phase 5.1: the code's use comes back
       await recordEvent({ tx }, { type: "order.status_changed", storeId, payload: { orderId, from: "AWAITING_PAYMENT", to: "EXPIRED", actor: "SYSTEM" } });
       return true;
     }, TX);

@@ -68,3 +68,13 @@ export interface CartTokens {
 export interface Limiter {
   consume(key: string, rule: { limit: number; windowSeconds: number }): Promise<{ allowed: boolean; retryAfterSeconds: number }>;
 }
+
+/** Phase 5.1: the discounts module's read-only evaluation of a code on a cart. */
+export interface DiscountPort {
+  evaluate(
+    storeId: string,
+    code: string,
+    cart: import("@store-builder/shared/modules/discounts/discounts").DiscountCart,
+    who: { phone: string | null; customerId: string | null },
+  ): Promise<{ rule: { id: string; code: string } | null; result: import("@store-builder/shared/modules/discounts/discounts").DiscountResult }>;
+}

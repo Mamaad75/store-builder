@@ -141,6 +141,8 @@ model Store {
   payments         Payment[]
   bankCards        StoreBankCard[]
   smsSetting       StoreSmsSetting?
+  discounts        Discount[]
+  redemptions      DiscountRedemption[]
   smsMessages      SmsMessage[]
   receipts         TransferReceipt[]
   counter          StoreCounter?
@@ -810,6 +812,9 @@ model Order {
   shippingKind     ShippingKind
   shippingCost     BigInt
   paymentMethod    OrderPaymentMethod
+  /// Phase 5.1: the discount code used (snapshot) and the whole discount in toman (items + shipping); total already reflects it.
+  discountCode     String?            @db.VarChar(32)
+  discountAmount   BigInt             @default(0)
   /// D35c-1: the online gateway the shopper chose (ONLINE orders only): ZARINPAL | AQAYEPARDAKHT.
   paymentGateway   String?            @db.VarChar(20)
   /// Phase 3.5: an online order not paid by then expires (stock back). Null for cash on delivery.
@@ -827,6 +832,7 @@ model Order {
   events   OrderEvent[]
   payments Payment[]
   receipts TransferReceipt[]
+  redemption DiscountRedemption?
 
   @@unique([storeId, number])
   @@unique([storeId, requestKey])
@@ -993,4 +999,68 @@ model SmsMessage {
   @@unique([eventId, kind])
   @@index([storeId, createdAt])
   @@index([recipientHash, createdAt])
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+  FREE_SHIPPING
+}
+
+enum DiscountScope {
+  ALL
+  PRODUCTS
+  CATEGORIES
+}
+
+/// Phase 5.1 (D51-1): a store's discount code. Codes are stored upper-case and unique per store.
+model Discount {
+  id               String        @id @default(cuid())
+  storeId          String
+  code             String        @db.VarChar(32)
+  title            String        @default("") @db.VarChar(80)
+  type             DiscountType
+  /// PERCENT: 1..100; FIXED: toman; FREE_SHIPPING: 0.
+  value            BigInt
+  maxDiscount      BigInt?
+  minOrder         BigInt?
+  startsAt         DateTime?
+  endsAt           DateTime?
+  usageLimit       Int?
+  perCustomerLimit Int?
+  firstOrderOnly   Boolean       @default(false)
+  scope            DiscountScope @default(ALL)
+  scopeIds         String[]      @default([])
+  active           Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  store       Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  redemptions DiscountRedemption[]
+
+  @@unique([storeId, code])
+  @@unique([storeId, id])
+  @@index([storeId, createdAt])
+}
+
+/// Phase 5.1: one use of a discount by one order, written in the order's own transaction under the discount's row lock (usage limits are
+/// race-free); released (not deleted) when the order is cancelled or expires, so the use comes back.
+model DiscountRedemption {
+  id         String   @id @default(cuid())
+  storeId    String
+  discountId String
+  orderId    String
+  phone      String   @db.VarChar(13)
+  customerId String?
+  amount     BigInt
+  released   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  discount Discount @relation(fields: [storeId, discountId], references: [storeId, id], onDelete: Cascade)
+  order    Order    @relation(fields: [storeId, orderId], references: [storeId, id], onDelete: Cascade)
+
+  @@unique([storeId, orderId])
+  @@index([discountId, released])
+  @@index([storeId, phone])
 }

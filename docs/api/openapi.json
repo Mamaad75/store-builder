@@ -2607,6 +2607,1119 @@
         }
       }
     },
+    "/api/v1/admin/stores/{storeId}/discounts": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdDiscounts",
+        "summary": "The store's discount codes with their use counts (phase 5.1)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "discounts.manage",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "code": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "PERCENT",
+                          "FIXED",
+                          "FREE_SHIPPING"
+                        ]
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "maxDiscount": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "minOrder": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "startsAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "endsAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "usageLimit": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "perCustomerLimit": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "firstOrderOnly": {
+                        "type": "boolean"
+                      },
+                      "scope": {
+                        "type": "string",
+                        "enum": [
+                          "ALL",
+                          "PRODUCTS",
+                          "CATEGORIES"
+                        ]
+                      },
+                      "scopeIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "used": {
+                        "type": "number",
+                        "description": "uses by orders that are not cancelled or expired"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "code",
+                      "title",
+                      "type",
+                      "value",
+                      "maxDiscount",
+                      "minOrder",
+                      "startsAt",
+                      "endsAt",
+                      "usageLimit",
+                      "perCustomerLimit",
+                      "firstOrderOnly",
+                      "scope",
+                      "scopeIds",
+                      "active",
+                      "used",
+                      "createdAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postApiV1AdminStoresStoreIdDiscounts",
+        "summary": "Create a discount code (applies at once)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "discounts.manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "PERCENT",
+                      "FIXED",
+                      "FREE_SHIPPING"
+                    ]
+                  },
+                  "value": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxDiscount": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000000
+                      }
+                    ]
+                  },
+                  "minOrder": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000000
+                      }
+                    ]
+                  },
+                  "startsAt": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    ]
+                  },
+                  "endsAt": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    ]
+                  },
+                  "usageLimit": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    ]
+                  },
+                  "perCustomerLimit": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    ]
+                  },
+                  "firstOrderOnly": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "scope": {
+                    "default": "ALL",
+                    "type": "string",
+                    "enum": [
+                      "ALL",
+                      "PRODUCTS",
+                      "CATEGORIES"
+                    ]
+                  },
+                  "scopeIds": {
+                    "default": [],
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9]{1,64}$"
+                    }
+                  },
+                  "active": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "code",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "PERCENT",
+                        "FIXED",
+                        "FREE_SHIPPING"
+                      ]
+                    },
+                    "value": {
+                      "type": "number"
+                    },
+                    "maxDiscount": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "minOrder": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "startsAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "endsAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "usageLimit": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "perCustomerLimit": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "firstOrderOnly": {
+                      "type": "boolean"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "ALL",
+                        "PRODUCTS",
+                        "CATEGORIES"
+                      ]
+                    },
+                    "scopeIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "used": {
+                      "type": "number",
+                      "description": "uses by orders that are not cancelled or expired"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "title",
+                    "type",
+                    "value",
+                    "maxDiscount",
+                    "minOrder",
+                    "startsAt",
+                    "endsAt",
+                    "usageLimit",
+                    "perCustomerLimit",
+                    "firstOrderOnly",
+                    "scope",
+                    "scopeIds",
+                    "active",
+                    "used",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/discounts/{discountId}": {
+      "put": {
+        "operationId": "putApiV1AdminStoresStoreIdDiscountsDiscountId",
+        "summary": "Change a discount code",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "discounts.manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "PERCENT",
+                      "FIXED",
+                      "FREE_SHIPPING"
+                    ]
+                  },
+                  "value": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxDiscount": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000000
+                      }
+                    ]
+                  },
+                  "minOrder": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000000
+                      }
+                    ]
+                  },
+                  "startsAt": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    ]
+                  },
+                  "endsAt": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    ]
+                  },
+                  "usageLimit": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    ]
+                  },
+                  "perCustomerLimit": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    ]
+                  },
+                  "firstOrderOnly": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "scope": {
+                    "default": "ALL",
+                    "type": "string",
+                    "enum": [
+                      "ALL",
+                      "PRODUCTS",
+                      "CATEGORIES"
+                    ]
+                  },
+                  "scopeIds": {
+                    "default": [],
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9]{1,64}$"
+                    }
+                  },
+                  "active": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "code",
+                  "type",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "PERCENT",
+                        "FIXED",
+                        "FREE_SHIPPING"
+                      ]
+                    },
+                    "value": {
+                      "type": "number"
+                    },
+                    "maxDiscount": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "minOrder": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "startsAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "endsAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "usageLimit": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "perCustomerLimit": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "firstOrderOnly": {
+                      "type": "boolean"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "ALL",
+                        "PRODUCTS",
+                        "CATEGORIES"
+                      ]
+                    },
+                    "scopeIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "used": {
+                      "type": "number",
+                      "description": "uses by orders that are not cancelled or expired"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "title",
+                    "type",
+                    "value",
+                    "maxDiscount",
+                    "minOrder",
+                    "startsAt",
+                    "endsAt",
+                    "usageLimit",
+                    "perCustomerLimit",
+                    "firstOrderOnly",
+                    "scope",
+                    "scopeIds",
+                    "active",
+                    "used",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stores/{storeId}/discounts/{discountId}/delete": {
+      "post": {
+        "operationId": "postApiV1AdminStoresStoreIdDiscountsDiscountIdDelete",
+        "summary": "Delete a discount code (orders keep their snapshot)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "discounts.manage",
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stores/{storeId}/logo": {
       "post": {
         "operationId": "postApiV1AdminStoresStoreIdLogo",
@@ -3035,6 +4148,17 @@
                             ],
                             "description": "the online gateway (ONLINE orders)"
                           },
+                          "discountCode": {
+                            "description": "phase 5.1: the discount code used",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "discountAmount": {
+                            "type": "number",
+                            "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                          },
                           "paymentDeadline": {
                             "anyOf": [
                               {
@@ -3217,6 +4341,8 @@
                           "shipping",
                           "paymentMethod",
                           "paymentGateway",
+                          "discountCode",
+                          "discountAmount",
                           "paymentDeadline",
                           "payment",
                           "subtotal",
@@ -3477,6 +4603,17 @@
                       ],
                       "description": "the online gateway (ONLINE orders)"
                     },
+                    "discountCode": {
+                      "description": "phase 5.1: the discount code used",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "discountAmount": {
+                      "type": "number",
+                      "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                    },
                     "paymentDeadline": {
                       "anyOf": [
                         {
@@ -3659,6 +4796,8 @@
                     "shipping",
                     "paymentMethod",
                     "paymentGateway",
+                    "discountCode",
+                    "discountAmount",
                     "paymentDeadline",
                     "payment",
                     "subtotal",
@@ -4427,6 +5566,17 @@
                           ],
                           "description": "the online gateway (ONLINE orders)"
                         },
+                        "discountCode": {
+                          "description": "phase 5.1: the discount code used",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "discountAmount": {
+                          "type": "number",
+                          "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -4609,6 +5759,8 @@
                         "shipping",
                         "paymentMethod",
                         "paymentGateway",
+                        "discountCode",
+                        "discountAmount",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -4893,6 +6045,17 @@
                       ],
                       "description": "the online gateway (ONLINE orders)"
                     },
+                    "discountCode": {
+                      "description": "phase 5.1: the discount code used",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "discountAmount": {
+                      "type": "number",
+                      "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                    },
                     "paymentDeadline": {
                       "anyOf": [
                         {
@@ -5075,6 +6238,8 @@
                     "shipping",
                     "paymentMethod",
                     "paymentGateway",
+                    "discountCode",
+                    "discountAmount",
                     "paymentDeadline",
                     "payment",
                     "subtotal",
@@ -19662,6 +20827,10 @@
                       "CARD_TRANSFER"
                     ]
                   },
+                  "discountCode": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
                   "gateway": {
                     "type": "string",
                     "enum": [
@@ -19802,6 +20971,17 @@
                             }
                           ],
                           "description": "the online gateway (ONLINE orders)"
+                        },
+                        "discountCode": {
+                          "description": "phase 5.1: the discount code used",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "discountAmount": {
+                          "type": "number",
+                          "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
                         },
                         "paymentDeadline": {
                           "anyOf": [
@@ -19985,6 +21165,8 @@
                         "shipping",
                         "paymentMethod",
                         "paymentGateway",
+                        "discountCode",
+                        "discountAmount",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -20343,6 +21525,17 @@
                           ],
                           "description": "the online gateway (ONLINE orders)"
                         },
+                        "discountCode": {
+                          "description": "phase 5.1: the discount code used",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "discountAmount": {
+                          "type": "number",
+                          "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -20525,6 +21718,8 @@
                         "shipping",
                         "paymentMethod",
                         "paymentGateway",
+                        "discountCode",
+                        "discountAmount",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -20878,6 +22073,17 @@
                           ],
                           "description": "the online gateway (ONLINE orders)"
                         },
+                        "discountCode": {
+                          "description": "phase 5.1: the discount code used",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "discountAmount": {
+                          "type": "number",
+                          "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -21060,6 +22266,8 @@
                         "shipping",
                         "paymentMethod",
                         "paymentGateway",
+                        "discountCode",
+                        "discountAmount",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -21862,6 +23070,10 @@
                   "cashOnDelivery": {
                     "default": false,
                     "type": "boolean"
+                  },
+                  "discountCode": {
+                    "type": "string",
+                    "maxLength": 64
                   }
                 },
                 "additionalProperties": false
@@ -22037,6 +23249,69 @@
                     "codFee": {
                       "type": "number"
                     },
+                    "discount": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "number"
+                            },
+                            "itemsDiscount": {
+                              "type": "number"
+                            },
+                            "shippingDiscount": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "amount",
+                            "itemsDiscount",
+                            "shippingDiscount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "phase 5.1: the applied code"
+                    },
+                    "discountError": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "reason": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "minOrder": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "reason",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "phase 5.1: why the code given does not apply"
+                    },
                     "total": {
                       "type": "number"
                     },
@@ -22055,7 +23330,8 @@
                           "no_shipping_for_province",
                           "choose_shipping",
                           "shipping_unavailable",
-                          "cod_unavailable"
+                          "cod_unavailable",
+                          "discount_invalid"
                         ]
                       }
                     }
@@ -22068,6 +23344,8 @@
                     "shippingCost",
                     "cashOnDelivery",
                     "codFee",
+                    "discount",
+                    "discountError",
                     "total",
                     "ready",
                     "blockers"
@@ -23453,6 +24731,17 @@
                             ],
                             "description": "the online gateway (ONLINE orders)"
                           },
+                          "discountCode": {
+                            "description": "phase 5.1: the discount code used",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "discountAmount": {
+                            "type": "number",
+                            "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                          },
                           "paymentDeadline": {
                             "anyOf": [
                               {
@@ -23635,6 +24924,8 @@
                           "shipping",
                           "paymentMethod",
                           "paymentGateway",
+                          "discountCode",
+                          "discountAmount",
                           "paymentDeadline",
                           "payment",
                           "subtotal",
@@ -23989,6 +25280,17 @@
                           ],
                           "description": "the online gateway (ONLINE orders)"
                         },
+                        "discountCode": {
+                          "description": "phase 5.1: the discount code used",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "discountAmount": {
+                          "type": "number",
+                          "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -24171,6 +25473,8 @@
                         "shipping",
                         "paymentMethod",
                         "paymentGateway",
+                        "discountCode",
+                        "discountAmount",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
@@ -24524,6 +25828,17 @@
                           ],
                           "description": "the online gateway (ONLINE orders)"
                         },
+                        "discountCode": {
+                          "description": "phase 5.1: the discount code used",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "discountAmount": {
+                          "type": "number",
+                          "description": "phase 5.1: the whole discount in toman (items + shipping); total already reflects it"
+                        },
                         "paymentDeadline": {
                           "anyOf": [
                             {
@@ -24706,6 +26021,8 @@
                         "shipping",
                         "paymentMethod",
                         "paymentGateway",
+                        "discountCode",
+                        "discountAmount",
                         "paymentDeadline",
                         "payment",
                         "subtotal",
