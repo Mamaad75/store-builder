@@ -244,6 +244,8 @@ Without merchant verification (Part B) a new account is trivial, which is why B-
 
 ## 3. Part B — Merchant verification
 
+> **Superseded by ADR 0005 (2026-11-24):** verification facts per subject instead of a level ladder; see `0005-merchant-verification.md`.
+
 ### 3.1 Levels (staged; each level is a fact, not a promise of legitimacy)
 
 | Level | Meaning | How | Status |
