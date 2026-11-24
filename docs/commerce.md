@@ -13,8 +13,8 @@ ships the API, the storefront side and the tests; dashboard screens follow from 
 | 3.2b | Prices linked to the dollar or 18k gold (owner request 2026-11-23): merchant links in toman or by the jewellery formula, hourly rates (Navasan or manual), held jumps confirmed by a super admin, live prices on the published storefront | done |
 | 3.3 | Cart (guest and signed-in), shipping methods (flat, weight-based, free above an amount, pickup; owner 2026-11-24: per-province prices and cash on delivery), addresses (province list + postal code), checkout summary | done |
 | 3.4 | Orders and invoices: state machine with history, item snapshots, gap-free invoice numbers per store (cash on delivery until 3.5) | done |
-| 3.5 | Zarinpal: payment state machine, server-side verify, idempotent callback, reconciliation job, per-store merchant id in the encrypted secrets (2.4) | planned |
-| 3.6 | Order SMS (shopper and merchant) through the outbox and the worker; turns on with the SMS account | planned |
+| 3.5 | Zarinpal: payment state machine, server-side verify, idempotent callback, reconciliation job, per-store merchant id in the encrypted secrets (2.4); then card-to-card (D35b-1) and a gateway registry with Aghaye Pardakht (D35c-1) | done |
+| 3.6 | Order SMS (shopper and merchant) through the outbox and the worker; turns on with the SMS account | done |
 
 Every step: code + tests + reversible migration drilled on a disposable database + security review + docs + CHANGELOG, then a report.
 
@@ -236,6 +236,39 @@ Accepted for now, with a plan: guest cash-on-delivery orders are not phone-verif
 COD orders, and a merchant setting can cap units per order); PLACED orders do not expire (the merchant cancels by hand; an automatic
 cancel of unconfirmed orders after N days is a merchant setting for later); order links are HMACs of the order id under the server secret,
 so rotating that secret invalidates links already sent (a key version will be added before the first rotation).
+
+## 3.6 design (D36-1): order SMS
+
+Owner decisions (2026-11-24): the shopper gets an SMS when the order is placed (or paid), shipped, cancelled by the store or expired, and
+when a card-to-card receipt is rejected; the merchant gets one for each new order and each receipt waiting for review; the platform's
+Kavenegar account pays; each store has a monthly cap and can turn order SMS off.
+
+* **Path:** the order events already in the outbox (`order.placed`, `order.status_changed` now with the `actor`, and the new
+  `order.receipt_submitted` / `order.receipt_rejected`) are consumed by the worker's notifications consumer. `kindsForEvent` maps an event to
+  message kinds (a shopper's own cancellation sends nothing). Messages are Kavenegar **verify/lookup templates** approved in the platform's
+  panel, one per kind (platform settings, `sms.orderSms.templates`; an empty name = that message is off): token = order number, token2 =
+  the order link (shopper) or the total in toman (merchant), token10 = store name (at most 5 spaces). Nothing else (no address, no items).
+* **Once per event and kind:** every decision is one `SmsMessage` row keyed by (event id, kind): claimed PENDING under the store row's lock
+  (which also serialises the monthly count), then SENT or FAILED; skipped ones (platform/store off, no template, no phone, no key, cap)
+  are SKIPPED with a reason. A re-delivered event finds the row and sends nothing; a FAILED send makes the handler throw and the queue
+  retries only that kind. A worker crash between send and mark leaves PENDING: never resent (at most once beats a double SMS).
+* **Cap and switches:** `sms.orderSms.enabled` (platform), `monthlyCapPerStore` (default 500 per calendar month, UTC), and the store's
+  own switch and merchant mobile (`StoreSmsSetting`, dashboard "پیامک سفارش", `store.settings`, audited) with this month's usage.
+* **Worker configuration:** the worker now needs the API's `AUTH_SECRET`, `APP_ROOT_DOMAIN`, `APP_PROTOCOL` (order links) and the secrets
+  master keys (the Kavenegar key is a platform secret); the production compose file already gives it the API's environment. Development:
+  `ORDER_SMS_DEV_LOG=true` writes the kind, the template, the masked phone and the order number to the log instead of sending.
+* **Personal data:** `SmsMessage` holds no phone and no text (only a SHA-256 of the recipient for the daily limit); logs carry masked phones
+  only; the order link (it contains the guest access token) goes only to the order's own phone (and through Kavenegar: a third-party
+  processor to name in the privacy notes).
+* **Security review (2026-11-24), fixed with tests:** guest phones are not verified, so a fake-order flood could send SMS to any number
+  or use up a store's quota: one phone gets at most 6 SMS a day from the platform across all stores, and the monthly cap is counted
+  separately for shopper and merchant messages. The store name is stripped of links, domains, e-mails and digits before it goes into an
+  SMS (no phishing from the platform's line). A link too long for a Kavenegar token is never cut (skipped, `link_too_long`); SMS links use
+  the short `/o/<token>` form of the order page. A timeout or network error counts as sent ("uncertain") and is never retried; only a 5xx
+  is. Messages that no longer fit the order (e.g. "placed" after it expired) are skipped (`stale`); the merchant gets no "new order" SMS
+  for a card-to-card order they approved themselves. Counts use advisory locks (never the Store row checkouts share). Known and
+  accepted: the merchant's own mobile is not OTP-verified (owner/manager only, audited); `SmsMessage` has no retention job yet; rolling
+  back to a build before 3.6 makes the stored "sms" group unreadable there (customer OTP falls back to off until re-saved).
 
 ## 3.5 design (D35-1): online payment with Zarinpal
 

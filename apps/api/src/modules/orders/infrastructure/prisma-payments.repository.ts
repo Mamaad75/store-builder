@@ -184,7 +184,7 @@ export class PrismaPaymentStore implements PaymentStore {
       await tx.order.update({ where: { storeId_id: { storeId, id: orderId } }, data: { status: "EXPIRED" } });
       await tx.orderEvent.create({ data: { storeId, orderId, fromStatus: "AWAITING_PAYMENT", toStatus: "EXPIRED", actor: "SYSTEM", actorId: null, note: "مهلت پرداخت تمام شد" } });
       await restockReservationInTx({ tx }, storeId, orderId);
-      await recordEvent({ tx }, { type: "order.status_changed", storeId, payload: { orderId, from: "AWAITING_PAYMENT", to: "EXPIRED" } });
+      await recordEvent({ tx }, { type: "order.status_changed", storeId, payload: { orderId, from: "AWAITING_PAYMENT", to: "EXPIRED", actor: "SYSTEM" } });
       return true;
     }, TX);
   }

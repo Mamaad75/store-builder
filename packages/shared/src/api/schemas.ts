@@ -365,3 +365,14 @@ export type _Pins = [
   Assert<Same<I<typeof auditEventDto>, D.AuditEventDto>>,
   Assert<Same<I<typeof secretListDto>, D.SecretListDto>>,
 ];
+
+// ---- phase 3.6: order SMS
+const smsKind = z.enum(["SHOPPER_PLACED", "SHOPPER_SHIPPED", "SHOPPER_CANCELLED", "SHOPPER_EXPIRED", "SHOPPER_RECEIPT_REJECTED", "MERCHANT_NEW_ORDER", "MERCHANT_RECEIPT"]);
+export const storeSmsSettingsViewDto = z.object({
+  enabled: z.boolean().describe("this store sends order SMS"),
+  merchantPhone: z.string().nullable().describe("E.164; the merchant's new-order and receipt SMS go here"),
+  platformEnabled: z.boolean(),
+  monthlyCap: z.number(),
+  usedThisMonth: z.number(),
+  available: z.array(smsKind).describe("messages the platform has a template for"),
+});

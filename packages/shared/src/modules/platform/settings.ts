@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { orderSmsPlatformSchema } from "../notifications/order-sms.js";
 
 /**
  * Platform settings managed by super admins (phase 3.1, D31-3). Plain values only; keys and merchant ids are platform SECRETS (write-only,
@@ -38,6 +39,8 @@ export const smsSettingsSchema = z
     customerOtpEnabled: z.boolean(),
     /** Name of the OTP template approved in the Kavenegar panel (verify/lookup). */
     otpTemplate: z.string().trim().max(64).regex(/^[A-Za-z0-9_-]*$/, "فقط حروف انگلیسی، عدد، - و _"),
+    /** Phase 3.6 (D36-1): order SMS through the same Kavenegar account. Older stored values lack it: everything off. */
+    orderSms: orderSmsPlatformSchema.default(orderSmsPlatformSchema.parse({})),
   })
   .strict();
 
@@ -95,7 +98,7 @@ export interface PlatformSettings {
 }
 
 export const PLATFORM_SETTING_DEFAULTS: PlatformSettings = {
-  sms: { provider: "kavenegar", customerOtpEnabled: false, otpTemplate: "" },
+  sms: { provider: "kavenegar", customerOtpEnabled: false, otpTemplate: "", orderSms: orderSmsPlatformSchema.parse({}) },
   payment: { zarinpalEnabled: false, aqayepardakhtEnabled: false, sandbox: true },
   ai: { enabled: false, provider: "openai_compatible", baseUrl: "", model: "" },
   rates: { provider: "off", maxAgeHours: 6, jumpPercent: 10, providerUnit: "toman", allowInsecureHttp: false },

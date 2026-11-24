@@ -6,7 +6,9 @@ import { AlertConfigError, createNotifier, readAlertConfig, type AlertConfig } f
 import { useDb } from "../src/lib/db.js";
 import { formatLog } from "../src/lib/log.js";
 import { createErrorReporter, NO_REPORTER } from "@store-builder/shared/observability/error-report";
-import { EVENT_HANDLERS } from "../src/worker/handlers.js";
+import { createEventHandlers } from "../src/worker/handlers.js";
+import { createOrderSmsService } from "../src/modules/notifications/notifications.api.js";
+import { createPlatformSettingsService } from "../src/modules/platform/platform.api.js";
 import { startWorker } from "../src/worker/worker.js";
 import { JOBS, emptyStatus, runOnce, type LoopDeps, type SchedulerStatus } from "./scheduler-core.js";
 import { runJobProcess, signalJobTree } from "./scheduler-process.js";
@@ -63,9 +65,24 @@ deps.save(status);
 
 const prisma = createPrismaClient(config.databaseUrl);
 useDb(prisma);
+// Phase 3.6: order SMS (off when the worker lacks the API's AUTH_SECRET/domain; then the events are only logged).
+const sms = config.orderSms;
+const orderSms = sms
+  ? (() => {
+      const settings = createPlatformSettingsService(sms.secrets);
+      return createOrderSmsService({
+        authSecret: sms.authSecret,
+        storeOrigin: (label) => `${sms.protocol}://${label}.${sms.rootDomain}`,
+        platform: { settings: () => settings.settings(), reveal: (n) => (sms.secrets ? settings.reveal(n) : Promise.resolve(null)) },
+        devLog: sms.devLog,
+      });
+    })()
+  : null;
+if (!orderSms) console.warn(formatLog("warn", "order_sms.disabled", { reason: "AUTH_SECRET / APP_ROOT_DOMAIN not set for the worker" }));
+else if (!sms!.secrets && !sms!.devLog) console.warn(formatLog("warn", "order_sms.no_key", { reason: "SECRETS_MASTER_KEYS not set for the worker: the Kavenegar key cannot be read; order SMS are recorded as skipped" }));
 const worker = await startWorker({
   redisUrl: config.redisUrl,
-  handlers: EVENT_HANDLERS,
+  handlers: createEventHandlers({ orderSms }),
   alert,
   metrics: config.observability.metrics,
   reporter,

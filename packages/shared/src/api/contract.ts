@@ -9,6 +9,7 @@ import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
 import { customerLoginSchema, customerRegisterSchema } from "../modules/customers/schemas.js";
 import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
+import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
 import { RATE_CODES, priceLinkInputSchema } from "../modules/pricing/pricing.js";
 import { createStoreSchema, switchThemeSchema, updateBusinessCategorySchema, updateStoreSchema } from "../modules/stores/schemas.js";
@@ -202,6 +203,8 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", st("/orders/:orderId/receipts"), "The order's card-to-card receipts (D35b-1; images separately)", { permission: "orders.view", response: z.array(S.receiptDto) }),
   r("GET", st("/orders/:orderId/receipts/:receiptId/image"), "One receipt image (image/webp, never cached)", { permission: "orders.view" }),
   r("POST", st("/orders/:orderId/receipts/:receiptId/review"), "Approve (the order is placed) or reject a card-to-card receipt", { permission: "orders.manage", status: 200, body: reviewReceiptSchema, response: z.object({ result: z.enum(["approved", "rejected"]), order: S.orderDto }) }),
+  r("GET", st("/sms-settings"), "Order SMS of the store (phase 3.6): on/off, the merchant's mobile, this month's usage and the cap", { permission: "store.settings", response: S.storeSmsSettingsViewDto }),
+  r("PUT", st("/sms-settings"), "Turn order SMS on or off and set the merchant's mobile", { permission: "store.settings", body: storeSmsSettingsSchema, response: S.storeSmsSettingsViewDto }),
   r("GET", st("/bank-cards"), "The store's bank cards for card-to-card payment (D35b-1)", { permission: "store.view", response: z.array(S.bankCardDto) }),
   r("PUT", st("/bank-cards"), "Replace the store's bank cards (at most 5)", { permission: "store.settings", body: replaceBankCardsSchema, response: z.array(S.bankCardDto) }),
   r("GET", st("/payment-settings"), "Online payment state (phase 3.5): platform switch, sandbox, whether the merchant id is set, the return address", { permission: "secrets.manage", response: S.paymentSettingsViewDto }),

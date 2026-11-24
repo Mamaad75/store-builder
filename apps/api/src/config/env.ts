@@ -141,6 +141,11 @@ export interface WorkerConfig {
   /** Valkey/Redis URL of the queue (secret: may carry a password). Never logged. */
   redisUrl: string;
   observability: ObservabilityConfig;
+  /**
+   * Phase 3.6 (order SMS): the worker builds order links (store origin + the order's access token, HMAC of AUTH_SECRET) and reads the
+   * Kavenegar key (a platform secret: needs the master keys). Same variables as the API. Absent outside production = order SMS off.
+   */
+  orderSms: { authSecret: string; rootDomain: string; protocol: "http" | "https"; secrets: MasterKeys | null; devLog: boolean } | null;
 }
 
 const workerSchema = z.object({
@@ -168,8 +173,20 @@ export function loadWorkerConfig(env: Record<string, string | undefined>): Worke
     }
     if (!password && problems.length === 0) problems.push("REDIS_URL: must carry a password in production (redis://:<password>@host:6379)");
   }
+  // Phase 3.6: what order SMS need (the API's own variables; the production compose file gives the worker the API's environment).
+  const authSecret = blank(env.AUTH_SECRET) ?? (dev ? DEV_SECRET : undefined);
+  const rootDomain = blank(env.APP_ROOT_DOMAIN) ?? (dev ? "localhost:3000" : undefined);
+  const protocol = blank(env.APP_PROTOCOL) ?? (dev ? "http" : undefined);
+  const keys = parseMasterKeys(env.SECRETS_MASTER_KEYS, env.SECRETS_ACTIVE_KEY_ID);
+  if (keys && "error" in keys) problems.push(keys.error);
+  if (env.ORDER_SMS_DEV_LOG && !dev) problems.push("ORDER_SMS_DEV_LOG is for development and tests only (messages would be written to the log)");
+  const smsReady = authSecret && authSecret.length >= 32 && rootDomain && /^[a-z0-9.-]+(:\d+)?$/i.test(rootDomain) && (protocol === "http" || protocol === "https");
+  if (!dev && !smsReady) problems.push("AUTH_SECRET, APP_ROOT_DOMAIN and APP_PROTOCOL are needed by the worker for order SMS (same values as the API)");
   if (problems.length > 0 || !parsed.success) throw new EnvError(problems);
-  return { nodeEnv, production: !dev, databaseUrl: parsed.data.DATABASE_URL, redisUrl: parsed.data.REDIS_URL, observability };
+  const orderSms = smsReady
+    ? { authSecret: authSecret!, rootDomain: rootDomain!, protocol: protocol as "http" | "https", secrets: keys && !("error" in keys) ? keys : null, devLog: dev && env.ORDER_SMS_DEV_LOG === "true" }
+    : null;
+  return { nodeEnv, production: !dev, databaseUrl: parsed.data.DATABASE_URL, redisUrl: parsed.data.REDIS_URL, observability, orderSms };
 }
 
 export function loadConfig(env: Record<string, string | undefined>): ApiConfig {

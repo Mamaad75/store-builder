@@ -8,6 +8,7 @@ import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
 import CreditCardOutlined from '@mui/icons-material/CreditCardOutlined';
+import SmsOutlined from '@mui/icons-material/SmsOutlined';
 import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined';
 import PeopleAltOutlined from '@mui/icons-material/PeopleAltOutlined';
 import ExpandLess from '@mui/icons-material/ExpandLess';
@@ -127,6 +128,12 @@ function buildNav(base: string): Item[] {
       href: `${base}/payments`,
       icon: <CreditCardOutlined />,
       match: (p) => p.startsWith(`${base}/payments`),
+    },
+    {
+      label: 'پیامک سفارش',
+      href: `${base}/sms`,
+      icon: <SmsOutlined />,
+      match: (p) => p.startsWith(`${base}/sms`),
     },
     {
       label: 'صفحه‌ها',

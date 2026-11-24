@@ -1,5 +1,7 @@
 "use client";
 
+import { ORDER_SMS_KINDS, ORDER_SMS_LABELS, ORDER_SMS_TOKENS, type OrderSmsKind } from "@store-builder/shared/modules/notifications/order-sms";
+
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Alert from "@mui/material/Alert";
@@ -122,29 +124,73 @@ export function SecretField({ name, label, state, disabled }: { name: string; la
 
 type Secrets = Record<string, { configured: boolean; hint: string | null }>;
 
-export function SmsSettingsForm({ initial, secrets, encryptionReady }: { initial: { customerOtpEnabled: boolean; otpTemplate: string }; secrets: Secrets; encryptionReady: boolean }) {
+type OrderSmsInitial = { enabled: boolean; monthlyCapPerStore: number; templates: Record<OrderSmsKind, string> };
+
+export function SmsSettingsForm({
+  initial,
+  secrets,
+  encryptionReady,
+}: {
+  initial: { customerOtpEnabled: boolean; otpTemplate: string; orderSms?: OrderSmsInitial };
+  secrets: Secrets;
+  encryptionReady: boolean;
+}) {
   const { pending, fb, run } = useSubmit();
   const [enabled, setEnabled] = useState(initial.customerOtpEnabled);
   const [template, setTemplate] = useState(initial.otpTemplate);
-  const ready = secrets["sms.kavenegar.api_key"]?.configured && template.trim() !== "";
+  // Phase 3.6: order SMS live in the same group: saved together, so saving the sign-in part never resets them.
+  const os0 = initial.orderSms ?? { enabled: false, monthlyCapPerStore: 500, templates: Object.fromEntries(ORDER_SMS_KINDS.map((k) => [k, ""])) as Record<OrderSmsKind, string> };
+  const [orderOn, setOrderOn] = useState(os0.enabled);
+  const [cap, setCap] = useState(String(os0.monthlyCapPerStore));
+  const [templates, setTemplates] = useState<Record<OrderSmsKind, string>>({ ...os0.templates });
+  const keySet = secrets["sms.kavenegar.api_key"]?.configured;
+  const ready = keySet && template.trim() !== "";
   return (
     <Section
       title="پنل پیامک (کاوه‌نگار)"
-      description="ورود مشتری‌ها با کد یکبارمصرف. تا وقتی کلید API و نام قالب تأییدشده در پنل کاوه‌نگار ثبت و سوییچ روشن نشود، ورود با پیامک خاموش می‌ماند."
-      badge={<Chip size="small" color={initial.customerOtpEnabled ? "success" : "default"} label={initial.customerOtpEnabled ? "روشن" : "خاموش"} />}
+      description="ورود مشتری‌ها با کد یکبارمصرف، و پیامک‌های سفارش (به خریدار و فروشنده). هزینه‌ی پیامک‌ها با حساب کاوه‌نگار پلتفرم است و هر فروشگاه سقف ماهانه دارد. تا وقتی کلید API و نام قالب‌های تأییدشده در پنل کاوه‌نگار ثبت و سوییچ روشن نشود، پیامکی فرستاده نمی‌شود."
+      badge={<Chip size="small" color={initial.customerOtpEnabled || os0.enabled ? "success" : "default"} label={initial.customerOtpEnabled || os0.enabled ? "روشن" : "خاموش"} />}
     >
       <Box
         component="form"
         noValidate
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
-          run(() => updatePlatformSettings("sms", { provider: "kavenegar", customerOtpEnabled: enabled, otpTemplate: template }), "تنظیمات پیامک ذخیره شد.");
+          run(
+            () =>
+              updatePlatformSettings("sms", {
+                provider: "kavenegar",
+                customerOtpEnabled: enabled,
+                otpTemplate: template,
+                // An empty cap is refused by the server (never read as 0, which would silence every store).
+                orderSms: { enabled: orderOn, monthlyCapPerStore: cap.trim() === "" ? -1 : Number(cap), templates },
+              }),
+            "تنظیمات پیامک ذخیره شد.",
+          );
         }}
       >
         <Stack spacing={2}>
+          <Typography sx={{ fontWeight: 700 }}>ورود مشتری با کد</Typography>
           <TextField label="نام قالب کد ورود (verify/lookup)" value={template} onChange={(e) => setTemplate(e.target.value)} error={!!fb.fieldErrors?.otpTemplate} helperText={fb.fieldErrors?.otpTemplate?.[0] ?? "همان نامی که در پنل کاوه‌نگار برای قالب کد تأیید ساخته‌اید."} slotProps={ltr} />
           <FormControlLabel control={<Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />} label="ورود مشتری با پیامک فعال باشد" />
           {enabled && !ready && <Alert severity="warning">تا وقتی کلید API و نام قالب ثبت نشود، ورود با پیامک عملاً خاموش می‌ماند.</Alert>}
+
+          <Typography sx={{ fontWeight: 700, pt: 1 }}>پیامک‌های سفارش</Typography>
+          <FormControlLabel control={<Switch checked={orderOn} onChange={(e) => setOrderOn(e.target.checked)} />} label="پیامک‌های سفارش برای فروشگاه‌ها فعال باشد" />
+          <TextField label="سقف پیامک هر فروشگاه در ماه" value={cap} onChange={(e) => setCap(e.target.value.replace(/\D/g, ""))} error={cap.trim() === "" || !!fb.fieldErrors?.orderSms}
+            helperText={fb.fieldErrors?.orderSms?.[0] ?? "جدا برای پیامک‌های خریدار و پیامک‌های فروشنده. پس از رسیدن به سقف، آن پیامک‌ها تا ماه بعد فرستاده نمی‌شود."} slotProps={ltr} size="small" />
+          {ORDER_SMS_KINDS.map((k) => (
+            <TextField
+              key={k}
+              label={ORDER_SMS_LABELS[k]}
+              value={templates[k]}
+              onChange={(e) => setTemplates({ ...templates, [k]: e.target.value })}
+              helperText={`نام قالب (خالی = این پیامک خاموش). متغیرها: ${ORDER_SMS_TOKENS[k]}`}
+              slotProps={ltr}
+              size="small"
+            />
+          ))}
+          {orderOn && !keySet && <Alert severity="warning">کلید API کاوه‌نگار ثبت نشده است؛ پیامک‌های سفارش فرستاده نمی‌شوند.</Alert>}
           <Box>
             <Button type="submit" variant="contained" disabled={pending}>
               ذخیره

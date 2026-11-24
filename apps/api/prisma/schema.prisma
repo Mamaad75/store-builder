@@ -140,6 +140,8 @@ model Store {
   orders           Order[]
   payments         Payment[]
   bankCards        StoreBankCard[]
+  smsSetting       StoreSmsSetting?
+  smsMessages      SmsMessage[]
   receipts         TransferReceipt[]
   counter          StoreCounter?
 
@@ -957,4 +959,38 @@ model TransferReceipt {
 
   @@index([storeId, orderId, createdAt])
   @@index([storeId, status, createdAt])
+}
+
+/// Phase 3.6 (D36-1): a store's order-SMS choice. No row = order SMS on, no merchant phone (merchant SMS not sent).
+model StoreSmsSetting {
+  storeId       String   @id
+  enabled       Boolean  @default(true)
+  /// The merchant's mobile (E.164) for new-order and receipt SMS; null = none.
+  merchantPhone String?  @db.VarChar(13)
+  updatedAt     DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+/// Phase 3.6 (D36-1): one order SMS (or the decision not to send it), keyed by the domain event and the kind: delivery of events is
+/// at-least-once, so a second delivery finds the row and sends nothing. Also the store's monthly count. No phone number, no message text.
+model SmsMessage {
+  id        String   @id @default(cuid())
+  storeId   String
+  eventId   String   @db.VarChar(40)
+  kind      String   @db.VarChar(40)
+  orderId   String?
+  /// SHA-256 of the recipient's phone (never the number): the platform-wide daily limit per phone (review 3.6).
+  recipientHash String? @db.VarChar(64)
+  /// PENDING (claimed, being sent), SENT, FAILED (retried by the queue), SKIPPED (off, capped, no phone, no template).
+  status    String   @db.VarChar(10)
+  reason    String?  @db.VarChar(30)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, kind])
+  @@index([storeId, createdAt])
+  @@index([recipientHash, createdAt])
 }

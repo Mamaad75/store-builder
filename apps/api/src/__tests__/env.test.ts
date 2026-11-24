@@ -74,9 +74,25 @@ describe("loadConfig", () => {
 });
 
 describe("loadWorkerConfig (phase 2.2)", () => {
-  const worker = { NODE_ENV: "production", DATABASE_URL: "postgresql://u:SECRETPW@db:5432/x", REDIS_URL: "redis://:QUEUEPW@valkey:6379" };
+  const worker = {
+    NODE_ENV: "production",
+    DATABASE_URL: "postgresql://u:SECRETPW@db:5432/x",
+    REDIS_URL: "redis://:QUEUEPW@valkey:6379",
+    AUTH_SECRET: "q7Hc2Ls9Wm4Rt8Yv1Bn6Xk3Pd5Fg0Jz2Aw7Ue9Ir4",
+    APP_ROOT_DOMAIN: "example.ir",
+    APP_PROTOCOL: "https",
+  };
   it("accepts a production configuration with a password-protected queue", () => {
-    expect(loadWorkerConfig(worker)).toMatchObject({ production: true, redisUrl: worker.REDIS_URL });
+    expect(loadWorkerConfig(worker)).toMatchObject({ production: true, redisUrl: worker.REDIS_URL, orderSms: { rootDomain: "example.ir", protocol: "https", devLog: false } });
+  });
+  it("phase 3.6: a production worker needs the API's AUTH_SECRET and domain (order links); ORDER_SMS_DEV_LOG only in development", () => {
+    for (const k of ["AUTH_SECRET", "APP_ROOT_DOMAIN"] as const) {
+      const { [k]: _gone, ...rest } = worker;
+      void _gone;
+      expect(() => loadWorkerConfig(rest)).toThrow(EnvError);
+    }
+    expect(() => loadWorkerConfig({ ...worker, ORDER_SMS_DEV_LOG: "true" })).toThrow(EnvError);
+    expect(loadWorkerConfig({ NODE_ENV: "development", DATABASE_URL: worker.DATABASE_URL, ORDER_SMS_DEV_LOG: "true" }).orderSms).toMatchObject({ rootDomain: "localhost:3000", devLog: true });
   });
   it("defaults to the local Valkey only in development", () => {
     expect(loadWorkerConfig({ NODE_ENV: "development", DATABASE_URL: worker.DATABASE_URL }).redisUrl).toBe("redis://localhost:6379");

@@ -12189,6 +12189,363 @@
         }
       }
     },
+    "/api/v1/admin/stores/{storeId}/sms-settings": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdSmsSettings",
+        "summary": "Order SMS of the store (phase 3.6): on/off, the merchant's mobile, this month's usage and the cap",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "store.settings",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "this store sends order SMS"
+                    },
+                    "merchantPhone": {
+                      "description": "E.164; the merchant's new-order and receipt SMS go here",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "platformEnabled": {
+                      "type": "boolean"
+                    },
+                    "monthlyCap": {
+                      "type": "number"
+                    },
+                    "usedThisMonth": {
+                      "type": "number"
+                    },
+                    "available": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "SHOPPER_PLACED",
+                          "SHOPPER_SHIPPED",
+                          "SHOPPER_CANCELLED",
+                          "SHOPPER_EXPIRED",
+                          "SHOPPER_RECEIPT_REJECTED",
+                          "MERCHANT_NEW_ORDER",
+                          "MERCHANT_RECEIPT"
+                        ]
+                      },
+                      "description": "messages the platform has a template for"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "merchantPhone",
+                    "platformEnabled",
+                    "monthlyCap",
+                    "usedThisMonth",
+                    "available"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putApiV1AdminStoresStoreIdSmsSettings",
+        "summary": "Turn order SMS on or off and set the merchant's mobile",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "store.settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "merchantPhone": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "merchantPhone"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "this store sends order SMS"
+                    },
+                    "merchantPhone": {
+                      "description": "E.164; the merchant's new-order and receipt SMS go here",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "platformEnabled": {
+                      "type": "boolean"
+                    },
+                    "monthlyCap": {
+                      "type": "number"
+                    },
+                    "usedThisMonth": {
+                      "type": "number"
+                    },
+                    "available": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "SHOPPER_PLACED",
+                          "SHOPPER_SHIPPED",
+                          "SHOPPER_CANCELLED",
+                          "SHOPPER_EXPIRED",
+                          "SHOPPER_RECEIPT_REJECTED",
+                          "MERCHANT_NEW_ORDER",
+                          "MERCHANT_RECEIPT"
+                        ]
+                      },
+                      "description": "messages the platform has a template for"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "merchantPhone",
+                    "platformEnabled",
+                    "monthlyCap",
+                    "usedThisMonth",
+                    "available"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stores/{storeId}/subdomain": {
       "get": {
         "operationId": "getApiV1AdminStoresStoreIdSubdomain",
@@ -17327,12 +17684,113 @@
                               "type": "string",
                               "maxLength": 64,
                               "pattern": "^[A-Za-z0-9_-]*$"
+                            },
+                            "orderSms": {
+                              "default": {
+                                "enabled": false,
+                                "monthlyCapPerStore": 500,
+                                "templates": {
+                                  "SHOPPER_PLACED": "",
+                                  "SHOPPER_SHIPPED": "",
+                                  "SHOPPER_CANCELLED": "",
+                                  "SHOPPER_EXPIRED": "",
+                                  "SHOPPER_RECEIPT_REJECTED": "",
+                                  "MERCHANT_NEW_ORDER": "",
+                                  "MERCHANT_RECEIPT": ""
+                                }
+                              },
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "monthlyCapPerStore": {
+                                  "default": 500,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000
+                                },
+                                "templates": {
+                                  "default": {
+                                    "SHOPPER_PLACED": "",
+                                    "SHOPPER_SHIPPED": "",
+                                    "SHOPPER_CANCELLED": "",
+                                    "SHOPPER_EXPIRED": "",
+                                    "SHOPPER_RECEIPT_REJECTED": "",
+                                    "MERCHANT_NEW_ORDER": "",
+                                    "MERCHANT_RECEIPT": ""
+                                  },
+                                  "type": "object",
+                                  "properties": {
+                                    "SHOPPER_PLACED": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9_-]*$"
+                                    },
+                                    "SHOPPER_SHIPPED": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9_-]*$"
+                                    },
+                                    "SHOPPER_CANCELLED": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9_-]*$"
+                                    },
+                                    "SHOPPER_EXPIRED": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9_-]*$"
+                                    },
+                                    "SHOPPER_RECEIPT_REJECTED": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9_-]*$"
+                                    },
+                                    "MERCHANT_NEW_ORDER": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9_-]*$"
+                                    },
+                                    "MERCHANT_RECEIPT": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9_-]*$"
+                                    }
+                                  },
+                                  "required": [
+                                    "SHOPPER_PLACED",
+                                    "SHOPPER_SHIPPED",
+                                    "SHOPPER_CANCELLED",
+                                    "SHOPPER_EXPIRED",
+                                    "SHOPPER_RECEIPT_REJECTED",
+                                    "MERCHANT_NEW_ORDER",
+                                    "MERCHANT_RECEIPT"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "enabled",
+                                "monthlyCapPerStore",
+                                "templates"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
                             "provider",
                             "customerOtpEnabled",
-                            "otpTemplate"
+                            "otpTemplate",
+                            "orderSms"
                           ],
                           "additionalProperties": false
                         },
@@ -17735,12 +18193,113 @@
                           "type": "string",
                           "maxLength": 64,
                           "pattern": "^[A-Za-z0-9_-]*$"
+                        },
+                        "orderSms": {
+                          "default": {
+                            "enabled": false,
+                            "monthlyCapPerStore": 500,
+                            "templates": {
+                              "SHOPPER_PLACED": "",
+                              "SHOPPER_SHIPPED": "",
+                              "SHOPPER_CANCELLED": "",
+                              "SHOPPER_EXPIRED": "",
+                              "SHOPPER_RECEIPT_REJECTED": "",
+                              "MERCHANT_NEW_ORDER": "",
+                              "MERCHANT_RECEIPT": ""
+                            }
+                          },
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "monthlyCapPerStore": {
+                              "default": 500,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000
+                            },
+                            "templates": {
+                              "default": {
+                                "SHOPPER_PLACED": "",
+                                "SHOPPER_SHIPPED": "",
+                                "SHOPPER_CANCELLED": "",
+                                "SHOPPER_EXPIRED": "",
+                                "SHOPPER_RECEIPT_REJECTED": "",
+                                "MERCHANT_NEW_ORDER": "",
+                                "MERCHANT_RECEIPT": ""
+                              },
+                              "type": "object",
+                              "properties": {
+                                "SHOPPER_PLACED": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9_-]*$"
+                                },
+                                "SHOPPER_SHIPPED": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9_-]*$"
+                                },
+                                "SHOPPER_CANCELLED": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9_-]*$"
+                                },
+                                "SHOPPER_EXPIRED": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9_-]*$"
+                                },
+                                "SHOPPER_RECEIPT_REJECTED": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9_-]*$"
+                                },
+                                "MERCHANT_NEW_ORDER": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9_-]*$"
+                                },
+                                "MERCHANT_RECEIPT": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9_-]*$"
+                                }
+                              },
+                              "required": [
+                                "SHOPPER_PLACED",
+                                "SHOPPER_SHIPPED",
+                                "SHOPPER_CANCELLED",
+                                "SHOPPER_EXPIRED",
+                                "SHOPPER_RECEIPT_REJECTED",
+                                "MERCHANT_NEW_ORDER",
+                                "MERCHANT_RECEIPT"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "monthlyCapPerStore",
+                            "templates"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "provider",
                         "customerOtpEnabled",
-                        "otpTemplate"
+                        "otpTemplate",
+                        "orderSms"
                       ],
                       "additionalProperties": false
                     },

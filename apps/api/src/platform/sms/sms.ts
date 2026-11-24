@@ -10,6 +10,21 @@ export interface SmsSender {
   sendOtp(phoneE164: string, code: string): Promise<void>;
 }
 
+/** Phase 3.6: Kavenegar lookup tokens of a template (token/token2/token3: no spaces; token10: up to 5; token20: up to 8). */
+export interface LookupTokens {
+  token: string;
+  token2?: string;
+  token3?: string;
+  token10?: string;
+  token20?: string;
+}
+
+/** Phase 3.6 (D36-1): any approved verify/lookup template (order SMS), on the same account and line rules as the OTP. */
+export interface TemplateSmsSender {
+  /** Throws SmsSendError. */
+  sendTemplate(phoneE164: string, template: string, tokens: LookupTokens): Promise<void>;
+}
+
 export interface KavenegarConfig {
   apiKey: string;
   template: string;
@@ -18,21 +33,28 @@ export interface KavenegarConfig {
 }
 
 export class SmsSendError extends Error {
-  constructor(public readonly reason: "http_status" | "rejected" | "timeout" | "network" | "bad_response") {
+  /** server_error (5xx) is the only temporary failure; timeout/network may have been sent (never retried for order SMS: no doubles). */
+  constructor(public readonly reason: "http_status" | "server_error" | "rejected" | "timeout" | "network" | "bad_response") {
     super(`sms not sent: ${reason}`);
     this.name = "SmsSendError";
   }
 }
 
-export class KavenegarSms implements SmsSender {
+export class KavenegarSms implements SmsSender, TemplateSmsSender {
   constructor(
     private readonly c: KavenegarConfig,
     private readonly send: typeof fetch = fetch,
   ) {}
 
   async sendOtp(phoneE164: string, code: string): Promise<void> {
+    await this.sendTemplate(phoneE164, this.c.template, { token: code });
+  }
+
+  async sendTemplate(phoneE164: string, template: string, tokens: LookupTokens): Promise<void> {
     // Kavenegar takes the national form (09xxxxxxxxx). The parameters travel in the POST body, not in the URL.
-    const body = new URLSearchParams({ receptor: `0${phoneE164.slice(3)}`, token: code, template: this.c.template });
+    const fields: Record<string, string> = { receptor: `0${phoneE164.slice(3)}`, template };
+    for (const [k, v] of Object.entries(tokens)) if (typeof v === "string" && v !== "") fields[k] = v;
+    const body = new URLSearchParams(fields);
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), this.c.timeoutMs);
     let res: Response;
@@ -49,7 +71,7 @@ export class KavenegarSms implements SmsSender {
     } finally {
       clearTimeout(timer);
     }
-    if (!res.ok) throw new SmsSendError("http_status");
+    if (!res.ok) throw new SmsSendError(res.status >= 500 ? "server_error" : "http_status");
     let json: unknown;
     try {
       json = await res.json();

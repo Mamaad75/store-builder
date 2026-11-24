@@ -176,7 +176,7 @@ export class PrismaOrderStore implements OrderStore {
       await tx.order.updateMany({ where: { id, storeId, status: row.status }, data: { status: to } });
       await tx.orderEvent.create({ data: { storeId, orderId: id, fromStatus: row.status, toStatus: to, actor: by.actor, actorId: by.actorId, note: by.note } });
       if (restocksOn(to)) await restockReservationInTx({ tx }, storeId, id);
-      await recordEvent({ tx }, { type: "order.status_changed", storeId, payload: { orderId: id, from: row.status, to } });
+      await recordEvent({ tx }, { type: "order.status_changed", storeId, payload: { orderId: id, from: row.status, to, actor: by.actor } });
       return true;
     }, TX);
     return done ? this.getById(storeId, id) : null;

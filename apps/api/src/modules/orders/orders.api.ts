@@ -8,3 +8,5 @@ export { createOrdersService } from "./infrastructure/compose.js";
 // Phase 3.5: online payment (the reconciliation job, scripts/reconcile-payments.ts).
 export { PaymentsService } from "./application/payments.service.js";
 export { createPaymentsService } from "./infrastructure/compose.js";
+// Phase 3.6: what the order SMS read from an order.
+export { createOrderNotificationReader, type OrderForNotification } from "./infrastructure/notification-reader.js";

@@ -54,12 +54,15 @@ export class PrismaTransferStore implements TransferStore {
       const existing = await tx.transferReceipt.findMany({ where: { storeId: r.storeId, orderId: r.orderId }, select: { status: true } });
       if (existing.some((x) => x.status === "SUBMITTED")) return "pending" as const;
       if (existing.length >= max) return "too_many" as const;
-      await tx.transferReceipt.create({
+      const created = await tx.transferReceipt.create({
+        select: { id: true },
         data: {
           storeId: r.storeId, orderId: r.orderId, trackingCode: r.trackingCode, payerCardLast4: r.payerCardLast4,
           image: new Uint8Array(r.image), imageMime: "image/webp", imageWidth: r.width, imageHeight: r.height,
         },
       });
+      // Phase 3.6: the merchant's SMS ("a receipt waits for you"); ids only.
+      await recordEvent({ tx }, { type: "order.receipt_submitted", storeId: r.storeId, payload: { orderId: r.orderId, receiptId: created.id } });
       return "ok" as const;
     }, TX);
   }
@@ -86,6 +89,8 @@ export class PrismaTransferStore implements TransferStore {
       if (rc.status !== "SUBMITTED") return "not_pending" as const;
       if (d.decision === "reject") {
         await tx.transferReceipt.update({ where: { id: receiptId }, data: { status: "REJECTED", reviewNote: d.note, reviewedById: d.actorId, reviewedAt: now } });
+        // Phase 3.6: the shopper's SMS ("send a corrected receipt"); ids only.
+        await recordEvent({ tx }, { type: "order.receipt_rejected", storeId, payload: { orderId, receiptId } });
         // The shopper gets time again to send a corrected receipt (an order past its deadline was kept only because of this receipt).
         const sent = await tx.transferReceipt.count({ where: { storeId, orderId } });
         if (o.status === "AWAITING_PAYMENT" && o.paymentDeadline && o.paymentDeadline < resubmitUntil && sent < max) {
@@ -102,7 +107,8 @@ export class PrismaTransferStore implements TransferStore {
       await tx.transferReceipt.update({ where: { id: receiptId }, data: { status: "APPROVED", reviewNote: d.note, reviewedById: d.actorId, reviewedAt: now } });
       await tx.order.update({ where: { storeId_id: { storeId, id: orderId } }, data: { status: "PLACED" } });
       await tx.orderEvent.create({ data: { storeId, orderId, fromStatus: "AWAITING_PAYMENT", toStatus: "PLACED", actor: "MERCHANT", actorId: d.actorId, note: "رسید کارت به کارت تأیید شد" } });
-      await recordEvent({ tx }, { type: "order.placed", storeId, payload: { orderId, number: o.number } });
+      // source: the merchant placed it by approving the receipt (no "new order" SMS to the merchant, review 3.6).
+      await recordEvent({ tx }, { type: "order.placed", storeId, payload: { orderId, number: o.number, source: "receipt_approval" } });
       return "approved" as const;
     }, TX);
   }
