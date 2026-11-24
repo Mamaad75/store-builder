@@ -1,333 +1,326 @@
 # ADR 0005 — Merchant verification and account trust
 
-* **Status:** Proposed (architecture only, 2026-11-24). Nothing in this document is implemented; no schema, API or UI change was made.
-* **Supersedes:** ADR 0003 Part B (staged verification sketch). ADR 0003 Parts A (suspension, implemented) and C (billing) are unchanged.
-* **Preserves:** ADR 0004 (Kavenegar only at deployment; development OTP via log; no fixed or development codes in production).
-* **Labels:** **[EXISTS]** verified in code · **[PARTIAL]** · **[MISSING]** · **[DECIDE]** owner decision · external-claim status:
-  **Confirmed** / **Public, confirm for our use** / **Unverified assumption** / **Needs provider or legal consultation**.
-* **External research:** none was performed for this ADR. Every statement about an Iranian provider or regulation below is therefore
-  labelled "Public, confirm for our use", "Unverified assumption" or "Needs consultation" — never "Confirmed".
+* **Status:** Accepted as architecture, 2026-11-24, with the owner's decisions of the same day (§0). **Nothing in this document is
+  implemented**; no schema, API, UI or test exists for it. Every database or API change below is an expectation for future work.
+* **Supersedes:** ADR 0003 Part B. ADR 0003 Parts A (suspension, implemented) and C (billing) are unchanged.
+* **Preserves (unchanged):** ADR 0004 — Kavenegar is activated only in the final production deployment phase; development OTP is
+  log-only and refused outside development/test; production never accepts fixed or development codes; real SMS delivery testing is
+  deferred to production provider configuration.
+* **Labels:** **[EXISTS]** verified in code · **[PARTIAL]** · **[MISSING]** · decision status **Approved** (owner) / **Recommended**
+  (architect, needs owner confirmation) / **Pending** (open). External-claim status: **Confirmed** / **Public, confirm for our use** /
+  **Unverified assumption** / **Needs provider or legal consultation**.
+* **External research:** none was performed. No statement about an Iranian provider or regulation is marked "Confirmed".
+
+---
+
+## 0. Decision register
+
+### 0.1 Approved by the owner (2026-11-24)
+
+| ID | Decision | Consequence in this ADR |
+|---|---|---|
+| **D-13** | **Grace period for existing stores.** Existing stores never go offline and receive no automatic restriction because their owners have not verified; the grace period is for notices and reminders only. This is **not** a permanent exemption: any future enforcement for existing merchants is a separate product decision (D-17). | §11; V1 builds verification without enforcing it on existing stores |
+| **D-10** | **Identity-based manual recovery.** A merchant who lost access to the verified phone may request manual recovery, available **only to identity-verified users**, through a controlled administrative review. Success invalidates every session and notifies the owner through the available verified channels. Users who are **not** identity-verified have **no** manual recovery path and no alternative method (§6.3). | V2 builds self-service recovery; the manual path ships with V4 |
+| **D-6** | **Encrypted PostgreSQL storage** for identity documents in the initial implementation; **no private S3 bucket in this phase**. | §6.4 requirements; V4 |
+| **D-15** | **V0 (payout security) and V1 (merchant phone verification) proceed in parallel**; their integration is reviewed together; V2 depends on V1. *(The owner's message labelled this "D-14"; the original D-14 is a different question and stays Pending — see §0.4.)* | §14 |
+
+### 0.2 Recommended (architect; needs explicit owner confirmation)
+
+| ID | Recommendation | Status |
+|---|---|---|
+| **D-3** | Only the store **OWNER** may change bank cards and payment-gateway payout credentials; MANAGER and OPERATOR may not. Every such change is audited and the owner notified. (Today MANAGER can change bank cards through `store.settings`; gateway credentials are already OWNER-only through `secrets.manage`.) | **Recommended — not approved.** V0 audit and notices do not depend on it; the permission change does |
+| D-11 | Separate development flag for merchant OTP (`ACCOUNT_OTP_DEV_LOG`, refused outside development/test, start-up test) | Recommended |
+| D-12 | On phone change, sign out every other session and keep the current one | Recommended |
+
+### 0.3 Pending (owner decision required)
+
+| ID | Question | Recommendation | Status |
+|---|---|---|---|
+| **D-1** | Does card-to-card require identity verification? | Yes by public launch; pilot: no gate, manual identity on request | **Pending** |
+| **D-2** | Cooling-off duration and scope after recovery / phone change | 24 h; payout settings (bank cards, gateway credentials) + phone only | **Pending** |
+| **D-2a** | Who may release a cooling-off early | Reviewer with `verification.recovery` permission, after a recorded check; never the merchant | **Pending** |
+| D-4 | Phone uniqueness | One verified phone per account; a phone verified on at most one account | **Pending** |
+| **D-5** | Reviewer permissions (and four-eyes for revocations / manual recovery) | Permissions required before any real document is stored; four-eyes for manual recovery | **Pending** |
+| D-7 | National code: HMAC only, or also encrypted clear value | HMAC + last 3 digits; encrypted clear value only if a provider re-check or invoices need it | **Pending** |
+| D-8 | Identity validity period / periodic re-check | None at launch; revoke on evidence | **Pending** |
+| **D-9** | Document retention after a decision | 90 days, subject to legal confirmation; see §6.4 for the backup window | **Pending** (legal input) |
+| D-14 | Verified merchant phone replaces `StoreSmsSetting.merchantPhone`? | Default from it; keep the per-store override | **Pending** |
+| **D-16** | Onboarding policy for **new** merchants: does publishing require a verified phone? | Yes (phone verification is cheap and gives reachability); enforcement behind a platform switch, off until approved | **Pending** |
+| **D-17** | Future enforcement for **existing** merchants after the grace period | Separate decision when V1 data shows adoption; never automatic offline | **Pending** |
+| D-18 | Manual recovery when the old phone is lost: which "verified channels" receive the notice | Old phone (if reachable), the newly verified phone, an in-app notice; no email (none exists) | **Pending** |
+
+### 0.4 Inconsistencies found while updating
+
+1. The owner's "D-14 — implementation priority" does not match the original D-14 (merchant notification phone). Recorded as **D-15**;
+   the original D-14 stays Pending.
+2. D-10 requires identity verification, which only exists after **V4**; V2 depends only on V1. Until V4 ships **no merchant can be
+   recovered manually**: a merchant who loses both the phone and the password is unrecoverable (§6.3).
+3. D-10 asks to notify "through available verified contact channels", but the platform has **no email** (removed in ADR 0001 U1); the
+   only verified channel is the phone that was lost. D-18 decides the notice channels.
+4. The original phase list had V6 (provider identity). The approved list ends at V5; provider-based identity is now an optional
+   extension of V4, gated by §9 research.
+5. The original matrix said "publishing requires phone verified". With D-13 this cannot apply to existing stores; for new merchants it is
+   D-16 (Pending).
 
 ---
 
 ## 1. Executive summary
 
-1. **Replace the single L0→L3 ladder with independent verification facts and a computed capability policy.** Phone ownership, a
-   person's identity and a business's legal status are different facts about different subjects (account, person, legal entity) with
-   different lifetimes. A linear "level" forces false orderings (a company's representative must be a verified person, but a verified
-   person does not have a verified company) and makes revocation of one fact ambiguous. Levels survive only as **display names** derived
-   from the facts.
-2. **Phone verification belongs to `User`; identity to a per-user `IdentityVerification`; business to a `LegalEntity` owned by a user and
-   linkable to many stores.** One user with many stores verifies once.
-3. **Store capabilities derive from the store OWNER's facts** (the accountable party, the only role that can change payout settings).
-   Staff facts never widen a store's capabilities.
-4. **Capabilities are a pure function** (same pattern as `storeAvailability` in ADR 0003): `capabilitiesFor(ownerFacts, storeFacts)`.
-   Verification never writes publishing, suspension or billing fields, and those never write verification fields.
-5. **Before the first real merchant, only phone verification (with SMS account recovery and a payout-change cooldown) is needed.**
-   Identity and business verification start as **manual review**, introduced only for the capabilities that need them, after the
-   provider and legal questions in §9 are answered.
-6. **Biggest risk is not verification but account takeover:** today a stolen merchant password can silently replace the store's bank
-   cards and gateway merchant id (money redirection). Phone verification adds a recovery path that SIM swap can abuse, so it must ship
-   together with sensitive-change protection (§6.2).
+1. **Independent verification facts, not a ladder.** Phone ownership (account), identity (person) and business status (legal entity)
+   are different facts about different subjects. Display levels are derived names only.
+2. **Phone verification on `User`; identity per `User` in its own record; business on a separate `LegalEntity`** that a verified
+   person represents and that can be linked to several stores. One identity verification covers all of a user's stores.
+3. **Store capabilities derive from the store OWNER's facts** through one pure function, like `storeAvailability` (ADR 0003).
+4. **Verification, store suspension, billing restriction and account restriction are independent records with independent writers.**
+   Approving a merchant never restores a suspended store; restoring a store never approves its owner.
+5. **Order of work:** V0 payout security ∥ V1 phone verification → V2 recovery and cooling-off → V3 reviewer permissions and workflow
+   → V4 manual identity verification (documents encrypted in PostgreSQL) → V5 legal entities (after legal and provider research).
+6. **Existing stores** keep working through a reminder-only grace period (D-13). **New-merchant enforcement** is a separate pending
+   decision (D-16).
 
 ---
 
-## 2. Current architecture assessment (verified in code, commit `c97e302`)
+## 2. Current architecture assessment (verified in code at commit `c97e302`)
 
 | Area | Status | Facts |
 |---|---|---|
-| User model | [EXISTS] | `User`: `username` (unique), `name`, `passwordHash` (Argon2), `authVersion`; `email` **deprecated** (U1, nullable, unused) |
-| Registration / login | [EXISTS] | `/api/auth/register`, `/login`, `/logout`, `/logout-all`, `/me`, `/change-password`; rate limits per IP and per username (`AUTH_RULES`) |
-| Sessions | [EXISTS] | Signed token in a cookie, 7-day max age; `authVersion` bump revokes every token (used by change-password and logout-all) |
-| Password reset / account recovery | [MISSING] | `PasswordResetToken` table is **deprecated** (email reset removed with U1); no recovery path at all today |
-| Merchant phone | [MISSING] / [PARTIAL] | No phone on `User`. `StoreSmsSetting.merchantPhone` is a per-store, **unverified** notification number (phase 3.6) |
-| Phone change flow | [MISSING] | — |
-| Two-factor auth | [MISSING] | — |
-| OTP | [EXISTS], store-scoped | Shopper sign-in only. `OtpChallenge` has a **required `storeId`** (shopper isolation); codes `randomInt` 6 digits, HMAC-stored, attempts + expiry, rate limits per phone/IP; `OtpSender` port; dev log sender behind `CUSTOMER_OTP_DEV_LOG` (refused outside development/test, tested) |
-| SMS abstraction | [EXISTS] | `OtpSender` (customers), `TemplateSender` (notifications), Kavenegar adapter configured from platform settings + encrypted platform secret (ADR 0004) |
-| Multi-store | [EXISTS] | `Store.ownerId` (one owner), max 10 stores per user; `StoreMember` roles MANAGER / OPERATOR; invitations |
-| Ownership transfer | [MISSING] | No transfer of `Store.ownerId` anywhere |
-| Store permissions | [EXISTS] | 16 permissions; `secrets.manage` (gateway credentials) is **OWNER only**; bank cards use `store.settings` (OWNER **and MANAGER**) |
-| Platform roles | [EXISTS], coarse | `PlatformAdmin` with a single role `SUPER_ADMIN`; role read from DB per request; first admin by server command |
-| Platform admin UI | [EXISTS] | `/platform` overview, stores (with suspension), settings, rates, admins |
-| Audit | [EXISTS] | `AuditEvent` (platform rows `storeId = null`, store rows visible to OWNER/MANAGER), 365-day retention |
-| Store suspension | [EXISTS] | ADR 0003 G2: independent of publishing; computed availability |
-| Account-level restriction | [MISSING] | (ADR 0003 D2: separate, not built) |
-| Secrets | [EXISTS] | Envelope encryption (AES-GCM data key wrapped by `SECRETS_MASTER_KEYS`), store and platform secrets, write-only over HTTP |
-| Object storage | [EXISTS], **public only** | `MediaStorage` = put / delete / list / exists; one bucket whose policy allows anonymous GET; **no private read, no presigned URLs** |
-| Private binary precedent | [EXISTS] | Card-to-card receipts: re-encoded image (EXIF stripped) stored as `bytea` in PostgreSQL, served only through an authorised API route |
-| Identity / business verification | [MISSING] | — |
-
-**Security gap found during this review (exists today, independent of verification):** a MANAGER can replace the store's bank cards
-(`store.settings`), and the OWNER (or anyone holding the owner's password) can replace the Zarinpal merchant id / Aghaye Pardakht pin.
-Neither change is notified, delayed or confirmed. This is the money-redirection path that verification work must close (§6.2, D-3).
+| User model | [EXISTS] | `User`: `username` (unique), `name`, `passwordHash` (Argon2), `authVersion`; `email` **deprecated** (U1, unused) |
+| Registration / login | [EXISTS] | `/api/auth/register`, `/login`, `/logout`, `/logout-all`, `/me`, `/change-password`; rate limits per IP and per username |
+| Sessions | [EXISTS] | Signed cookie token, 7-day max age; an `authVersion` bump revokes every token |
+| Password reset / recovery | [MISSING] | `PasswordResetToken` is deprecated (email reset removed); no recovery path |
+| Merchant phone | [MISSING] / [PARTIAL] | No phone on `User`; `StoreSmsSetting.merchantPhone` is a per-store, **unverified** notification number |
+| Phone change, two-factor auth, ownership transfer | [MISSING] | — |
+| OTP | [EXISTS], shopper-only | `OtpChallenge` (required `storeId`), random 6-digit codes, HMAC-stored, attempts/expiry, rate limits; `OtpSender` port; `CUSTOMER_OTP_DEV_LOG` refused outside development/test (tested) |
+| SMS abstraction | [EXISTS] | `OtpSender`, `TemplateSender`; Kavenegar adapter from platform settings + encrypted platform secret (ADR 0004) |
+| Multi-store / staff | [EXISTS] | `Store.ownerId`, ≤ 10 stores per user, `StoreMember` MANAGER / OPERATOR |
+| Payout-sensitive permissions | [EXISTS] | Bank cards: `PUT /stores/:id/bank-cards` requires `store.settings` (**OWNER and MANAGER**). Gateway credentials: store secrets require `secrets.manage` (**OWNER only**). Neither change is notified or delayed |
+| Platform roles / UI | [EXISTS], coarse | Single `SUPER_ADMIN`; `/platform` overview, stores (suspension), settings, rates, admins |
+| Audit | [EXISTS] | `AuditEvent` (platform rows `storeId` null; store rows visible to OWNER/MANAGER), 365-day retention |
+| Suspension | [EXISTS] | ADR 0003 G2; computed availability |
+| Secrets encryption | [EXISTS] | Envelope encryption: AES-256-GCM data key wrapped by `SECRETS_MASTER_KEYS` (env, **not** in the database); `pnpm secrets:rotate` |
+| Private binary in PostgreSQL | [EXISTS] precedent | Card-to-card receipt images: re-encoded (EXIF stripped), `bytea`, served only by an authorised route — **not** encrypted at the application level |
+| Object storage | [EXISTS], public only | One public-read bucket; no private read API (not used for documents, D-6) |
+| Backups | [EXISTS] (scripts) | `pg_dump` daily-capable script, 14-day `RETENTION_DAYS`, off-server copy mandatory (runbook) |
+| Verification of identity / business | [MISSING] | — |
 
 ---
 
-## 3. Proposed verification model
+## 3. Verification model
 
-### 3.1 Facts, not a ladder
-
-| Fact | Subject | How established | Lifetime |
+| Fact | Subject | Established by | Lifetime |
 |---|---|---|---|
-| **Phone verified** | User | OTP to the phone | Until the phone changes or an admin removes it |
-| **Identity verified** | Person (the user) | Provider check and/or manual review | Until revoked; optionally re-checked (decision D-8) |
-| **Business verified** | LegalEntity | Manual review (provider lookup later, if available) | Until revoked or the entity's data changes |
+| Phone verified | `User` | OTP to the phone (V1) | Until the phone changes or a reviewer removes it |
+| Identity verified | `User` (person) | Manual document review (V4); provider methods later if §9 allows | Until revoked (D-8) |
+| Business verified | `LegalEntity` | Manual review (V5) | Until revoked or the entity's data changes |
 
-**Display levels** (for UI and support only, computed): L0 Registered · L1 Phone verified · L2 Identity verified (requires L1) ·
-**Business verified is shown as a badge, not a level** (it requires the representative to be L2, but an L2 person need not have a
-business). This resolves "L2 vs L3 are not interchangeable": L3 is not "more than L2", it is a different subject.
-
-### 3.2 Critical assessment of the proposed L0–L3 model
-
-* **L0 → store creation is fine**; blocking creation adds friction with no safety benefit (drafts are private).
-* **L1 is weak identity** (cheap SIMs, SIM swap). It is valuable for *reachability and recovery*, not for trust. Do not market it as
-  "verified merchant".
-* **L2 via mobile ↔ national-ID matching couples identity to the phone.** If identity is proven by matching the current mobile to a
-  national code, a phone change invalidates that proof. Manual document review does not have this coupling. The model must record
-  *how* identity was established (`method`) so phone changes can invalidate only phone-derived proofs.
-* **L3 as a level** is unnecessary complexity for an individual seller (most small Iranian online shops are individuals). It must be
-  optional and capability-specific.
-* **Missing from the proposal:** account takeover protection, payout-change safety, ownership transfer, and revocation semantics.
+Derived display levels: **L0** registered · **L1** phone verified · **L2** identity verified (implies L1 at the time of approval) ·
+**business verified** is a badge on a legal entity, not a level. A phone change does **not** revoke a manual (document-based) identity
+proof; it does revoke a future phone-bound provider proof.
 
 ---
 
 ## 4. Conceptual data model (illustrative only — not added to the repository)
 
 ```prisma
-// Phone: on the account (one verified phone per account; a phone verified on at most one account - decision D-4)
-model User {
+model User {                                 // V1, V2
   // ...existing
-  phone              String?   @db.VarChar(16)   // +989xxxxxxxxx (same CHECK as Customer.phone)
-  phoneVerifiedAt    DateTime?                    // null = not verified
-  sensitiveLockUntil DateTime?                    // cooldown after recovery / phone change (§6.2)
-  // partial unique index: (phone) WHERE phoneVerifiedAt IS NOT NULL
+  phone              String?   @db.VarChar(16)   // +989xxxxxxxxx
+  phoneVerifiedAt    DateTime?
+  sensitiveLockUntil DateTime?                    // V2 cooling-off
+  // partial unique index on (phone) WHERE phoneVerifiedAt IS NOT NULL (D-4)
 }
 
-// OTP for accounts, separate from shoppers' store-scoped OtpChallenge (keeps shopper isolation CHECKs intact)
-model AccountOtpChallenge {
-  id         String    @id @default(cuid())
-  userId     String?                 // null for recovery started from a phone number
-  phone      String    @db.VarChar(16)
-  purpose    AccountOtpPurpose       // VERIFY_PHONE | CHANGE_PHONE | RECOVER
-  codeHash   String    @db.VarChar(64)
-  attempts   Int       @default(0)
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime  @default(now())
-}
+model AccountOtpChallenge {                  // V1 (purposes VERIFY_PHONE, CHANGE_PHONE), V2 (RECOVER)
+  id String @id @default(cuid()); userId String?; phone String @db.VarChar(16)
+  purpose AccountOtpPurpose; codeHash String @db.VarChar(64); attempts Int @default(0)
+  expiresAt DateTime; consumedAt DateTime?; createdAt DateTime @default(now())
+}                                             // separate from the shopper OtpChallenge (store-scoped isolation)
 
-// Identity of the person behind a user account
-model IdentityVerification {
-  id           String              @id @default(cuid())
-  userId       String
-  status       VerificationStatus  // §5
-  method       IdentityMethod      // MANUAL_DOCUMENTS | PROVIDER_MOBILE_MATCH | PROVIDER_CIVIL_REGISTRY
-  legalName    String              @db.VarChar(120)
-  nationalIdHmac String            @db.VarChar(64)   // keyed hash: duplicate detection without storing the number in clear
-  nationalIdEnc  Bytes?                               // envelope-encrypted, only if a later re-check or invoice needs it (D-7)
-  boundPhone   String?             @db.VarChar(16)   // the phone a PROVIDER_MOBILE_MATCH proof was made for
-  decidedById  String?
-  decidedAt    DateTime?
-  expiresAt    DateTime?
-  createdAt    DateTime            @default(now())
-  // partial unique index: one open (SUBMITTED/UNDER_REVIEW/NEEDS_INFO) request per user; one APPROVED per user
-}
-
-// A legal entity (company) represented by a verified person, linkable to many stores
-model LegalEntity {
-  id              String   @id @default(cuid())
-  representativeId String  // User; must hold an APPROVED identity to submit
-  legalName       String   @db.VarChar(200)
-  nationalIdEnc   Bytes    // company national id (شناسه ملی), envelope-encrypted; + HMAC for uniqueness
-  registrationNo  String?  @db.VarChar(40)
-  status          VerificationStatus
-  // ...decision fields as above
-}
-model Store { /* ...existing */ legalEntityId String? }  // optional: a store sells as an individual or as an entity
-
-// Private documents (never in the public media bucket)
-model VerificationDocument {
-  id          String  @id @default(cuid())
-  subjectType String  // IDENTITY | LEGAL_ENTITY
-  subjectId   String
-  kind        String  // NATIONAL_CARD_FRONT | ... (allowlist)
-  storageKey  String  // private bucket key, or null when stored in PostgreSQL (D-6)
-  sha256      String
-  sizeBytes   Int
-  deleteAfter DateTime   // retention (D-9)
-  createdAt   DateTime @default(now())
-}
-
-model VerificationEvent {   // append-only history of every transition and admin action
-  id String @id @default(cuid()); subjectType String; subjectId String
-  fromStatus VerificationStatus?; toStatus VerificationStatus
-  actorId String?; actorKind String  // MERCHANT | PLATFORM | SYSTEM
-  publicReason String?               // shown to the merchant
-  internalNote String?               // platform only
+model PayoutChange {                         // V0 (or AuditEvent rows with a fixed action set; see §14 V0)
+  id String @id @default(cuid()); storeId String; actorId String
+  kind String  // BANK_CARDS | GATEWAY_CREDENTIAL
+  summary Json // masked: last 4 digits / gateway name only, never full values
   createdAt DateTime @default(now())
 }
+
+model IdentityVerification {                 // V4
+  id String @id @default(cuid()); userId String; status VerificationStatus
+  method IdentityMethod                      // MANUAL_DOCUMENTS (V4); PROVIDER_* only after §9
+  legalName String @db.VarChar(120); nationalIdHmac String @db.VarChar(64); nationalIdEnc Bytes? // D-7
+  decidedById String?; decidedAt DateTime?; createdAt DateTime @default(now())
+  // partial unique: one open request per user; one APPROVED per user
+}
+
+model VerificationDocument {                 // V4 (D-6: encrypted in PostgreSQL)
+  id String @id @default(cuid()); verificationId String; kind String  // allowlist
+  keyId String @db.VarChar(32); wrappedKey Bytes; sealed Bytes        // envelope ciphertext of the re-encoded image
+  mime String @db.VarChar(20); sizeBytes Int; sha256 String @db.VarChar(64)
+  deleteAfter DateTime?; deletedAt DateTime?; createdAt DateTime @default(now())
+}
+
+model VerificationEvent {                    // V3/V4: append-only history
+  id String @id @default(cuid()); subjectType String; subjectId String
+  fromStatus VerificationStatus?; toStatus VerificationStatus
+  actorId String?; actorKind String; publicReason String?; internalNote String?; createdAt DateTime @default(now())
+}
+
+model RecoveryRequest {                      // V4 (D-10 manual recovery), uses the same workflow states
+  id String @id @default(cuid()); userId String; status VerificationStatus
+  newPhone String @db.VarChar(16); evidenceVerificationId String?  // documents compared with the approved identity
+  createdAt DateTime @default(now())
+}
+
+model LegalEntity {                          // V5
+  id String @id @default(cuid()); representativeId String; legalName String @db.VarChar(200)
+  nationalIdEnc Bytes; nationalIdHmac String @db.VarChar(64); registrationNo String?; status VerificationStatus
+}
+model Store { /* ...existing */ legalEntityId String? }   // V5, optional
 ```
 
-**Ownership answers:**
-* Phone → **User** (account fact). Identity → **separate entity per user** (person fact with its own workflow and data protection).
-  Business → **LegalEntity**, not Store (one company may run several stores; a store may sell as an individual).
-* One user, many stores: identity and entities are **shared**; no repeated verification.
-* Many users, one store: **the owner's facts decide**. Staff verification is irrelevant to store capabilities. If D-3 keeps bank cards
-  editable by MANAGERs, those managers must at least be phone-verified, and every bank-card change notifies the owner.
-* Ownership transfer ([MISSING]): when built, capabilities are recomputed from the new owner; payout settings (bank cards, gateway
-  credentials) are **cleared or frozen** until the new owner re-confirms them; `legalEntityId` is cleared unless the new owner
-  represents that entity.
+* One user, many stores: identity and legal entities are shared.
+* Many users, one store: only the **owner's** facts drive capabilities; staff facts never widen them.
+* Ownership transfer is not implemented; when it is, capabilities are recomputed from the new owner, payout settings are cleared or
+  frozen until the new owner re-confirms them, and `legalEntityId` is cleared unless the new owner represents that entity.
 
 ---
 
 ## 5. Workflow and state transitions
 
-Phone verification is **not** a reviewed workflow: it is an OTP proof with timestamps. Identity and legal-entity verification share:
+Phone verification is an OTP proof (no review). Identity, legal-entity and manual-recovery requests share one state machine:
 
 ```mermaid
 stateDiagram-v2
     [*] --> NOT_STARTED
     NOT_STARTED --> SUBMITTED: merchant submits
-    SUBMITTED --> UNDER_REVIEW: reviewer claims / provider check starts
+    SUBMITTED --> UNDER_REVIEW: reviewer claims
     SUBMITTED --> WITHDRAWN: merchant withdraws
-    UNDER_REVIEW --> APPROVED: reviewer approves / provider match (policy)
+    UNDER_REVIEW --> APPROVED: reviewer approves
     UNDER_REVIEW --> REJECTED: reviewer rejects (public reason required)
-    UNDER_REVIEW --> NEEDS_INFO: reviewer asks for more (public request)
+    UNDER_REVIEW --> NEEDS_INFO: reviewer requests information (public message)
     NEEDS_INFO --> SUBMITTED: merchant answers
     NEEDS_INFO --> EXPIRED: no answer within N days (job)
-    APPROVED --> REVOKED: platform revokes (fraud, data change) / phone change voids a phone-bound proof
-    APPROVED --> EXPIRED: validity period ends (only if D-8 sets one)
-    REJECTED --> SUBMITTED: new submission = appeal (new request row, linked)
+    APPROVED --> REVOKED: reviewer revokes (reason)
+    APPROVED --> EXPIRED: validity ends (only if D-8 sets one)
+    REJECTED --> SUBMITTED: new submission (appeal = new linked request)
     REVOKED --> SUBMITTED: new submission
     EXPIRED --> SUBMITTED: new submission
 ```
 
-* **Who:** merchant — submit, answer, withdraw (own subject only); reviewer (platform permission) — claim, approve, reject, request
-  info, revoke; system — expiry, phone-change revocation of `PROVIDER_MOBILE_MATCH` proofs.
-* Transitions are compare-and-set (`UPDATE … WHERE status = expected`), each writes a `VerificationEvent` in the same transaction.
-* **One open request per subject** (partial unique index); a duplicate submit returns the open one. Resubmissions/appeals are new rows
-  linked to the previous decision; rate-limited (e.g. 3 per 30 days) to bound review cost and document storage.
-* A reviewer cannot act on a request where they are the subject or a member of a related store (server-side check, test).
+* Merchant: submit, answer, withdraw — own subject only. Reviewer (V3 permission): claim, approve, reject, request information, revoke.
+  System: expiry jobs. Compare-and-set transitions; one `VerificationEvent` per transition in the same transaction.
+* One open request per subject; duplicates return the open request; resubmissions rate-limited (e.g. 3 per 30 days).
+* A reviewer can never act on a request about themself or about a user of a store they belong to (server-side, tested).
 
 ---
 
 ## 6. Security and privacy
 
-### 6.1 Phone verification on the existing OTP architecture (ADR 0004)
+### 6.1 Merchant OTP on the existing architecture (V1, ADR 0004 preserved)
 
-* Reuse the **domain rules and crypto** (`newCode`, HMAC, attempt and expiry rules, rate limits) and the **`OtpSender` port**; do not
-  reuse the `OtpChallenge` table (its `storeId` is the shopper isolation boundary).
-* Move `OtpSender` from the customers module to the platform SMS layer (code move, no behaviour change) so both customer and account
-  OTP depend on the platform port, not on each other.
-* Development delivery: a development-only sender behind a flag refused outside `development`/`test`, with a start-up test, exactly as
-  `CUSTOMER_OTP_DEV_LOG` (D-11: separate flag recommended so enabling one never silently enables the other). No fixed codes, no bypass.
-* Different Kavenegar template for account codes (purpose shown in the text: verification vs recovery) — configured at deployment only.
+* Reuse the OTP **domain rules and crypto** (random 6-digit code, HMAC storage, attempts, expiry, rate limits) and the **`OtpSender`
+  port**; move the port to the platform SMS layer (code move) so customer and account OTP do not depend on each other.
+* **Separate table** `AccountOtpChallenge`; the shopper `OtpChallenge` and its store isolation are untouched.
+* Development delivery only through a development-only flag refused outside development/test, with a start-up test (D-11). No fixed
+  codes, no bypass, no environment-based skip. Kavenegar templates for account codes are configured only at deployment (ADR 0004).
 
-### 6.2 Account security and recovery
+### 6.2 Payout security (V0)
 
-| Event | Proposed behaviour |
+* **Payout settings** are a distinct category from ordinary store settings: bank cards (card-to-card destinations) and gateway payout
+  credentials (Zarinpal merchant id, Aghaye Pardakht pin). They decide **where shoppers' money goes**. Ordinary settings (name, colours,
+  contact, shipping) do not.
+* Required regardless of D-3: an audit row for every payout change (actor, store, kind, masked summary — last 4 digits / gateway name,
+  never full values), and an owner notice (in-app now; SMS when V1 provides a verified phone and the provider is live at deployment).
+* With D-3 (Recommended, not approved): a dedicated permission (e.g. `payout.manage`, OWNER only) replaces `store.settings` on the
+  bank-card route; MANAGER keeps ordinary settings.
+* Payout changes are refused while the platform suspends the store (already true: G2 refuses all non-order writes).
+
+### 6.3 Account recovery and cooling-off (V2; manual path V4)
+
+| Situation | Behaviour |
 |---|---|
-| Phone verification | OTP to the phone; `phoneVerifiedAt` set; audit (platform + account) |
-| Phone change | Requires current password **and** OTP to the new phone; old phone gets an SMS notice; `authVersion + 1` except the current session (D-12); sensitive cooldown starts; `PROVIDER_MOBILE_MATCH` identity proofs are revoked (manual proofs stay) |
-| Password reset ("forgot password") | Username/phone → OTP to the verified phone → new password → `authVersion + 1` (all sessions out) → cooldown starts → SMS notice |
-| Lost phone and password | No self-service. Manual recovery by a platform reviewer **only for identity-verified accounts** (documents compared with the approved identity), audited; otherwise not recoverable (D-10) |
-| Change password (signed in) | [EXISTS]; add an SMS notice when a verified phone exists |
-| Unverified account without password | Not recoverable (D-10) — this is the honest consequence of no email and no phone |
+| Forgot password, has the verified phone | Self-service (V2): OTP to the verified phone → new password → `authVersion + 1` (all sessions end) → cooling-off starts (D-2) → notice to the phone |
+| Phone change while signed in | Current password + OTP to the new phone → notice to the old phone → other sessions end (D-12) → cooling-off starts |
+| Lost the phone, **identity-verified** (D-10) | Manual recovery request (V4): new phone verified by OTP, documents compared by a reviewer with the approved identity, decision by a reviewer with `verification.recovery` (four-eyes if D-5 says so) → `authVersion + 1` → phone replaced → cooling-off starts → notices per D-18 |
+| Lost the phone, **not identity-verified** | **No recovery path** (D-10). The account remains locked to its owner's password; if the password is also lost, the account cannot be recovered. Stores keep running for shoppers (order access, ADR 0003 D1); the merchant can register a new account but cannot take over the old stores. No undocumented alternative is offered by support |
+| Lost phone and password before V4 exists | Same as "not identity-verified" (inconsistency §0.4-2) |
 
-**Sensitive-change cooldown — evaluated, not adopted blindly.**
-* *Benefit:* SIM swap or password theft gives an attacker the account; the money is only reachable by changing **payout settings**
-  (bank cards, gateway merchant id / pin) or the phone itself. A delay plus a notice to the old phone gives the real owner time to react.
-* *Usability cost:* a legitimate merchant who just recovered access cannot change bank cards for the delay; new merchants are **not**
-  affected (the cooldown starts only on recovery or phone change, not on first verification).
-* *Scope (recommended):* only payout-affecting actions and the phone itself — bank cards, gateway credentials, phone change, future
-  ownership transfer, future payout account. Catalog, orders, publishing are never blocked.
-* *Length:* **24 h recommended for launch** (D-2); 48 h is safer but noticeably hurts support load in a market where merchants often
-  change SIMs. Platform reviewers can lift it early after a manual check (audited).
-* *Independent of verification work but in the same release:* notify the owner on every bank-card or gateway-credential change, and
-  decide whether MANAGERs keep `store.settings` over bank cards (D-3; recommended: OWNER only).
+**Cooling-off (D-2 Pending):** blocks only payout settings and phone change for the duration; never catalog, orders or publishing.
+Benefit: a SIM-swap or password thief cannot redirect money immediately and the owner is warned. Cost: a legitimate merchant who just
+recovered cannot change bank cards for the period. Exceptions: early release by a reviewer (D-2a), audited. New merchants verifying a
+phone for the first time are not affected.
 
-### 6.3 Documents and personal data
+### 6.4 Identity documents in encrypted PostgreSQL (D-6, V4)
 
-* **Storage:** the current `MediaStorage` cannot hold private documents safely: one bucket with anonymous GET, no private read API.
-  Options (D-6):
-  1. **PostgreSQL `bytea`**, envelope-encrypted with the existing secrets scheme, served only through an authorised API route —
-     the receipts precedent; simplest; grows DB and backups. Recommended for manual review at small volume.
-  2. **A second, private bucket** (separate credentials, no public policy, no public URL), objects envelope-encrypted before upload,
-     a new `PrivateStorage` port with `get`; the API streams after authorisation. Better at volume.
-  * Presigned URLs are **not recommended** initially: they are bearer links that leak through logs, referrers and screenshots; if used
-    later, ≤ 60 s, single object, issued only to reviewers, logged.
-* **Processing:** images only at first (re-encode, strip EXIF, size limits — existing pipeline); no PDFs until a sandboxed parser
-  decision. Malware-free by construction (re-encoding), not by scanning.
-* **Encryption:** in transit (TLS at Caddy, internal network); at rest via envelope encryption (bucket/DB compromise alone is not
-  enough); master keys per ADR/D31-3.
-* **Minimisation:** national code stored as a keyed HMAC for duplicate detection; the clear value only if a re-check or invoices need
-  it (D-7). Merchant-facing answers show masked data (e.g. last 3 digits).
-* **Retention (D-9, legal confirmation needed):** documents deleted N days after a final decision (proposal: 90); decision records kept
-  per the audit retention; legal holds for fraud cases.
-* **Access logging:** every document view by a reviewer writes a platform audit row (who, which document, when). No document content,
-  national code or note in logs; logs carry ids only.
-* **Abuse:** rate limits on OTP (per phone, IP, account), submissions, document uploads; one verified phone per account; national-code
-  HMAC uniqueness flags duplicate identities for review instead of silently allowing them.
+Requirements (all must be implemented **and tested** before the first real document is accepted):
 
-### 6.4 Multi-tenant isolation (enforcement points)
+1. **Application-level encryption before persistence:** each document is encrypted with a fresh data key (AES-256-GCM) wrapped by the
+   platform master key, the same envelope scheme as store secrets, with the document id and verification id as associated data. The
+   database stores only `keyId`, `wrappedKey`, `sealed`.
+2. **Keys separate from the database:** master keys stay in the server environment (`SECRETS_MASTER_KEYS`), never in the database, in
+   database backups or in git; rotation through the existing rotate procedure extended to documents.
+3. **Strict authorisation:** decryption happens only in the API, only for a reviewer with `verification.documents` (V3) acting on that
+   request; merchants can upload but **never download** documents (write-only, like secrets); shoppers and store staff have no route.
+4. **No public URLs:** documents are streamed by an authorised API response with `Cache-Control: no-store`; no presigned links, no
+   public bucket, no file path exposure.
+5. **Audit on every access:** each view or download writes a platform audit row (reviewer, document id, request id, time). No content,
+   national code or note in the audit row.
+6. **Validation:** images only (JPEG/PNG/WebP) at first; magic-byte check, decode and **re-encode** (strips EXIF/GPS and embedded
+   payloads; the receipts pipeline), pixel and byte limits (e.g. ≤ 2 MB after re-encoding, ≤ 4 documents per request), no PDFs until a
+   separate decision.
+7. **Retention and deletion (D-9 Pending):** documents get `deleteAfter` when a request reaches a final state; a job overwrites the
+   ciphertext and deletes the row; the decision record stays. Deleting the master key version after rotation makes old backups' copies
+   unreadable.
+8. **Exposure through API, logs, backups, exports:**
+   * API: merchant DTOs never contain document bytes, national codes in clear, internal notes or reviewer identity (DTO snapshot tests).
+   * Logs: ids only; request bodies of upload routes never logged; error reports scrubbed.
+   * Backups: they contain only ciphertext; the backup restore needs the master keys, kept separately. A deleted document survives in
+     backups for the backup retention (14 days today) — the effective deletion time is retention + backup window; D-9 must account for it.
+   * Exports: support/database exports and `prisma studio` access must exclude the document table (existing studio guard extended);
+     restore drills use the encrypted data as is.
 
-* Merchant routes for verification are **account-scoped** (`/me/...`), never take a user id or document id the caller does not own;
-  documents are never served by merchant routes after submission (a merchant cannot list or download other users' documents; even their
-  own are write-only, like secrets — D-6 detail).
-* Status changes exist **only** on platform routes; merchant routes can only submit, answer or withdraw. Architecture test: no
-  `stores/:storeId` or `/me` route writes `status`.
-* Platform authorisation is server-side per request (existing `PlatformAdminGuard` reading the DB) plus the new permission check; the
-  reviewer re-check happens inside the transaction (as suspension does).
-* Store suspension, account restriction, billing and verification are separate tables and separate writers; each gate reads all the
-  facts it needs (§8).
+**Trade-offs of PostgreSQL storage:** simplest secure option (one store, transactional with the verification record, no new service,
+no bucket policy risk); but documents grow the database and every backup (e.g. 300 merchants × 4 images × ~1 MB ≈ 1.2 GB plus appeals),
+lengthen backup and restore times, and add load to `pg_dump`. Mitigations: tight size limits, deletion after decision, monitoring of the
+table size; a private bucket remains a later option (not in this phase).
+
+### 6.5 Multi-tenant isolation
+
+* Merchant routes are account-scoped (`/me/...`); they never accept another user's id, request id or document id; foreign ids → 404.
+* Status changes exist only on platform routes behind the platform guard and the V3 permission, re-checked inside the transaction.
+* A merchant cannot approve their own request; a reviewer cannot review themself or users of stores they belong to.
+* An unrelated store owner cannot change another store's capabilities: capabilities are computed from the owner's own records.
+* Suspension, account restriction, billing and verification are separate tables and writers; each gate reads all the facts it needs.
 
 ---
 
-## 7. Platform admin requirements
+## 7. Platform admin requirements (V3, before any real document)
 
-* **Today:** one role (`SUPER_ADMIN`) can do everything. That is acceptable for suspension, but identity documents are the most
-  sensitive data on the platform. **Recommend platform permissions** (D-5) before any document is stored:
-  `verification.review` (see queue, decide), `verification.documents` (open documents), `verification.revoke`, separate from settings
-  and admin management. Implementation: a `PlatformAdmin.permissions` set or additional roles; the guard checks the permission per
-  route. SUPER_ADMIN holds all.
-* **Screens:** queue (filters: status, age, subject type), request detail (facts, masked identifiers, document viewer with
-  per-view audit), actions (approve / reject with required public reason / request info with a public message / revoke with
-  reason), internal notes (platform only), full history (`VerificationEvent`), linked stores and their suspension state (read-only).
-* **Self-review prevention**, optional **four-eyes** for revocations of businesses with active payments (D-5).
-* **Leak prevention:** merchant DTOs are separate types without internal notes or reviewer identity (same lesson as the G2 review:
-  the store audit row must not carry reasons or operator names).
+* Permissions (D-5 Pending): `verification.review` (queue, decide), `verification.documents` (open documents),
+  `verification.recovery` (manual recovery, early cooling-off release), `verification.revoke`. SUPER_ADMIN holds all.
+  Implementation expectation: a permission set on `PlatformAdmin` or additional roles; the guard checks the permission per route.
+* Screens: queue (status, age, subject type), request detail (masked facts, document viewer with per-view audit), actions (approve,
+  reject with public reason, request information, revoke with reason), internal notes (platform only), full history, linked stores and
+  their suspension state (read-only).
+* Leak prevention: separate merchant DTO types; the store audit log never carries reasons, notes or reviewer identity (G2 lesson).
 
 ---
 
 ## 8. Feature access matrix
 
-Policy = **our product/security recommendation**. Provider and legal columns are questions, not facts.
+| Capability | Existing stores (D-13, Approved) | New merchants (policy) | Status | Provider / legal questions |
+|---|---|---|---|---|
+| Account, store creation, drafts | allowed | allowed | Recommended | — |
+| Publishing | allowed; reminders only | phone verified | D-16 **Pending** | Samandehi applicability: legal consultation |
+| Online gateway (own terminal) | allowed | phone verified; payout changes per V0 | Recommended | PSP expectations: provider consultation |
+| Card-to-card | allowed | identity verified by public launch | D-1 **Pending** | Consumer protection: legal consultation |
+| Custom domain (not built) | — | phone verified + domain proof | Recommended | eNamad per domain: merchant matter, consultation |
+| Torob / external feeds (not built) | — | phone verified | Recommended | Torob partner terms: provider consultation |
+| Selling as a company | — | business verified (V5) | Recommended | Tax / e-invoicing: legal consultation |
+| Payout changes | per V0 (D-3 Recommended) | per V0 | Recommended | — |
 
-| Capability | Policy (recommended) | Provider requirement | Legal requirement |
-|---|---|---|---|
-| Account creation | none | — | — |
-| Store creation, drafts, preview | none (L0) | — | — |
-| Publishing a store | **phone verified** (owner) | — | Needs consultation (e.g. Samandehi applicability, checklist L5) |
-| Cash-on-delivery orders | phone verified (implied by publishing) | — | — |
-| Order SMS to the merchant | phone verified (use the verified phone; `StoreSmsSetting.merchantPhone` becomes a default from it) | — | — |
-| Online gateway (merchant's own terminal) | phone verified + cooldown rules | **Confirm with Zarinpal / Aghaye Pardakht**: their own merchant KYC is the money-side control; whether they expect store-builder KYC is unknown | Needs consultation (platform's role, checklist L6) |
-| Card-to-card | **identity verified (D-1)** or phone verified + a visible limit/warning | n/a (no provider) | Needs consultation (consumer protection) |
-| Custom domain | phone verified + domain ownership proof | — | eNamad on that domain is a merchant matter (checklist L4) |
-| Torob product feed / connection | phone verified | **Confirm with Torob** (shop registration is per domain; partner terms unknown) | — |
-| Other commercial integrations (Emalls, future) | phone verified by default; per integration | Confirm per provider | — |
-| Selling as a company (invoices with the entity's name) | business verified | — | Needs consultation (tax / e-invoicing, checklist BL4) |
-| Paid subscription | phone verified; invoice details collected at checkout | — | Needs consultation (tax) |
-
-Enforcement: a pure `capabilitiesFor(owner, store)` in `packages/shared`, checked in the service that enables the capability **and**
-at the moment of use where money is involved (e.g. card numbers are shown to shoppers only while the owner still holds the
-capability; revocation hides them, it does not unpublish the store). Removing a fact never deletes configuration; it disables use.
-
-**Interaction with other governance:** availability (`published ∧ ¬suspended ∧ ¬billing`) decides whether the storefront is live;
-capabilities decide what the merchant may enable and which payment methods are offered. Neither writes the other: approving a merchant
-never restores a suspended store; restoring a store never approves a merchant; a verification revocation for fraud is accompanied by an
-explicit, separate suspension if the store must go offline. Account restriction (future) blocks the account's writes across all its
-stores and is its own record.
+Capabilities are computed by a pure function and checked where the capability is enabled **and** where money is involved (e.g. card
+numbers shown only while the owner holds the capability). Losing a fact disables use, never deletes configuration, and never unpublishes
+a store (suspension is the separate tool for taking a store offline).
 
 ---
 
@@ -335,106 +328,137 @@ stores and is its own record.
 
 | Topic | What is believed | Status |
 |---|---|---|
-| Mobile ↔ national-ID match ("Shahkar", run under the telecom regulator) | A national system that tells whether a mobile number is registered to a national code; private businesses reportedly reach it through licensed intermediaries under contract | **Public, confirm for our use** (who may call it, contract, cost, data-protection terms) |
-| Civil registry (ثبت احوال) identity data via intermediaries | Some fintech/KYC companies advertise national-ID + birth-date inquiries | **Unverified assumption**; **needs consultation** on lawful basis and providers |
-| Video / selfie KYC providers | Offered by some Iranian fintechs | **Unverified assumption** |
-| Company registry (روزنامه رسمی / rrk.ir, ilenc.ir) | Public web lookup of companies by national id / registration number | **Public, confirm for our use** (manual lookup by reviewers is plausible; automated access unknown) |
-| eNamad | Issued per domain after the applicant's identity/business checks; a badge page is publicly viewable | Badge existence **Public, confirm for our use**; using an eNamad as evidence of business verification **needs consultation** |
-| PSP merchant KYC (Zarinpal, Aghaye Pardakht) | PSPs identify their merchants and settle to the merchant's own bank account | **Public, confirm for our use**; whether a store builder must also verify **needs provider consultation** |
-| Legal duty for a store builder to verify merchants | Unknown | **Needs legal consultation** |
-| Retention periods for identity documents | Unknown | **Needs legal consultation** |
-
-Practical conclusion: **manual review first** (documents + reviewer, optional public registry lookups by the reviewer), with the data
-model ready for a provider method later. No product promise ("instant verification") depends on an unconfirmed provider.
+| Mobile ↔ national-ID match ("Shahkar", telecom regulator) | Reachable for businesses through licensed intermediaries under contract | Public, confirm for our use |
+| Civil registry identity inquiries via intermediaries | Advertised by some fintech/KYC companies | Unverified assumption; needs consultation |
+| Video / selfie KYC providers | Offered by some Iranian fintechs | Unverified assumption |
+| Company registry (rrk.ir, ilenc.ir) | Public web lookup of companies | Public, confirm for our use (manual lookup by reviewers plausible) |
+| eNamad as business evidence | Issued per domain after the applicant's checks; badge pages public | Needs consultation |
+| PSP merchant KYC (Zarinpal, Aghaye Pardakht) | PSPs identify their merchants; settlement to the merchant's own account | Public, confirm for our use; store-builder duties need provider consultation |
+| Legal duty for a store builder to verify merchants | Unknown | Needs legal consultation |
+| Retention periods for identity documents | Unknown | Needs legal consultation |
 
 ---
 
-## 10. Testing strategy
+## 10. Testing strategy (future)
 
-**Automated (development, CI; no provider, no secrets):**
-* Unit: capability policy truth tables; state machine (every allowed and forbidden transition); OTP rules reuse; cooldown math;
-  HMAC duplicate detection.
-* API/DB integration: phone verify, change, recovery with the development sender and an in-memory fake; `authVersion` bumps; cooldown
-  blocks payout changes and not catalog; one open request per subject; compare-and-set races (two reviewers approve at once).
-* Authorisation: every verification route × {anonymous, merchant, other merchant, staff, reviewer without permission, super admin};
-  self-review refused; merchant cannot change status by any route (architecture test).
-* Multi-tenant isolation: another merchant's request/document ids → 404; document routes never reachable from store routes;
-  merchant DTOs contain no internal notes, reviewer ids or full identifiers (snapshot tests, as in the G2 audit test).
-* Document security: private storage has no anonymous access (storage policy tests like the existing ones); every view audited;
-  re-encoding strips metadata; size/type limits; retention job deletes and leaves the decision record.
-* Recovery: SIM-swap scenario (recover → cannot change cards for the cooldown → owner notified); lost phone + password → no
-  self-service path.
-* E2E (Playwright, as in G2 verification): merchant verifies phone with the logged code; submits identity; reviewer requests info,
-  merchant answers, reviewer approves; card-to-card becomes available; revocation hides card numbers.
-* Start-up tests: every development flag refused outside development/test.
+**Automated (development and CI; no provider, no secrets):** capability truth tables; state-machine transitions (allowed and refused);
+OTP rule reuse; payout-change authorisation per role (OWNER / MANAGER / OPERATOR / stranger / suspended store); audit rows and owner
+notices for payout changes; cooling-off blocks payout changes but not catalog/orders; recovery bumps `authVersion`; manual recovery only
+for identity-verified users; authorisation matrix for every verification route; self-review refused; multi-tenant isolation (foreign
+ids → 404); DTO snapshot tests (no notes, reviewer ids, full identifiers, document bytes); document encryption round-trip, wrong-key
+failure, ciphertext-only in the database, audit on every view, validation limits, retention job; start-up refusal of every
+development flag; Playwright E2E for merchant and reviewer flows using the development OTP log.
 
-**Real-world (deployment phase only, ADR 0004):** Kavenegar delivery of the account OTP and recovery templates on real phones;
-operator latency; any identity provider integration in its sandbox, then a supervised live check.
+**Real-world (production deployment phase only, ADR 0004):** Kavenegar delivery of verification, recovery and notice templates on real
+phones; any identity provider only after §9 confirmation, in its sandbox first.
 
 ---
 
-## 11. Rollout strategy
+## 11. Rollout and onboarding policy
 
-| Phase | Mandatory | Optional / off |
+| Phase | Existing stores (D-13) | New merchants |
 |---|---|---|
-| Internal development & testing | nothing (dev sender) | all flows testable with the log sender |
-| Internal staging | phone verification for publishing (dev sender or provider sandbox), cooldown, notices | identity review UI with test documents only |
-| **First real merchants (pilot)** | phone verified (real SMS once Kavenegar is live at deployment), recovery, cooldown, owner-only payout changes | identity verification **manual**, required only for card-to-card if D-1 says so; business verification off |
-| Public launch | as pilot + reviewer permissions (D-5) + document retention job + legal-confirmed policies | business verification for "sell as a company"; provider-based identity only if §9 confirmed |
+| Internal development | — | all flows with the development OTP log |
+| Internal staging | — | phone verification exercised; enforcement switch tested on and off |
+| First real merchants | reminders to verify; nothing restricted | per D-16 (Pending); V0 payout security active for everyone |
+| Public launch | reminders continue; any enforcement only by D-17 | per D-16 and D-1; V3 + V4 live before card-to-card gating |
 
-Grandfathering: existing published stores stay online; owners get a deadline (D-13) to verify the phone before they can publish again
-or enable new payment methods. Nothing goes offline automatically because of verification.
+Existing stores never go offline because of verification. The grace period has no automatic end date; D-17 decides any future step.
 
 ---
 
 ## 12. Risks and trade-offs
 
-1. **SMS as the recovery factor** enables SIM-swap takeover; mitigated, not eliminated, by cooldown + notices. A second factor (TOTP)
-   for owners with payments is the real fix (later).
-2. **Identity documents are a breach magnet.** Storing none is safest; manual review needs them. Retention and per-view audit are
-   mandatory, not optional.
-3. **Manual review cost** scales with merchants (300 stores × appeals). Keep identity verification capability-specific, not global.
-4. **Provider-based identity** may be legally or commercially unavailable; the model must not depend on it.
-5. **Phone-bound identity proofs** break on phone change by design; reviewers will see re-verifications.
-6. **Owner-centric capabilities** ignore well-meaning staff; acceptable because staff cannot change payouts (after D-3).
-7. **Not unpublishing on revocation** keeps shoppers' orders working (ADR 0003 D1) but means a revoked fraudster stays online until a
-   reviewer also suspends; the admin UI must make that second step obvious.
-8. **Complexity:** five new tables. Phase V1 needs only two of them (phone fields + `AccountOtpChallenge`).
+1. SMS recovery enables SIM-swap takeover; cooling-off and notices reduce it; owner two-factor authentication is the real fix (later).
+2. Identity documents attract attackers; encryption, write-only uploads, per-view audit and short retention are mandatory.
+3. PostgreSQL growth and backup size (§6.4).
+4. No recovery for unverified merchants who lose phone and password (D-10 consequence) — support must state this clearly at sign-up.
+5. Manual review cost grows with merchants and appeals.
+6. Provider-based identity may never be available to us.
+7. A revoked fraudulent merchant stays online until a reviewer also suspends the store (by design).
+8. V0 ∥ V1 integration risk: notices of V0 need V1's verified phone; payout permission (D-3) and cooling-off (V2) touch the same routes.
 
 ---
 
-## 13. Open product decisions (owner approval needed)
+## 13. Open decisions (owner approval needed)
 
-| # | Decision | Recommendation |
-|---|---|---|
-| D-1 | Card-to-card requires identity verification? | Yes for public launch; pilot: phone + manual identity on request |
-| D-2 | Cooldown length and scope | 24 h, payout settings + phone only; reviewer may lift early |
-| D-3 | Who may change bank cards | OWNER only (today MANAGER too) + owner notified on every change |
-| D-4 | Phone uniqueness | One verified phone per account; a phone verified on at most one account |
-| D-5 | Platform permissions for reviewers; four-eyes for revocations | Permissions before any document is stored; four-eyes later |
-| D-6 | Document storage | PostgreSQL envelope-encrypted for the pilot; private bucket when volume requires |
-| D-7 | Store the national code in clear (encrypted) or only as HMAC | HMAC + last 3 digits; encrypted clear value only if a provider re-check or invoices need it |
-| D-8 | Identity validity period / periodic re-check | None at launch; revoke on evidence |
-| D-9 | Document retention after decision | 90 days, subject to legal confirmation |
-| D-10 | Recovery without phone and password | Manual, only for identity-verified accounts |
-| D-11 | Development flag for account OTP | Separate `ACCOUNT_OTP_DEV_LOG` (same refusal and test) |
-| D-12 | Phone change: sign out other sessions | Yes, keep the current one |
-| D-13 | Grandfather deadline for existing published stores | 14 days |
-| D-14 | Verified merchant phone replaces `StoreSmsSetting.merchantPhone`? | Use it as the default; keep the per-store override |
+D-1, D-2, D-2a, D-3 (recommendation), D-4, D-5, D-7, D-8, D-9, D-11 (recommendation), D-12 (recommendation), D-14, D-16, D-17, D-18 —
+see §0.2 and §0.3.
 
 ---
 
-## 14. Recommended implementation phases
+## 14. Implementation phases
 
-| Phase | Content | Depends on |
-|---|---|---|
-| **V0 — payout safety (no verification)** | OWNER-only bank cards (D-3), audit + in-app notice on bank-card / gateway-credential changes, `capabilitiesFor` skeleton (all allowed) | D-3 |
-| **V1 — phone verification** | `User.phone*`, `AccountOtpChallenge`, verify / change phone, `OtpSender` moved to the platform SMS layer, dev sender flag + start-up test, publishing requires phone (grandfathered) | V0; D-4, D-11, D-12, D-13 |
-| **V2 — recovery and cooldown** | Forgot-password by SMS, `authVersion` handling, cooldown on payout changes, SMS notices (dev sender until deployment) | V1; D-2, D-10 |
-| **V3 — platform permissions** | Reviewer permissions in `PlatformAdmin`, guard per route, tests | D-5 |
-| **V4 — manual identity verification** | `IdentityVerification`, `VerificationEvent`, private document storage, reviewer queue and actions, per-view audit, retention job; card-to-card gated (D-1) | V1, V3; D-1, D-6, D-7, D-9 |
-| **V5 — business verification** | `LegalEntity`, store link, reviewer flow | V4 + legal input (§9) |
-| **V6 — provider identity (optional)** | Provider adapter behind a port, `PROVIDER_*` methods, phone-bound revocation | §9 confirmations |
+```mermaid
+flowchart LR
+    V0[V0 Payout security] --> R{{joint integration review}}
+    V1[V1 Phone verification] --> R
+    V1 --> V2[V2 Recovery + cooling-off]
+    V3[V3 Reviewer permissions + workflow] --> V4[V4 Manual identity verification]
+    V1 --> V4
+    V2 --> V4m[V4 manual recovery D-10]
+    V4 --> V4m
+    V4 --> V5[V5 Legal entities]
+    L[Legal + provider research §9] --> V5
+```
 
-**Before the first real merchant:** V0, V1, V2 (and real SMS delivery verified at deployment per ADR 0004). **Before public launch:**
-V3, V4 (if D-1 keeps card-to-card gated). V5 and V6 only when their external answers exist.
+### V0 — Payout security (parallel with V1)
+* **Scope:** classify payout settings separately from ordinary settings; audit every bank-card and gateway-credential change with a
+  masked summary; owner notice (in-app; SMS once V1 and the provider exist); if D-3 is approved, OWNER-only payout permission.
+* **Dependencies:** none for audit and notices; D-3 for the permission change.
+* **Expected changes:** possibly a `PayoutChange` table or a fixed set of `AuditEvent` actions; a `payout.manage` permission (D-3);
+  bank-card route permission change (D-3); an in-app notification read model; no migration needed if audit rows suffice.
+* **Security:** no full card number or credential in audit or notices; changes refused on suspended stores (existing).
+* **Tests:** role matrix for payout routes; audit content (masked); notice created for the owner; staff cannot read full values;
+  suspended store refusal.
+* **Done when:** every payout change is audited and notified; D-3 decided and, if approved, enforced; tests green.
+* **Rollback:** permission change is code-only (revert); audit/notice data additive.
+
+### V1 — Merchant phone verification (parallel with V0)
+* **Scope:** phone on `User`, verify and change phone, `AccountOtpChallenge`, `OtpSender` moved to the platform SMS layer, development
+  flag (D-11), reminders for existing stores (D-13), enforcement switch for new merchants off until D-16.
+* **Dependencies:** D-4, D-11, D-12 for final behaviour; ADR 0004.
+* **Expected changes:** `User.phone`, `phoneVerifiedAt`; new `AccountOtpChallenge`; routes `/me/phone/challenge`, `/me/phone/verify`,
+  `/me/phone/change`; platform setting for the enforcement switch.
+* **Security:** codes random and hashed; rate limits per phone/IP/account; enumeration-safe answers; no development behaviour in
+  production (start-up test); shopper OTP untouched.
+* **Tests:** OTP rules; uniqueness (D-4); change flow notices and session handling; flag refusal; existing stores unaffected.
+* **Done when:** a merchant verifies and changes the phone with the development log; switch exists and is off; tests green; real SMS
+  explicitly **not** tested (ADR 0004).
+* **Rollback:** nullable columns and a new table (expand-only migration with `down.sql`); switch off.
+
+**Joint V0/V1 review:** notice delivery path, permission and route overlap, cooling-off hooks expected by V2.
+
+### V2 — Account recovery and cooling-off (after V1)
+* **Scope:** forgot-password by OTP to the verified phone; `authVersion` bump; `sensitiveLockUntil` cooling-off on recovery and phone
+  change (D-2); early release by permitted reviewers (D-2a, needs V3 or SUPER_ADMIN until then); notices.
+* **Expected changes:** `User.sensitiveLockUntil`; `AccountOtpChallenge` purpose RECOVER; routes `/auth/recovery/challenge`,
+  `/auth/recovery/reset`; checks in payout routes.
+* **Security:** same answer whether the account or phone exists; rate limits; cooling-off enforced server-side on every payout route.
+* **Tests:** recovery happy path and enumeration; sessions revoked; payout change refused during cooling-off, allowed after; catalog not
+  blocked; SIM-swap scenario.
+* **Done when:** self-service recovery works for phone-verified users; cooling-off enforced; tests green.
+* **Rollback:** disable recovery routes (switch); cooling-off column additive.
+
+### V3 — Verification admin permissions and review workflow (before any real document)
+* **Scope:** platform permissions (D-5), guard per permission, verification queue/detail/actions UI (without documents), `VerificationEvent`
+  history, self-review prevention, four-eyes if decided.
+* **Expected changes:** permission storage on `PlatformAdmin`; new platform routes; `VerificationEvent` table.
+* **Security:** server-side permission checks inside transactions; internal notes never in merchant DTOs or store audit rows.
+* **Tests:** authorisation matrix; self-review; history immutability; DTO snapshots.
+* **Done when:** a reviewer without SUPER_ADMIN can act only within granted permissions; tests green.
+
+### V4 — Manual identity verification
+* **Scope:** `IdentityVerification`, encrypted `VerificationDocument` in PostgreSQL (D-6), upload (write-only), reviewer viewer with
+  per-view audit, retention job (D-9), card-to-card gating (D-1), **manual recovery** (D-10) with `RecoveryRequest`.
+* **Dependencies:** V1, V3; V2 for the recovery wiring; D-1, D-5, D-7, D-9, D-18.
+* **Gate:** **no real identity document is accepted** until every §6.4 requirement is implemented and tested (encryption, key
+  separation, authorisation, no URLs, access audit, validation, retention, log/backup/export protections).
+* **Tests:** §10 document security set; recovery only for identity-verified users; sessions revoked and notices sent on recovery.
+* **Done when:** the gate is passed and recorded; reviewers can approve/reject with documents; manual recovery works.
+* **Rollback:** stop accepting uploads (switch); purge documents with the retention job; tables additive.
+
+### V5 — Business / legal entity verification
+* **Scope:** `LegalEntity`, store link, reviewer flow, "sell as a company" capability.
+* **Dependencies:** V4; legal and provider research (§9) — **does not start before those answers exist**.
+* **Done when:** defined after the research.
