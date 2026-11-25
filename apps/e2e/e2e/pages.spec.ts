@@ -194,7 +194,7 @@ test.describe("section images", () => {
     await expect(up.locator("input[type=file]")).toHaveValue("");
     await up.locator("input[type=file]").setInputFiles({ name: "h.png", mimeType: "image/png", buffer: await png() });
     await up.locator("button[type=submit]").first().click();
-    await expect(page.getByText("تصویر بخش ذخیره شد.")).toBeVisible();
+    await success(page, "تصویر بخش ذخیره شد."); // the file's editor-action budget (was the 5 s default)
 
     const home = await sectionsOf(storeId, "HOME");
     const imageId = home.find((s) => s.type === "hero")!.props.imageId as string;
@@ -210,9 +210,15 @@ test.describe("section images", () => {
     await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(600);
 
     await openEditor(page, storeId, "home");
-    await hero.locator("button[aria-expanded]").first().click();
+    const header = hero.locator("button[aria-expanded]").first();
+    await header.click();
+    await expect(header).toHaveAttribute("aria-expanded", "true"); // React handled the click: the editor's actions are live
+    // CI run 117 flake: the toast was awaited with the 5 s default while the removal (locked transaction + object deletion) ran longer.
+    const removal = page.waitForResponse((r) => r.request().method() === "POST" && /\/sections\/[^/]+\/image\/delete$/.test(r.url()), { timeout: 20_000 });
     await hero.getByRole("button", { name: "حذف تصویر" }).click();
-    await expect(page.getByText("تصویر بخش حذف شد.")).toBeVisible();
+    const res = await removal;
+    expect(res.ok(), `image removal answered ${res.status()}`).toBe(true);
+    await success(page, "تصویر بخش حذف شد.");
     expect(await db.media.count({ where: { id: imageId } })).toBe(0);
     await expect.poll(async () => (await fetch(src)).status).toBe(404); // the object is really gone
   });
