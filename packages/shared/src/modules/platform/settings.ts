@@ -83,18 +83,26 @@ export const ratesSettingsSchema = z
   })
   .strict();
 
-export const PLATFORM_SETTING_SCHEMAS = { sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema, rates: ratesSettingsSchema } as const;
+/**
+ * MVP item 2 (pilot): who may create a merchant account. "invite" (the default, fail-closed) = only with a single-use invitation code from
+ * a super admin; "open" = anyone. The first super admin's code comes from the server command (`pnpm platform:admin invite`).
+ */
+export const registrationSettingsSchema = z.object({ mode: z.enum(["invite", "open"]) }).strict();
+
+export const PLATFORM_SETTING_SCHEMAS = { sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema, rates: ratesSettingsSchema, registration: registrationSettingsSchema } as const;
 export type PlatformSettingGroup = keyof typeof PLATFORM_SETTING_SCHEMAS;
 export const PLATFORM_SETTING_GROUPS = Object.keys(PLATFORM_SETTING_SCHEMAS) as PlatformSettingGroup[];
 export type SmsSettings = z.infer<typeof smsSettingsSchema>;
 export type PaymentSettings = z.infer<typeof paymentSettingsSchema>;
 export type AiSettings = z.infer<typeof aiSettingsSchema>;
 export type RatesSettings = z.infer<typeof ratesSettingsSchema>;
+export type RegistrationSettings = z.infer<typeof registrationSettingsSchema>;
 export interface PlatformSettings {
   sms: SmsSettings;
   payment: PaymentSettings;
   ai: AiSettings;
   rates: RatesSettings;
+  registration: RegistrationSettings;
 }
 
 export const PLATFORM_SETTING_DEFAULTS: PlatformSettings = {
@@ -103,6 +111,7 @@ export const PLATFORM_SETTING_DEFAULTS: PlatformSettings = {
   payment: { zarinpalEnabled: false, aqayepardakhtEnabled: false, sandbox: false },
   ai: { enabled: false, provider: "openai_compatible", baseUrl: "", model: "" },
   rates: { provider: "off", maxAgeHours: 6, jumpPercent: 10, providerUnit: "toman", allowInsecureHttp: false },
+  registration: { mode: "invite" },
 };
 
 /** The only platform secrets that exist (an allowlist: no free-form names). */

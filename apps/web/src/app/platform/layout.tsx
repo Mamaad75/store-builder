@@ -48,6 +48,7 @@ export default async function PlatformLayout({ children }: { children: ReactNode
               <TextLink href="/platform/rates">نرخ طلا و دلار</TextLink>
               <TextLink href="/platform/settings">تنظیمات</TextLink>
               <TextLink href="/platform/admins">مدیران</TextLink>
+              <TextLink href="/platform/access">دسترسی و بازیابی</TextLink>
             </Box>
             <Typography component="span" sx={{ color: "text.secondary", fontSize: 14 }}>
               {user.name}

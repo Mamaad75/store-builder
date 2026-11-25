@@ -166,7 +166,8 @@ describe("shipping methods and the checkout summary (phase 3.3)", () => {
     ]);
     expect(put.status).toBe(200);
     put.json.forEach((m: unknown) => shippingMethodDto.parse(m));
-    expect(await prisma.auditEvent.count({ where: { storeId: s.storeId, action: "store.shipping_methods_replaced" } })).toBe(1);
+    // The interceptor writes this audit entry after the response (fire-and-forget by design): wait for it rather than race it.
+    await expect.poll(() => prisma.auditEvent.count({ where: { storeId: s.storeId, action: "store.shipping_methods_replaced" } })).toBe(1);
 
     const me = shopper("shop");
     await me.call("POST", "/cart/items", { productId: s.tea, quantity: 2 }); // 2 x 1.5 kg = 3 kg

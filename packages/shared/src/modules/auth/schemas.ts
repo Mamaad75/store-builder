@@ -39,6 +39,14 @@ export const registerSchema = z.object({
   username: username.refine((u) => !RESERVED_USERNAMES.has(u), "این نام کاربری قابل استفاده نیست"),
   // Max length bounds Argon2 work per request.
   password: z.string().min(8, "رمز عبور باید حداقل ۸ کاراکتر باشد").max(128),
+  /** MVP item 2: required while registration is invite-only (single-use code from a super admin); ignored when it is open. */
+  inviteCode: z.string().trim().max(64).optional(),
+});
+
+/** MVP item 2: setting a new password through a recovery link issued by platform support. */
+export const recoverAccountSchema = z.object({
+  token: z.string().trim().regex(/^[A-Za-z0-9_-]{43}$/, "پیوند بازیابی نامعتبر است"),
+  newPassword: z.string().min(8, "رمز عبور باید حداقل ۸ کاراکتر باشد").max(128),
 });
 
 /** Login only normalises: any malformed name simply gets the same generic "invalid" outcome as a wrong password. */

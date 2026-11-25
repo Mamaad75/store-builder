@@ -2,7 +2,8 @@ import { z } from "zod";
 import { restoreStoreSchema, suspendStoreSchema } from "../modules/platform/suspension.js";
 import type { Permission } from "../modules/access/permissions.js";
 import { inviteSchema, roleSchema } from "../modules/access/schemas.js";
-import { changePasswordSchema, loginSchema, registerSchema } from "../modules/auth/schemas.js";
+import { changePasswordSchema, loginSchema, recoverAccountSchema, registerSchema } from "../modules/auth/schemas.js";
+import { createInviteSchema, recoveryRequestSchema } from "../modules/platform/pilot.js";
 import { createCategorySchema, deleteCategoryOptionsSchema, updateCategorySchema } from "../modules/categories/schemas.js";
 import { createProductSchema, statusSchema, updateProductSchema } from "../modules/products/schemas.js";
 import { secretValueSchema } from "../modules/secrets/schemas.js";
@@ -73,6 +74,10 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", "/api/auth/logout-all", "Sign out of every session", { status: 204 }),
   r("GET", "/api/auth/me", "The signed-in user", { response: z.object({ user: S.sessionUserDto }) }),
   r("POST", "/api/auth/change-password", "Change the password (other sessions end)", { status: 204, body: changePasswordSchema }),
+  // MVP item 2: invite-only registration and account recovery by platform support
+  r("GET", "/api/auth/registration", "Whether sign-up needs an invitation code", { auth: "public", response: z.object({ mode: z.enum(["invite", "open"]) }) }),
+  r("POST", "/api/auth/recover", "Set a new password with a recovery link from platform support (single use, 24 h; every session ends)", { auth: "public", status: 204, body: recoverAccountSchema }),
+  r("GET", "/api/auth/notices", "Account notices for the signed-in user (a recovery by platform support in the last 30 days)", { response: z.object({ recoveredAt: z.string().nullable() }) }),
 
   // ---- me
   r("GET", "/api/me/invitations", "My pending staff invitations", { response: z.array(S.myInvitationDto) }),
@@ -228,6 +233,11 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", "/api/platform/stores/:id/suspension/amend", "ADR 0003: change the reason or notes of the open suspension", { platform: true, status: 204, body: suspendStoreSchema }),
   r("POST", "/api/platform/stores/:id/restore", "ADR 0003: lift the suspension (never publishes the store or changes anything else)", { platform: true, status: 204, body: restoreStoreSchema }),
   r("GET", "/api/platform/stores/:id/suspensions", "ADR 0003: the store's suspension history with internal notes", { platform: true, response: z.array(S.storeSuspensionDto) }),
+  r("GET", "/api/platform/invites", "Invitation codes (newest 100; never the codes themselves)", { platform: true, response: z.array(S.inviteDto) }),
+  r("POST", "/api/platform/invites", "Issue a single-use invitation code (returned once with its sign-up link; audited)", { platform: true, status: 201, body: createInviteSchema, response: z.object({ id: z.string(), code: z.string(), url: z.string(), expiresAt: z.string() }) }),
+  r("POST", "/api/platform/invites/:id/revoke", "Revoke an unused invitation (audited)", { platform: true, status: 204 }),
+  r("GET", "/api/platform/users", "Find a user by username (for account recovery)", { platform: true, query: z.object({ username: z.string().max(64) }), response: S.platformUserDto }),
+  r("POST", "/api/platform/users/:userId/recovery", "Issue a 24 h single-use recovery link after verifying the owner's identity outside the app (admin password re-entered, reason, attestation; every session ends; audited)", { platform: true, status: 200, body: recoveryRequestSchema, response: z.object({ url: z.string(), expiresAt: z.string() }) }),
   r("GET", "/api/platform/admins", "Super admins", { platform: true, response: z.array(S.platformAdminDto) }),
   r("POST", "/api/platform/admins", "Make an existing account a super admin", { platform: true, status: 201, body: doc({ username: z.string().max(64) }), bodyDoc: true, response: z.object({ userId: z.string() }) }),
   r("POST", "/api/platform/admins/:userId/revoke", "Revoke a super admin (never oneself or the last one)", { platform: true, status: 204 }),

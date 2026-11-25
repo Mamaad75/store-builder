@@ -4,7 +4,7 @@ import { STAFF_ROLES, STORE_ROLES } from "../modules/access/permissions.js";
 import type { PageEditorRules } from "../templates/editor.js";
 import type { PageSection, SectionIssue } from "../templates/section-parse.js";
 import { PAGE_TYPES } from "../templates/sections.js";
-import { aiSettingsSchema, paymentSettingsSchema, ratesSettingsSchema, smsSettingsSchema } from "../modules/platform/settings.js";
+import { aiSettingsSchema, paymentSettingsSchema, ratesSettingsSchema, registrationSettingsSchema, smsSettingsSchema } from "../modules/platform/settings.js";
 import type { StorefrontData } from "../templates/storefront-data.js";
 
 /**
@@ -340,8 +340,12 @@ export const platformRatesDto = z.object({
   history: z.array(rateRowDto),
 });
 
-export const platformSettingsDto = z.object({ sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema, rates: ratesSettingsSchema });
+export const platformSettingsDto = z.object({ sms: smsSettingsSchema, payment: paymentSettingsSchema, ai: aiSettingsSchema, rates: ratesSettingsSchema, registration: registrationSettingsSchema });
 const secretStateDto = z.object({ configured: z.boolean(), hint: z.string().nullable(), updatedAt: iso.nullable() });
+// ---- MVP item 2: pilot access controls
+export const inviteDto = z.object({ id: z.string(), note: z.string(), createdAt: iso, expiresAt: iso, usedBy: z.string().nullable(), status: z.enum(["active", "used", "expired", "revoked"]) });
+export const platformUserDto = z.object({ id: z.string(), username: z.string(), name: z.string(), createdAt: iso, recoveredAt: iso.nullable(), isPlatformAdmin: z.boolean(), stores: z.number().int() });
+
 export const platformSettingsViewDto = z.object({
   settings: platformSettingsDto,
   secrets: z.object({ "sms.kavenegar.api_key": secretStateDto, "payment.zarinpal.merchant_id": secretStateDto, "ai.api_key": secretStateDto, "rates.navasan.api_key": secretStateDto }),

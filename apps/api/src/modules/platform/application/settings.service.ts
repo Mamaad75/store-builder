@@ -70,7 +70,7 @@ export class PlatformSettingsService {
       const r = PLATFORM_SETTING_SCHEMAS[g].safeParse(stored[g]);
       return (r.success ? r.data : PLATFORM_SETTING_DEFAULTS[g]) as PlatformSettings[G];
     };
-    return { sms: read("sms"), payment: read("payment"), ai: read("ai"), rates: read("rates") };
+    return { sms: read("sms"), payment: read("payment"), ai: read("ai"), rates: read("rates"), registration: read("registration") };
   }
 
   async view(): Promise<PlatformSettingsView> {

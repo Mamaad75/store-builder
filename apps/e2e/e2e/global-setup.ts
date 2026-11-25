@@ -22,6 +22,14 @@ export async function resetDatabase(url: string): Promise<void> {
   const api = path.join(import.meta.dirname, "..", "..", "api"); // the schema, migrations and seed belong to the API
   execSync("pnpm exec prisma migrate deploy", { env, cwd: api, stdio: "pipe" });
   execSync("pnpm exec prisma db seed", { env, cwd: api, stdio: "pipe" }); // the three templates
+  // MVP item 2: registration is invite-only by default (fail-closed). The suites create their accounts through the public sign-up, so
+  // this TEST database is opened; e2e/pilot.spec.ts switches it to invite-only and back to cover the invitation flow.
+  const db = new PrismaClient({ datasources: { db: { url } } });
+  try {
+    await db.platformSetting.upsert({ where: { key: "registration" }, create: { key: "registration", value: { mode: "open" } }, update: { value: { mode: "open" } } });
+  } finally {
+    await db.$disconnect();
+  }
 }
 
 export default async function globalSetup() {

@@ -6,6 +6,8 @@ import { enc, request } from "./core";
 export type { StoreDto, ThemeRef, ThemeSwitchReport };
 
 export const listStores = () => request<StoreDto[]>("GET", "/api/stores");
+/** MVP item 2: account notices (a recent recovery by platform support). */
+export const getAccountNotices = () => request<{ recoveredAt: string | null }>("GET", "/api/auth/notices");
 export const getOnboardingFacts = () => request<OnboardingFactDto[]>("GET", "/api/stores/onboarding");
 export const listActiveTemplates = () => request<TemplateOptionDto[]>("GET", "/api/stores/templates");
 export const getStore = (storeId: string) => request<StoreDto>("GET", `/api/stores/${enc(storeId)}`);

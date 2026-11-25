@@ -74,6 +74,16 @@ import tls.d/*.caddy
 
 	log {
 		output stdout
-		format json
+		# MVP item 2: one-time secrets travel in the query of two platform pages (/recover?token=..., /register?invite=...): they are
+		# removed from the access log, which otherwise records the full request URI.
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete token
+					delete invite
+				}
+			}
+		}
 	}
 }

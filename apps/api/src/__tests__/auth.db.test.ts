@@ -14,6 +14,9 @@ beforeEach(async () => {
   await app?.close();
   app = undefined;
   await prisma.$executeRawUnsafe(`TRUNCATE "RateLimitBucket","User" RESTART IDENTITY CASCADE`);
+  // MVP item 2: registration is invite-only by default; these tests are about the session lifecycle, so this TEST database is opened.
+  // The invite-only rules are covered by modules/platform/pilot-access.db.test.ts.
+  await prisma.platformSetting.upsert({ where: { key: "registration" }, create: { key: "registration", value: { mode: "open" } }, update: { value: { mode: "open" } } });
 });
 afterAll(async () => {
   await app?.close();

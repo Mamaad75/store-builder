@@ -16,7 +16,8 @@ import { requireUser } from "@/modules/auth/session";
 import { MAX_STORES_PER_USER } from "@store-builder/shared/modules/stores/schemas";
 import Onboarding from "@/components/Onboarding";
 import { buildOnboarding } from "@store-builder/shared/modules/stores/onboarding";
-import { getOnboardingFacts, listStores } from "@/gateway/stores";
+import Alert from "@mui/material/Alert";
+import { getAccountNotices, getOnboardingFacts, listStores } from "@/gateway/stores";
 
 export const metadata: Metadata = { title: "فروشگاه‌های من" };
 
@@ -36,12 +37,20 @@ const fa = (n: number) => n.toLocaleString("fa-IR");
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [stores, facts] = await Promise.all([listStores(), getOnboardingFacts()]);
+  const [stores, facts, notices] = await Promise.all([listStores(), getOnboardingFacts(), getAccountNotices().catch(() => ({ recoveredAt: null }))]);
+  // MVP item 2: the API returns the date only within 30 days of a recovery by platform support.
+  const recentRecovery = notices.recoveredAt ? new Date(notices.recoveredAt) : null;
   const onboarding = buildOnboarding(facts);
   const canCreate = stores.length < MAX_STORES_PER_USER;
   return (
     <PageContainer>
       <Stack spacing={4}>
+        {recentRecovery && (
+          <Alert severity="warning" data-testid="recovery-notice">
+            رمز عبور این حساب در {recentRecovery.toLocaleDateString("fa-IR", { dateStyle: "long" })} به درخواست شما توسط پشتیبانی پلتفرم بازنشانی شد و همه‌ی
+            ورودهای قبلی بسته شدند. اگر چنین درخواستی نداده‌اید، فوراً با پشتیبانی تماس بگیرید.
+          </Alert>
+        )}
         <Box sx={{ display: "flex", alignItems: { sm: "center" }, justifyContent: "space-between", gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
           <Box>
             <Typography variant="h4" component="h1" sx={{ fontWeight: 800, fontSize: { xs: 26, md: 32 } }}>

@@ -16,8 +16,8 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
   return <AuthForm mode="login" action={loginAction} callbackUrl={callbackUrl} />;
 }
 
-export function RegisterForm() {
-  return <AuthForm mode="register" action={registerAction} />;
+export function RegisterForm({ invite }: { invite?: { required: boolean; code: string } }) {
+  return <AuthForm mode="register" action={registerAction} invite={invite} />;
 }
 
 export function BoundChangePasswordForm() {

@@ -281,12 +281,18 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
 
 ### M5 — Limited invited pilot (G-PILOT)
 
-**Pilot controls that do not exist today (verified) and must ship in M5, before the first invited merchant:**
+**Status (2026-11-25, MVP plan item 2):** invite-only registration and administrator-assisted recovery are **implemented** (below; runbook
+"Pilot access"). Still open: exposure limits (D-PILOT-CAP amount pending) and the "stop the pilot" runbook step.
+
+**Pilot controls that did not exist (verified) and must ship before the first invited merchant:**
 * **Invite-only registration:** `POST /api/auth/register` is public (`apps/api/src/auth/auth.controller.ts`); a platform switch that
   closes public sign-up plus single-use invitation codes issued by a SUPER_ADMIN.
-* **Administrator-assisted recovery:** no tool exists to reset a merchant's password. A server-side command (like
-  `pnpm platform:admin`) that sets a temporary password, bumps `authVersion` (all sessions end) and writes an audit row; used only after
-  the out-of-band identity check of ADR 0005 §18.
+* **Administrator-assisted recovery:** no tool exists to reset a merchant's password. Implemented as specified in §12.3 (owner decision:
+  no unrestricted reset command): SUPER_ADMIN route with the admin's password re-entered, a reason and the out-of-band identity
+  attestation; a single-use 24 h link; the old password stops working and every session ends; audited; in-app notice to the owner.
+* **As implemented:** registration mode is a platform setting, **invite-only by default** (fail-closed); codes are single-use, 1–30 days,
+  stored as SHA-256 only and redeemed in the same transaction as the account; `pnpm platform:admin invite` issues the first admin's code;
+  `/platform/access` manages the mode, codes and recovery; Caddy's access log drops the `token` and `invite` query parameters.
 * **Exposure limits:** see ADR 0005 §18 (number of stores, payment methods, per-order cap decision).
 * **Immediate stop:** exists — per-store suspension (ADR 0003 G2) and the platform payment switches; add a documented "stop the pilot"
   runbook step.

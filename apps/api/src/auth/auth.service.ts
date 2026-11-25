@@ -4,15 +4,23 @@ import { CONFIG, RATE_LIMITER, USERS } from "../config/tokens.js";
 import { hashPassword, verifyDummyPassword, verifyPassword } from "./password.js";
 import type { RateLimiter, SafeUser, UserRepository } from "./ports.js";
 import { AUTH_RULES, rateLimitKey } from "./rate-limit.js";
-import { changePasswordSchema, loginSchema, registerSchema } from "./schemas.js";
+import { createHash } from "node:crypto";
+import { changePasswordSchema, loginSchema, recoverAccountSchema, registerSchema } from "./schemas.js";
 import { TokenService } from "./token.js";
 
 type Fields = Record<string, string[]>;
+const sha256 = (v: string) => createHash("sha256").update(v, "utf8").digest("hex");
+/** Invitation codes: 16 random bytes, base64url (22 characters). */
+const INVITE_CODE_RE = /^[A-Za-z0-9_-]{22}$/;
+const INVITE_REQUIRED = "ثبت‌نام فعلاً فقط با کد دعوت ممکن است؛ کد دعوتی را که از پشتیبانی گرفته‌اید وارد کنید.";
+const RECOVERY_NOTICE_DAYS = 30;
+const INVITE_INVALID = "این کد دعوت نامعتبر، استفاده‌شده یا منقضی است.";
 
 export type RegisterOutcome =
   | { ok: true }
   | { ok: false; error: "invalid" | "rate_limited" | "username_taken"; fieldErrors?: Fields; retryAfterSeconds?: number };
 export type LoginOutcome = { ok: true; user: SafeUser; token: string } | { ok: false; reason: "invalid" | "rate_limited"; retryAfterSeconds?: number };
+export type RecoverOutcome = { ok: true } | { ok: false; error: "invalid" | "rate_limited"; fieldErrors?: Fields; retryAfterSeconds?: number };
 export type ChangePasswordOutcome = { ok: true } | { ok: false; error: "invalid" | "wrong_password" | "rate_limited"; fieldErrors?: Fields; retryAfterSeconds?: number };
 
 /**
@@ -38,11 +46,42 @@ export class AuthService {
 
     const parsed = registerSchema.safeParse(input);
     if (!parsed.success) return { ok: false, error: "invalid", fieldErrors: parsed.error.flatten().fieldErrors as Fields };
-    const { name, username, password } = parsed.data;
+    const { name, username, password, inviteCode } = parsed.data;
 
-    const created = await this.users.create({ name, username, passwordHash: await hashPassword(password) });
+    // MVP item 2: while registration is invite-only, a valid single-use code is required (redeemed with the account, atomically).
+    let invite: { codeHash: string; now: Date } | undefined;
+    if ((await this.users.registrationMode()) === "invite") {
+      if (!inviteCode || !INVITE_CODE_RE.test(inviteCode)) return { ok: false, error: "invalid", fieldErrors: { inviteCode: [INVITE_REQUIRED] } };
+      invite = { codeHash: sha256(inviteCode), now: new Date() };
+    }
+    const created = await this.users.create({ name, username, passwordHash: await hashPassword(password) }, invite);
+    if (created === "invite_invalid") return { ok: false, error: "invalid", fieldErrors: { inviteCode: [INVITE_INVALID] } };
     if (!created) return { ok: false, error: "username_taken", fieldErrors: { username: ["این نام کاربری قبلاً گرفته شده است"] } };
     return { ok: true };
+  }
+
+  /** MVP item 2: account notices for the signed-in user: a recovery by platform support in the last 30 days (shown on the dashboard). */
+  async notices(userId: string, now = new Date()): Promise<{ recoveredAt: string | null }> {
+    const at = await this.users.recoveredAt(userId);
+    return { recoveredAt: at && now.getTime() - at.getTime() < RECOVERY_NOTICE_DAYS * 86_400_000 ? at.toISOString() : null };
+  }
+
+  /** MVP item 2: whether a new account needs an invitation code (shown on the sign-up page). */
+  registrationMode(): Promise<"invite" | "open"> {
+    return this.users.registrationMode();
+  }
+
+  /**
+   * MVP item 2: a new password through a recovery link from platform support. One outcome for unknown, used, revoked and expired links;
+   * rate-limited per IP. Consuming the link also ends every session (authVersion).
+   */
+  async recover(input: unknown, ctx: { ip: string }): Promise<RecoverOutcome> {
+    const rl = await this.limiter.consume(rateLimitKey("recover:ip", ctx.ip), AUTH_RULES.registerPerIp);
+    if (!rl.allowed) return { ok: false, error: "rate_limited", retryAfterSeconds: rl.retryAfterSeconds };
+    const parsed = recoverAccountSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, error: "invalid", fieldErrors: parsed.error.flatten().fieldErrors as Fields };
+    const ok = await this.users.redeemRecovery(sha256(parsed.data.token), await hashPassword(parsed.data.newPassword), new Date());
+    return ok ? { ok: true } : { ok: false, error: "invalid", fieldErrors: { token: ["این پیوند بازیابی نامعتبر، استفاده‌شده یا منقضی است. از پشتیبانی پیوند تازه بخواهید."] } };
   }
 
   async login(input: unknown, ctx: { ip: string }): Promise<LoginOutcome> {

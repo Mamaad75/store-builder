@@ -9,6 +9,7 @@ export const metadata: Metadata = { title: "ورود", robots: { index: false, f
 const NOTICES: Record<string, string> = {
   "password-changed": "رمز عبور تغییر کرد. با رمز جدید وارد شوید.",
   "signed-out-everywhere": "از همه دستگاه‌ها خارج شدید.",
+  recovered: "رمز عبور تازه ثبت شد. با رمز جدید وارد شوید.",
 };
 
 export default async function LoginPage({

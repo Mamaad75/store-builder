@@ -46,7 +46,7 @@ describe("API contract (phase 2.5): documented = served", () => {
     for (const r of ROUTES) {
       if (r.path.startsWith("/api/platform/")) expect(r.platform && r.auth === "session", r.path).toBe(true);
       if (r.path.includes(":storeId")) expect(r.permission, r.path).toBeDefined();
-      if (r.auth === "public") expect(r.path, `${r.method} ${r.path}`).toMatch(/^\/api\/(public\/|health$|ready$|auth\/(login|register)$)/);
+      if (r.auth === "public") expect(r.path, `${r.method} ${r.path}`).toMatch(/^\/api\/(public\/|health$|ready$|auth\/(login|register|registration|recover)$)/); // MVP item 2 adds the sign-up mode and the recovery link
     }
   });
 

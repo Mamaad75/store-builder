@@ -21,3 +21,27 @@ export class StoreSuspensionConflictError extends Error {
     this.name = "StoreSuspensionConflictError";
   }
 }
+
+/** MVP item 2: account recovery refused for this target (another platform admin, or the actor's own account). */
+export class RecoveryRefusedError extends Error {
+  constructor(public readonly reason: "target_admin" | "self") {
+    super(reason === "self" ? "حساب خودتان را از این راه نمی‌توانید بازیابی کنید." : "حساب مدیر پلتفرم را از این راه نمی‌توان بازیابی کرد؛ از فرمان سرور استفاده کنید.");
+    this.name = "RecoveryRefusedError";
+  }
+}
+
+/** MVP item 2 (D-20): the acting super admin's own password did not match. */
+export class ReauthFailedError extends Error {
+  constructor() {
+    super("رمز عبور شما درست نیست.");
+    this.name = "ReauthFailedError";
+  }
+}
+
+/** MVP item 2: too many sensitive attempts (password re-entry) in a short time. */
+export class PlatformRateLimitedError extends Error {
+  constructor(public readonly retryAfterSeconds: number) {
+    super("تلاش‌های زیادی انجام شد؛ کمی بعد دوباره امتحان کنید.");
+    this.name = "PlatformRateLimitedError";
+  }
+}

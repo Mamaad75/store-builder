@@ -53,6 +53,8 @@ model User {
   name         String
   passwordHash String
   authVersion  Int                 @default(0)
+  /// MVP item 2: when platform support last recovered this account (the owner sees a notice on the dashboard).
+  recoveredAt  DateTime?
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
   stores       Store[]
@@ -61,6 +63,44 @@ model User {
   memberships  StoreMember[]
   invitations  StoreInvitation[]   @relation("invitee")
   platformRole PlatformAdmin?      @relation("platformRole")
+  usedInvite   RegistrationInvite? @relation("inviteUser")
+  recoveries   AccountRecovery[]
+}
+
+/// MVP item 2: a single-use invitation to register while registration is invite-only. Only the SHA-256 of the code is stored.
+model RegistrationInvite {
+  id           String    @id @default(cuid())
+  codeHash     String    @unique @db.Char(64)
+  note         String    @default("") @db.VarChar(100)
+  /// The super admin who issued it; null = the server command.
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  usedAt       DateTime?
+  usedByUserId String?   @unique
+  revokedAt    DateTime?
+
+  usedBy User? @relation("inviteUser", fields: [usedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+/// MVP item 2 (roadmap §12.3): a single-use, short-lived link to set a new password, issued by a super admin after verifying the user's
+/// identity outside the application. Only the SHA-256 of the token is stored. At most one usable link per user (partial unique index).
+model AccountRecovery {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique @db.Char(64)
+  reason      String    @db.VarChar(500)
+  createdById String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 /// DEPRECATED (U1, ADR 0001): password reset by e-mail was removed with the e-mail address; nothing reads or writes this table.

@@ -15,6 +15,8 @@ export const register = (body: unknown) => send("POST", "/api/auth/register", { 
 export const login = (body: unknown) => send<{ user: { id: string } }>("POST", "/api/auth/login", { body });
 export const logout = () => send("POST", "/api/auth/logout");
 export const changePassword = (body: unknown) => send("POST", "/api/auth/change-password", { body });
+/** MVP item 2: a new password through a recovery link from platform support. */
+export const recoverAccount = (token: string, newPassword: string) => send("POST", "/api/auth/recover", { body: { token, newPassword } });
 export const logoutAll = () => send("POST", "/api/auth/logout-all");
 
 // stores

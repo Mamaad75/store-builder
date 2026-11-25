@@ -75,6 +75,19 @@ next request (no cache). Emergency without the web UI (database access only), in
 UPDATE "Store" SET "suspendedAt" = now() WHERE "id" = '<storeId>'; COMMIT;` (restore through the UI afterwards). Suspension does not
 remove public images (content takedown is a separate procedure).
 
+## Pilot access (MVP item 2)
+
+* **Registration is invite-only by default.** The first super admin: `$DC exec worker node_modules/.bin/tsx scripts/platform-admin.ts invite
+  "first admin"` prints a single-use sign-up link (7 days); register with it, then `... platform-admin.ts grant <username>`. Afterwards issue
+  merchant invitations on `/platform/access` (each code is shown once; send it to the merchant directly). Opening registration to everyone
+  is the switch on the same page (audited).
+* **Account recovery (a merchant cannot sign in):** verify the owner's identity OUTSIDE the application first (call the phone number on
+  record, or in person). Then `/platform/access` → find the username → reason + attestation + your own password → give the 24 h link only
+  to the verified owner, over the channel you verified. The old password stops working and every session ends at once; the owner sees a
+  notice on the dashboard for 30 days. Platform admin accounts are not recoverable this way (use the server command and `grant`).
+* Every invitation, revocation, recovery and failed password re-entry is in the audit log (`platform.invite_*`, `platform.account_recovered`,
+  `security.reauth_failed`, `account.recovery_completed`).
+
 ## Incidents: first five minutes
 1. `curl -fsS https://<root>/api/ready` and `$DC ps`. `503` names the failing dependency (`database` / `storage`).
 2. `$DC logs --since 15m app | grep '"level":"error"'`; `startup.refused` lines name the invalid variable. Caddy: `$DC logs caddy`.

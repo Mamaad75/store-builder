@@ -29,6 +29,22 @@ export class AuthController {
     throw new ApiProblem(400, { code: "invalid", fieldErrors: r.fieldErrors });
   }
 
+  /** MVP item 2: whether sign-up needs an invitation code. Public; reveals nothing else. */
+  @Get("registration")
+  async registration() {
+    return { mode: await this.auth.registrationMode() };
+  }
+
+  /** MVP item 2: set a new password with a recovery link issued by platform support (single use, 24 h). */
+  @Post("recover")
+  @HttpCode(204)
+  async recover(@Body() body: unknown, @Req() req: Request): Promise<void> {
+    const r = await this.auth.recover(body, { ip: req.ip ?? "unknown" });
+    if (r.ok) return;
+    if (r.error === "rate_limited") throw new ApiProblem(429, { code: "rate_limited", retryAfterSeconds: r.retryAfterSeconds });
+    throw new ApiProblem(400, { code: "invalid", fieldErrors: r.fieldErrors });
+  }
+
   @Post("login")
   @HttpCode(200)
   async login(@Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -52,6 +68,13 @@ export class AuthController {
   @UseGuards(SessionGuard)
   me(@Req() req: Request) {
     return { user: (req as AuthedRequest).sessionUser };
+  }
+
+  /** MVP item 2: notices for the signed-in user (a recent account recovery by platform support). */
+  @Get("notices")
+  @UseGuards(SessionGuard)
+  notices(@Req() req: Request) {
+    return this.auth.notices((req as AuthedRequest).sessionUser.id);
   }
 
   @Post("change-password")

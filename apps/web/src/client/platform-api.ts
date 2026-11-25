@@ -4,11 +4,20 @@ import { send } from "./http";
 const P = "/api/v1/platform";
 const enc = encodeURIComponent;
 
-export const updatePlatformSettings = (group: "sms" | "payment" | "ai" | "rates", body: unknown) => send("PATCH", `${P}/settings/${enc(group)}`, { body });
+export const updatePlatformSettings = (group: "sms" | "payment" | "ai" | "rates" | "registration", body: unknown) => send("PATCH", `${P}/settings/${enc(group)}`, { body });
 export const setPlatformSecret = (name: string, value: string) => send("POST", `${P}/secrets/${enc(name)}`, { body: { value } });
 export const removePlatformSecret = (name: string) => send("POST", `${P}/secrets/${enc(name)}/delete`);
 export const grantPlatformAdmin = (username: string) => send<{ userId: string }>("POST", `${P}/admins`, { body: { username } });
 export const revokePlatformAdmin = (userId: string) => send("POST", `${P}/admins/${enc(userId)}/revoke`);
+// MVP item 2: invitation codes and account recovery
+export type InviteRow = { id: string; note: string; createdAt: string; expiresAt: string; usedBy: string | null; status: "active" | "used" | "expired" | "revoked" };
+export type PlatformUser = { id: string; username: string; name: string; createdAt: string; recoveredAt: string | null; isPlatformAdmin: boolean; stores: number };
+export const listInvites = () => send<InviteRow[]>("GET", `${P}/invites`);
+export const createInvite = (note: string, days: number) => send<{ id: string; code: string; url: string; expiresAt: string }>("POST", `${P}/invites`, { body: { note, days } });
+export const revokeInvite = (id: string) => send("POST", `${P}/invites/${enc(id)}/revoke`);
+export const findPlatformUser = (username: string) => send<PlatformUser>("GET", `${P}/users`, { query: { username } });
+export const recoverUser = (userId: string, body: { adminPassword: string; reason: string; identityVerified: boolean }) =>
+  send<{ url: string; expiresAt: string }>("POST", `${P}/users/${enc(userId)}/recovery`, { body });
 // phase 3.2b: rates
 export const enterRate = (code: "USD" | "GOLD18", rateToman: number) => send("POST", `${P}/rates`, { body: { code, rateToman } });
 export const decideRate = (id: string, to: "confirm" | "reject") => send("POST", `${P}/rates/${enc(id)}/${to}`);

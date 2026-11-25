@@ -25,7 +25,8 @@ const str = (fd: FormData, key: string) => {
 
 export async function registerAction(_prev: FormState, fd: FormData): Promise<FormState> {
   try {
-    await api.register({ name: str(fd, "name"), username: str(fd, "username"), password: str(fd, "password") });
+    const inviteCode = str(fd, "inviteCode").trim();
+    await api.register({ name: str(fd, "name"), username: str(fd, "username"), password: str(fd, "password"), ...(inviteCode ? { inviteCode } : {}) });
   } catch (e) {
     if (e instanceof ApiUnavailableError) return { error: UNAVAILABLE_ERROR };
     const p = problemOf(e);

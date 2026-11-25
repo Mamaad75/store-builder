@@ -11,9 +11,11 @@ interface Props {
   mode: "login" | "register";
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   callbackUrl?: string;
+  /** MVP item 2: sign-up is invite-only; the field is prefilled from the invitation link (?invite=). */
+  invite?: { required: boolean; code: string };
 }
 
-export default function AuthForm({ mode, action, callbackUrl }: Props) {
+export default function AuthForm({ mode, action, callbackUrl, invite }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
   const isRegister = mode === "register";
   const fe = state.fieldErrors ?? {};
@@ -22,6 +24,17 @@ export default function AuthForm({ mode, action, callbackUrl }: Props) {
       <Stack spacing={2}>
         {state.error && <Alert severity="error">{state.error}</Alert>}
         {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
+        {isRegister && invite?.required && (
+          <TextField
+            name="inviteCode"
+            label="کد دعوت"
+            defaultValue={invite.code}
+            required
+            error={!!fe.inviteCode}
+            helperText={fe.inviteCode?.[0] ?? "ثبت‌نام فعلاً فقط با دعوت است؛ کد را از پشتیبانی بگیرید."}
+            slotProps={{ htmlInput: { dir: "ltr", autoComplete: "off", spellCheck: false, maxLength: 64 } }}
+          />
+        )}
         {isRegister && (
           <TextField name="name" label="نام" autoComplete="name" required error={!!fe.name} helperText={fe.name?.[0]} />
         )}

@@ -5,6 +5,7 @@ import { CurrentUser } from "../../../http/current-user.js";
 import type { SafeUser } from "../../../auth/ports.js";
 import { PlatformService } from "../application/platform.service.js";
 import { PlatformSettingsService } from "../application/settings.service.js";
+import { PilotAccessService } from "../application/pilot.service.js";
 
 /**
  * Platform operators only (phase 3.1, D31-1). Runs after SessionGuard and reads the role from the DATABASE on every request (a revoked
@@ -28,7 +29,44 @@ export class PlatformController {
   constructor(
     @Inject(PlatformService) private readonly platform: PlatformService,
     @Inject(PlatformSettingsService) private readonly settings: PlatformSettingsService,
+    @Inject(PilotAccessService) private readonly pilot: PilotAccessService,
   ) {}
+
+  // ---- MVP item 2: invitation codes (invite-only registration) and admin-assisted account recovery ----
+
+  @Get("invites")
+  invites() {
+    return this.pilot.invites();
+  }
+
+  /** The code and its sign-up link are returned ONCE; only a hash is stored. Audited. */
+  @Post("invites")
+  @HttpCode(201)
+  createInvite(@CurrentUser() user: SafeUser, @Body() body: unknown) {
+    return this.pilot.createInvite(user.id, body);
+  }
+
+  @Post("invites/:id/revoke")
+  @HttpCode(204)
+  async revokeInvite(@CurrentUser() user: SafeUser, @Param("id") id: string): Promise<void> {
+    await this.pilot.revokeInvite(user.id, id);
+  }
+
+  /** Looks a user up by username (for recovery). */
+  @Get("users")
+  findUser(@Query("username") username?: string) {
+    return this.pilot.findUser(username);
+  }
+
+  /**
+   * Roadmap §12.3: a single-use 24 h recovery link after the owner's identity was verified OUTSIDE the app. Requires the admin's own
+   * password, a reason and the attestation; ends every session of the user. The link is returned ONCE. Audited with the reason.
+   */
+  @Post("users/:userId/recovery")
+  @HttpCode(200)
+  recover(@CurrentUser() user: SafeUser, @Param("userId") userId: string, @Body() body: unknown) {
+    return this.pilot.recover(user, userId, body);
+  }
 
   @Get("me")
   me(@CurrentUser() user: SafeUser) {

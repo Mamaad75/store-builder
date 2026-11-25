@@ -3,6 +3,17 @@ import type { RateLimitResult, RateLimitRule, RateLimiter, UserRecord, UserRepos
 
 export class MemoryUsers implements UserRepository {
   readonly rows = new Map<string, UserRecord>();
+  /** Test double: registration open by default (the real, fail-closed default is covered by the database tests). */
+  mode: "invite" | "open" = "open";
+  async registrationMode() {
+    return this.mode;
+  }
+  async redeemRecovery() {
+    return false;
+  }
+  async recoveredAt() {
+    return null;
+  }
   async create(data: { name: string; username: string; passwordHash: string }) {
     if ([...this.rows.values()].some((u) => u.username === data.username)) return null;
     const row: UserRecord = { id: randomUUID(), authVersion: 0, ...data };
