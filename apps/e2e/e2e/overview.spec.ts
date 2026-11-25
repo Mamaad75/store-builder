@@ -18,6 +18,8 @@ test("overview: a COD order shows as order value and to-confirm; delivered, it b
   await expect(today).toContainText("۱۵۰٬۰۰۰ تومان"); // order value: 120,000 + 30,000 shipping
   await expect(today.getByRole("cell").nth(1)).toHaveText("۱");
   await expect(today.getByRole("cell").nth(3)).toHaveText("۰ تومان"); // COD: not paid before delivery
+  // Gross only: completed refunds are not recorded yet, and the page says so (owner decision 2026-11-25).
+  await expect(overview.getByTestId("overview-refund-note")).toContainText("بازپرداخت‌های انجام‌شده هنوز از درآمد کسر نمی‌شود");
   await expect(overview.getByRole("link", { name: "سفارش منتظر تأیید: ۱" })).toBeVisible();
   await expect(overview.getByText("پرداخت در محل (هنوز تحویل نشده): ۱ سفارش — ۱۵۰٬۰۰۰ تومان")).toBeVisible();
   await expect(overview.getByRole("list", { name: "محصولات با موجودی کم" })).toContainText("چای آزمون: ۲ عدد");

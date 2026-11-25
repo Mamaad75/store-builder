@@ -14,6 +14,9 @@ import type { OrderStatus, PaymentMethod } from "./orders.js";
  * only when the merchant approved the receipt (phase 3.5, D35b-1). CANCELLED and EXPIRED orders count nowhere; a payment captured for an
  * order that was no longer payable (REFUND_REQUIRED) belongs to a CANCELLED/EXPIRED order, so it is never revenue. Amount = Order.total
  * (toman, after discount, with shipping and cash-on-delivery fee). Periods: by order creation date, Tehran calendar days.
+ *
+ * GROSS, not net: the data model has no record of a completed refund (REFUND_REQUIRED only marks money that must be returned), so
+ * completed refunds are NOT deducted. Never present these figures as net revenue (owner decision 2026-11-25; roadmap §12.4).
  */
 
 export const LOW_STOCK_THRESHOLD = 3;

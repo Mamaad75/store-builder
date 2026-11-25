@@ -258,7 +258,7 @@ export const placedOrderDto = shopperOrderDto.extend({ accessToken: z.string().d
 export const orderListDto = z.object({ items: z.array(orderDto), nextCursor: z.string().nullable() });
 // ---- M2: the store overview (rules in modules/orders/overview.ts; money in toman)
 const amountDto = z.object({ count: z.number().int(), total: z.number().int() });
-const periodSummaryDto = z.object({ orders: amountDto.describe("order value: PLACED…DELIVERED, every method"), paid: amountDto.describe("paid revenue: COD when DELIVERED; online and card-to-card from PLACED") });
+const periodSummaryDto = z.object({ orders: amountDto.describe("order value: PLACED…DELIVERED, every method"), paid: amountDto.describe("GROSS paid revenue: COD when DELIVERED; online and card-to-card from PLACED. Completed refunds are NOT deducted (no refund records exist yet); not net revenue") });
 export const storeOverviewDto = z.object({
   generatedAt: iso,
   periods: z.object({ today: periodSummaryDto, days7: periodSummaryDto, days30: periodSummaryDto }).describe("by order date, Tehran calendar days"),

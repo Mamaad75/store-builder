@@ -513,6 +513,9 @@ records a verified gateway payment (D35-1); a CARD_TRANSFER order becomes `PLACE
       and paid revenue for its period. Historical reports therefore do not show "received then refunded" money, and whether the merchant
       actually refunded is unknown. The dashboard states this.
     * Closing this needs an owner decision on a refund record (state, amount, date, who), i.e. a schema change — not done here.
+    * **Owner decision (2026-11-25):** M2's timezone, receipt filter, layout and approved metric rules are accepted. Until refund records
+      exist, the dashboard shows **gross** paid revenue only, never calls it net, and states that completed refunds are not deducted.
+      The refund data model is proposed in `docs/adr/0006-refund-records.md` (Proposed, awaiting approval; not implemented).
   * **Dates:** periods start at Tehran midnight (fixed UTC+03:30), inclusive of the first millisecond; checked against the IANA
     `Asia/Tehran` zone for every hour of 2024-2027 (a future clock-rule change fails the test) and on real PostgreSQL at the exact
     boundaries. Paid revenue is grouped by **order creation date**, not payment date (tested); the dashboard says so.

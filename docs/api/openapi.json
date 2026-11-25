@@ -6583,7 +6583,7 @@
                                 "total"
                               ],
                               "additionalProperties": false,
-                              "description": "paid revenue: COD when DELIVERED; online and card-to-card from PLACED"
+                              "description": "GROSS paid revenue: COD when DELIVERED; online and card-to-card from PLACED. Completed refunds are NOT deducted (no refund records exist yet); not net revenue"
                             }
                           },
                           "required": [
@@ -6635,7 +6635,7 @@
                                 "total"
                               ],
                               "additionalProperties": false,
-                              "description": "paid revenue: COD when DELIVERED; online and card-to-card from PLACED"
+                              "description": "GROSS paid revenue: COD when DELIVERED; online and card-to-card from PLACED. Completed refunds are NOT deducted (no refund records exist yet); not net revenue"
                             }
                           },
                           "required": [
@@ -6687,7 +6687,7 @@
                                 "total"
                               ],
                               "additionalProperties": false,
-                              "description": "paid revenue: COD when DELIVERED; online and card-to-card from PLACED"
+                              "description": "GROSS paid revenue: COD when DELIVERED; online and card-to-card from PLACED. Completed refunds are NOT deducted (no refund records exist yet); not net revenue"
                             }
                           },
                           "required": [
