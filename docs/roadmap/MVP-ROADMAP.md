@@ -209,7 +209,7 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
 * **Features:**
   * Playwright specs covering: cart, checkout with COD, merchant confirm / ship / deliver; card-to-card with receipt upload and merchant approval; online payment against the local fake gateway (`ZARINPAL_DEV_BASE_URL`); discount code at checkout; shopper order page on an unpublished and a suspended store.
   * Add e2e typecheck to CI.
-* **Current status:** implemented: `apps/e2e/e2e/checkout.spec.ts` (COD, card-to-card, discount, offline/suspended), `apps/e2e/e2e-payments/online.spec.ts` on the isolated stack (§12.1), e2e typecheck in `pnpm typecheck`. First CI run green; three consecutive green runs not yet observed.
+* **Current status:** implemented: `apps/e2e/e2e/checkout.spec.ts` (COD, card-to-card, discount, offline/suspended), `apps/e2e/e2e-payments/online.spec.ts` on the isolated stack (§12.1), e2e typecheck in `pnpm typecheck`. CI: runs 110, 111, 112 green; run 110 and 111 had 0 flaky retries, run 112 had **1 flaky retry** (`e2e/publishing.spec.ts:47`, a pre-existing page-editor spec: «بخش حذف شد.» not visible within 15 s on the first attempt). The DoD (three consecutive green runs with zero flaky retries) is **not met**; the count restarts.
 * **Dependencies:** none.
 * **Security controls:** none new; the specs include the isolation checks (another store's token → 404).
 * **Tests:** the new E2E specs; existing suites unchanged.
@@ -515,7 +515,8 @@ records a verified gateway payment (D35-1); a CARD_TRANSFER order becomes `PLACE
     * Closing this needs an owner decision on a refund record (state, amount, date, who), i.e. a schema change — not done here.
     * **Owner decision (2026-11-25):** M2's timezone, receipt filter, layout and approved metric rules are accepted. Until refund records
       exist, the dashboard shows **gross** paid revenue only, never calls it net, and states that completed refunds are not deducted.
-      The refund data model is proposed in `docs/adr/0006-refund-records.md` (Proposed, awaiting approval; not implemented).
+      The refund data model is in `docs/adr/0006-refund-records.md`: core architecture and D-REF-1..4 approved; the revision with the
+      owner's technical clarifications awaits review (D-REF-5..10 open). Not implemented.
   * **Dates:** periods start at Tehran midnight (fixed UTC+03:30), inclusive of the first millisecond; checked against the IANA
     `Asia/Tehran` zone for every hour of 2024-2027 (a future clock-rule change fails the test) and on real PostgreSQL at the exact
     boundaries. Paid revenue is grouped by **order creation date**, not payment date (tested); the dashboard says so.
