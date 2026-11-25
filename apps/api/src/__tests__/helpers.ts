@@ -4,6 +4,7 @@ import { JsonLogger } from "../logging/json-logger.js";
 
 export const testConfig: ApiConfig = {
   nodeEnv: "test",
+  appEnv: "test",
   production: false,
   host: "127.0.0.1",
   port: 0,

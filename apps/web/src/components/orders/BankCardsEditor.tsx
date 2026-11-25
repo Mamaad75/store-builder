@@ -24,12 +24,19 @@ const digits = (v: string) => digitsToAscii(v).replace(/\D/g, "");
  */
 export default function BankCardsEditor({ storeId }: { storeId: string }) {
   const [rows, setRows] = useState<Row[] | null>(null);
+  // D-3 / D-22: only the owner edits (and sees full numbers); managers and operators get a read-only, masked list.
+  const [canManage, setCanManage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getBankCards(storeId).then(setRows).catch((e) => setError(failText(e)));
+    getBankCards(storeId)
+      .then((r) => {
+        setCanManage(r.canManage);
+        setRows(r.cards);
+      })
+      .catch((e) => setError(failText(e)));
   }, [storeId]);
 
   const set = (i: number, k: keyof Row, v: string) => setRows((r) => r!.map((x, n) => (n === i ? { ...x, [k]: v } : x)));
@@ -39,7 +46,9 @@ export default function BankCardsEditor({ storeId }: { storeId: string }) {
     setError(null);
     setDone(null);
     try {
-      setRows(await putBankCards(storeId, rows!.map((r) => ({ ...r, cardNumber: digits(r.cardNumber) }))));
+      const saved = await putBankCards(storeId, rows!.map((r) => ({ ...r, cardNumber: digits(r.cardNumber) })));
+      setCanManage(saved.canManage);
+      setRows(saved.cards);
       setDone(rows!.length ? "کارت‌ها ذخیره شد. خریداران حالا می‌توانند کارت به کارت پرداخت کنند." : "کارت‌ها حذف شد؛ پرداخت کارت به کارت خاموش است.");
     } catch (e) {
       setError(e instanceof ValidationError ? (Object.values(e.fieldErrors).flat()[0] ?? "اطلاعات کارت‌ها را بررسی کنید.") : failText(e));
@@ -58,7 +67,24 @@ export default function BankCardsEditor({ storeId }: { storeId: string }) {
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
       {done && <Alert severity="success">{done}</Alert>}
-      {rows.map((r, i) => {
+      {!canManage && (
+        <>
+          <Alert severity="info">فقط مالک فروشگاه می‌تواند کارت‌ها را اضافه، جایگزین یا حذف کند. شماره‌ی کارت‌ها برای شما به‌صورت پوشیده نمایش داده می‌شود.</Alert>
+          {rows.length === 0 ? (
+            <Typography color="text.secondary">کارتی ثبت نشده است؛ پرداخت کارت به کارت خاموش است.</Typography>
+          ) : (
+            <Box component="ul" aria-label="کارت‌های فروشگاه" sx={{ m: 0, pl: 0, listStyle: "none", display: "grid", gap: 0.5 }}>
+              {rows.map((r, i) => (
+                <li key={i}>
+                  <Box component="span" dir="ltr" sx={{ fontFamily: "monospace" }}>{r.cardNumber}</Box> — {r.holderName}
+                  {r.bankName ? ` (${r.bankName})` : ""}
+                </li>
+              ))}
+            </Box>
+          )}
+        </>
+      )}
+      {canManage && rows.map((r, i) => {
         const d = digits(r.cardNumber);
         const bad = d.length > 0 && (d.length !== 16 || !luhnValid(d));
         return (
@@ -79,12 +105,12 @@ export default function BankCardsEditor({ storeId }: { storeId: string }) {
           </Box>
         );
       })}
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+      {canManage && <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
         <Button variant="outlined" disabled={rows.length >= MAX_BANK_CARDS} onClick={() => setRows([...rows, { cardNumber: "", holderName: "", bankName: "" }])}>
           افزودن کارت
         </Button>
         <Button variant="contained" disabled={busy} onClick={save}>{busy ? "در حال ذخیره…" : "ذخیره‌ی کارت‌ها"}</Button>
-      </Box>
+      </Box>}
     </Paper>
   );
 }

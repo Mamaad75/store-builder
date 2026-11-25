@@ -10,8 +10,16 @@ import { parseMasterKeys, type MasterKeys } from "../platform/crypto/envelope.js
  * Strictness mirrors the web app (decision D13-3): outside NODE_ENV "development" or "test" the process refuses to start
  * unless the configuration is complete and safe. Plain http is accepted only for a loopback root domain.
  */
+/**
+ * ADR 0005 §17.2 (D-19 revision): the deployment's explicit identity. Staging and production both run NODE_ENV=production, so the
+ * payment sandbox rule cannot rely on NODE_ENV. "production" categorically disables payment sandbox mode (see effectiveSandbox).
+ */
+export type AppEnv = "development" | "test" | "staging" | "production";
+
 export interface ApiConfig {
   nodeEnv: string;
+  /** Deployment identity (APP_ENV); fixed at start-up, never changed at runtime. */
+  appEnv: AppEnv;
   production: boolean;
   host: string;
   port: number;
@@ -128,6 +136,26 @@ export function readObservability(env: Record<string, string | undefined>, dev: 
 
 
 const isNonProduction = (nodeEnv: string) => nodeEnv === "development" || nodeEnv === "test";
+
+/**
+ * APP_ENV rule (ADR 0005 §17.2), shared by the API, the worker and the payment jobs. Fail-closed:
+ *  - NODE_ENV development|test: APP_ENV unset or equal to NODE_ENV;
+ *  - otherwise APP_ENV must be exactly "staging" or "production"; missing or anything else refuses start-up.
+ * The problem names the variable only.
+ */
+export function resolveAppEnv(env: Record<string, string | undefined>): { appEnv: AppEnv } | { problem: string } {
+  const nodeEnv = env.NODE_ENV ?? "";
+  const raw = (env.APP_ENV ?? "").trim();
+  if (isNonProduction(nodeEnv)) {
+    if (raw && raw !== nodeEnv) return { problem: `APP_ENV: must be unset or "${nodeEnv}" when NODE_ENV is "${nodeEnv}"` };
+    return { appEnv: nodeEnv as AppEnv };
+  }
+  if (raw === "staging" || raw === "production") return { appEnv: raw };
+  return { problem: 'APP_ENV: required, "staging" or "production" (the deployment identity; payment sandbox mode is refused in production)' };
+}
+
+/** D-19: payment sandbox mode applies only when the platform switch is on AND the deployment is not production. */
+export const effectiveSandbox = (stored: boolean, appEnv: AppEnv): boolean => stored && appEnv !== "production";
 const isLoopbackRoot = (root: string) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(root);
 
 /**
@@ -136,6 +164,8 @@ const isLoopbackRoot = (root: string) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+
  */
 export interface WorkerConfig {
   nodeEnv: string;
+  /** Deployment identity (APP_ENV), same rule as the API: the worker reconciles payments. */
+  appEnv: AppEnv;
   production: boolean;
   databaseUrl: string;
   /** Valkey/Redis URL of the queue (secret: may carry a password). Never logged. */
@@ -162,6 +192,8 @@ export function loadWorkerConfig(env: Record<string, string | undefined>): Worke
     REDIS_URL: blank(env.REDIS_URL) ?? (dev ? "redis://localhost:6379" : undefined),
   });
   const problems = parsed.success ? [] : parsed.error.issues.map((i) => `${String(i.path[0])}: ${i.message}`);
+  const identity = resolveAppEnv(env);
+  if ("problem" in identity) problems.push(identity.problem);
   const observability = readObservability(env, dev, problems);
   if (parsed.success && !dev) {
     // Defense in depth: even on the internal network the queue must require a password outside development.
@@ -186,7 +218,7 @@ export function loadWorkerConfig(env: Record<string, string | undefined>): Worke
   const orderSms = smsReady
     ? { authSecret: authSecret!, rootDomain: rootDomain!, protocol: protocol as "http" | "https", secrets: keys && !("error" in keys) ? keys : null, devLog: dev && env.ORDER_SMS_DEV_LOG === "true" }
     : null;
-  return { nodeEnv, production: !dev, databaseUrl: parsed.data.DATABASE_URL, redisUrl: parsed.data.REDIS_URL, observability, orderSms };
+  return { nodeEnv, appEnv: (identity as { appEnv: AppEnv }).appEnv, production: !dev, databaseUrl: parsed.data.DATABASE_URL, redisUrl: parsed.data.REDIS_URL, observability, orderSms };
 }
 
 export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
@@ -205,6 +237,8 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     API_BODY_LIMIT_BYTES: blank(env.API_BODY_LIMIT_BYTES),
   });
   const problems: string[] = [];
+  const identity = resolveAppEnv(env);
+  if ("problem" in identity) problems.push(identity.problem);
   if (!parsed.success) {
     for (const issue of parsed.error.issues) problems.push(`${String(issue.path[0])}: ${issue.message}`);
   }
@@ -242,6 +276,7 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
 
   return {
     nodeEnv,
+    appEnv: (identity as { appEnv: AppEnv }).appEnv,
     production: !dev,
     host: d.API_HOST,
     port: d.API_PORT,

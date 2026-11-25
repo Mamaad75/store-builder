@@ -14,6 +14,7 @@ import { PrismaOrderStore } from "./prisma-orders.repository.js";
 import { PrismaPaymentStore } from "./prisma-payments.repository.js";
 import { orderTokens } from "./tokens.js";
 import { ZarinpalGateway } from "./zarinpal.js";
+import { effectiveSandbox, type AppEnv } from "../../../config/env.js";
 import { AqayePardakhtGateway } from "./aqayepardakht.js";
 
 interface RateLimiterLike {
@@ -34,6 +35,8 @@ export interface PaymentSources {
 /** Composition of online payment (phase 3.5): PostgreSQL attempts, Zarinpal (or the injected fake). */
 export function createPaymentsService(o: {
   authSecret: string;
+  /** D-19 (ADR 0005 §17.2): with "production" the gateways' sandboxes are never used, whatever the stored platform setting says. */
+  appEnv: AppEnv;
   limiter: RateLimiterLike;
   sources: PaymentSources;
   storeOrigin: (label: string) => string;
@@ -47,7 +50,7 @@ export function createPaymentsService(o: {
     // Read on every use (one small row): switching payments off or to sandbox applies at once, also to sessions being opened.
     platform: async () => {
       const p = await o.sources.paymentSettings();
-      return { enabled: { ZARINPAL: p.zarinpalEnabled, AQAYEPARDAKHT: p.aqayepardakhtEnabled }, sandbox: p.sandbox };
+      return { enabled: { ZARINPAL: p.zarinpalEnabled, AQAYEPARDAKHT: p.aqayepardakhtEnabled }, sandbox: effectiveSandbox(p.sandbox, o.appEnv) };
     },
     secretsReady: () => o.sources.secretsReady(),
     fingerprint: (g, id) => sha256(g === "ZARINPAL" ? id.trim().toLowerCase() : id.trim()), // the pin is case-sensitive (review D35c-1)

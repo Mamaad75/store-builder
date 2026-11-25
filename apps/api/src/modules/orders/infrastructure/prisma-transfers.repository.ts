@@ -1,3 +1,4 @@
+import type { StoreRole } from "@store-builder/shared/modules/access/permissions";
 import type { Prisma } from "@prisma/client";
 import { db } from "../../../lib/db.js";
 import { recordEvent } from "../../../platform/outbox/outbox.js";
@@ -26,14 +27,26 @@ export class PrismaTransferStore implements TransferStore {
     return db.storeBankCard.findMany({ where: { storeId }, select: { cardNumber: true, holderName: true, bankName: true }, orderBy: { position: "asc" } });
   }
 
-  async replaceCards(storeId: string, cards: BankCard[]): Promise<BankCard[]> {
+  async replaceCards(storeId: string, cards: BankCard[], audit: { actorId: string; role: StoreRole }): Promise<void> {
+    // Masked summary for the audit log (never a full card number: the audit log is readable by managers).
+    const summary = (c: BankCard) => ({ last4: c.cardNumber.slice(-4), bankName: c.bankName, holderName: c.holderName });
     await db.$transaction(async (tx) => {
       // Review D35b-1: two saves at once are serialised on the store row (no unique-index failure halfway through).
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
+      const before = await tx.storeBankCard.findMany({ where: { storeId }, select: { cardNumber: true, holderName: true, bankName: true }, orderBy: { position: "asc" } });
       await tx.storeBankCard.deleteMany({ where: { storeId } });
       if (cards.length) await tx.storeBankCard.createMany({ data: cards.map((c, position) => ({ ...c, storeId, position })) });
+      // D-3 / V0-1: the audit entry commits with the change or not at all.
+      await tx.auditEvent.create({
+        data: {
+          storeId,
+          actorId: audit.actorId,
+          action: "store.bank_cards_replaced",
+          targetType: "bank_cards",
+          metadata: { role: audit.role, before: before.map(summary), after: cards.map(summary) },
+        },
+      });
     }, TX);
-    return this.cards(storeId);
   }
 
   async receipts(storeId: string, orderId: string) {

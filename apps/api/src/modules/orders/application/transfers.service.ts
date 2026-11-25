@@ -1,11 +1,14 @@
 import {
   MAX_RECEIPTS_PER_ORDER,
   RESUBMIT_WINDOW_HOURS,
+  maskCardNumber,
   receiptFieldsSchema,
   replaceBankCardsSchema,
   reviewReceiptSchema,
 } from "@store-builder/shared/modules/orders/card-transfer";
 import { OrderRateLimitedError, PaymentUnavailableError, ReceiptNotAllowedError } from "@store-builder/shared/modules/orders/errors";
+import { can, type StoreRole } from "@store-builder/shared/modules/access/permissions";
+import { PermissionDeniedError } from "@store-builder/shared/modules/access/errors";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import type { z } from "zod";
 import type { OrderView } from "../domain/orders.js";
@@ -40,12 +43,21 @@ export class TransfersService {
 
   // ---------- the store's cards ----------
 
-  cards(storeId: string): Promise<BankCard[]> {
-    return this.store.cards(storeId);
+  /**
+   * The merchant's view (D-22 / V0-6): full numbers only for a role with `payout.manage` (the owner); masked (603799******7893) for managers
+   * and operators. Shoppers get the full numbers of their own unpaid order elsewhere (transferInfo), as before.
+   */
+  async cards(a: { storeId: string; role: StoreRole }): Promise<{ canManage: boolean; cards: BankCard[] }> {
+    const cards = await this.store.cards(a.storeId);
+    const canManage = can(a.role, "payout.manage");
+    return { canManage, cards: canManage ? cards : cards.map((c) => ({ ...c, cardNumber: maskCardNumber(c.cardNumber) })) };
   }
 
-  async replaceCards(a: { storeId: string }, body: unknown): Promise<BankCard[]> {
-    return this.store.replaceCards(a.storeId, parse(replaceBankCardsSchema, body).cards);
+  /** D-3 / V0-1: create, replace or remove (empty list) the cards: owner only (the guard checks `payout.manage`; checked again here). */
+  async replaceCards(a: { storeId: string; actorId: string; role: StoreRole }, body: unknown): Promise<{ canManage: boolean; cards: BankCard[] }> {
+    if (!can(a.role, "payout.manage")) throw new PermissionDeniedError("payout.manage");
+    await this.store.replaceCards(a.storeId, parse(replaceBankCardsSchema, body).cards, { actorId: a.actorId, role: a.role });
+    return this.cards(a);
   }
 
   async available(storeId: string): Promise<boolean> {

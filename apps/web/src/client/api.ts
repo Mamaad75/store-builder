@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { storeOverviewDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -95,8 +95,10 @@ export const putSmsSettings = (storeId: string, body: { enabled: boolean; mercha
 // D35b-1: card-to-card (bank cards, receipts and their review)
 export type BankCard = z.infer<typeof bankCardDto>;
 export type Receipt = z.infer<typeof receiptDto>;
-export const getBankCards = (storeId: string) => send<BankCard[]>("GET", `${store(storeId)}/bank-cards`);
-export const putBankCards = (storeId: string, cards: { cardNumber: string; holderName: string; bankName: string }[]) => send<BankCard[]>("PUT", `${store(storeId)}/bank-cards`, { body: { cards } });
+/** D-3 / D-22: `canManage` = the caller is the owner; other roles get masked numbers and cannot save. */
+export type MerchantBankCards = z.infer<typeof merchantBankCardsDto>;
+export const getBankCards = (storeId: string) => send<MerchantBankCards>("GET", `${store(storeId)}/bank-cards`);
+export const putBankCards = (storeId: string, cards: { cardNumber: string; holderName: string; bankName: string }[]) => send<MerchantBankCards>("PUT", `${store(storeId)}/bank-cards`, { body: { cards } });
 export const getReceipts = (storeId: string, orderId: string) => send<Receipt[]>("GET", `${store(storeId)}/orders/${enc(orderId)}/receipts`);
 export const receiptImageUrl = (storeId: string, orderId: string, receiptId: string) => `${store(storeId)}/orders/${enc(orderId)}/receipts/${enc(receiptId)}/image`;
 export const reviewReceipt = (storeId: string, orderId: string, receiptId: string, decision: "approve" | "reject", reason: string) =>

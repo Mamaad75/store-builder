@@ -1,6 +1,7 @@
 import { Controller, Get, Header, Inject, Res } from "@nestjs/common";
 import type { Response } from "express";
-import { DATABASE } from "../config/tokens.js";
+import type { ApiConfig } from "../config/env.js";
+import { CONFIG, DATABASE } from "../config/tokens.js";
 import { getMediaStorage } from "../lib/storage/index.js";
 import type { Database } from "../database/database.js";
 import { createCachedProbe } from "./cached-probe.js";
@@ -28,7 +29,11 @@ async function within(work: () => Promise<unknown>): Promise<boolean> {
 export class HealthController {
   private readonly probe: () => Promise<{ database: boolean; storage: boolean }>;
 
-  constructor(@Inject(DATABASE) database: Database) {
+  private readonly environment: ApiConfig["appEnv"];
+
+  constructor(@Inject(DATABASE) database: Database, @Inject(CONFIG) config: ApiConfig) {
+    // ADR 0005 §17.2: the release checklist verifies that production reports environment "production".
+    this.environment = config.appEnv;
     // The database answers and the object store accepts the application's credentials, 2 s each, probed together.
     this.probe = createCachedProbe(
       async () => {
@@ -51,6 +56,6 @@ export class HealthController {
     const { database, storage } = await this.probe();
     const ready = database && storage;
     if (!ready) res.status(503);
-    return { status: ready ? "ready" : "unavailable", checks: { database: database ? "ok" : "fail", storage: storage ? "ok" : "fail" } };
+    return { status: ready ? "ready" : "unavailable", environment: this.environment, checks: { database: database ? "ok" : "fail", storage: storage ? "ok" : "fail" } };
   }
 }

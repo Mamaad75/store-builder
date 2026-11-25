@@ -204,11 +204,12 @@ export function SmsSettingsForm({
   );
 }
 
-export function PaymentSettingsForm({ initial, secrets, encryptionReady }: { initial: { zarinpalEnabled: boolean; aqayepardakhtEnabled?: boolean; sandbox: boolean }; secrets: Secrets; encryptionReady: boolean }) {
+export function PaymentSettingsForm({ initial, secrets, encryptionReady, sandboxAllowed }: { initial: { zarinpalEnabled: boolean; aqayepardakhtEnabled?: boolean; sandbox: boolean }; secrets: Secrets; encryptionReady: boolean; sandboxAllowed: boolean }) {
   const { pending, fb, run } = useSubmit();
   const [enabled, setEnabled] = useState(initial.zarinpalEnabled);
   const [aqaye, setAqaye] = useState(initial.aqayepardakhtEnabled ?? false);
-  const [sandbox, setSandbox] = useState(initial.sandbox);
+  // D-19: in production the switch is off and locked (the server refuses it and ignores any stored value).
+  const [sandbox, setSandbox] = useState(sandboxAllowed && initial.sandbox);
   const anyOn = initial.zarinpalEnabled || initial.aqayepardakhtEnabled;
   return (
     <Section
@@ -227,7 +228,8 @@ export function PaymentSettingsForm({ initial, secrets, encryptionReady }: { ini
         <Stack spacing={1}>
           <FormControlLabel control={<Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />} label="پرداخت با زرین‌پال برای فروشگاه‌ها فعال باشد" />
           <FormControlLabel control={<Switch checked={aqaye} onChange={(e) => setAqaye(e.target.checked)} />} label="پرداخت با آقای پرداخت برای فروشگاه‌ها فعال باشد" />
-          <FormControlLabel control={<Switch checked={sandbox} onChange={(e) => setSandbox(e.target.checked)} />} label="حالت آزمایشی (sandbox): هیچ پولی جابه‌جا نمی‌شود" />
+          <FormControlLabel control={<Switch checked={sandbox} disabled={!sandboxAllowed} onChange={(e) => setSandbox(e.target.checked)} />} label="حالت آزمایشی (sandbox): هیچ پولی جابه‌جا نمی‌شود" />
+          {!sandboxAllowed && <Typography variant="body2" color="text.secondary">در محیط اصلی (production) حالت آزمایشی پرداخت همیشه خاموش است و قابل روشن کردن نیست.</Typography>}
           <Box>
             <Button type="submit" variant="contained" disabled={pending}>
               ذخیره

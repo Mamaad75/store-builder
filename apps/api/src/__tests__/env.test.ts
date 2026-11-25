@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { EnvError, loadConfig, loadWorkerConfig } from "../config/env.js";
+import { EnvError, effectiveSandbox, loadConfig, loadWorkerConfig, resolveAppEnv } from "../config/env.js";
 
 const prod = {
   NODE_ENV: "production",
+  APP_ENV: "production",
   DATABASE_URL: "postgresql://u:SECRETPW@db:5432/x",
   APP_ROOT_DOMAIN: "example.com",
   APP_PROTOCOL: "https",
@@ -76,6 +77,7 @@ describe("loadConfig", () => {
 describe("loadWorkerConfig (phase 2.2)", () => {
   const worker = {
     NODE_ENV: "production",
+    APP_ENV: "production",
     DATABASE_URL: "postgresql://u:SECRETPW@db:5432/x",
     REDIS_URL: "redis://:QUEUEPW@valkey:6379",
     AUTH_SECRET: "q7Hc2Ls9Wm4Rt8Yv1Bn6Xk3Pd5Fg0Jz2Aw7Ue9Ir4",
@@ -138,3 +140,58 @@ describe("ADR 0004: development OTP delivery never reaches production", () => {
     expect(loadConfig({ NODE_ENV: "development", DATABASE_URL: prod.DATABASE_URL, CUSTOMER_OTP_DEV_LOG: "true" }).customerOtpDevLog).toBe(true);
   });
 });
+
+describe("APP_ENV, the deployment identity (D-19, ADR 0005 §17.2)", () => {
+  it("every NODE_ENV × APP_ENV combination: development/test default to themselves; anything else needs staging or production", () => {
+    const table: [string | undefined, string | undefined, string | null][] = [
+      ["development", undefined, "development"],
+      ["development", "development", "development"],
+      ["development", "production", null],
+      ["development", "staging", null],
+      ["test", undefined, "test"],
+      ["test", "test", "test"],
+      ["test", "production", null],
+      ["production", "production", "production"],
+      ["production", "staging", "staging"],
+      ["production", " production ", "production"],
+      ["production", undefined, null], // missing: refused (fail-closed)
+      ["production", "", null],
+      ["production", "Production", null],
+      ["production", "prod", null],
+      ["production", "development", null],
+      ["production", "test", null],
+      [undefined, undefined, null], // no NODE_ENV = production rules
+    ];
+    for (const [NODE_ENV, APP_ENV, expected] of table) {
+      const r = resolveAppEnv({ NODE_ENV, APP_ENV });
+      expect("appEnv" in r ? r.appEnv : null, `${NODE_ENV} × ${APP_ENV}`).toBe(expected);
+      if (!("appEnv" in r)) expect(r.problem).toMatch(/^APP_ENV: /); // names the variable only
+    }
+  });
+
+  it("the API and the worker refuse to start without a valid identity in production, and expose it when valid", () => {
+    const apiNoEnv = Object.fromEntries(Object.entries(prod).filter(([k]) => k !== "APP_ENV"));
+    expect(() => loadConfig(apiNoEnv)).toThrow(EnvError);
+    expect(() => loadConfig({ ...prod, APP_ENV: "prod" })).toThrow(EnvError);
+    expect(loadConfig(prod).appEnv).toBe("production");
+    expect(loadConfig({ ...prod, APP_ENV: "staging" }).appEnv).toBe("staging");
+    const w = { NODE_ENV: "production", DATABASE_URL: "postgresql://u:SECRETPW@db:5432/x", REDIS_URL: "redis://:QUEUEPW@valkey:6379", AUTH_SECRET: "q7Hc2Ls9Wm4Rt8Yv1Bn6Xk3Pd5Fg0Jz2Aw7Ue9Ir4", APP_ROOT_DOMAIN: "example.ir", APP_PROTOCOL: "https" };
+    expect(() => loadWorkerConfig(w)).toThrow(EnvError);
+    expect(loadWorkerConfig({ ...w, APP_ENV: "production" }).appEnv).toBe("production");
+    try {
+      loadConfig(apiNoEnv);
+    } catch (e) {
+      expect((e as EnvError).problems.some((p) => p.startsWith("APP_ENV:"))).toBe(true);
+    }
+  });
+
+  it("effective sandbox: never in production, whatever is stored; elsewhere it follows the stored switch", () => {
+    expect(effectiveSandbox(true, "production")).toBe(false);
+    expect(effectiveSandbox(false, "production")).toBe(false);
+    for (const e of ["development", "test", "staging"] as const) {
+      expect(effectiveSandbox(true, e)).toBe(true);
+      expect(effectiveSandbox(false, e)).toBe(false);
+    }
+  });
+});
+

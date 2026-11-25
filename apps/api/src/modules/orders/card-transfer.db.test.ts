@@ -123,8 +123,9 @@ describe("card-to-card (D35b-1)", () => {
     const bad = await merchantCall(s.merchant, "PUT", `/stores/${s.storeId}/bank-cards`, { cards: [{ cardNumber: "6037991234567890", holderName: "علی" }] });
     expect(bad.status).toBe(400);
     const ok = await merchantCall(s.merchant, "PUT", `/stores/${s.storeId}/bank-cards`, { cards: [{ cardNumber: MELLI, holderName: "علی رضایی" }, { cardNumber: MELLAT, holderName: "سارا", bankName: "ملت" }] });
-    expect(ok.json).toEqual([{ cardNumber: MELLI, holderName: "علی رضایی", bankName: "بانک ملی ایران" }, { cardNumber: MELLAT, holderName: "سارا", bankName: "ملت" }]);
-    expect((await merchantCall(s.merchant, "GET", `/stores/${s.storeId}/bank-cards`)).json).toHaveLength(2);
+    // D-3/D-22: the owner's view is { canManage, cards } with full numbers (managers/operators: payment-safety.db.test.ts).
+    expect(ok.json).toEqual({ canManage: true, cards: [{ cardNumber: MELLI, holderName: "علی رضایی", bankName: "بانک ملی ایران" }, { cardNumber: MELLAT, holderName: "سارا", bankName: "ملت" }] });
+    expect((await merchantCall(s.merchant, "GET", `/stores/${s.storeId}/bank-cards`)).json.cards).toHaveLength(2);
     expect((await me.call("GET", "/checkout/payment-methods")).json.cardTransfer).toBe(true);
     expect(await prisma.auditEvent.count({ where: { storeId: s.storeId, action: "store.bank_cards_replaced" } })).toBe(1); // the refused one wrote nothing
   });

@@ -240,7 +240,11 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
 ### M3 — Payment safety core (V0-core, bucket B)
 * **Objective:** close the P0 payment findings before any real money.
 * **Features:** D-3 `payout.manage`; D-22 masking; transactional payout audit; D-19 `APP_ENV` validation, effective-sandbox rule, default `false`, API refusal and audit; `PayoutGuard` (cooling-off hook inactive).
-* **Current status:** N (specified in ADR 0005 §16.1 and §17.2).
+* **Current status:** partly implemented (2026-11-25, MVP plan item 1 "payment safety"): bank cards owner-only (`payout.manage`, D-3 /
+  V0-1) with the audit in the same transaction (masked before/after); masked card reads for managers and operators (D-22 / V0-6);
+  `APP_ENV` (validated by the API, the worker and the reconcile job), effective sandbox = stored AND not production, production refuses
+  `sandbox: true` at the settings API (400 VALIDATION_FAILED, audited `security.sandbox_refused`), default sandbox `false` (D-19).
+  Not done: the generic `PayoutGuard`, the `PRODUCTION_ROOT_DOMAIN` cross-check (domain not decided), a STAGING banner, notices.
 * **Dependencies:** none. The deployment files and the smoke compose file must set `APP_ENV` in the same change.
 * **Security controls:** as listed.
 * **Tests:**

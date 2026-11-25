@@ -6,8 +6,8 @@ describe("store roles (D23-1)", () => {
     for (const p of PERMISSIONS) expect(can("OWNER", p), p).toBe(true);
   });
 
-  it("a manager can do everything except deleting the store, managing staff and managing secrets (gateway keys)", () => {
-    expect(PERMISSIONS.filter((p) => !can("MANAGER", p))).toEqual(["store.delete", "members.manage", "secrets.manage"]);
+  it("a manager can do everything except deleting the store, managing staff, secrets (gateway keys) and payout bank cards", () => {
+    expect(PERMISSIONS.filter((p) => !can("MANAGER", p))).toEqual(["store.delete", "members.manage", "secrets.manage", "payout.manage"]);
   });
 
   it("an operator works on catalog, media and pages only (no publishing, settings, theme, domain, staff or audit)", () => {

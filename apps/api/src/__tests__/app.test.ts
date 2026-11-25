@@ -43,7 +43,7 @@ describe("health and readiness", () => {
     const { url } = await boot(true);
     const r = await fetch(`${url}/api/ready`);
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ status: "ready", checks: { database: "ok", storage: "ok" } });
+    expect(await r.json()).toEqual({ status: "ready", environment: "test", checks: { database: "ok", storage: "ok" } });
   });
   it("readiness is 503 and leaks nothing when the database fails", async () => {
     const { url } = await boot(false);
@@ -61,7 +61,7 @@ describe("health and readiness", () => {
     const text = await r.text();
     expect(r.status).toBe(503);
     expect(text).not.toContain("secret-bucket");
-    expect(JSON.parse(text)).toEqual({ status: "unavailable", checks: { database: "ok", storage: "fail" } });
+    expect(JSON.parse(text)).toEqual({ status: "unavailable", environment: "test", checks: { database: "ok", storage: "fail" } });
   });
   it("shares one probe between concurrent callers", async () => {
     const cap = capture();

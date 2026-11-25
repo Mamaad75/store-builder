@@ -14,7 +14,7 @@ import { StoreSuspensionController } from "./interface/store-suspension.controll
   controllers: [PlatformController, StoreSuspensionController],
   providers: [
     { provide: PlatformService, useFactory: () => new PlatformService(new PrismaPlatformRepository()) },
-    { provide: PlatformSettingsService, useFactory: (config: ApiConfig) => createPlatformSettingsService(config.secrets), inject: [CONFIG] },
+    { provide: PlatformSettingsService, useFactory: (config: ApiConfig) => createPlatformSettingsService(config.secrets, config.appEnv), inject: [CONFIG] },
     PlatformAdminGuard,
   ],
   exports: [PlatformService, PlatformSettingsService],

@@ -291,15 +291,16 @@ export class StorePaymentSettingsController {
 export class StoreBankCardsController {
   constructor(@Inject(TransfersService) private readonly transfers: TransfersService) {}
 
+  /** Every role may see the cards; only the owner sees full numbers (D-22). */
   @Get()
   @RequirePermission("store.view")
   list(@StoreAccess() a: StoreAccessContext) {
-    return this.transfers.cards(a.storeId);
+    return this.transfers.cards(a);
   }
 
+  /** D-3 / V0-1: owner only; audited (before/after, masked) in the same transaction as the change, not after it. */
   @Put()
-  @RequirePermission("store.settings")
-  @Audit("store.bank_cards_replaced")
+  @RequirePermission("payout.manage")
   replace(@StoreAccess() a: StoreAccessContext, @Body() body: unknown) {
     return this.transfers.replaceCards(a, body);
   }

@@ -69,7 +69,7 @@ useDb(prisma);
 const sms = config.orderSms;
 const orderSms = sms
   ? (() => {
-      const settings = createPlatformSettingsService(sms.secrets);
+      const settings = createPlatformSettingsService(sms.secrets, config.appEnv);
       return createOrderSmsService({
         authSecret: sms.authSecret,
         storeOrigin: (label) => `${sms.protocol}://${label}.${sms.rootDomain}`,

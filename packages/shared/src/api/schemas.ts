@@ -219,6 +219,11 @@ export const orderDto = z.object({
   history: z.array(z.object({ from: orderStatus.nullable(), to: orderStatus, actor: z.enum(["CUSTOMER", "MERCHANT", "SYSTEM"]), note: z.string(), at: iso })),
 });
 export const bankCardDto = z.object({ cardNumber: z.string().describe("16 digits"), holderName: z.string(), bankName: z.string() });
+/** The merchant's view of the store's cards (D-3, D-22): full numbers only for a role with `payout.manage` (the owner), masked otherwise. */
+export const merchantBankCardsDto = z.object({
+  canManage: z.boolean().describe("the caller may replace the cards (payout.manage: owner only)"),
+  cards: z.array(bankCardDto.extend({ cardNumber: z.string().describe("full 16 digits for the owner; 603799******7893 for other roles") })),
+});
 const receiptStatus = z.enum(["SUBMITTED", "APPROVED", "REJECTED"]);
 export const transferInfoDto = z.object({
   cards: z.array(bankCardDto).describe("where to transfer (only while the order waits for payment)"),
@@ -341,6 +346,7 @@ export const platformSettingsViewDto = z.object({
   settings: platformSettingsDto,
   secrets: z.object({ "sms.kavenegar.api_key": secretStateDto, "payment.zarinpal.merchant_id": secretStateDto, "ai.api_key": secretStateDto, "rates.navasan.api_key": secretStateDto }),
   encryptionReady: z.boolean(),
+  sandboxAllowed: z.boolean().describe("false in production (APP_ENV=production): payment sandbox mode is refused and never applied"),
 });
 
 /** The v1 error body (phase 2.5): a fixed status-level `code`, a fixed Persian `message`, optional details. Never a stack. */

@@ -2,6 +2,7 @@ import { parseMasterKeys } from "../src/platform/crypto/envelope.js";
 import { createPlatformSettingsService } from "../src/modules/platform/platform.api.js";
 import { createRatesService } from "../src/modules/pricing/pricing.api.js";
 import { bootstrapJob } from "./bootstrap.js";
+import { resolveAppEnv } from "../src/config/env.js";
 import { db } from "../src/lib/db.js";
 
 bootstrapJob({ storage: false });
@@ -14,7 +15,9 @@ bootstrapJob({ storage: false });
  */
 async function main() {
   const keys = parseMasterKeys(process.env.SECRETS_MASTER_KEYS, process.env.SECRETS_ACTIVE_KEY_ID);
-  const settings = createPlatformSettingsService(keys && !("error" in keys) ? keys : null); // without keys: manual rates still work
+  // This job only reads the rates settings; an unknown deployment identity is treated as production (the most restrictive).
+  const identity = resolveAppEnv(process.env);
+  const settings = createPlatformSettingsService(keys && !("error" in keys) ? keys : null, "appEnv" in identity ? identity.appEnv : "production"); // without keys: manual rates still work
   const report = await createRatesService(settings).refresh();
   console.log(JSON.stringify({ event: "rates.refreshed", ...report }));
   if (report.attention) process.exitCode = 2;

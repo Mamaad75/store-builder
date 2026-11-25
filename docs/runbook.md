@@ -20,7 +20,8 @@ up within 5 s; it is public, and this keeps request volume from driving database
 1. `git fetch && git checkout <release commit>` (a commit whose CI run is green, including the container job).
 2. Take a backup first (below). `$DC build`.
 3. `$DC up -d`. Compose reruns `migrate` (a no-op when nothing is pending), then recreates `app`/`worker` whose image changed.
-4. Verify: `curl -fsS https://<root>/api/ready` → `{"status":"ready",…}`; `$DC ps` shows `api`, `app`, `postgres` healthy; `$DC logs --since 5m app scheduler | grep '"level":"error"'` is empty.
+4. Verify: `curl -fsS https://<root>/api/ready` → `{"status":"ready","environment":"production",…}` (D-19: on the production server the
+   environment MUST read `production`; anything else is a mislabelled deployment, stop and fix the compose file); `$DC ps` shows `api`, `app`, `postgres` healthy; `$DC logs --since 5m app scheduler | grep '"level":"error"'` is empty.
 
 Migrations are forward-only. A migration that cannot be undone by the application version before it must say so in its pull request; take the backup immediately before.
 

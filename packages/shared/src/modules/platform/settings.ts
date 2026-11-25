@@ -99,7 +99,8 @@ export interface PlatformSettings {
 
 export const PLATFORM_SETTING_DEFAULTS: PlatformSettings = {
   sms: { provider: "kavenegar", customerOtpEnabled: false, otpTemplate: "", orderSms: orderSmsPlatformSchema.parse({}) },
-  payment: { zarinpalEnabled: false, aqayepardakhtEnabled: false, sandbox: true },
+  // D-19 (ADR 0005 §17.2): sandbox off by default; production refuses it in any case (APP_ENV=production).
+  payment: { zarinpalEnabled: false, aqayepardakhtEnabled: false, sandbox: false },
   ai: { enabled: false, provider: "openai_compatible", baseUrl: "", model: "" },
   rates: { provider: "off", maxAgeHours: 6, jumpPercent: 10, providerUnit: "toman", allowInsecureHttp: false },
 };

@@ -25,13 +25,14 @@ export const PERMISSIONS = [
   "orders.view", // orders with the shopper's name, phone and address (phase 3.4): personal data, owner and manager only
   "orders.manage", // confirm, ship, deliver, cancel orders (phase 3.4)
   "discounts.manage", // discount codes (phase 5.1): owner and manager
+  "payout.manage", // the bank cards shoppers transfer money to (D-3, V0-1): create, replace, remove. Owner only
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 const ALL: readonly Permission[] = PERMISSIONS;
 export const ROLE_PERMISSIONS: Readonly<Record<StoreRole, readonly Permission[]>> = {
   OWNER: ALL,
-  MANAGER: ALL.filter((p) => p !== "store.delete" && p !== "members.manage" && p !== "secrets.manage"),
+  MANAGER: ALL.filter((p) => p !== "store.delete" && p !== "members.manage" && p !== "secrets.manage" && p !== "payout.manage"),
   OPERATOR: ["store.view", "catalog.write", "media.write", "pages.write"],
 };
 

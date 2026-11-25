@@ -1,12 +1,15 @@
-import type { ApiConfig } from "../../../config/env.js";
+import { effectiveSandbox, type ApiConfig, type AppEnv } from "../../../config/env.js";
 import { KavenegarSms, type SmsSender } from "../../../platform/sms/sms.js";
 import { envelopeCipher } from "../../secrets/secrets.api.js";
 import { PlatformSettingsService } from "../application/settings.service.js";
 import { PrismaSettingsRepository } from "./prisma-settings.repository.js";
 
-/** Composition: PostgreSQL storage and the store-secrets envelope scheme (null = no master keys: secrets cannot be stored). */
-export function createPlatformSettingsService(keys: ApiConfig["secrets"]): PlatformSettingsService {
-  return new PlatformSettingsService(new PrismaSettingsRepository(), keys ? envelopeCipher(keys) : null);
+/**
+ * Composition: PostgreSQL storage and the store-secrets envelope scheme (null = no master keys: secrets cannot be stored). `appEnv` decides
+ * whether payment sandbox mode may be switched on (D-19).
+ */
+export function createPlatformSettingsService(keys: ApiConfig["secrets"], appEnv: AppEnv): PlatformSettingsService {
+  return new PlatformSettingsService(new PrismaSettingsRepository(), keys ? envelopeCipher(keys) : null, effectiveSandbox(true, appEnv));
 }
 
 /**

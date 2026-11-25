@@ -44,6 +44,8 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         NODE_ENV: "production",
+        // D-19: the production build runs as a production deployment (payment sandbox mode refused), like the real stack.
+        APP_ENV: "production",
         DATABASE_URL: E2E_DATABASE_URL,
         AUTH_SECRET: "e2e-only-secret-e2e-only-secret-0123456789",
         APP_ROOT_DOMAIN: `localhost:${PORT}`,

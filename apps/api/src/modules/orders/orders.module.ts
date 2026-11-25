@@ -21,6 +21,7 @@ import { CustomerOrdersController, StoreOverviewController, PaymentsController, 
       useFactory: (config: ApiConfig, limiter: RateLimiter, settings: PlatformSettingsService, secrets: SecretService, gateway: PaymentGateway | Record<string, PaymentGateway> | null) =>
         createPaymentsService({
           authSecret: config.authSecret,
+          appEnv: config.appEnv,
           limiter,
           sources: { paymentSettings: async () => (await settings.settings()).payment, reveal: (storeId, name) => (secrets.configured ? secrets.reveal(storeId, name) : Promise.resolve(null)), secretsReady: () => secrets.configured },
           storeOrigin: (label) => `${config.protocol}://${label}.${config.rootDomain}`,

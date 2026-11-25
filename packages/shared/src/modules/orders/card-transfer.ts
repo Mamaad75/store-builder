@@ -25,6 +25,14 @@ export const RECEIPT_STATUS_LABELS: Readonly<Record<ReceiptStatus, string>> = {
 };
 
 /** Luhn check (every Iranian bank card number passes it). */
+/**
+ * D-22 / V0-6: a card number as staff without `payout.manage` see it: the first 6 digits (the bank) and the last 4, e.g.
+ * 603799******7893. Anything that is not a plain digit string is fully hidden.
+ */
+export function maskCardNumber(cardNumber: string): string {
+  return /^\d{12,19}$/.test(cardNumber) ? `${cardNumber.slice(0, 6)}${"*".repeat(cardNumber.length - 10)}${cardNumber.slice(-4)}` : "****";
+}
+
 export function luhnValid(digits: string): boolean {
   if (!/^\d{16}$/.test(digits)) return false;
   let sum = 0;

@@ -1247,7 +1247,7 @@
     "/api/v1/admin/stores/{storeId}/bank-cards": {
       "get": {
         "operationId": "getApiV1AdminStoresStoreIdBankCards",
-        "summary": "The store's bank cards for card-to-card payment (D35b-1)",
+        "summary": "The store's bank cards for card-to-card payment (D35b-1); numbers masked unless the caller has payout.manage (D-22)",
         "tags": [
           "admin"
         ],
@@ -1273,28 +1273,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "cardNumber": {
-                        "type": "string",
-                        "description": "16 digits"
-                      },
-                      "holderName": {
-                        "type": "string"
-                      },
-                      "bankName": {
-                        "type": "string"
-                      }
+                  "type": "object",
+                  "properties": {
+                    "canManage": {
+                      "type": "boolean",
+                      "description": "the caller may replace the cards (payout.manage: owner only)"
                     },
-                    "required": [
-                      "cardNumber",
-                      "holderName",
-                      "bankName"
-                    ],
-                    "additionalProperties": false
-                  }
+                    "cards": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "cardNumber": {
+                            "type": "string",
+                            "description": "full 16 digits for the owner; 603799******7893 for other roles"
+                          },
+                          "holderName": {
+                            "type": "string"
+                          },
+                          "bankName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "cardNumber",
+                          "holderName",
+                          "bankName"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "canManage",
+                    "cards"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -1383,7 +1397,7 @@
       },
       "put": {
         "operationId": "putApiV1AdminStoresStoreIdBankCards",
-        "summary": "Replace the store's bank cards (at most 5)",
+        "summary": "Create, replace or remove the store's bank cards (at most 5); owner only, audited in the same transaction (D-3)",
         "tags": [
           "admin"
         ],
@@ -1402,7 +1416,7 @@
             "session": []
           }
         ],
-        "x-permission": "store.settings",
+        "x-permission": "payout.manage",
         "requestBody": {
           "required": true,
           "content": {
@@ -1449,28 +1463,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "cardNumber": {
-                        "type": "string",
-                        "description": "16 digits"
-                      },
-                      "holderName": {
-                        "type": "string"
-                      },
-                      "bankName": {
-                        "type": "string"
-                      }
+                  "type": "object",
+                  "properties": {
+                    "canManage": {
+                      "type": "boolean",
+                      "description": "the caller may replace the cards (payout.manage: owner only)"
                     },
-                    "required": [
-                      "cardNumber",
-                      "holderName",
-                      "bankName"
-                    ],
-                    "additionalProperties": false
-                  }
+                    "cards": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "cardNumber": {
+                            "type": "string",
+                            "description": "full 16 digits for the owner; 603799******7893 for other roles"
+                          },
+                          "holderName": {
+                            "type": "string"
+                          },
+                          "bankName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "cardNumber",
+                          "holderName",
+                          "bankName"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "canManage",
+                    "cards"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -19822,12 +19850,17 @@
                     },
                     "encryptionReady": {
                       "type": "boolean"
+                    },
+                    "sandboxAllowed": {
+                      "type": "boolean",
+                      "description": "false in production (APP_ENV=production): payment sandbox mode is refused and never applied"
                     }
                   },
                   "required": [
                     "settings",
                     "secrets",
-                    "encryptionReady"
+                    "encryptionReady",
+                    "sandboxAllowed"
                   ],
                   "additionalProperties": false
                 }

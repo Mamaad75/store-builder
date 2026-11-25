@@ -1,3 +1,4 @@
+import type { StoreRole } from "@store-builder/shared/modules/access/permissions";
 import type { StoreAvailability } from "@store-builder/shared/modules/stores/availability";
 import type { Gateway, OrderActor, OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 import type { DiscountCart } from "@store-builder/shared/modules/discounts/discounts";
@@ -265,7 +266,11 @@ export interface TransferInfo {
 /** Bank cards and receipts of one store. Every query is bound to the store id. */
 export interface TransferStore {
   cards(storeId: string): Promise<BankCard[]>;
-  replaceCards(storeId: string, cards: BankCard[]): Promise<BankCard[]>;
+  /**
+   * D-3 / V0-1: replaces the cards and writes the audit entry (before/after, masked: last 4 digits, bank, holder) in ONE transaction; a
+   * failed audit write rolls the change back.
+   */
+  replaceCards(storeId: string, cards: BankCard[], audit: { actorId: string; role: StoreRole }): Promise<void>;
   /** null = no such order in this store. */
   receipts(storeId: string, orderId: string): Promise<ReceiptView[] | null>;
   /**

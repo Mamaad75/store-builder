@@ -19,6 +19,10 @@ export class PrismaSettingsRepository implements SettingsRepository {
     ]);
   }
 
+  async audit(a: SettingsAudit): Promise<void> {
+    await db.auditEvent.create({ data: { storeId: null, actorId: a.actorId, action: a.action, targetType: "platform_setting", targetId: a.targetId } });
+  }
+
   secrets(): Promise<{ name: string; hint: string | null; updatedAt: Date }[]> {
     return db.platformSecret.findMany({ select: { name: true, hint: true, updatedAt: true }, orderBy: { name: "asc" } });
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bankCardInputSchema, bankOf, formatCardNumber, luhnValid, receiptFieldsSchema, replaceBankCardsSchema, reviewReceiptSchema } from "./card-transfer.js";
+import { maskCardNumber, bankCardInputSchema, bankOf, formatCardNumber, luhnValid, receiptFieldsSchema, replaceBankCardsSchema, reviewReceiptSchema } from "./card-transfer.js";
 
 const MELLI = "6037991234567893";
 const MELLAT = "6104339876543210";
@@ -38,5 +38,14 @@ describe("card-to-card rules (D35b-1)", () => {
     expect(reviewReceiptSchema.safeParse({ decision: "approve" }).success).toBe(true);
     expect(reviewReceiptSchema.safeParse({ decision: "reject" }).success).toBe(false);
     expect(reviewReceiptSchema.parse({ decision: "reject", reason: "مبلغ کمتر واریز شده" }).reason).toBe("مبلغ کمتر واریز شده");
+  });
+});
+
+describe("maskCardNumber (D-22)", () => {
+  it("keeps the bank prefix and the last 4 digits only; anything unexpected is fully hidden", () => {
+    expect(maskCardNumber("6037991234567893")).toBe("603799******7893");
+    expect(maskCardNumber("6037991234567893")).not.toContain("123456");
+    expect(maskCardNumber("")).toBe("****");
+    expect(maskCardNumber("6037-9912-3456-7893")).toBe("****");
   });
 });

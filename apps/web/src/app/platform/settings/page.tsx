@@ -19,7 +19,7 @@ export default async function PlatformSettingsPage() {
       )}
       <Stack spacing={3}>
         <SmsSettingsForm initial={v.settings.sms} secrets={v.secrets} encryptionReady={v.encryptionReady} />
-        <PaymentSettingsForm initial={v.settings.payment} secrets={v.secrets} encryptionReady={v.encryptionReady} />
+        <PaymentSettingsForm initial={v.settings.payment} secrets={v.secrets} encryptionReady={v.encryptionReady} sandboxAllowed={v.sandboxAllowed} />
         <RatesSettingsForm initial={v.settings.rates} secrets={v.secrets} encryptionReady={v.encryptionReady} />
         <AiSettingsForm initial={v.settings.ai} secrets={v.secrets} encryptionReady={v.encryptionReady} />
       </Stack>

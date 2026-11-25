@@ -4,6 +4,7 @@ import { createSecretService } from "../src/modules/secrets/secrets.api.js";
 import { createPaymentsService } from "../src/modules/orders/orders.api.js";
 import { bootstrapJob } from "./bootstrap.js";
 import { db } from "../src/lib/db.js";
+import { resolveAppEnv } from "../src/config/env.js";
 
 bootstrapJob({ storage: false });
 
@@ -14,14 +15,22 @@ bootstrapJob({ storage: false });
  * answer) are normal and retried on the next run, so they do not fail the job; exit 1 = the run itself crashed.
  */
 async function main() {
+  // D-19 (ADR 0005 §17.2): the same deployment-identity rule as the API and the worker; an invalid identity refuses to run.
+  const identity = resolveAppEnv(process.env);
+  if ("problem" in identity) {
+    console.error(JSON.stringify({ event: "payments.reconcile_refused", problem: identity.problem })); // names the variable only
+    process.exitCode = 1;
+    return;
+  }
   const keys = parseMasterKeys(process.env.SECRETS_MASTER_KEYS, process.env.SECRETS_ACTIVE_KEY_ID);
   const k = keys && !("error" in keys) ? keys : null;
-  const settings = createPlatformSettingsService(k);
+  const settings = createPlatformSettingsService(k, identity.appEnv);
   const secrets = createSecretService(k);
   const dev = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
   const loop = (v: string | undefined) => (dev && /^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(v ?? "") ? v : undefined);
   const devBase = loop(process.env.ZARINPAL_DEV_BASE_URL);
   const payments = createPaymentsService({
+    appEnv: identity.appEnv,
     // The job hands out no order links and opens no gateway sessions: neither the token key nor the store origin is used.
     authSecret: process.env.AUTH_SECRET ?? "reconcile-job-issues-no-tokens",
     limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },

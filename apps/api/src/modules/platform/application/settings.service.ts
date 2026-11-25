@@ -33,6 +33,8 @@ export interface SettingsRepository {
   secret(name: string): Promise<Sealed | null>;
   putSecret(name: string, e: Sealed, hint: string | null, audit: SettingsAudit): Promise<void>;
   removeSecret(name: string, audit: SettingsAudit): Promise<boolean>;
+  /** An audit entry for a refused attempt (nothing else is written). */
+  audit(audit: SettingsAudit): Promise<void>;
 }
 
 export interface SecretState {
@@ -45,6 +47,8 @@ export interface PlatformSettingsView {
   secrets: Record<PlatformSecretName, SecretState>;
   /** false when the server has no master keys (SECRETS_MASTER_KEYS): keys cannot be stored until it does. */
   encryptionReady: boolean;
+  /** D-19: false in production (APP_ENV=production): payment sandbox mode is refused and never applied, whatever is stored. */
+  sandboxAllowed: boolean;
 }
 
 /**
@@ -56,6 +60,8 @@ export class PlatformSettingsService {
   constructor(
     private readonly repo: SettingsRepository,
     private readonly cipher: PlatformCipher | null,
+    /** D-19 (ADR 0005 §17.2): from the deployment identity, fixed at start-up (false when APP_ENV=production). */
+    private readonly sandboxAllowed: boolean,
   ) {}
 
   async settings(): Promise<PlatformSettings> {
@@ -75,7 +81,7 @@ export class PlatformSettingsService {
         return [n, { configured: Boolean(row), hint: row?.hint ?? null, updatedAt: row?.updatedAt ?? null }];
       }),
     ) as Record<PlatformSecretName, SecretState>;
-    return { settings, secrets, encryptionReady: this.cipher !== null };
+    return { settings, secrets, encryptionReady: this.cipher !== null, sandboxAllowed: this.sandboxAllowed };
   }
 
   async update(actorId: string, group: unknown, input: unknown): Promise<PlatformSettings> {
@@ -86,6 +92,12 @@ export class PlatformSettingsService {
       const fieldErrors: Record<string, string[]> = {};
       for (const i of r.error.issues) (fieldErrors[String(i.path[0] ?? "_")] ??= []).push(i.message);
       throw new ValidationError(fieldErrors);
+    }
+    // D-19: production refuses to switch payment sandbox mode on (the payment code also ignores a stored `true` there). The refused attempt
+    // is audited without its payload.
+    if (g === "payment" && (r.data as PlatformSettings["payment"]).sandbox && !this.sandboxAllowed) {
+      await this.repo.audit({ actorId, action: "security.sandbox_refused", targetId: g });
+      throw new ValidationError({ sandbox: ["در محیط اصلی (production) حالت آزمایشی پرداخت مجاز نیست."] });
     }
     await this.repo.put(g, r.data, { actorId, action: "platform.settings_updated", targetId: g });
     return this.settings();

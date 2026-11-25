@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   process.on("unhandledRejection", crash("unhandled_rejection"));
 
   await app.listen(config.port, config.host);
-  logger.event("info", "api.listening", { port: config.port });
+  logger.event("info", "api.listening", { port: config.port, environment: config.appEnv });
   const metrics = app.get<ApiMetrics | null>(METRICS);
   if (metrics && config.observability.metrics) {
     const { port, host } = config.observability.metrics;

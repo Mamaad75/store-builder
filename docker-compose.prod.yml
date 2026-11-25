@@ -35,6 +35,10 @@ x-app-env: &app-env
 # migrate job and the worker, which run the same code. TRUST_PROXY_HOPS=1: the web app (or Caddy) is the one hop that reports the client address.
 x-api-env: &api-env
   NODE_ENV: production
+  # D-19 (ADR 0005 §17.2): the deployment identity, a LITERAL (not from .env.production) so an env-file mistake cannot change it. With
+  # "production" the API and the worker refuse payment sandbox mode. A staging deployment overrides this with "staging" in its own file.
+  # Release check: GET /api/ready must report "environment": "production".
+  APP_ENV: production
   APP_ROOT_DOMAIN: ${APP_ROOT_DOMAIN:?set APP_ROOT_DOMAIN}
   APP_PROTOCOL: ${APP_PROTOCOL:-https}
   DATABASE_URL: postgresql://${POSTGRES_USER:-storebuilder}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-storebuilder}
