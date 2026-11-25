@@ -256,6 +256,20 @@ export const paymentSettingsViewDto = z.object({
 export const paymentAttemptDto = z.object({ status: z.enum(["CREATED", "VERIFYING", "PAID", "FAILED", "EXPIRED", "REFUND_REQUIRED"]), refId: z.string().nullable(), cardPan: z.string().nullable(), createdAt: iso, verifiedAt: iso.nullable() });
 export const placedOrderDto = shopperOrderDto.extend({ accessToken: z.string().describe("follow or cancel the order with it (keep it secret: it is the order link)") });
 export const orderListDto = z.object({ items: z.array(orderDto), nextCursor: z.string().nullable() });
+// ---- M2: the store overview (rules in modules/orders/overview.ts; money in toman)
+const amountDto = z.object({ count: z.number().int(), total: z.number().int() });
+const periodSummaryDto = z.object({ orders: amountDto.describe("order value: PLACED…DELIVERED, every method"), paid: amountDto.describe("paid revenue: COD when DELIVERED; online and card-to-card from PLACED") });
+export const storeOverviewDto = z.object({
+  generatedAt: iso,
+  periods: z.object({ today: periodSummaryDto, days7: periodSummaryDto, days30: periodSummaryDto }).describe("by order date, Tehran calendar days"),
+  pending: z.object({ codToCollect: amountDto, onlineAwaiting: amountDto, cardReceiptInReview: amountDto, cardAwaitingCustomer: amountDto }).describe("money still expected, any order date"),
+  actions: z.object({ receiptsToReview: z.number().int(), toConfirm: z.number().int(), toShip: z.number().int() }),
+  lowStock: z.object({
+    threshold: z.number().int(),
+    total: z.number().int().describe("active products with stock at or below the threshold (any variant)"),
+    items: z.array(z.object({ productId: z.string(), name: z.string(), stock: z.number().int().describe("the product's stock, or its lowest variant's") })),
+  }),
+});
 export const shippingMethodDto = z.object({
   id: z.string(),
   name: z.string(),

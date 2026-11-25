@@ -19,8 +19,8 @@ import { listOrders, type OrderDto } from "@/client/api";
 import { ORDER_STATUS_LABELS, STATUS_COLOR, date, failText, toman } from "./labels";
 
 /** The store's orders, newest first, filtered by status, paged with "more" (phase 3.4). */
-export default function OrdersManager({ storeId, customerId }: { storeId: string; customerId?: string }) {
-  const [status, setStatus] = useState<OrderStatus | "ALL">("ALL");
+export default function OrdersManager({ storeId, customerId, initialStatus }: { storeId: string; customerId?: string; initialStatus?: OrderStatus }) {
+  const [status, setStatus] = useState<OrderStatus | "ALL">(initialStatus ?? "ALL");
   const [items, setItems] = useState<OrderDto[] | null>(null);
   const [next, setNext] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

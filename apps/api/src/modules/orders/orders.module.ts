@@ -7,12 +7,14 @@ import { SecretService } from "../secrets/secrets.api.js";
 import { OrdersService } from "./application/orders.service.js";
 import { PaymentsService } from "./application/payments.service.js";
 import { TransfersService } from "./application/transfers.service.js";
+import { OverviewService } from "./application/overview.service.js";
+import { PrismaOverviewReader } from "./infrastructure/prisma-overview.reader.js";
 import type { PaymentGateway } from "./application/ports.js";
 import { createOrdersService, createPaymentsService, createTransfersService } from "./infrastructure/compose.js";
-import { CustomerOrdersController, PaymentsController, PublicOrdersController, StoreBankCardsController, StorePaymentSettingsController, StoreOrdersController } from "./interface/orders.controllers.js";
+import { CustomerOrdersController, StoreOverviewController, PaymentsController, PublicOrdersController, StoreBankCardsController, StorePaymentSettingsController, StoreOrdersController } from "./interface/orders.controllers.js";
 
 @Module({
-  controllers: [PublicOrdersController, CustomerOrdersController, StoreOrdersController, PaymentsController, StorePaymentSettingsController, StoreBankCardsController],
+  controllers: [PublicOrdersController, CustomerOrdersController, StoreOrdersController, PaymentsController, StorePaymentSettingsController, StoreBankCardsController, StoreOverviewController],
   providers: [
     {
       provide: PaymentsService,
@@ -28,6 +30,7 @@ import { CustomerOrdersController, PaymentsController, PublicOrdersController, S
         }),
       inject: [CONFIG, RATE_LIMITER, PlatformSettingsService, SecretService, PAYMENT_GATEWAY],
     },
+    { provide: OverviewService, useFactory: () => new OverviewService(new PrismaOverviewReader()) },
     { provide: TransfersService, useFactory: (limiter: RateLimiter) => createTransfersService({ limiter }), inject: [RATE_LIMITER] },
     {
       provide: OrdersService,

@@ -6491,6 +6491,472 @@
         }
       }
     },
+    "/api/v1/admin/stores/{storeId}/overview": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdOverview",
+        "summary": "Store overview (M2): order value and paid revenue for today / 7 / 30 days, pending payments, action items, low stock",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "orders.view",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "generatedAt": {
+                      "type": "string",
+                      "description": "ISO 8601 date-time"
+                    },
+                    "periods": {
+                      "type": "object",
+                      "properties": {
+                        "today": {
+                          "type": "object",
+                          "properties": {
+                            "orders": {
+                              "type": "object",
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "count",
+                                "total"
+                              ],
+                              "additionalProperties": false,
+                              "description": "order value: PLACED…DELIVERED, every method"
+                            },
+                            "paid": {
+                              "type": "object",
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "count",
+                                "total"
+                              ],
+                              "additionalProperties": false,
+                              "description": "paid revenue: COD when DELIVERED; online and card-to-card from PLACED"
+                            }
+                          },
+                          "required": [
+                            "orders",
+                            "paid"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "days7": {
+                          "type": "object",
+                          "properties": {
+                            "orders": {
+                              "type": "object",
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "count",
+                                "total"
+                              ],
+                              "additionalProperties": false,
+                              "description": "order value: PLACED…DELIVERED, every method"
+                            },
+                            "paid": {
+                              "type": "object",
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "count",
+                                "total"
+                              ],
+                              "additionalProperties": false,
+                              "description": "paid revenue: COD when DELIVERED; online and card-to-card from PLACED"
+                            }
+                          },
+                          "required": [
+                            "orders",
+                            "paid"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "days30": {
+                          "type": "object",
+                          "properties": {
+                            "orders": {
+                              "type": "object",
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "count",
+                                "total"
+                              ],
+                              "additionalProperties": false,
+                              "description": "order value: PLACED…DELIVERED, every method"
+                            },
+                            "paid": {
+                              "type": "object",
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "count",
+                                "total"
+                              ],
+                              "additionalProperties": false,
+                              "description": "paid revenue: COD when DELIVERED; online and card-to-card from PLACED"
+                            }
+                          },
+                          "required": [
+                            "orders",
+                            "paid"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "today",
+                        "days7",
+                        "days30"
+                      ],
+                      "additionalProperties": false,
+                      "description": "by order date, Tehran calendar days"
+                    },
+                    "pending": {
+                      "type": "object",
+                      "properties": {
+                        "codToCollect": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "total"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "onlineAwaiting": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "total"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "cardReceiptInReview": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "total"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "cardAwaitingCustomer": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "total"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "codToCollect",
+                        "onlineAwaiting",
+                        "cardReceiptInReview",
+                        "cardAwaitingCustomer"
+                      ],
+                      "additionalProperties": false,
+                      "description": "money still expected, any order date"
+                    },
+                    "actions": {
+                      "type": "object",
+                      "properties": {
+                        "receiptsToReview": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "toConfirm": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "toShip": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "receiptsToReview",
+                        "toConfirm",
+                        "toShip"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "lowStock": {
+                      "type": "object",
+                      "properties": {
+                        "threshold": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "active products with stock at or below the threshold (any variant)"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "stock": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "the product's stock, or its lowest variant's"
+                              }
+                            },
+                            "required": [
+                              "productId",
+                              "name",
+                              "stock"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "threshold",
+                        "total",
+                        "items"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "generatedAt",
+                    "periods",
+                    "pending",
+                    "actions",
+                    "lowStock"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stores/{storeId}/pages": {
       "get": {
         "operationId": "getApiV1AdminStoresStoreIdPages",

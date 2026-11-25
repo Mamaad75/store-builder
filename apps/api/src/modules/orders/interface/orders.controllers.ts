@@ -10,6 +10,7 @@ import { CustomerAuthService } from "../../customers/customers.api.js";
 import { OrdersService } from "../application/orders.service.js";
 import { PaymentsService } from "../application/payments.service.js";
 import { TransfersService } from "../application/transfers.service.js";
+import { OverviewService } from "../application/overview.service.js";
 
 /**
  * Placing and following orders on ONE published store (phase 3.4). Guests follow an order with the access token they got when placing it
@@ -301,5 +302,21 @@ export class StoreBankCardsController {
   @Audit("store.bank_cards_replaced")
   replace(@StoreAccess() a: StoreAccessContext, @Body() body: unknown) {
     return this.transfers.replaceCards(a, body);
+  }
+}
+
+/**
+ * M2: the store overview (order value, paid revenue, pending payments, action items, low stock). Read-only; `orders.view` (owner and
+ * manager; an operator is refused). Allowed while the store is suspended (GET), like the order list.
+ */
+@Controller("stores/:storeId/overview")
+@UseGuards(SessionGuard, StoreAccessGuard)
+export class StoreOverviewController {
+  constructor(@Inject(OverviewService) private readonly overviews: OverviewService) {}
+
+  @Get()
+  @RequirePermission("orders.view")
+  overview(@StoreAccess() a: StoreAccessContext) {
+    return this.overviews.overview(a);
   }
 }

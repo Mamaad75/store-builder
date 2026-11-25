@@ -203,13 +203,13 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
 
 ## 6. Milestones
 
-### M1 — Commerce journey locked down (quality) — **next**
+### M1 — Commerce journey locked down (quality) — **implemented (2026-11-25); CI 3× pending**
 * **Objective:** prove the money path works end to end and keep it working.
 * **Value:** confidence to demo and pilot; protects every later change.
 * **Features:**
   * Playwright specs covering: cart, checkout with COD, merchant confirm / ship / deliver; card-to-card with receipt upload and merchant approval; online payment against the local fake gateway (`ZARINPAL_DEV_BASE_URL`); discount code at checkout; shopper order page on an unpublished and a suspended store.
   * Add e2e typecheck to CI.
-* **Current status:** API covered by DB tests; manual browser runs only.
+* **Current status:** implemented: `apps/e2e/e2e/checkout.spec.ts` (COD, card-to-card, discount, offline/suspended), `apps/e2e/e2e-payments/online.spec.ts` on the isolated stack (§12.1), e2e typecheck in `pnpm typecheck`. First CI run green; three consecutive green runs not yet observed.
 * **Dependencies:** none.
 * **Security controls:** none new; the specs include the isolation checks (another store's token → 404).
 * **Tests:** the new E2E specs; existing suites unchanged.
@@ -229,7 +229,8 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
   * Action items: receipts waiting, orders to confirm or ship.
   * Low-stock list.
   * One aggregation endpoint behind `orders.view`.
-* **Current status:** N.
+* **Current status:** implemented (2026-11-25): `GET /api/stores/:storeId/overview`; rules in `packages/shared/src/modules/orders/overview.ts`;
+  dashboard section `apps/web/src/components/orders/StoreOverview.tsx` on the store home; DB tests `overview.db.test.ts`; E2E `overview.spec.ts`.
 * **Dependencies:** none.
 * **Security controls:** permission `orders.view`; store-scoped queries; cross-store test.
 * **Tests:** DB tests (numbers, isolation, role); one E2E.
@@ -477,7 +478,7 @@ run with `pnpm test:e2e:payments` (CI: a separate step after the main E2E suite)
 * Notify the account owner (in-app; SMS once V1 provides a verified phone and production SMS exists, ADR 0004).
 * When cooling-off exists (M6), recovery is a qualifying event (D-24).
 
-### 12.4 M2 metrics — exact rules (proposal for approval before the endpoint is built)
+### 12.4 M2 metrics — exact rules (**approved by the owner 2026-11-25**, implemented)
 
 Facts in the schema: `OrderStatus = AWAITING_PAYMENT | PLACED | CONFIRMED | SHIPPED | DELIVERED | CANCELLED | EXPIRED`;
 `OrderPaymentMethod = COD | ONLINE | CARD_TRANSFER`. Invariants in the code: an ONLINE order becomes `PLACED` only in the transaction that
@@ -496,4 +497,7 @@ records a verified gateway payment (D35-1); a CARD_TRANSFER order becomes `PLACE
 * **Action items:** receipts awaiting review, orders `PLACED` (to confirm), orders `CONFIRMED` (to ship).
 * **Low stock (Approved):** ACTIVE products whose stock is **3 or fewer** (for a product with variants, any variant at 3 or fewer), up
   to 10 listed.
-* **Assumption to confirm:** COD counts as paid only at DELIVERED; a merchant who marks delivery late shows late revenue.
+* **Confirmed (2026-11-25):** COD counts as paid only at DELIVERED; a merchant who marks delivery late shows late revenue.
+* **Implementation notes:** pending payments are the money still expected **whatever the order date** (not per period); "receipts to
+  review" counts card-to-card orders awaiting payment with a SUBMITTED receipt (its link opens the awaiting-payment filter, which also lists
+  online orders awaiting payment); low stock lists at most 10 of the lowest (product stock, or its lowest variant), with the exact total.
