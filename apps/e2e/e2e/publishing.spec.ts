@@ -64,9 +64,27 @@ test.describe("publishing and host routing", () => {
     await page.reload();
     await waitForHydration(page, '[data-section-type="bazaar.campaign"] button[aria-expanded]');
     const campaign = page.locator('[data-section-type="bazaar.campaign"]');
-    await campaign.locator("button[aria-expanded]").first().click();
+    const header = campaign.locator("button[aria-expanded]").first();
+    await header.click();
+    // React handled the click, so the editor is hydrated AND committed (its handlers are live). waitForHydration only proves React reached
+    // the node during the hydration render, which can precede the commit (suspected cause of the CI run 112 flake).
+    await expect(header).toHaveAttribute("aria-expanded", "true");
+    // The editor deletes through the browser API client (POST .../sections/...), then refreshes the route; a full document reload instead
+    // of that refresh would drop the success message, so it is recorded for the failure report.
+    let documentReloads = 0;
+    const onLoad = () => documentReloads++;
+    page.on("load", onLoad);
+    const removal = page.waitForResponse((r) => r.request().method() === "POST" && /\/api\/stores\/[^/]+\/pages\/HOME\/sections\//.test(r.url()));
     await campaign.getByRole("button", { name: "حذف بخش" }).click();
-    await expect(page.getByText("بخش حذف شد.")).toBeVisible({ timeout: 15_000 });
+    const res = await removal;
+    expect(res.ok(), `section removal answered ${res.status()}`).toBe(true);
+    try {
+      await expect.poll(() => page.getByRole("alert").allInnerTexts(), { timeout: 15_000 }).toContainEqual(expect.stringContaining("بخش حذف شد."));
+    } catch (e) {
+      throw new Error(`no "بخش حذف شد." alert; alerts shown: ${JSON.stringify(await page.getByRole("alert").allInnerTexts())}; full reloads after the click: ${documentReloads}\n${String(e)}`);
+    } finally {
+      page.off("load", onLoad);
+    }
     await expect(campaign).toHaveCount(0);
 
     await page.goto(`/preview/${storeId}`);
