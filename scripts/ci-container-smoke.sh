@@ -79,7 +79,11 @@ echo "postgres, api and app report healthy; migrate exit code: $("${DC[@]}" ps -
 endstep
 
 step "browser smoke test through Caddy"
-SMOKE_PORT="${PORT}" pnpm --filter @store-builder/e2e exec playwright test -c playwright.smoke.config.ts
+# Registration is invite-only by default (MVP item 2): the smoke user signs up with a code issued by the documented first-admin
+# bootstrap command, run inside the production worker image.
+INVITE="$("${DC[@]}" run --rm --no-deps -T worker pnpm --silent platform:admin invite "ci smoke" | sed -n 's/^invite code: //p')"
+[ -n "${INVITE}" ] || { echo "platform:admin invite printed no code" >&2; exit 1; }
+SMOKE_INVITE="${INVITE}" SMOKE_PORT="${PORT}" pnpm --filter @store-builder/e2e exec playwright test -c playwright.smoke.config.ts
 endstep
 
 step "jobs, worker and queue"

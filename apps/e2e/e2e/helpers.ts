@@ -42,8 +42,8 @@ export const test = base.extend<{ ip: string }>({
 });
 export { expect };
 
-export async function register(page: Page, username: string, name = "علی", password = PASSWORD) {
-  await page.goto("/register");
+export async function register(page: Page, username: string, name = "علی", password = PASSWORD, inviteCode?: string) {
+  await page.goto(inviteCode ? `/register?invite=${encodeURIComponent(inviteCode)}` : "/register");
   await page.fill("input[name=name]", name);
   await page.fill("input[name=username]", username);
   await page.fill("input[name=password]", password);
@@ -57,8 +57,8 @@ export async function login(page: Page, username: string, password = PASSWORD) {
   await page.click("button[type=submit]");
 }
 
-export async function createUser(page: Page, username = uniqueUsername()) {
-  await register(page, username);
+export async function createUser(page: Page, username = uniqueUsername(), inviteCode?: string) {
+  await register(page, username, undefined, undefined, inviteCode);
   await page.waitForURL(/\/login\?registered=1/);
   return username;
 }
@@ -71,8 +71,8 @@ export async function loginAndWaitForDashboard(page: Page, username: string) {
 export const formAlert = (page: Page) => page.locator(".MuiAlert-message");
 
 /** Registers a user and signs in; returns the username. */
-export async function signUpAndIn(page: Page): Promise<string> {
-  const username = await createUser(page);
+export async function signUpAndIn(page: Page, inviteCode?: string): Promise<string> {
+  const username = await createUser(page, undefined, inviteCode);
   await loginAndWaitForDashboard(page, username);
   return username;
 }

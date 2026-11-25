@@ -28,7 +28,9 @@ test.describe("production stack through Caddy", () => {
   });
 
   test("register, sign in, create a store and a product, claim a subdomain, publish and read the live store over its wildcard host", async ({ page }) => {
-    await signUpAndIn(page); // Argon2 (native module in the image) + PostgreSQL + migrations
+    // Invite-only registration (the production default): the code comes from `pnpm platform:admin invite` in the worker image.
+    expect(process.env.SMOKE_INVITE, "ci-container-smoke.sh passes SMOKE_INVITE").toBeTruthy();
+    await signUpAndIn(page, process.env.SMOKE_INVITE); // Argon2 (native module in the image) + PostgreSQL + migrations
     const storeId = await createStoreViaUi(page, "فروشگاه دودی", "فروشگاه عمومی");
     await createProductViaUi(page, storeId, { name: "کالای آزمایشی", price: "1000", stock: "2", slug: "smoke-item" });
     await page.goto(`/dashboard/stores/${storeId}/products`);
