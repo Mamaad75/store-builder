@@ -499,5 +499,20 @@ records a verified gateway payment (D35-1); a CARD_TRANSFER order becomes `PLACE
   to 10 listed.
 * **Confirmed (2026-11-25):** COD counts as paid only at DELIVERED; a merchant who marks delivery late shows late revenue.
 * **Implementation notes:** pending payments are the money still expected **whatever the order date** (not per period); "receipts to
-  review" counts card-to-card orders awaiting payment with a SUBMITTED receipt (its link opens the awaiting-payment filter, which also lists
-  online orders awaiting payment); low stock lists at most 10 of the lowest (product stock, or its lowest variant), with the exact total.
+  review" counts card-to-card orders awaiting payment with a SUBMITTED receipt (its link opens the order list with
+  `?review=receipt`, the same condition); low stock lists at most 10 of the lowest (product stock, or its lowest variant), with the exact total.
+* **Verification (2026-11-25):**
+  * **Refunds — data-model gap (not implemented, needs a decision).** The schema has no record of a *completed* refund: no refunded
+    status, amount, date or partial-refund field on `Order` or `Payment`. `REFUND_REQUIRED` (on a `Payment` attempt) only means "captured
+    money the merchant must return"; nothing marks it returned. Consequences, all by design of the current data and covered by tests:
+    * REFUND_REQUIRED money is never revenue: the overview counts `Order.total` once per order and never reads `Payment` amounts, so a
+      duplicate capture on a paid order is not counted twice, and a capture on an expired/cancelled order is not counted at all.
+    * Completed refunds cannot be deducted (none are recorded); partial refunds are not supported by the schema; double deduction is
+      impossible because nothing is deducted.
+    * An order **paid and then cancelled** (merchant: PLACED/CONFIRMED → CANCELLED; customer: PLACED → CANCELLED) drops out of order value
+      and paid revenue for its period. Historical reports therefore do not show "received then refunded" money, and whether the merchant
+      actually refunded is unknown. The dashboard states this.
+    * Closing this needs an owner decision on a refund record (state, amount, date, who), i.e. a schema change — not done here.
+  * **Dates:** periods start at Tehran midnight (fixed UTC+03:30), inclusive of the first millisecond; checked against the IANA
+    `Asia/Tehran` zone for every hour of 2024-2027 (a future clock-rule change fails the test) and on real PostgreSQL at the exact
+    boundaries. Paid revenue is grouped by **order creation date**, not payment date (tested); the dashboard says so.

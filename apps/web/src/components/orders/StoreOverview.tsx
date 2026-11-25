@@ -42,6 +42,7 @@ export default function StoreOverview({ storeId }: { storeId: string }) {
   }, [storeId]);
 
   if (hidden) return null;
+  const noOrders = !!data && data.periods.days30.orders.count === 0 && Object.values(data.pending).every((a) => a.count === 0) && data.actions.toConfirm + data.actions.toShip === 0;
   const orders = `/dashboard/stores/${encodeURIComponent(storeId)}/orders`;
 
   return (
@@ -54,40 +55,45 @@ export default function StoreOverview({ storeId }: { storeId: string }) {
           <Box>
             <Typography component="h3" sx={{ fontWeight: 700, mb: 1 }}>کارهای در انتظار</Typography>
             <Stack component="ul" spacing={0.5} sx={{ m: 0, pl: 0, listStyle: "none" }}>
-              <li><TextLink href={`${orders}?status=AWAITING_PAYMENT`}>رسید کارت‌به‌کارت منتظر بررسی: {fa(data.actions.receiptsToReview)}</TextLink></li>
+              <li><TextLink href={`${orders}?review=receipt`}>رسید کارت‌به‌کارت منتظر بررسی: {fa(data.actions.receiptsToReview)}</TextLink></li>
               <li><TextLink href={`${orders}?status=PLACED`}>سفارش منتظر تأیید: {fa(data.actions.toConfirm)}</TextLink></li>
               <li><TextLink href={`${orders}?status=CONFIRMED`}>سفارش منتظر ارسال: {fa(data.actions.toShip)}</TextLink></li>
             </Stack>
           </Box>
 
           <Box>
-            <Typography id="overview-sales" component="h3" sx={{ fontWeight: 700, mb: 1 }}>فروش</Typography>
+            <Typography id="overview-sales" component="h3" sx={{ fontWeight: 700, mb: 1 }}>فروش (بر اساس تاریخ ثبت سفارش، به وقت تهران)</Typography>
+            {noOrders && <Typography color="text.secondary" sx={{ mb: 1 }}>هنوز سفارشی ثبت نشده است. سفارش‌ها پس از ثبت در این بخش نمایش داده می‌شوند.</Typography>}
             {/* Scrolls sideways on narrow screens: focusable and named so keyboard users can scroll it (WCAG 2.1.1). */}
             <Box sx={{ overflowX: "auto" }} tabIndex={0} role="region" aria-labelledby="overview-sales">
-            <Table size="small" aria-label="فروش در بازه‌های زمانی">
+            <Table size="small" aria-label="فروش در بازه‌های زمانی" sx={{ "& th, & td": { px: { xs: 0.75, sm: 2 } } }}>
               <TableHead>
                 <TableRow>
                   <TableCell>بازه</TableCell>
-                  <TableCell>سفارش‌ها</TableCell>
+                  <TableCell>تعداد</TableCell>
                   <TableCell>ارزش سفارش‌ها</TableCell>
-                  <TableCell>درآمد دریافت‌شده</TableCell>
+                  <TableCell>درآمد دریافتی</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {(Object.keys(PERIOD_LABELS) as (keyof typeof PERIOD_LABELS)[]).map((p) => (
                   <TableRow key={p} data-testid={`overview-${p}`}>
-                    <TableCell>{PERIOD_LABELS[p]}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{PERIOD_LABELS[p]}</TableCell>
                     <TableCell>{fa(data.periods[p].orders.count)}</TableCell>
-                    <TableCell>{toman(data.periods[p].orders.total)}</TableCell>
-                    <TableCell>{toman(data.periods[p].paid.total)}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{toman(data.periods[p].orders.total)}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{toman(data.periods[p].paid.total)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              سفارش‌های لغوشده، منقضی‌شده و پرداخت‌نشده حساب نمی‌شوند. پرداخت در محل پس از «تحویل‌شده» درآمد دریافت‌شده است؛ پرداخت اینترنتی پس از تأیید درگاه
-              و کارت‌به‌کارت پس از تأیید رسید.
+              درآمد هر سفارش در روز <strong>ثبت سفارش</strong> حساب می‌شود، نه روز دریافت پول. «امروز» از ساعت ۰۰:۰۰ به وقت تهران است و «۷ روز اخیر»
+              امروز و ۶ روز پیش از آن را شامل می‌شود.
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              درآمد دریافت‌شده: پرداخت در محل پس از «تحویل‌شده»، پرداخت اینترنتی پس از تأیید درگاه، کارت‌به‌کارت پس از تأیید رسید. سفارش‌های لغوشده و
+              منقضی‌شده حساب نمی‌شوند؛ اگر سفارشی پس از پرداخت لغو شود، مبلغ و بازپرداخت آن در این گزارش نیست.
             </Typography>
           </Box>
 

@@ -4,6 +4,8 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { storeOverviewDto } from "@store-builder/shared/api/schemas";
 import { periodStarts } from "@store-builder/shared/modules/orders/overview";
 import { createApp } from "../../app.js";
+import { OverviewService } from "./application/overview.service.js";
+import { PrismaOverviewReader } from "./infrastructure/prisma-overview.reader.js";
 import { TokenService } from "../../auth/token.js";
 import { listenFetchable, testConfig } from "../../__tests__/helpers.js";
 import { makeStore, makeUser, prisma, resetDb } from "../../test/db-helpers.js";
@@ -45,7 +47,7 @@ type Method = "COD" | "ONLINE" | "CARD_TRANSFER";
 type Status = "AWAITING_PAYMENT" | "PLACED" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "EXPIRED";
 const numbers = new Map<string, number>();
 
-async function order(storeId: string, paymentMethod: Method, status: Status, total: number, createdAt: Date, receipt?: "SUBMITTED" | "REJECTED") {
+async function order(storeId: string, paymentMethod: Method, status: Status, total: number, createdAt: Date, receipt?: "SUBMITTED" | "REJECTED" | "APPROVED") {
   const number = (numbers.get(storeId) ?? 0) + 1;
   numbers.set(storeId, number);
   const o = await prisma.order.create({
@@ -62,9 +64,22 @@ async function order(storeId: string, paymentMethod: Method, status: Status, tot
   });
   if (receipt) {
     await prisma.transferReceipt.create({
-      data: { storeId, orderId: o.id, status: receipt, ...(receipt === "REJECTED" ? { reviewNote: "مبلغ واریزی کمتر است", reviewedAt: new Date() } : {}), trackingCode: "123456", payerCardLast4: "7893", image: Buffer.from([1]), imageMime: "image/webp", imageWidth: 1, imageHeight: 1 },
+      data: { storeId, orderId: o.id, status: receipt, ...(receipt === "REJECTED" ? { reviewNote: "مبلغ واریزی کمتر است" } : {}), ...(receipt !== "SUBMITTED" ? { reviewedAt: new Date() } : {}), trackingCode: "123456", payerCardLast4: "7893", image: Buffer.from([1]), imageMime: "image/webp", imageWidth: 1, imageHeight: 1 },
     });
   }
+  return o.id;
+}
+
+/** An online payment attempt (Zarinpal, sandbox authority). PAID and REFUND_REQUIRED carry a reference and a verification time (CHECK). */
+let authN = 0;
+async function payment(storeId: string, orderId: string, status: "PAID" | "REFUND_REQUIRED", totalToman: number, verifiedAt: Date) {
+  await prisma.payment.create({
+    data: {
+      storeId, orderId, provider: "ZARINPAL", sandbox: true, status, verifiedAt, refId: String(1000 + ++authN),
+      authority: `S${String(authN).padStart(35, "0")}`, amountRial: BigInt(totalToman * 10),
+      merchantFingerprint: "a".repeat(64), returnKeyHash: createHash("sha256").update(`rk${authN}`).digest("hex"),
+    },
+  });
 }
 
 let slugN = 0;
@@ -170,5 +185,79 @@ describe("M2 store overview (GET /api/stores/:storeId/overview)", () => {
     const r = await get(await sessionOf(x.owner), `/stores/${x.a}/overview`);
     expect(r.status).toBe(200);
     expect(r.json.actions.toShip).toBe(2);
+  });
+
+  it("Tehran-midnight boundaries: each period includes its first millisecond and excludes the one before (fixed clock)", async () => {
+    const owner = await makeUser();
+    const st = await makeStore(owner.id);
+    // now = 2026-11-25 00:30 in Tehran (UTC+03:30). today starts 2026-11-24T20:30Z; 7 days 2026-11-18T20:30Z; 30 days 2026-10-26T20:30Z.
+    const now = new Date("2026-11-24T21:00:00.000Z");
+    const at = (iso: string) => new Date(iso);
+    await order(st.id, "COD", "DELIVERED", 1, at("2026-11-24T20:30:00.000Z")); //  00:00:00.000 today            -> today
+    await order(st.id, "COD", "DELIVERED", 2, at("2026-11-24T20:29:59.999Z")); //  23:59:59.999 yesterday        -> 7 days, not today
+    await order(st.id, "COD", "DELIVERED", 4, at("2026-11-18T20:30:00.000Z")); //  first ms of the 7-day window  -> 7 days
+    await order(st.id, "COD", "DELIVERED", 8, at("2026-11-18T20:29:59.999Z")); //  last ms before it             -> 30 days only
+    await order(st.id, "COD", "DELIVERED", 16, at("2026-10-26T20:30:00.000Z")); // first ms of the 30-day window -> 30 days
+    await order(st.id, "COD", "DELIVERED", 32, at("2026-10-26T20:29:59.999Z")); // last ms before it            -> nowhere
+    const o = await new OverviewService(new PrismaOverviewReader(), () => now).overview({ storeId: st.id });
+    expect([o.periods.today.paid.total, o.periods.days7.paid.total, o.periods.days30.paid.total]).toEqual([1, 1 + 2 + 4, 1 + 2 + 4 + 8 + 16]);
+    expect([o.periods.today.orders.count, o.periods.days7.orders.count, o.periods.days30.orders.count]).toEqual([1, 3, 5]);
+    // One millisecond earlier (23:59:59.999 on the 24th in Tehran), "today" is the 24th: the first order is in the future, the second is today.
+    const before = await new OverviewService(new PrismaOverviewReader(), () => new Date("2026-11-24T20:29:59.999Z")).overview({ storeId: st.id });
+    expect(before.periods.today.paid.total).toBe(1 + 2);
+  });
+
+  it("paid revenue is grouped by ORDER creation date, not payment date", async () => {
+    const owner = await makeUser();
+    const st = await makeStore(owner.id);
+    const now = new Date("2026-11-24T21:00:00.000Z"); // 00:30 on the 25th in Tehran
+    const id = await order(st.id, "ONLINE", "PLACED", 5000, new Date("2026-11-24T20:00:00.000Z")); // created 23:30 on the 24th
+    await payment(st.id, id, "PAID", 5000, new Date("2026-11-24T20:45:00.000Z")); //                   verified 00:15 on the 25th
+    const o = await new OverviewService(new PrismaOverviewReader(), () => now).overview({ storeId: st.id });
+    expect(o.periods.today.paid).toEqual({ count: 0, total: 0 });
+    expect(o.periods.days7.paid).toEqual({ count: 1, total: 5000 });
+  });
+
+  it("refund states: REFUND_REQUIRED captures are never revenue and an order is never counted twice; cancelled-after-payment is excluded", async () => {
+    const owner = await makeUser();
+    const st = await makeStore(owner.id);
+    const t = new Date();
+    // Duplicate capture: the order was paid by one attempt, a second attempt's money must be returned (REFUND_REQUIRED). Counted ONCE.
+    const dup = await order(st.id, "ONLINE", "PLACED", 7000, t);
+    await payment(st.id, dup, "PAID", 7000, t);
+    await payment(st.id, dup, "REFUND_REQUIRED", 7000, t);
+    // Captured after the order expired: REFUND_REQUIRED on an EXPIRED order. Not revenue, not pending.
+    const late = await order(st.id, "ONLINE", "EXPIRED", 9000, t);
+    await payment(st.id, late, "REFUND_REQUIRED", 9000, t);
+    // Paid online, then cancelled by the merchant: the data model has no refund record; the order is excluded (documented gap).
+    const cancelledOnline = await order(st.id, "ONLINE", "CANCELLED", 11_000, t);
+    await payment(st.id, cancelledOnline, "PAID", 11_000, t);
+    // Card-to-card receipt approved, then cancelled: same.
+    await order(st.id, "CARD_TRANSFER", "CANCELLED", 13_000, t, "APPROVED");
+    const r = await get(await sessionOf(owner.id), `/stores/${st.id}/overview`);
+    const o = storeOverviewDto.parse(r.json);
+    expect(o.periods.today).toEqual({ orders: { count: 1, total: 7000 }, paid: { count: 1, total: 7000 } });
+    expect(o.pending).toEqual({ codToCollect: { count: 0, total: 0 }, onlineAwaiting: { count: 0, total: 0 }, cardReceiptInReview: { count: 0, total: 0 }, cardAwaitingCustomer: { count: 0, total: 0 } });
+  });
+
+  it("?review=receipt lists exactly the orders the overview counts as receipts to review", async () => {
+    const owner = await makeUser();
+    const st = await makeStore(owner.id);
+    const other = await makeStore((await makeUser()).id);
+    const t = new Date();
+    const inReview = await order(st.id, "CARD_TRANSFER", "AWAITING_PAYMENT", 500, t, "SUBMITTED");
+    await order(st.id, "CARD_TRANSFER", "AWAITING_PAYMENT", 600, t, "REJECTED"); // waiting for the customer
+    await order(st.id, "CARD_TRANSFER", "AWAITING_PAYMENT", 700, t); //             no receipt yet
+    await order(st.id, "ONLINE", "AWAITING_PAYMENT", 800, t); //                    online, not a receipt
+    await order(st.id, "CARD_TRANSFER", "CANCELLED", 900, t, "SUBMITTED"); //       receipt left on a cancelled order: nothing to review
+    await order(other.id, "CARD_TRANSFER", "AWAITING_PAYMENT", 1000, t, "SUBMITTED"); // another store
+    const cookie = await sessionOf(owner.id);
+    const list = await get(cookie, `/stores/${st.id}/orders?review=receipt`);
+    expect(list.status).toBe(200);
+    expect(list.json.items.map((x: { id: string }) => x.id)).toEqual([inReview]);
+    expect((await get(cookie, `/stores/${st.id}/overview`)).json.actions.receiptsToReview).toBe(1);
+    // Combined with a conflicting status it narrows (empty), never widens; an unknown value is refused.
+    expect((await get(cookie, `/stores/${st.id}/orders?review=receipt&status=PLACED`)).json.items).toEqual([]);
+    expect((await get(cookie, `/stores/${st.id}/orders?review=other`)).status).toBe(400);
   });
 });

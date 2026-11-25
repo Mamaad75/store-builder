@@ -4000,6 +4000,17 @@
             }
           },
           {
+            "name": "review",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "receipt"
+              ]
+            }
+          },
+          {
             "name": "before",
             "in": "query",
             "required": false,

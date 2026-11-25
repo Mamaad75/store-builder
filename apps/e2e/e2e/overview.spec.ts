@@ -31,6 +31,8 @@ test("overview: a COD order shows as order value and to-confirm; delivered, it b
   await expect(today.getByRole("cell").nth(3)).toHaveText("۱۵۰٬۰۰۰ تومان");
   await expect(overview.getByText("پرداخت در محل (هنوز تحویل نشده): ۰ سفارش — ۰ تومان")).toBeVisible();
 
+  // The receipt link opens the precise receipt-review filter (not the generic awaiting-payment list).
+  await expect(overview.getByRole("link", { name: /رسید کارت‌به‌کارت منتظر بررسی/ })).toHaveAttribute("href", `/dashboard/stores/${s.storeId}/orders?review=receipt`);
   // The "to confirm" link opens the order list already filtered.
   await overview.getByRole("link", { name: /سفارش منتظر تأیید/ }).click();
   await page.waitForURL(/\/orders\?status=PLACED$/);

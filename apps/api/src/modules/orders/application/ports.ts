@@ -55,7 +55,7 @@ export interface OrderStore {
   listForCustomer(storeId: string, customerId: string, limit: number, includePhoneLinked: boolean): Promise<OrderView[]>;
   /** Phase 3.3b: per customer, their orders' count and the total of those not cancelled (merchant's customer list). */
   customerStats(storeId: string, customerIds: string[]): Promise<{ customerId: string; orders: number; spent: number; lastOrderAt: string | null }[]>;
-  list(storeId: string, q: { status?: OrderStatus; customerId?: string; before?: string; limit: number }): Promise<OrderListPage>;
+  list(storeId: string, q: { status?: OrderStatus; customerId?: string; review?: "receipt"; before?: string; limit: number }): Promise<OrderListPage>;
   /**
    * ONE transaction with the order row locked: `check(current)` throws when the move is not allowed (nothing changes); otherwise the
    * status changes, the history gets an entry, a cancellation gives the stock back and "order.status_changed" is recorded. null = no such order.

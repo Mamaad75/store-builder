@@ -1,6 +1,7 @@
 import type { OrderStatus, PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 import { db } from "../../../lib/db.js";
 import type { OverviewReader } from "../application/overview.service.js";
+import { RECEIPT_REVIEW_WHERE } from "./receipt-review.js";
 
 /** How many low-stock candidates are read to pick the lowest ones (the count itself is exact). */
 const LOW_STOCK_SCAN = 500;
@@ -19,7 +20,7 @@ export class PrismaOverviewReader implements OverviewReader {
 
   async cardInReview(storeId: string) {
     const r = await db.order.aggregate({
-      where: { storeId, status: "AWAITING_PAYMENT", paymentMethod: "CARD_TRANSFER", receipts: { some: { status: "SUBMITTED" } } },
+      where: { storeId, ...RECEIPT_REVIEW_WHERE },
       _count: { _all: true },
       _sum: { total: true },
     });

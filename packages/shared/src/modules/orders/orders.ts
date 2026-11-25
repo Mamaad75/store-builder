@@ -163,6 +163,8 @@ export const orderListQuerySchema = z
     status: z.enum(ORDER_STATUSES).optional(),
     /** Phase 3.3b: one customer's orders (the merchant's customer page). */
     customerId: z.string().regex(ID_RE).optional(),
+    /** M2: "receipt" = card-to-card orders awaiting payment with a receipt waiting for the merchant's review (the overview's count). */
+    review: z.enum(["receipt"]).optional(),
     before: z.string().regex(ID_RE).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(30),
   })

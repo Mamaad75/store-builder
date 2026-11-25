@@ -10,6 +10,7 @@ import { consumeReservationInTx, restockReservationInTx } from "../../inventory/
 import { redeemDiscountInTx, releaseDiscountInTx } from "../../discounts/discounts.api.js";
 import type { DiscountCart } from "@store-builder/shared/modules/discounts/discounts";
 import type { OrderListPage, OrderStore } from "../application/ports.js";
+import { RECEIPT_REVIEW_WHERE } from "./receipt-review.js";
 import type { NewOrder, OrderView } from "../domain/orders.js";
 
 // The only file of the orders module that reaches the database. Every query is bound to the store id (and, for shoppers, to the customer
@@ -94,8 +95,14 @@ export class PrismaOrderStore implements OrderStore {
     return rows.map((r) => ({ customerId: r.customerId!, orders: r._count._all, spent: spentBy.get(r.customerId) ?? 0, lastOrderAt: r._max.createdAt?.toISOString() ?? null }));
   }
 
-  async list(storeId: string, q: { status?: OrderStatus; customerId?: string; before?: string; limit: number }): Promise<OrderListPage> {
-    const where: Prisma.OrderWhereInput = { storeId, ...(q.status ? { status: q.status } : {}), ...(q.customerId ? { customerId: q.customerId } : {}) };
+  async list(storeId: string, q: { status?: OrderStatus; customerId?: string; review?: "receipt"; before?: string; limit: number }): Promise<OrderListPage> {
+    const where: Prisma.OrderWhereInput = {
+      storeId,
+      ...(q.status ? { status: q.status } : {}),
+      ...(q.customerId ? { customerId: q.customerId } : {}),
+      // M2: combined with AND, so a conflicting ?status= gives an empty page rather than widening the filter.
+      ...(q.review === "receipt" ? { AND: [RECEIPT_REVIEW_WHERE] } : {}),
+    };
     if (q.before) {
       // Keyset on the gap-free per-store number (strictly increasing with time; createdAt can tie within a millisecond). The cursor
       // must be an order of THIS store; a foreign or unknown cursor is an empty page.

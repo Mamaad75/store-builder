@@ -63,7 +63,7 @@ export const claimSubdomain = (storeId: string, input: { label: unknown; confirm
 export type OrderDto = z.infer<typeof orderDto>;
 export type OrderListDto = z.infer<typeof orderListDto>;
 export type ShippingMethodDto = z.infer<typeof shippingMethodDto>;
-export const listOrders = (storeId: string, query: { status?: string; customerId?: string; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
+export const listOrders = (storeId: string, query: { status?: string; customerId?: string; review?: "receipt"; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
 // M2: the store overview (orders.view: owner and manager).
 export type StoreOverview = z.infer<typeof storeOverviewDto>;
 export const getOverview = (storeId: string) => send<StoreOverview>("GET", `${store(storeId)}/overview`);

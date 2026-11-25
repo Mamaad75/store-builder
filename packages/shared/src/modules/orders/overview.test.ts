@@ -50,4 +50,19 @@ describe("M2 overview rules (roadmap §12.4)", () => {
     // 2026-11-24 20:00 UTC is 23:30 in Tehran on the 24th: "today" began at 2026-11-23 20:30 UTC.
     expect(periodStarts(new Date("2026-11-24T20:00:00Z")).today.toISOString()).toBe("2026-11-23T20:30:00.000Z");
   });
+
+  it("periods agree with the IANA Asia/Tehran zone for every hour of 2024-2027 (fails if Iran's clock rules change)", () => {
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tehran", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+    const local = (d: Date) => fmt.format(d).replace(", ", " ");
+    const day = (d: Date) => local(d).slice(0, 10);
+    for (let t = Date.UTC(2024, 0, 1); t < Date.UTC(2028, 0, 1); t += 3_600_000) {
+      const now = new Date(t);
+      const p = periodStarts(now);
+      expect(local(p.today)).toBe(`${day(now)} 00:00:00`); // starts at Tehran midnight of the current Tehran day
+      expect(day(new Date(p.today.getTime() - 1))).not.toBe(day(now)); // the millisecond before belongs to the previous day
+      expect(Math.round((p.today.getTime() - p.days7.getTime()) / 86_400_000)).toBe(6);
+      expect(Math.round((p.today.getTime() - p.days30.getTime()) / 86_400_000)).toBe(29);
+    }
+  });
 });
+
