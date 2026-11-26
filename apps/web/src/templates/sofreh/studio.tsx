@@ -6,6 +6,7 @@ import { Icon } from "../kit/icons";
 import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
+import EnamadSeal from "../common/EnamadSeal";
 
 function Layout({ ctx, children }: LayoutProps) {
 
@@ -13,7 +14,7 @@ function Layout({ ctx, children }: LayoutProps) {
     <Skip />
     <header className={s.header}><div><Brand ctx={ctx} /><OrderLinks ctx={ctx} /><ShopNav ctx={ctx} /></div><nav aria-label="منوی کافه"><a href={ctx.href("/products")}>منو</a><a href={ctx.href("/contact")}>ساعت و نشانی</a><SiteSearch ctx={ctx} /></nav></header>
     <main id="main" tabIndex={-1} className={s.main}><MissingHeading ctx={ctx} />{children}</main>
-    <footer className={s.footer}><div><Icon name="pin" size={30} /><h2>نشانی و تماس</h2><Contacts ctx={ctx} /></div><div><Pages ctx={ctx} label="پیوندهای پایانی" /><OrderLinks ctx={ctx} /></div></footer>
+    <footer className={s.footer}><div><Icon name="pin" size={30} /><h2>نشانی و تماس</h2><Contacts ctx={ctx} /></div><div><Pages ctx={ctx} label="پیوندهای پایانی" /><OrderLinks ctx={ctx} /></div><EnamadSeal enamad={ctx.data.store.enamad} /></footer>
   </div>;
 }
 

@@ -5,6 +5,7 @@ import type { LayoutProps } from "../types";
 import { initial } from "./ProductCard";
 import s from "./general.module.css";
 import ShopNav from "../commerce/ShopNav";
+import EnamadSeal from "../common/EnamadSeal";
 
 const SIZE_SCALE = { small: 0.92, normal: 1, large: 1.1 } as const;
 
@@ -94,6 +95,7 @@ export default function Layout({ ctx, children }: LayoutProps) {
           </div>
           <p className={s.copy}>© {store.name}</p>
         </div>
+        <div className={s.container}><EnamadSeal enamad={store.enamad} /></div>
       </footer>
     </div>
   );

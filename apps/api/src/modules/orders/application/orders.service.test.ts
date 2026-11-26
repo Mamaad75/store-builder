@@ -162,6 +162,20 @@ describe("following and cancelling", () => {
   });
 });
 
+describe("CSV export", () => {
+  it("a file with a BOM, the header and one row per order; a bad filter is refused", async () => {
+    const { svc } = setup();
+    await svc.place("shop", guest, body);
+    const r = await svc.exportCsv({ storeId: "s1" }, { status: "PLACED" });
+    expect(r.rows).toBe(1);
+    expect(r.csv.startsWith("\uFEFF")).toBe(true);
+    expect(r.csv.split("\r\n")).toHaveLength(3); // header, one order, trailing empty
+    await expect(svc.exportCsv({ storeId: "s1" }, { status: "NOPE" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(svc.exportCsv({ storeId: "s1" }, { days: "5" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(svc.exportCsv({ storeId: "s1" }, { limit: "5" })).rejects.toBeInstanceOf(ValidationError); // paging is not a filter of the export
+  });
+});
+
 describe("tracking code", () => {
   const a = { storeId: "s1", actorId: "u1" };
   async function shipped() {

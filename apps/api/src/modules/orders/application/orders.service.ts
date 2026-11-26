@@ -7,7 +7,7 @@ import {
   canTransition,
   type Gateway,
   orderListQuerySchema,
-  orderTransitionSchema, setTrackingSchema,
+  orderExportQuerySchema, orderTransitionSchema, setTrackingSchema,
   placeOrderSchema,
   type OrderStatus,
 } from "@store-builder/shared/modules/orders/orders";
@@ -15,6 +15,8 @@ import { OrderNotReadyError, OrderRateLimitedError, OrderTransitionError, Paymen
 import { ReservationLostError } from "@store-builder/shared/modules/inventory/errors";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import type { z } from "zod";
+import { dayKeys } from "@store-builder/shared/modules/analytics/analytics";
+import { MAX_EXPORT_ROWS, ordersToCsv } from "@store-builder/shared/modules/orders/export";
 import { draftOrder, type OrderView } from "../domain/orders.js";
 import { CARD_TRANSFER_WINDOW_HOURS } from "@store-builder/shared/modules/orders/card-transfer";
 import { DiscountInvalidError } from "@store-builder/shared/modules/discounts/errors";
@@ -256,6 +258,25 @@ export class OrdersService {
   list(a: { storeId: string }, query: unknown): Promise<OrderListPage> {
     const q = parse(orderListQuerySchema, query ?? {});
     return this.orders.list(a.storeId, q);
+  }
+
+  /**
+   * The merchant's CSV of orders (the list's filters, optionally the last 7 / 30 / 90 Tehran days), newest first, at most MAX_EXPORT_ROWS.
+   * Personal data (names, phones, addresses): the route needs orders.view and every export is audited. Returns the file and its row count.
+   */
+  async exportCsv(a: { storeId: string }, query: unknown, now: Date = this.clock()): Promise<{ csv: string; rows: number }> {
+    const q = parse(orderExportQuerySchema, query ?? {});
+    const since = q.days ? new Date(Date.parse(`${dayKeys(now, Number(q.days))[0]}T00:00:00Z`) - 210 * 60_000) : undefined;
+    const rows: OrderView[] = [];
+    let before: string | undefined;
+    for (;;) {
+      const page = await this.orders.list(a.storeId, { status: q.status, customerId: q.customerId, review: q.review, q: q.q, since, before, limit: 500 });
+      rows.push(...page.items);
+      if (!page.nextCursor || rows.length >= MAX_EXPORT_ROWS) break;
+      before = page.nextCursor;
+    }
+    const capped = rows.slice(0, MAX_EXPORT_ROWS);
+    return { csv: ordersToCsv(capped), rows: capped.length };
   }
 
   /** Phase 3.3b: order count, amount spent (not cancelled) and last order per customer, for the merchant's customer list (at most 100 ids). */

@@ -5,6 +5,7 @@ import { UNAVAILABLE_ERROR } from "@/app/actions-auth";
 import { ConflictError, DRAFT_BUSY_MESSAGE, DraftBusyError, NotFoundError, StoreLimitError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { ThemeSwitchBlockedError } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { appearanceUrl } from "@store-builder/shared/modules/pages/urls";
+import { parseEnamad } from "@store-builder/shared/lib/enamad";
 
 /**
  * Browser-side form handlers of the store screens (ADR 0001: no Server Actions). Pattern for every handler: (1) identity is the session
@@ -52,6 +53,12 @@ export async function createStoreAction(_prev: StoreFormState, fd: FormData): Pr
 
 export async function updateStoreAction(_prev: StoreFormState, fd: FormData): Promise<StoreFormState> {
   const storeId = str(fd, "storeId");
+  // The eNamad seal: what the merchant pasted is reduced to its id and code (empty removes the seal); anything else in the paste is dropped.
+  const enamadText = str(fd, "enamad").trim();
+  const enamad = enamadText === "" ? null : parseEnamad(enamadText);
+  if (enamadText !== "" && !enamad) {
+    return { error: "لطفاً اطلاعات واردشده را بررسی کنید.", fieldErrors: { enamad: ["کد اینماد شناسایی نشد. کدی را که از پنل اینماد گرفته‌اید کامل بچسبانید، یا شناسه و کد را با یک فاصله بنویسید."] } };
+  }
   try {
     await api.updateStore(storeId, {
       name: str(fd, "name"),
@@ -59,6 +66,7 @@ export async function updateStoreAction(_prev: StoreFormState, fd: FormData): Pr
       contact: { phone: str(fd, "phone"), email: str(fd, "email"), address: str(fd, "address") },
       social: { instagram: str(fd, "instagram"), telegram: str(fd, "telegram"), whatsapp: str(fd, "whatsapp") },
       description: str(fd, "description"),
+      enamad,
     });
   } catch (e) {
     return toState(e, storeId);

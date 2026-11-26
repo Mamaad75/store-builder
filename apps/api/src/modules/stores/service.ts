@@ -151,6 +151,7 @@ export async function updateStore(ownerId: string, storeId: unknown, input: unkn
       social: { ...settings.social, ...patch.social },
       typography: { ...settings.typography, ...stripUndefined(patch.typography) },
       ...(patch.description !== undefined && { description: patch.description }),
+      ...(patch.enamad !== undefined && { enamad: patch.enamad }),
     };
     // A save that changes nothing writes nothing and does not bump the draft revision.
     if ((patch.name === undefined || patch.name === current.name) && isDeepStrictEqual(next, settings)) return current;

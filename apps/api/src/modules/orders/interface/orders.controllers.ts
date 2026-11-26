@@ -246,6 +246,21 @@ export class StoreOrdersController {
     return this.orders.customerStats(a, ids);
   }
 
+  /**
+   * The orders as a CSV file (the list's filters, optionally the last 7 / 30 / 90 days). Contains the shoppers' names, phones and addresses:
+   * owner and manager only, audited. Declared BEFORE ":orderId" so "export" is not read as an order id.
+   */
+  @Get("export")
+  @RequirePermission("orders.view")
+  @Audit("order.exported")
+  async export(@StoreAccess() a: StoreAccessContext, @Query() query: Record<string, string>, @Res({ passthrough: true }) res: Response): Promise<string> {
+    const { csv } = await this.orders.exportCsv(a, query);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="orders-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.setHeader("Cache-Control", "no-store");
+    return csv;
+  }
+
   @Get(":orderId")
   @RequirePermission("orders.view")
   get(@StoreAccess() a: StoreAccessContext, @Param("orderId") id: string) {

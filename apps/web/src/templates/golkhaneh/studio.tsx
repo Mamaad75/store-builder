@@ -6,6 +6,7 @@ import { Icon } from "../kit/icons";
 import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
+import EnamadSeal from "../common/EnamadSeal";
 
 function Layout({ ctx, children }: LayoutProps) {
   const delivery = ctx.data.pages.find((page) => page.type === "HOME")?.sections.find((section) => section.type === "golkhaneh.delivery");
@@ -14,7 +15,7 @@ function Layout({ ctx, children }: LayoutProps) {
     <Skip />
     <header className={s.header}>{badge && <p className={s.delivery}>{badge}</p>}<div><Brand ctx={ctx} /><SiteSearch ctx={ctx} /><ShopNav ctx={ctx} /></div><Pages ctx={ctx} /></header>
     <main id="main" tabIndex={-1} className={s.main}><MissingHeading ctx={ctx} />{children}</main>
-    <footer className={s.footer}><div><Icon name="leaf" size={28} /><Brand ctx={ctx} /></div><Contacts ctx={ctx} /><Categories ctx={ctx} label="مناسبت‌ها در پاورقی" /></footer>
+    <footer className={s.footer}><div><Icon name="leaf" size={28} /><Brand ctx={ctx} /></div><Contacts ctx={ctx} /><Categories ctx={ctx} label="مناسبت‌ها در پاورقی" /><EnamadSeal enamad={ctx.data.store.enamad} /></footer>
   </div>;
 }
 

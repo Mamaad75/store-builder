@@ -47,7 +47,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeId:
           <LinkButton href="#store-brand" variant="outlined" startIcon={<ImageOutlined />}>بارگذاری لوگو</LinkButton>
           <LinkButton href={`/dashboard/stores/${encodeURIComponent(store.id)}/products/new`} variant="outlined" startIcon={<AddRounded />}>افزودن محصول</LinkButton>
         </Stack>
-        <StoreSettingsForm store={{ id: store.id, name: store.name, primaryColor: settings.primaryColor, contact: settings.contact, social: settings.social, description: settings.description }} />
+        <StoreSettingsForm store={{ id: store.id, name: store.name, primaryColor: settings.primaryColor, contact: settings.contact, social: settings.social, description: settings.description, enamad: settings.enamad }} />
         <Divider />
         <BusinessCategoryForm storeId={store.id} current={store.businessCategory} categories={BUSINESS_CATEGORIES.map((c) => ({ key: c.key, name: c.name }))} />
         <Divider />

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { enamadSchema } from "../lib/enamad.js";
 
 /** Whitelisted section types. Each type has a strict props schema in `sectionPropsSchemas` below. */
 export const SECTION_TYPES = [
@@ -85,6 +86,8 @@ export const templateSettingsSchema = z.object({
   social: z.object({ instagram: z.string(), telegram: z.string(), whatsapp: z.string() }),
   // Optional short description for search results and link previews (phase 11). Settings stored earlier have none.
   description: z.string().max(160).default(""),
+  // The eNamad trust seal (id and code only; the addresses are built from them). Stores that never set one parse with null.
+  enamad: enamadSchema.nullable().default(null),
   // Settings stored before phase 8 have no typography: they parse with the defaults (and are persisted normalised on the next save).
   typography: typographySchema.default(DEFAULT_TYPOGRAPHY),
 });

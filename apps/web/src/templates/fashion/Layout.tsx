@@ -3,6 +3,7 @@ import { navItems, themeStyleVars } from "../engine/theme-vars";
 import type { LayoutProps } from "../types";
 import s from "./fashion.module.css";
 import ShopNav from "../commerce/ShopNav";
+import EnamadSeal from "../common/EnamadSeal";
 
 export const initial = (name: string) => Array.from(name.trim())[0] ?? "؟";
 
@@ -67,6 +68,7 @@ export default function Layout({ ctx, children }: LayoutProps) {
           </div>
           <p className={s.copy}>© {store.name}</p>
         </div>
+        <div className={s.container}><EnamadSeal enamad={store.enamad} /></div>
       </footer>
     </div>
   );

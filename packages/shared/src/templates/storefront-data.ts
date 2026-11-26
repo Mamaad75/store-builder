@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { enamadSchema } from "../lib/enamad.js";
 import { formatToman, MAX_PRICE_TOMAN } from "../lib/money.js";
 import { MAX_SPEC_ROWS, specRowSchema } from "../lib/product-specs.js";
 import { MAX_OPTIONS, MAX_VARIANTS_PER_PRODUCT } from "../modules/inventory/variants.js";
@@ -45,6 +46,8 @@ export const storefrontStoreSchema = z
     // Owner-written short description (phase 11). Deliberately OPTIONAL WITHOUT a default and absent when empty: snapshots
     // and drafts of stores that never set one are byte-for-byte what they were before, so no content hash changes.
     description: z.string().max(160).optional(),
+    // The eNamad seal (phase: merchant trust). Absent when unset, for the same reason as `description`.
+    enamad: enamadSchema.optional(),
   })
   .strict();
 

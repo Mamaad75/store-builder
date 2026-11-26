@@ -6,6 +6,7 @@ import { Icon } from "../kit/icons";
 import type { LayoutProps } from "../types";
 import s from "./market.module.css";
 import ShopNav from "../commerce/ShopNav";
+import EnamadSeal from "../common/EnamadSeal";
 
 export default function BazaarLayout({ ctx, children }: LayoutProps) {
   const { store, categories } = ctx.data;
@@ -72,6 +73,7 @@ export default function BazaarLayout({ ctx, children }: LayoutProps) {
             <ul>{contacts.map((contact) => <li key={contact.kind}>{contact.href ? <a href={contact.href}>{contact.label} <bdi>{contact.value}</bdi></a> : contact.value}</li>)}</ul>
           </address>}
         </div>
+        <div className={s.wrap}><EnamadSeal enamad={store.enamad} /></div>
       </footer>
     </div>
   );

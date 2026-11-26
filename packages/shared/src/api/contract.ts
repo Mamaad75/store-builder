@@ -10,7 +10,7 @@ import { secretValueSchema } from "../modules/secrets/schemas.js";
 import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
 import { customerLoginSchema, customerRegisterSchema } from "../modules/customers/schemas.js";
-import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema, setTrackingSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
+import { orderExportQuerySchema, orderListQuerySchema, orderTransitionSchema, placeOrderSchema, setTrackingSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
 import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { discountInputSchema } from "../modules/discounts/discounts.js";
 import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
@@ -45,6 +45,8 @@ export interface RouteSpec {
   response?: z.ZodType;
   /** Response not described yet. The list is pinned by a test: it may only shrink. */
   untyped?: true;
+  /** The success body is a file (not JSON): its media type, e.g. "text/csv". */
+  download?: string;
 }
 
 const rev = z.number().int().min(1).describe("the page revision the edit was based on (optimistic concurrency)");
@@ -211,6 +213,7 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", st("/setup"), "Setup checklist (MVP item 3): active product, enabled shipping method, usable payment method, subdomain, published", { permission: "store.settings", response: S.storeSetupDto }),
   r("GET", st("/orders"), "The store's orders, newest first (keyset: pass nextCursor as before)", { permission: "orders.view", query: orderListQuerySchema, response: S.orderListDto }),
   r("GET", st("/orders/customer-stats"), "Order count, spending (not cancelled) and last order per customer (phase 3.3b; ids=comma list, at most 100)", { permission: "customers.view", query: z.object({ ids: z.string().max(6600).optional() }), response: z.array(z.object({ customerId: z.string(), orders: z.number(), spent: z.number(), lastOrderAt: z.string().nullable() })) }),
+  r("GET", st("/orders/export"), "The orders as a CSV file (UTF-8 with BOM, for Excel): the list's filters and optionally the last 7 / 30 / 90 Tehran days, newest first, at most 20,000 rows; contains buyers' names, phones and addresses, so owner and manager only and every export is audited", { permission: "orders.view", query: orderExportQuerySchema, download: "text/csv" }),
   r("GET", st("/orders/:orderId"), "One order with its items and history", { permission: "orders.view", response: S.orderDto }),
   r("GET", st("/orders/:orderId/receipts"), "The order's card-to-card receipts (D35b-1; images separately)", { permission: "orders.view", response: z.array(S.receiptDto) }),
   r("GET", st("/orders/:orderId/receipts/:receiptId/image"), "One receipt image (image/webp, never cached)", { permission: "orders.view" }),

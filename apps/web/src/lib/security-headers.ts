@@ -11,6 +11,8 @@
  *   - no plugins (object-src), no <base> hijack, forms only to self, framing only by the same origin, no other connections.
  * HSTS only when the platform is configured for https (never over http, where browsers ignore or it would lock out dev hosts).
  */
+import { ENAMAD_ORIGIN } from "@store-builder/shared/lib/enamad";
+
 export interface SecurityEnv {
   NODE_ENV?: string;
   APP_PROTOCOL?: string;
@@ -34,7 +36,8 @@ export function buildCsp(env: SecurityEnv): string | null {
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob:${media ? ` ${media}` : ""}`,
+    // The eNamad trust seal (an image only, no script and no frame) is the one external image a store may show.
+    `img-src 'self' data: blob:${media ? ` ${media}` : ""} ${ENAMAD_ORIGIN}`,
     "font-src 'self' data:",
     "connect-src 'self'",
     "object-src 'none'",

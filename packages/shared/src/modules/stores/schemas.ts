@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { enamadSchema } from "../../lib/enamad.js";
 import { BUSINESS_CATEGORY_KEY_RE } from "@store-builder/shared/lib/business-categories";
 import { TYPOGRAPHY_SIZE_SCALES } from "@store-builder/shared/templates/sections";
 
@@ -51,6 +52,8 @@ export const updateStoreSchema = z
       .strict()
       .optional(),
     typography: typographyPatchSchema.optional(),
+    // The eNamad seal: the two values from the merchant's eNamad panel, or null to remove it.
+    enamad: enamadSchema.nullable().optional(),
     // One short line for search results and link previews: whitespace is collapsed, control characters are refused.
     description: z
       .string()

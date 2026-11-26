@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <RouterBridge />
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
         <SkipLink />
-        <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
+        <AppBar data-print="hide" position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Toolbar>
             <Typography sx={{ flexGrow: 1, fontWeight: 700, display: { xs: "none", sm: "block" } }}>سایت‌ساز فروشگاهی</Typography>
             <Box component="nav" aria-label="منوی حساب" sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 2 }, marginInlineStart: { xs: 0, sm: 2 }, marginInlineEnd: { xs: "auto", sm: 2 } }}>

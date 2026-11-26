@@ -444,6 +444,7 @@ export default function StoreShell({
       }}
     >
       <Box
+        data-print='hide'
         sx={{
           display: { xs: 'none', md: 'block' },
           width: SIDEBAR_WIDTH,
@@ -465,6 +466,7 @@ export default function StoreShell({
         </Box>
       </Box>
       <Drawer
+        data-print='hide'
         anchor='right'
         open={drawer}
         onClose={() => setDrawer(false)}
@@ -484,6 +486,7 @@ export default function StoreShell({
       </Drawer>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box
+          data-print='hide'
           sx={{
             position: 'sticky',
             top: 0,

@@ -18,6 +18,7 @@ import refresh from "./refresh.module.css";
 import { CONTACT_ICON, highlightIcon, Icon, type IconName } from "./icons";
 import BuyBox from "../commerce/BuyBox";
 import ShopNav from "../commerce/ShopNav";
+import EnamadSeal from "../common/EnamadSeal";
 
 /**
  * The storefront kit, v2 (2026-11): one accessible implementation of every core section and of the kit sections, styled by
@@ -459,6 +460,7 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
             </div>
             <p className={s.copy}>© {store.name}. همه‌ی حقوق محفوظ است.</p>
           </div>
+          <div className={s.container}><EnamadSeal enamad={store.enamad} /></div>
         </footer>
         {nav.length > 1 && (
           <nav className={s.dock} aria-label="پیمایش سریع">

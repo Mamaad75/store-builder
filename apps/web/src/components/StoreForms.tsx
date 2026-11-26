@@ -16,6 +16,7 @@ import Typography from "@mui/material/Typography";
 import CheckCircleRounded from "@mui/icons-material/CheckCircleRounded";
 import OpenInNewRounded from "@mui/icons-material/OpenInNewRounded";
 import ColorField from "@/components/ColorField";
+import { parseEnamad } from "@store-builder/shared/lib/enamad";
 import {
   createStoreAction,
   deleteStoreAction,
@@ -161,11 +162,18 @@ export interface StoreSettingsValues {
   contact: { phone: string; email: string; address: string };
   social: { instagram: string; telegram: string; whatsapp: string };
   description: string;
+  /** The eNamad seal as saved, or null. */
+  enamad: { id: string; code: string } | null;
 }
 
 export function StoreSettingsForm({ store }: { store: StoreSettingsValues }) {
   const [state, action, pending] = useActionState(updateStoreAction, {});
   const ltr = { htmlInput: { dir: "ltr" as const } };
+  const [enamadText, setEnamadText] = useState(store.enamad ? `${store.enamad.id} ${store.enamad.code}` : "");
+  const enamadParsed = parseEnamad(enamadText);
+  // The server's refusal belongs to what was submitted: once the merchant edits the box it is stale (a new submit brings a new `state`).
+  const [editedAfter, setEditedAfter] = useState<unknown>(null);
+  const serverEnamadError = editedAfter === state ? undefined : fe(state, "enamad");
   return (
     <form action={action}>
       <input type="hidden" name="storeId" value={store.id} />
@@ -192,6 +200,28 @@ export function StoreSettingsForm({ store }: { store: StoreSettingsValues }) {
         <TextField name="instagram" label="اینستاگرام (نام کاربری)" defaultValue={store.social.instagram} slotProps={ltr} error={!!fe(state, "social")} />
         <TextField name="telegram" label="تلگرام (نام کاربری)" defaultValue={store.social.telegram} slotProps={ltr} />
         <TextField name="whatsapp" label="واتساپ (شماره)" defaultValue={store.social.whatsapp} slotProps={ltr} />
+        <Typography sx={{ fontWeight: 700, pt: 1 }}>نماد اعتماد الکترونیکی (اینماد)</Typography>
+        <TextField
+          name="enamad"
+          label="کد نماد اینماد (اختیاری)"
+          value={enamadText}
+          onChange={(e) => {
+            setEnamadText(e.target.value);
+            setEditedAfter(state);
+          }}
+          multiline
+          minRows={2}
+          error={!!serverEnamadError || (enamadText.trim() !== "" && !enamadParsed)}
+          helperText={
+            serverEnamadError ??
+            (enamadText.trim() === ""
+              ? "کد نماد را از پنل اینماد (بخش «نمایش نماد») کپی و اینجا بچسبانید؛ یا فقط شناسه و کد را با یک فاصله بنویسید. فقط شناسه و کد ذخیره می‌شود. بعد از ذخیره، فروشگاه را دوباره منتشر کنید تا نماد در پایین صفحه بیاید. خالی‌کردن این کادر نماد را برمی‌دارد."
+              : enamadParsed
+                ? `شناسایی شد: شناسهٔ ${enamadParsed.id}، کد ${enamadParsed.code}`
+                : "کد اینماد شناسایی نشد؛ کد را کامل بچسبانید.")
+          }
+          slotProps={{ htmlInput: { dir: "ltr", "data-testid": "enamad-input" } }}
+        />
         <Box>
           <Button type="submit" variant="contained" disabled={pending}>
             ذخیره تغییرات

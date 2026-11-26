@@ -31,6 +31,10 @@ describe("OpenAPI document (phase 2.5)", () => {
   it("is deterministic (the committed file can be checked for drift)", () => {
     expect(JSON.stringify(buildOpenApi())).toBe(JSON.stringify(buildOpenApi()));
   });
+  it("a file download (the orders CSV) is documented with its own media type, not as JSON", () => {
+    const op = (buildOpenApi() as { paths: Record<string, Record<string, { responses: Record<string, { content?: Record<string, unknown> }> }>> }).paths["/api/v1/admin/stores/{storeId}/orders/export"]!.get!;
+    expect(Object.keys(op.responses["200"]!.content ?? {})).toEqual(["text/csv"]);
+  });
   it("the list of routes without a response schema may only shrink", () => {
     expect(ROUTES.filter((r) => r.untyped).map((r) => `${r.method} ${r.path}`).sort()).toEqual([
       "GET /api/ready",

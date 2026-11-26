@@ -194,6 +194,9 @@ export const orderListQuerySchema = z
   })
   .strict();
 
+/** The CSV export: the list's filters (no paging), plus how many days back (Tehran calendar days, today included). */
+export const orderExportQuerySchema = orderListQuerySchema.omit({ before: true, limit: true }).extend({ days: z.enum(["7", "30", "90"]).optional() }).strict();
+
 /**
  * What the merchant's search box means (pure, shared by the API and its tests). Digits are an order number (up to 9 digits) and, from 4
  * digits on, also part of a mobile number (stored as +989xxxxxxxxx, so a typed leading 0 or 98 is dropped); any text is part of the

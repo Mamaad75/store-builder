@@ -9,11 +9,13 @@ describe("Content-Security-Policy", () => {
     expect(buildCsp({})).toBeNull();
     expect(securityHeaders({ NODE_ENV: "test" })["Content-Security-Policy"]).toBeUndefined();
   });
-  it("allows the media ORIGIN (not the path) for images, and no other external origin anywhere", () => {
+  it("allows the media ORIGIN (not the path) and the eNamad seal host for images, and no other external origin anywhere", () => {
     const csp = buildCsp(PROD)!;
-    expect(csp).toContain("img-src 'self' data: blob: https://media.example.net;");
+    expect(csp).toContain("img-src 'self' data: blob: https://media.example.net https://trustseal.enamad.ir;");
     expect(csp).not.toContain("/bucket");
-    expect([...csp.matchAll(/https?:\/\/[^\s;]+/g)].map((m) => m[0])).toEqual(["https://media.example.net"]);
+    expect([...csp.matchAll(/https?:\/\/[^\s;]+/g)].map((m) => m[0])).toEqual(["https://media.example.net", "https://trustseal.enamad.ir"]);
+    // the eNamad host is an IMAGE source only: never a script, connection, frame, form or style source
+    for (const d of ["script-src", "connect-src", "style-src", "form-action", "frame-ancestors", "default-src", "object-src"]) expect(csp.split("; ").find((x) => x.startsWith(d))).not.toContain("enamad");
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("connect-src 'self'");
   });
@@ -26,7 +28,7 @@ describe("Content-Security-Policy", () => {
   it("a missing or malformed media URL adds no origin (and never throws)", () => {
     for (const S3_PUBLIC_BASE_URL of [undefined, "", "not a url", "javascript:alert(1)", "ftp://x/y"]) {
       const csp = buildCsp({ NODE_ENV: "production", S3_PUBLIC_BASE_URL })!;
-      expect(csp, String(S3_PUBLIC_BASE_URL)).toContain("img-src 'self' data: blob:;");
+      expect(csp, String(S3_PUBLIC_BASE_URL)).toContain("img-src 'self' data: blob: https://trustseal.enamad.ir;");
     }
   });
   it("upgrades insecure requests only when the platform is https", () => {

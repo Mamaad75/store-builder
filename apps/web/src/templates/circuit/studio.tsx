@@ -7,6 +7,7 @@ import { Icon } from "../kit/icons";
 import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
+import EnamadSeal from "../common/EnamadSeal";
 
 function Layout({ ctx, children }: LayoutProps) {
 
@@ -14,7 +15,7 @@ function Layout({ ctx, children }: LayoutProps) {
     <Skip />
     <header className={s.header}><div><Brand ctx={ctx} /><Search ctx={ctx} /><ShopNav ctx={ctx} /></div><Pages ctx={ctx} /></header>
     <main id="main" tabIndex={-1} className={s.main}><MissingHeading ctx={ctx} />{children}</main>
-    <footer className={s.footer}><div><Icon name="shield" /> <Brand ctx={ctx} /><Contacts ctx={ctx} /></div><Pages ctx={ctx} label="پیوندهای پایانی" /></footer>
+    <footer className={s.footer}><div><Icon name="shield" /> <Brand ctx={ctx} /><Contacts ctx={ctx} /></div><Pages ctx={ctx} label="پیوندهای پایانی" /><EnamadSeal enamad={ctx.data.store.enamad} /></footer>
   </div>;
 }
 

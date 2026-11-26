@@ -79,6 +79,8 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
         <Typography variant="h6" component="h2" sx={{ fontWeight: 800 }}>سفارش #{order.number.toLocaleString("fa-IR")}</Typography>
         <Chip color={STATUS_COLOR[order.status]} label={ORDER_STATUS_LABELS[order.status]} />
+        <Button size="small" variant="outlined" component="a" href={`/dashboard/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}/invoice`} target="_blank" rel="noopener">چاپ فاکتور</Button>
+        <Button size="small" variant="outlined" component="a" href={`/dashboard/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}/invoice?view=packing`} target="_blank" rel="noopener">برگهٔ بسته‌بندی</Button>
         <Typography variant="body2" color="text.secondary">{date(order.createdAt)} — {PAYMENT_METHOD_LABELS[order.paymentMethod]}{order.paymentGateway ? ` (${GATEWAY_LABELS[order.paymentGateway]})` : ""}</Typography>
       </Box>
       {error && <Alert severity="error">{error}</Alert>}

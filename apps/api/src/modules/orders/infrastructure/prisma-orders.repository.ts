@@ -96,11 +96,12 @@ export class PrismaOrderStore implements OrderStore {
     return rows.map((r) => ({ customerId: r.customerId!, orders: r._count._all, spent: spentBy.get(r.customerId) ?? 0, lastOrderAt: r._max.createdAt?.toISOString() ?? null }));
   }
 
-  async list(storeId: string, q: { status?: OrderStatus; customerId?: string; review?: "receipt"; q?: string; before?: string; limit: number }): Promise<OrderListPage> {
+  async list(storeId: string, q: { status?: OrderStatus; customerId?: string; review?: "receipt"; q?: string; since?: Date; before?: string; limit: number }): Promise<OrderListPage> {
     const where: Prisma.OrderWhereInput = {
       storeId,
       ...(q.status ? { status: q.status } : {}),
       ...(q.customerId ? { customerId: q.customerId } : {}),
+      ...(q.since ? { createdAt: { gte: q.since } } : {}),
       // M2: combined with AND, so a conflicting ?status= gives an empty page rather than widening the filter.
       ...(q.review === "receipt" ? { AND: [RECEIPT_REVIEW_WHERE] } : {}),
     };

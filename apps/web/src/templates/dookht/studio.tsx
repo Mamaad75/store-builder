@@ -5,6 +5,7 @@ import { frame, frameProps, Skip, MissingHeading, Tiles, Promos, Highlights, Abo
 import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } from "../types";
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
+import EnamadSeal from "../common/EnamadSeal";
 
 function Layout({ ctx, children }: LayoutProps) {
 
@@ -12,7 +13,7 @@ function Layout({ ctx, children }: LayoutProps) {
     <Skip />
     <header className={s.header}><Brand ctx={ctx} /><Pages ctx={ctx} /><SiteSearch ctx={ctx} /><ShopNav ctx={ctx} /></header>
     <main id="main" tabIndex={-1} className={s.main}><MissingHeading ctx={ctx} />{children}</main>
-    <footer className={s.footer}><Brand ctx={ctx} /><Pages ctx={ctx} label="پیوندهای پایانی" /><Contacts ctx={ctx} /></footer>
+    <footer className={s.footer}><Brand ctx={ctx} /><Pages ctx={ctx} label="پیوندهای پایانی" /><Contacts ctx={ctx} /><EnamadSeal enamad={ctx.data.store.enamad} /></footer>
   </div>;
 }
 

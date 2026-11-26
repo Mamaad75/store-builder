@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -30,6 +31,8 @@ export default function OrdersManager({ storeId, customerId, initialStatus, init
   const [busy, setBusy] = useState(false);
   // The search box: `draft` is what is typed, `search` is what was submitted (typing does not query on every key).
   const [draft, setDraft] = useState("");
+  // The CSV export: how far back (the status tab and the submitted search apply too).
+  const [exportDays, setExportDays] = useState<"" | "7" | "30" | "90">("");
   const [search, setSearch] = useState("");
 
   const query = useCallback((before?: string) => listOrders(storeId, { status: status === "ALL" ? undefined : status, customerId, review, q: search || undefined, before, limit: "30" }), [storeId, status, customerId, review, search]);
@@ -77,6 +80,27 @@ export default function OrdersManager({ storeId, customerId, initialStatus, init
           />
           <Button type="submit" variant="contained" size="small" sx={{ height: 40 }}>جست‌وجو</Button>
           {search && <Button size="small" sx={{ height: 40 }} onClick={() => { setDraft(""); setSearch(""); }}>پاک کردن جست‌وجو</Button>}
+        </Box>
+      )}
+      {!customerId && (
+        <Box data-testid="orders-export" sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+          <TextField select size="small" label="بازهٔ خروجی" value={exportDays} onChange={(e) => setExportDays(e.target.value as typeof exportDays)} sx={{ minWidth: 160 }}>
+            <MenuItem value="">همهٔ سفارش‌ها</MenuItem>
+            <MenuItem value="7">۷ روز اخیر</MenuItem>
+            <MenuItem value="30">۳۰ روز اخیر</MenuItem>
+            <MenuItem value="90">۹۰ روز اخیر</MenuItem>
+          </TextField>
+          <Button
+            component="a"
+            variant="outlined"
+            size="small"
+            sx={{ height: 40 }}
+            download
+            href={`/api/stores/${encodeURIComponent(storeId)}/orders/export?${new URLSearchParams({ ...(status !== "ALL" ? { status } : {}), ...(search ? { q: search } : {}), ...(exportDays ? { days: exportDays } : {}) }).toString()}`}
+          >
+            دریافت فایل CSV (برای Excel)
+          </Button>
+          <Typography variant="caption" color="text.secondary">با وضعیت و جست‌وجوی فعلی؛ شامل نام و موبایل خریداران است.</Typography>
         </Box>
       )}
       {search && <Typography variant="body2" color="text.secondary" role="status">نتیجهٔ جست‌وجوی «{search}»{items ? `: ${items.length.toLocaleString("fa-IR")}${next ? "+" : ""} سفارش` : ""}</Typography>}

@@ -6,7 +6,7 @@ import { TextLink } from "@/components/NextLinks";
 
 export default function SiteFooter() {
   return (
-    <Box component="footer" sx={{ borderTop: 1, borderColor: "divider", py: 3, mt: 6 }}>
+    <Box component="footer" data-print="hide" sx={{ borderTop: 1, borderColor: "divider", py: 3, mt: 6 }}>
       <Container>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" }, justifyContent: "space-between" }}>
           <Typography variant="body2" color="text.secondary">

@@ -53,6 +53,7 @@ function operation(rt: RouteSpec, v1: string | null): Json {
   }
   const ok: Json = { description: rt.untyped ? "Success (response schema not described yet)" : "Success" };
   if (rt.response) ok.content = { "application/json": { schema: schemaOf(rt.response, "output") } };
+  else if (rt.download) ok.content = { [rt.download]: { schema: { type: "string", format: "binary" } } };
   else if (rt.untyped) ok.content = { "application/json": { schema: {} } };
   const responses: Json = { [String(rt.status)]: ok };
   if (v1) for (const [code, description] of Object.entries(ERRORS)) responses[code] = { description, content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorV1" } } } };
