@@ -9,6 +9,8 @@ import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
 import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
 import SupportAgentOutlined from '@mui/icons-material/SupportAgentOutlined';
+import RateReviewOutlined from '@mui/icons-material/RateReviewOutlined';
+import WebOutlined from '@mui/icons-material/WebOutlined';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
 import CreditCardOutlined from '@mui/icons-material/CreditCardOutlined';
@@ -141,16 +143,15 @@ function buildNav(base: string): Item[] {
       match: (p) => p.startsWith(`${base}/sms`),
     },
     {
-      label: 'صفحه‌ها',
+      label: 'سایت و تم‌ها',
       href: `${base}/pages`,
-      icon: <ArticleOutlined />,
-      match: (p) => p.startsWith(`${base}/pages`),
-    },
-    {
-      label: 'ظاهر',
-      href: `${base}/appearance`,
-      icon: <PaletteOutlined />,
-      match: (p) => p.startsWith(`${base}/appearance`),
+      icon: <WebOutlined />,
+      match: (p) => ['pages', 'appearance', 'reviews'].some((x) => p.startsWith(`${base}/${x}`)),
+      children: [
+        { label: 'صفحه‌ها', href: `${base}/pages`, icon: <ArticleOutlined fontSize='small' /> },
+        { label: 'ظاهر', href: `${base}/appearance`, icon: <PaletteOutlined fontSize='small' /> },
+        { label: 'نظرات', href: `${base}/reviews`, icon: <RateReviewOutlined fontSize='small' /> },
+      ],
     },
     {
       label: 'انتشار',
@@ -200,6 +201,7 @@ const NAV_PERMISSION: Record<string, Permission> = {
   'روش‌های پرداخت': 'store.settings',
   'کدهای تخفیف': 'discounts.manage',
   'پیامک سفارش': 'store.settings',
+  نظرات: 'content.manage',
   ظاهر: 'theme.switch',
   انتشار: 'publish',
   تیم: 'members.manage',
@@ -207,8 +209,12 @@ const NAV_PERMISSION: Record<string, Permission> = {
   تنظیمات: 'store.settings',
   'درخواست پشتیبانی': 'support.write',
 };
+const allowed = (label: string, permissions: readonly Permission[] | null) => permissions === null || !NAV_PERMISSION[label] || permissions.includes(NAV_PERMISSION[label]!);
 const visibleNav = (items: Item[], permissions: readonly Permission[] | null): Item[] =>
-  permissions === null ? items : items.filter((i) => !NAV_PERMISSION[i.label] || permissions.includes(NAV_PERMISSION[i.label]!));
+  items
+    .filter((i) => allowed(i.label, permissions))
+    .map((i) => (i.children ? { ...i, children: i.children.filter((c) => allowed(c.label, permissions)) } : i))
+    .filter((i) => !i.children || i.children.length > 0);
 
 const rowSx = (active: boolean) => ({
   borderRadius: 2.5,
@@ -339,7 +345,7 @@ function Sidebar({
               </ListItem>
             );
           }
-          const expanded = open[item.label] ?? false;
+          const expanded = open[item.label] ?? active;
           return (
             <ListItem key={item.href} disablePadding sx={{ display: 'block' }}>
               <ListItemButton

@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { isCoreSectionType } from "@store-builder/shared/templates/section-registry";
 import type { PageSection } from "@store-builder/shared/templates/section-parse";
 import type { RenderContext, SectionComponent, TemplateModule } from "../types";
+import ProductReviews from "../common/ProductReviews";
 
 function renderSection(template: TemplateModule, section: PageSection, ctx: RenderContext): ReactElement | null {
   if (isCoreSectionType(section.type)) {
@@ -17,5 +18,7 @@ function renderSection(template: TemplateModule, section: PageSection, ctx: Rend
 /** Generic renderer: chrome from the template's Layout, body from the page's sections. No business logic. */
 export default function StorefrontRenderer({ template, ctx }: { template: TemplateModule; ctx: RenderContext }) {
   const { Layout } = template;
-  return <Layout ctx={ctx}>{ctx.page.sections.map((s) => renderSection(template, s, ctx))}</Layout>;
+  // Reviews are live data of a published store (its own host: no base path); previews and theme demos have none.
+  const reviews = ctx.page.type === "PRODUCT_DETAIL" && ctx.product && ctx.basePath === "" ? <ProductReviews slug={ctx.product.slug} /> : null;
+  return <Layout ctx={ctx}>{ctx.page.sections.map((s) => renderSection(template, s, ctx))}{reviews}</Layout>;
 }

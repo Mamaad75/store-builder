@@ -5,7 +5,7 @@ import { CONFIG } from "../config/tokens.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 /** Shopper routes a store's own origin may post to: sign-in and saved addresses (3.1), the cart and the checkout summary (3.3), and the page-view beacon. Nothing else. */
-const CUSTOMER_ROUTE = /^\/api\/public\/stores\/[a-z0-9-]+\/(?:customer\/|cart(?:\/|$)|checkout\/|visit$)/;
+const CUSTOMER_ROUTE = /^\/api\/public\/stores\/[a-z0-9-]+\/(?:customer\/|cart(?:\/|$)|checkout\/|visit$|reviews$)/;
 
 /**
  * CSRF defence for the REST API (ADR 0001): Server Actions checked the Origin for us; here every state-changing request must carry an

@@ -477,3 +477,8 @@ export const ticketMessageDto = z.object({ id: z.string(), from: z.enum(["SELLER
 export const ticketDetailDto = ticketDto.extend({ messages: z.array(ticketMessageDto) });
 export const staffTicketDto = ticketDto.extend({ storeId: z.string(), storeName: z.string() });
 export const staffTicketDetailDto = ticketDetailDto.extend({ storeId: z.string(), storeName: z.string() });
+
+export const reviewStatusDto = z.enum(["PENDING", "APPROVED", "REJECTED"]);
+export const publicReviewDto = z.object({ id: z.string(), authorName: z.string(), rating: z.number().int(), body: z.string(), reply: z.string().nullable(), createdAt: iso });
+export const publicReviewsDto = z.object({ summary: z.object({ count: z.number().int(), average: z.number().nullable() }), reviews: z.array(publicReviewDto) });
+export const storeReviewDto = publicReviewDto.extend({ productId: z.string(), productName: z.string(), status: reviewStatusDto });

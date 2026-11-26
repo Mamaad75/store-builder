@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanText } from "../../lib/clean-text.js";
 
 /**
  * Support requests (tickets) from a store's owner or manager to the platform's staff. Pure rules shared by the API and the pages.
@@ -14,7 +15,7 @@ export const MAX_TICKET_MESSAGES = 100;
 export const SUBJECT_MAX = 120;
 export const BODY_MAX = 4000;
 
-const clean = (v: string) => v.normalize("NFC").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‎‏‪-‮⁦-⁩]/g, "").trim();
+const clean = cleanText;
 const subject = z.string().transform(clean).pipe(z.string().min(3, "موضوع را کوتاه و روشن بنویسید (حداقل ۳ حرف).").max(SUBJECT_MAX, "موضوع حداکثر ۱۲۰ حرف باشد."));
 const body = z.string().transform((v) => clean(v)).pipe(z.string().min(5, "متن پیام را کامل‌تر بنویسید (حداقل ۵ حرف).").max(BODY_MAX, "متن پیام بیش از حد طولانی است (حداکثر ۴۰۰۰ حرف)."));
 

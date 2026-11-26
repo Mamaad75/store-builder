@@ -12,6 +12,7 @@ import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceSh
 import { customerLoginSchema, customerRegisterSchema } from "../modules/customers/schemas.js";
 import { orderExportQuerySchema, orderListQuerySchema, orderTransitionSchema, placeOrderSchema, setTrackingSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
 import { createTicketSchema, ticketListQuerySchema, ticketReplySchema, ticketStatusSchema } from "../modules/support/tickets.js";
+import { reviewListQuerySchema, reviewReplySchema, reviewStatusSchema, submitReviewSchema, publicReviewsQuerySchema } from "../modules/reviews/reviews.js";
 import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { discountInputSchema } from "../modules/discounts/discounts.js";
 import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
@@ -254,6 +255,11 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", "/api/platform/tickets/:ticketId", "A support request with its messages", { platform: true, response: S.staffTicketDetailDto }),
   r("POST", "/api/platform/tickets/:ticketId/messages", "Answer a support request (audited)", { platform: true, status: 201, body: ticketReplySchema, response: S.ticketDto }),
   r("POST", "/api/platform/tickets/:ticketId/status", "Set a support request's status (audited)", { platform: true, status: 204, body: ticketStatusSchema }),
+  r("GET", "/api/public/stores/:label/reviews", "Approved reviews of a product on a live store, with the rating summary", { auth: "public", query: publicReviewsQuerySchema, response: S.publicReviewsDto }),
+  r("POST", "/api/public/stores/:label/reviews", "A signed-in customer reviews a product (waits for the merchant's approval)", { auth: "public", status: 204, body: submitReviewSchema }),
+  r("GET", st("/reviews"), "The store's product reviews for moderation, newest first", { permission: "content.manage", query: reviewListQuerySchema, response: z.array(S.storeReviewDto) }),
+  r("POST", st("/reviews/:reviewId/status"), "Approve or reject a review", { permission: "content.manage", status: 204, body: reviewStatusSchema }),
+  r("POST", st("/reviews/:reviewId/reply"), "Answer a review publicly (empty text removes the answer)", { permission: "content.manage", status: 204, body: reviewReplySchema }),
   r("GET", "/api/platform/invites", "Invitation codes (newest 100; never the codes themselves)", { platform: true, response: z.array(S.inviteDto) }),
   r("POST", "/api/platform/invites", "Issue a single-use invitation code (returned once with its sign-up link; audited)", { platform: true, status: 201, body: createInviteSchema, response: z.object({ id: z.string(), code: z.string(), url: z.string(), expiresAt: z.string() }) }),
   r("POST", "/api/platform/invites/:id/revoke", "Revoke an unused invitation (audited)", { platform: true, status: 204 }),

@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   "orders.view", // orders with the shopper's name, phone and address (phase 3.4): personal data, owner and manager only
   "orders.manage", // confirm, ship, deliver, cancel orders (phase 3.4)
   "discounts.manage", // discount codes (phase 5.1): owner and manager
+  "content.manage", // reviews moderation and the blog: owner and manager
   "support.write", // support requests to the platform (owner and manager); also allowed while the store is suspended, so the owner can ask why
   "payout.manage", // the bank cards shoppers transfer money to (D-3, V0-1): create, replace, remove. Owner only
 ] as const;

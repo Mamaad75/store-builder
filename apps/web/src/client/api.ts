@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, ticketDto, ticketDetailDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, ticketDto, ticketDetailDto, storeReviewDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -164,3 +164,9 @@ export const getTicket = (storeId: string, id: string) => send<TicketDetailDto>(
 export const openTicket = (storeId: string, body: unknown) => send<TicketDto>("POST", `${store(storeId)}/tickets`, { body });
 export const replyTicket = (storeId: string, id: string, body: string) => send<TicketDto>("POST", `${store(storeId)}/tickets/${enc(id)}/messages`, { body: { body } });
 export const closeTicket = (storeId: string, id: string) => send("POST", `${store(storeId)}/tickets/${enc(id)}/close`);
+
+// product reviews (moderation)
+export type StoreReviewDto = z.infer<typeof storeReviewDto>;
+export const getReviews = (storeId: string, query: { status?: string; before?: string; limit?: string }) => send<StoreReviewDto[]>("GET", `${store(storeId)}/reviews`, { query });
+export const setReviewStatus = (storeId: string, id: string, status: string) => send("POST", `${store(storeId)}/reviews/${enc(id)}/status`, { body: { status } });
+export const replyReview = (storeId: string, id: string, reply: string) => send("POST", `${store(storeId)}/reviews/${enc(id)}/reply`, { body: { reply } });

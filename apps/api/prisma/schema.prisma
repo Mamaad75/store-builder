@@ -287,6 +287,7 @@ model Product {
   cartItems    CartItem[]
   /// The extra images of the gallery (positions 1 to 5); the first image stays `image` (imageId).
   gallery      ProductImage[]
+  reviews      ProductReview[]
 
   @@unique([storeId, slug])
   /// Phase 3.2: lets variants and reservations reference (storeId, id), so a row can never point at a product of another store.
@@ -501,6 +502,7 @@ model Customer {
   store           Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
   carts           Cart[]
   addresses       CustomerAddress[]
+  reviews         ProductReview[]
 
   @@unique([storeId, phone])
   /// Phase 3.3: lets carts and addresses reference (storeId, id), so they can never point at a customer of another store.
@@ -1238,4 +1240,35 @@ model SupportTicketMessage {
   ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId, createdAt])
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// A customer's review of a product: shown to the public only once the merchant approves it. One per customer and product.
+model ProductReview {
+  id         String       @id @default(cuid())
+  storeId    String
+  productId  String
+  customerId String
+  /// The customer's name at the time (or "خریدار"); never the phone number.
+  authorName String       @db.VarChar(60)
+  rating     Int
+  body       String       @db.VarChar(1000)
+  status     ReviewStatus @default(PENDING)
+  /// The merchant's public answer.
+  reply      String?      @db.VarChar(1000)
+  repliedAt  DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  product  Product  @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
+  customer Customer @relation(fields: [storeId, customerId], references: [storeId, id], onDelete: Cascade)
+
+  @@unique([productId, customerId])
+  @@index([storeId, status, createdAt])
+  @@index([productId, status, createdAt])
 }

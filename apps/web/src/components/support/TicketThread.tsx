@@ -15,7 +15,7 @@ import { date } from "@/components/orders/labels";
 export const STATUS_COLOR: Record<TicketStatus, "warning" | "success" | "default"> = { OPEN: "warning", ANSWERED: "success", CLOSED: "default" };
 
 export function StatusChip({ status }: { status: TicketStatus }) {
-  return <Chip size="small" color={STATUS_COLOR[status]} variant={status === "CLOSED" ? "outlined" : "filled"} label={TICKET_STATUS_LABELS[status]} />;
+  return <Chip size="small" color={STATUS_COLOR[status]} variant={status === "CLOSED" ? "outlined" : "filled"} label={TICKET_STATUS_LABELS[status]} sx={status === "OPEN" ? { bgcolor: "#ffe0b2", color: "#4e2600" } : undefined} />;
 }
 
 export interface ThreadMessage {

@@ -4,6 +4,7 @@ import { shopApiPath } from "./shop-route";
 describe("store-host shop API mapping", () => {
   it("forwards the shopper routes to the store named by the HOST", () => {
     expect(shopApiPath("shop", "/api/shop/visit")).toBe("/api/public/stores/shop/visit");
+    expect(shopApiPath("shop", "/api/shop/reviews")).toBe("/api/public/stores/shop/reviews");
     expect(shopApiPath("shop", "/api/shop/cart")).toBe("/api/public/stores/shop/cart");
     expect(shopApiPath("shop", "/api/shop/cart/items")).toBe("/api/public/stores/shop/cart/items");
     expect(shopApiPath("shop", "/api/shop/checkout/quote")).toBe("/api/public/stores/shop/checkout/quote");

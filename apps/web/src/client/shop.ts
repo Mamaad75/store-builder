@@ -100,3 +100,9 @@ export const deleteAddress = (id: string) => send("DELETE", `/api/shop/customer/
 
 /** A same-site path to return to after signing in (never another host). */
 export const safeNext = (raw: string | null): string => (raw && /^\/(?!\/)[\w\-/%.?=&]*$/.test(raw) ? raw : "/account");
+
+// ---- product reviews (the customer writes, the merchant approves; only approved ones are listed)
+export type ShopReview = { id: string; authorName: string; rating: number; body: string; reply: string | null; createdAt: string };
+export type ShopReviews = { summary: { count: number; average: number | null }; reviews: ShopReview[] };
+export const productReviews = (slug: string) => send<ShopReviews>("GET", "/api/shop/reviews", { query: { product: slug } });
+export const submitReview = (productSlug: string, rating: number, body: string) => send("POST", "/api/shop/reviews", { body: { productSlug, rating, body } });
