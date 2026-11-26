@@ -19,6 +19,8 @@ export const productSelect = {
   image: { select: { id: true, key: true, width: true, height: true } },
   createdAt: true,
   updatedAt: true,
+  // How many variants and price links the product has: the list disables the quick edit of a price or stock that something else owns.
+  _count: { select: { variants: true, priceLinks: true } },
 } satisfies Prisma.ProductSelect;
 
 export type ProductView = Prisma.ProductGetPayload<{ select: typeof productSelect }>;

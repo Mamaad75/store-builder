@@ -73,6 +73,8 @@ export interface ProductDto {
   image: MediaRefDto | null;
   createdAt: string;
   updatedAt: string;
+  /** Variants and price links: with variants the price and stock come from them; a link on a product without variants owns its price. */
+  _count: { variants: number; priceLinks: number };
 }
 
 export interface ProductListDto {

@@ -10522,6 +10522,27 @@
                           "updatedAt": {
                             "type": "string",
                             "description": "ISO 8601 date-time"
+                          },
+                          "_count": {
+                            "type": "object",
+                            "properties": {
+                              "variants": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "priceLinks": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "variants",
+                              "priceLinks"
+                            ],
+                            "additionalProperties": false,
+                            "description": "with variants, price and stock come from them; a link on a product without variants owns its price"
                           }
                         },
                         "required": [
@@ -10538,7 +10559,8 @@
                           "category",
                           "image",
                           "createdAt",
-                          "updatedAt"
+                          "updatedAt",
+                          "_count"
                         ],
                         "additionalProperties": false
                       }
@@ -10866,6 +10888,27 @@
                     "updatedAt": {
                       "type": "string",
                       "description": "ISO 8601 date-time"
+                    },
+                    "_count": {
+                      "type": "object",
+                      "properties": {
+                        "variants": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "priceLinks": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "variants",
+                        "priceLinks"
+                      ],
+                      "additionalProperties": false,
+                      "description": "with variants, price and stock come from them; a link on a product without variants owns its price"
                     }
                   },
                   "required": [
@@ -10882,7 +10925,8 @@
                     "category",
                     "image",
                     "createdAt",
-                    "updatedAt"
+                    "updatedAt",
+                    "_count"
                   ],
                   "additionalProperties": false
                 }
@@ -11119,6 +11163,27 @@
                     "updatedAt": {
                       "type": "string",
                       "description": "ISO 8601 date-time"
+                    },
+                    "_count": {
+                      "type": "object",
+                      "properties": {
+                        "variants": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "priceLinks": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "variants",
+                        "priceLinks"
+                      ],
+                      "additionalProperties": false,
+                      "description": "with variants, price and stock come from them; a link on a product without variants owns its price"
                     }
                   },
                   "required": [
@@ -11135,7 +11200,8 @@
                     "category",
                     "image",
                     "createdAt",
-                    "updatedAt"
+                    "updatedAt",
+                    "_count"
                   ],
                   "additionalProperties": false
                 }
@@ -11448,6 +11514,27 @@
                     "updatedAt": {
                       "type": "string",
                       "description": "ISO 8601 date-time"
+                    },
+                    "_count": {
+                      "type": "object",
+                      "properties": {
+                        "variants": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "priceLinks": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "variants",
+                        "priceLinks"
+                      ],
+                      "additionalProperties": false,
+                      "description": "with variants, price and stock come from them; a link on a product without variants owns its price"
                     }
                   },
                   "required": [
@@ -11464,7 +11551,8 @@
                     "category",
                     "image",
                     "createdAt",
-                    "updatedAt"
+                    "updatedAt",
+                    "_count"
                   ],
                   "additionalProperties": false
                 }
@@ -12801,6 +12889,27 @@
                     "updatedAt": {
                       "type": "string",
                       "description": "ISO 8601 date-time"
+                    },
+                    "_count": {
+                      "type": "object",
+                      "properties": {
+                        "variants": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "priceLinks": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "variants",
+                        "priceLinks"
+                      ],
+                      "additionalProperties": false,
+                      "description": "with variants, price and stock come from them; a link on a product without variants owns its price"
                     }
                   },
                   "required": [
@@ -12817,7 +12926,8 @@
                     "category",
                     "image",
                     "createdAt",
-                    "updatedAt"
+                    "updatedAt",
+                    "_count"
                   ],
                   "additionalProperties": false
                 }

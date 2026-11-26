@@ -50,6 +50,7 @@ export const productDto = z.object({
   image: mediaRefDto.nullable(),
   createdAt: iso,
   updatedAt: iso,
+  _count: z.object({ variants: z.number().int(), priceLinks: z.number().int() }).describe("with variants, price and stock come from them; a link on a product without variants owns its price"),
 });
 /** Phase 3.2: one purchasable combination of a product. */
 export const variantDto = z.object({

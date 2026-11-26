@@ -12,8 +12,8 @@ import Notice from "@/components/catalog/Notice";
 import ProductsPagination from "@/components/catalog/ProductsPagination";
 import StatusButtons from "@/components/catalog/StatusButtons";
 import StatusChip from "@/components/catalog/StatusChip";
+import QuickEdit from "@/components/catalog/QuickEdit";
 import { LinkButton, TextLink } from "@/components/NextLinks";
-import { formatNumberFa, formatToman } from "@store-builder/shared/lib/money";
 import { analyzeSpecs } from "@store-builder/shared/lib/product-specs";
 import { requireUser } from "@/modules/auth/session";
 import { listCategories } from "@/gateway/catalog";
@@ -148,12 +148,12 @@ export default async function ProductsPage({
               </Box>
               <Typography component="span">
                 <MobileLabel>قیمت:</MobileLabel>
-                {formatToman(p.price)}
+                <QuickEdit storeId={storeId} productId={p.id} productName={p.name} field="price" value={p.price} lockedReason={p._count.variants > 0 ? "از تنوع‌ها" : p._count.priceLinks > 0 ? "متصل به نرخ" : undefined} />
               </Typography>
               <Typography component="span" sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
                 <span>
                   <MobileLabel>موجودی:</MobileLabel>
-                  {formatNumberFa(p.stockQuantity)}
+                  <QuickEdit storeId={storeId} productId={p.id} productName={p.name} field="stockQuantity" value={p.stockQuantity} lockedReason={p._count.variants > 0 ? "جمع تنوع‌ها" : undefined} />
                 </span>
                 {p.stockQuantity === 0 && (
                   <Typography component="span" variant="caption" color="error" data-testid="out-of-stock">
