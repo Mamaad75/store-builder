@@ -189,3 +189,37 @@ export function Sparkline({ values, color }: { values: number[]; color: string }
     </svg>
   );
 }
+
+export interface DonutSlice {
+  key: string;
+  label: string;
+  value: number;
+  color: string;
+}
+
+/**
+ * A ring split by value. Decorative: the legend next to it (plain text with the same numbers) carries the meaning, so the picture is hidden
+ * from assistive technology. With nothing to show it is an empty grey ring, never a misleading full colour.
+ */
+export function Donut({ slices, size = 150, children }: { slices: DonutSlice[]; size?: number; children?: React.ReactNode }) {
+  const total = slices.reduce((n, s) => n + s.value, 0);
+  const R = 15.9155; // circumference = 100, so a value's share is its dash length in percent
+  let offset = 25; // start at the top
+  return (
+    <Box sx={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg viewBox="0 0 42 42" width={size} height={size} aria-hidden focusable="false">
+        <circle cx="21" cy="21" r={R} fill="none" stroke={GRID} strokeWidth="5" />
+        {total > 0 &&
+          slices
+            .filter((s) => s.value > 0)
+            .map((s) => {
+              const pct = (s.value / total) * 100;
+              const el = <circle key={s.key} cx="21" cy="21" r={R} fill="none" stroke={s.color} strokeWidth="5" strokeDasharray={`${pct} ${100 - pct}`} strokeDashoffset={offset} />;
+              offset -= pct;
+              return el;
+            })}
+      </svg>
+      <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center", p: 2 }}>{children}</Box>
+    </Box>
+  );
+}

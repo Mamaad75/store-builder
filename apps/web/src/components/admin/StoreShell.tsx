@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react';
 import AddBoxOutlined from '@mui/icons-material/AddBoxOutlined';
 import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
+import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
 import CreditCardOutlined from '@mui/icons-material/CreditCardOutlined';
 import SmsOutlined from '@mui/icons-material/SmsOutlined';
@@ -80,6 +81,12 @@ type Item = {
 
 function buildNav(base: string): Item[] {
   return [
+    {
+      label: 'داشبورد',
+      href: `${base}/dashboard`,
+      icon: <DashboardOutlined />,
+      match: (p) => p.startsWith(`${base}/dashboard`),
+    },
     {
       label: 'سفارش‌ها',
       href: `${base}/orders`,

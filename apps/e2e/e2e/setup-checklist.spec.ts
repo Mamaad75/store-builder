@@ -13,7 +13,7 @@ test("setup checklist: open items link to their pages, tick off as they are done
   const { id } = (await created.json()) as { id: string };
   const base = `/dashboard/stores/${id}`;
 
-  await page.goto(base);
+  await page.goto(`${base}/dashboard`);
   const list = page.getByTestId("setup-checklist");
   await expect(list).toBeVisible();
   for (const key of ["product", "shipping", "payment", "subdomain", "publish"]) await expect(list.locator(`[data-step=${key}]`)).toHaveAttribute("data-done", "false");
@@ -46,7 +46,7 @@ test("setup checklist: a fully set up, published store shows none", async ({ pag
   await apiSignUp(page);
   const s = await createLiveStore(page);
   const answered = page.waitForResponse((r) => r.url().endsWith(`/stores/${s.storeId}/setup`));
-  await page.goto(`/dashboard/stores/${s.storeId}`);
+  await page.goto(`/dashboard/stores/${s.storeId}/dashboard`);
   expect((await answered).status()).toBe(200); // the checklist asked and was told "complete": that is why it is absent
   await expect(page.getByTestId("setup-checklist")).toHaveCount(0);
 });

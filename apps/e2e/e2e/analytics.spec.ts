@@ -28,7 +28,7 @@ test("charts show real visits, orders and sales; the range switch works; accessi
   expect(stat[0]!.visitors).toBe(1); // one shopper, however many pages
   expect(JSON.stringify(await db.storeDailyVisitor.findMany())).toMatch(/"hash":"[0-9a-f]{64}"/);
 
-  await page.goto(`/dashboard/stores/${s.storeId}`);
+  await page.goto(`/dashboard/stores/${s.storeId}/dashboard`);
   const section = page.getByRole("region", { name: "روند فروشگاه" });
   await expect(section.getByTestId("kpi-sales")).toContainText("۱۵۰٬۰۰۰ تومان"); // 120,000 + 30,000 shipping
   await expect(section.getByTestId("kpi-orders")).toContainText("۱");
@@ -84,6 +84,6 @@ test("a bot, a Do-Not-Track browser and a visit to an unpublished store are not 
 
   expect(await db.storeDailyStat.count({ where: { storeId: s.storeId } })).toBe(0);
   // ...and the dashboard says visits have not started, instead of implying "zero shoppers".
-  await page.goto(`/dashboard/stores/${s.storeId}`);
+  await page.goto(`/dashboard/stores/${s.storeId}/dashboard`);
   await expect(page.getByTestId("visits-not-started")).toBeVisible();
 });
