@@ -7,10 +7,13 @@ import AddBoxOutlined from '@mui/icons-material/AddBoxOutlined';
 import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
+import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
 import CreditCardOutlined from '@mui/icons-material/CreditCardOutlined';
 import SmsOutlined from '@mui/icons-material/SmsOutlined';
 import LocalOfferOutlined from '@mui/icons-material/LocalOfferOutlined';
+import type { Permission } from '@store-builder/shared/modules/access/permissions';
 import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined';
 import PeopleAltOutlined from '@mui/icons-material/PeopleAltOutlined';
 import ExpandLess from '@mui/icons-material/ExpandLess';
@@ -50,6 +53,8 @@ export interface StoreShellProps {
   };
   /** Public address when the store is live, else null. */
   liveUrl: string | null;
+  /** What this person may do in the store (null = unknown: show everything; the API refuses what a role cannot do anyway). */
+  permissions: readonly Permission[] | null;
   children: ReactNode;
 }
 
@@ -168,6 +173,18 @@ function buildNav(base: string): Item[] {
       match: (p) => p.startsWith(`${base}/publish`),
     },
     {
+      label: 'تیم',
+      href: `${base}/team`,
+      icon: <GroupsOutlined />,
+      match: (p) => p.startsWith(`${base}/team`),
+    },
+    {
+      label: 'گزارش فعالیت‌ها',
+      href: `${base}/activity`,
+      icon: <HistoryRounded />,
+      match: (p) => p.startsWith(`${base}/activity`),
+    },
+    {
       label: 'تنظیمات',
       href: base,
       icon: <SettingsOutlined />,
@@ -175,6 +192,24 @@ function buildNav(base: string): Item[] {
     },
   ];
 }
+
+/** The permission a page needs to be useful (the API enforces it regardless; this only hides what would answer "forbidden"). */
+const NAV_PERMISSION: Record<string, Permission> = {
+  داشبورد: 'orders.view',
+  'سفارش‌ها': 'orders.view',
+  'مشتری‌ها': 'customers.view',
+  'روش‌های ارسال': 'store.settings',
+  'روش‌های پرداخت': 'store.settings',
+  'کدهای تخفیف': 'discounts.manage',
+  'پیامک سفارش': 'store.settings',
+  ظاهر: 'theme.switch',
+  انتشار: 'publish',
+  تیم: 'members.manage',
+  'گزارش فعالیت‌ها': 'audit.view',
+  تنظیمات: 'store.settings',
+};
+const visibleNav = (items: Item[], permissions: readonly Permission[] | null): Item[] =>
+  permissions === null ? items : items.filter((i) => !NAV_PERMISSION[i.label] || permissions.includes(NAV_PERMISSION[i.label]!));
 
 const rowSx = (active: boolean) => ({
   borderRadius: 2.5,
@@ -215,14 +250,16 @@ function Sidebar({
   store,
   base,
   pathname,
+  permissions,
   onNavigate,
 }: {
   store: StoreShellProps['store'];
   base: string;
   pathname: string;
+  permissions: readonly Permission[] | null;
   onNavigate?: () => void;
 }) {
-  const nav = buildNav(base);
+  const nav = visibleNav(buildNav(base), permissions);
   const [open, setOpen] = useState<Record<string, boolean>>({
     محصولات: pathname.startsWith(`${base}/products`),
   });
@@ -383,6 +420,7 @@ function Sidebar({
 export default function StoreShell({
   store,
   liveUrl,
+  permissions,
   children,
 }: StoreShellProps) {
   const pathname = usePathname();
@@ -416,7 +454,7 @@ export default function StoreShell({
             minHeight: 520,
           }}
         >
-          <Sidebar store={store} base={base} pathname={pathname} />
+          <Sidebar store={store} base={base} pathname={pathname} permissions={permissions} />
         </Box>
       </Box>
       <Drawer
@@ -433,6 +471,7 @@ export default function StoreShell({
           store={store}
           base={base}
           pathname={pathname}
+          permissions={permissions}
           onNavigate={() => setDrawer(false)}
         />
       </Drawer>

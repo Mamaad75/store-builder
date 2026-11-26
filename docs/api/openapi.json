@@ -1057,6 +1057,164 @@
         }
       }
     },
+    "/api/v1/admin/stores/{storeId}/access": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdAccess",
+        "summary": "My role in this store and what it may do (the dashboard shows only the pages a role can use)",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "store.view",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "OWNER",
+                        "MANAGER",
+                        "OPERATOR"
+                      ]
+                    },
+                    "permissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "store.view",
+                          "store.settings",
+                          "store.delete",
+                          "catalog.write",
+                          "media.write",
+                          "pages.write",
+                          "theme.switch",
+                          "publish",
+                          "domain.manage",
+                          "members.manage",
+                          "audit.view",
+                          "secrets.manage",
+                          "customers.view",
+                          "orders.view",
+                          "orders.manage",
+                          "discounts.manage",
+                          "payout.manage"
+                        ]
+                      },
+                      "description": "what this role may do in this store (the API enforces every route regardless)"
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "permissions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stores/{storeId}/analytics": {
       "get": {
         "operationId": "getApiV1AdminStoresStoreIdAnalytics",

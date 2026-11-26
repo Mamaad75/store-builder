@@ -2,7 +2,7 @@ import { Global, Module } from "@nestjs/common";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { AccessService } from "./application/access.service.js";
 import { createAccessService } from "./infrastructure/compose.js";
-import { AuditController, MyAccessController, TeamController } from "./interface/access.controllers.js";
+import { AuditController, MyAccessController, StoreAccessInfoController, TeamController } from "./interface/access.controllers.js";
 import { AuditInterceptor, StoreAccessGuard } from "./interface/store-access.js";
 
 /**
@@ -11,7 +11,7 @@ import { AuditInterceptor, StoreAccessGuard } from "./interface/store-access.js"
  */
 @Global()
 @Module({
-  controllers: [TeamController, AuditController, MyAccessController],
+  controllers: [TeamController, AuditController, MyAccessController, StoreAccessInfoController],
   providers: [{ provide: AccessService, useFactory: createAccessService }, StoreAccessGuard, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }],
   exports: [AccessService, StoreAccessGuard],
 })

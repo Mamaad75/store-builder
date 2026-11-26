@@ -111,6 +111,25 @@ describe("roles over HTTP (D23-1)", () => {
   });
 });
 
+describe("my access (the dashboard shows only what a role can use)", () => {
+  it("GET /stores/:id/access gives each role exactly its permissions; a stranger gets 404", async () => {
+    const { storeId, owner, o, s } = await team("OPERATOR");
+    expect((await o("GET", `/stores/${storeId}/access`)).json).toMatchObject({ role: "OWNER", permissions: expect.arrayContaining(["members.manage", "audit.view", "publish"]) });
+    const op = (await s("GET", `/stores/${storeId}/access`)).json;
+    expect(op.role).toBe("OPERATOR");
+    expect(op.permissions).toEqual(expect.arrayContaining(["store.view", "catalog.write"]));
+    for (const no of ["publish", "members.manage", "audit.view", "orders.view", "store.settings"]) expect(op.permissions).not.toContain(no);
+    const manager = await team("MANAGER");
+    const m = (await manager.s("GET", `/stores/${manager.storeId}/access`)).json;
+    expect(m.role).toBe("MANAGER");
+    expect(m.permissions).toEqual(expect.arrayContaining(["audit.view", "orders.view"]));
+    expect(m.permissions).not.toContain("members.manage");
+    const stranger = await as((await makeUser()).id);
+    expect((await stranger("GET", `/stores/${storeId}/access`)).status).toBe(404);
+    void owner;
+  });
+});
+
 describe("invitations and staff changes (D23-2)", () => {
   it("nobody joins without accepting; an invitation cannot be accepted by someone else or after it expired", async () => {
     const owner = await makeUser();

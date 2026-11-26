@@ -160,6 +160,7 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", st("/subdomain"), "Claim or change the subdomain", { permission: "domain.manage", status: 200, body: doc({ label: z.string().max(63), confirmChange: z.boolean().optional() }), bodyDoc: true, response: z.object({ label: z.string(), changed: z.boolean() }) }),
 
   // ---- admin: staff and audit (2.3), secrets (2.4)
+  r("GET", st("/access"), "My role in this store and what it may do (the dashboard shows only the pages a role can use)", { permission: "store.view", response: S.storeAccessDto }),
   r("GET", st("/team"), "Members and pending invitations", { permission: "members.manage", response: S.teamDto }),
   r("POST", st("/team/invitations"), "Invite an existing account", { permission: "members.manage", status: 201, body: inviteSchema, response: id }),
   r("POST", st("/team/invitations/:invitationId/cancel"), "Cancel an invitation", { permission: "members.manage", status: 204 }),

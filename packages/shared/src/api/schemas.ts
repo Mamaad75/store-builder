@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type * as D from "../dto/index.js";
-import { STAFF_ROLES, STORE_ROLES } from "../modules/access/permissions.js";
+import { PERMISSIONS, STAFF_ROLES, STORE_ROLES } from "../modules/access/permissions.js";
 import type { PageEditorRules } from "../templates/editor.js";
 import type { PageSection, SectionIssue } from "../templates/section-parse.js";
 import { PAGE_TYPES } from "../templates/sections.js";
@@ -138,6 +138,7 @@ export const auditEventDto = z.object({
   metadata: z.unknown(),
   createdAt: iso,
 });
+export const storeAccessDto = z.object({ role: z.enum(STORE_ROLES), permissions: z.array(z.enum(PERMISSIONS)).describe("what this role may do in this store (the API enforces every route regardless)") });
 export const secretListDto = z.object({ configured: z.boolean(), secrets: z.array(z.object({ name: z.string(), hint: z.string().nullable(), updatedAt: iso })) });
 
 // ---- phase 3.1: customers and platform operators (pinned to the service results in apps/api/src/dto.check.ts)

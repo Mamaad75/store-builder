@@ -1,3 +1,4 @@
+import { ROLE_PERMISSIONS } from "@store-builder/shared/modules/access/permissions";
 import { beforeEach, describe, expect, it } from "vitest";
 import { InvitationTargetError, PermissionDeniedError, StaffLimitError, StoreSuspendedError } from "@store-builder/shared/modules/access/errors";
 import { MAX_STAFF_PER_STORE, PERMISSIONS, type StaffRole } from "@store-builder/shared/modules/access/permissions";
@@ -81,6 +82,20 @@ describe("resolve: one decision per request", () => {
   it("membership is per store: a member of s1 has nothing in s2", async () => {
     mem.staff.push({ storeId: "s1", userId: "u-ali", role: "MANAGER" });
     await expect(svc.resolve("u-ali", "s2", "store.view")).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("mine: what the caller may do", () => {
+  it("returns the role and exactly the permissions the shared table gives it (a copy, never the shared array)", async () => {
+    const owner = await svc.resolve("owner", "s1", "store.view");
+    const m = svc.mine(owner);
+    expect(m.role).toBe("OWNER");
+    expect(m.permissions).toEqual([...ROLE_PERMISSIONS.OWNER]);
+    m.permissions.pop();
+    expect(ROLE_PERMISSIONS.OWNER.length).toBeGreaterThan(m.permissions.length);
+    mem.staff.push({ storeId: "s1", userId: "u-ali", role: "OPERATOR" });
+    const op = svc.mine(await svc.resolve("u-ali", "s1", "store.view"));
+    expect([op.role, op.permissions.includes("catalog.write"), op.permissions.includes("publish"), op.permissions.includes("audit.view")]).toEqual(["OPERATOR", true, false, false]);
   });
 });
 

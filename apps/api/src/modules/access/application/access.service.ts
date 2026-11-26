@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { InvitationTargetError, PermissionDeniedError, StaffLimitError, StoreSuspendedError } from "@store-builder/shared/modules/access/errors";
-import { MAX_STAFF_PER_STORE, allowedWhileSuspended, can, type Permission } from "@store-builder/shared/modules/access/permissions";
+import { MAX_STAFF_PER_STORE, ROLE_PERMISSIONS, allowedWhileSuspended, can, type Permission, type StoreRole } from "@store-builder/shared/modules/access/permissions";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
 import { storeIdSchema } from "@store-builder/shared/modules/stores/schemas";
 import { inviteSchema, roleSchema } from "@store-builder/shared/modules/access/schemas";
@@ -131,6 +131,11 @@ export class AccessService {
 
   sharedStores(userId: string): Promise<SharedStoreView[]> {
     return this.repo.sharedStores(userId);
+  }
+
+  /** The caller's role in this store and what it may do (the dashboard hides what a role cannot use; the API still enforces every route). */
+  mine(a: StoreAccessContext): { role: StoreRole; permissions: Permission[] } {
+    return { role: a.role, permissions: [...ROLE_PERMISSIONS[a.role]] };
   }
 
   // ---- audit log (audit.view) ----

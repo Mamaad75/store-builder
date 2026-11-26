@@ -14,8 +14,9 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const target = process.env.API_DEV_PROXY_URL ?? (process.env.NODE_ENV === "development" ? process.env.INTERNAL_API_URL ?? "http://127.0.0.1:4000" : undefined);
     if (!target) return [];
-    // Phase 3.1: plus the super admin API (/api/v1/platform), which the /platform pages call from the browser.
-    return ["auth", "stores", "public", "v1/platform"].map((p) => ({ source: `/api/${p}/:path*`, destination: `${target}/api/${p}/:path*` }));
+    // Phase 3.1: plus the super admin API (/api/v1/platform), which the /platform pages call from the browser; and the signed-in account's
+    // own routes (/api/v1/me: invitations and memberships), which the stores page calls (production: Caddy routes /api/v1/me/*).
+    return ["auth", "stores", "public", "v1/platform", "v1/me"].map((p) => ({ source: `/api/${p}/:path*`, destination: `${target}/api/${p}/:path*` }));
   },
   async headers() {
     return [

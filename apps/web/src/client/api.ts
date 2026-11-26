@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -68,6 +68,23 @@ export type ShippingMethodDto = z.infer<typeof shippingMethodDto>;
 export const listOrders = (storeId: string, query: { status?: string; customerId?: string; review?: "receipt"; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
 // M2: the store overview (orders.view: owner and manager).
 export type StoreOverview = z.infer<typeof storeOverviewDto>;
+// ---- team, activity log and my invitations (phase 2.3): staff of a store, what happened, and the invitations addressed to me
+// (the "me" routes are called on the versioned path: that is the one Caddy routes to the API in production)
+export type TeamView = z.infer<typeof teamDto>;
+export type AuditEntry = z.infer<typeof auditEventDto>;
+export type MyInvitation = z.infer<typeof myInvitationDto>;
+export type SharedStore = z.infer<typeof sharedStoreDto>;
+export const getTeam = (storeId: string) => send<TeamView>("GET", `${store(storeId)}/team`);
+export const inviteStaff = (storeId: string, input: { username: string; role: "MANAGER" | "OPERATOR" }) => send<{ id: string }>("POST", `${store(storeId)}/team/invitations`, { body: input });
+export const cancelInvitation = (storeId: string, id: string) => send("POST", `${store(storeId)}/team/invitations/${enc(id)}/cancel`);
+export const changeMemberRole = (storeId: string, userId: string, role: "MANAGER" | "OPERATOR") => send("PATCH", `${store(storeId)}/team/members/${enc(userId)}`, { body: { role } });
+export const removeMember = (storeId: string, userId: string) => send("POST", `${store(storeId)}/team/members/${enc(userId)}/remove`);
+export const getAudit = (storeId: string, before?: string) => send<AuditEntry[]>("GET", `${store(storeId)}/audit`, { query: { before, limit: "50" } });
+export const getMyInvitations = () => send<MyInvitation[]>("GET", "/api/v1/me/invitations");
+export const acceptInvitation = (id: string) => send<{ storeId: string }>("POST", `/api/v1/me/invitations/${enc(id)}/accept`);
+export const declineInvitation = (id: string) => send("POST", `/api/v1/me/invitations/${enc(id)}/decline`);
+export const leaveStore = (storeId: string) => send("POST", `/api/v1/me/memberships/${enc(storeId)}/leave`);
+
 // Store trend charts (orders.view: owner and manager).
 export type StoreAnalytics = z.infer<typeof storeAnalyticsDto>;
 export const getAnalytics = (storeId: string, days: 7 | 30 | 90) => send<StoreAnalytics>("GET", `${store(storeId)}/analytics?days=${days}`);

@@ -47,6 +47,19 @@ export class TeamController {
   }
 }
 
+/** What the signed-in user may do in this store (any member: store.view). Lets the dashboard show only the pages a role can use. */
+@Controller("stores/:storeId/access")
+@UseGuards(SessionGuard, StoreAccessGuard)
+export class StoreAccessInfoController {
+  constructor(@Inject(AccessService) private readonly access: AccessService) {}
+
+  @Get()
+  @RequirePermission("store.view")
+  mine(@StoreAccess() a: StoreAccessContext) {
+    return this.access.mine(a);
+  }
+}
+
 /** The store's audit log (owner and manager: audit.view), newest first, cursor = `before`. */
 @Controller("stores/:storeId/audit")
 @UseGuards(SessionGuard, StoreAccessGuard)

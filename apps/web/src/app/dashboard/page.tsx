@@ -17,7 +17,8 @@ import { MAX_STORES_PER_USER } from "@store-builder/shared/modules/stores/schema
 import Onboarding from "@/components/Onboarding";
 import { buildOnboarding } from "@store-builder/shared/modules/stores/onboarding";
 import Alert from "@mui/material/Alert";
-import { getAccountNotices, getOnboardingFacts, listStores } from "@/gateway/stores";
+import { getAccountNotices, getOnboardingFacts, listMyInvitations, listSharedStores, listStores } from "@/gateway/stores";
+import SharedAccess from "@/components/team/SharedAccess";
 
 export const metadata: Metadata = { title: "فروشگاه‌های من" };
 
@@ -37,7 +38,13 @@ const fa = (n: number) => n.toLocaleString("fa-IR");
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [stores, facts, notices] = await Promise.all([listStores(), getOnboardingFacts(), getAccountNotices().catch(() => ({ recoveredAt: null }))]);
+  const [stores, facts, notices, invitations, shared] = await Promise.all([
+    listStores(),
+    getOnboardingFacts(),
+    getAccountNotices().catch(() => ({ recoveredAt: null })),
+    listMyInvitations().catch(() => []), // staff features must never take the stores page down
+    listSharedStores().catch(() => []),
+  ]);
   // MVP item 2: the API returns the date only within 30 days of a recovery by platform support.
   const recentRecovery = notices.recoveredAt ? new Date(notices.recoveredAt) : null;
   const onboarding = buildOnboarding(facts);
@@ -69,6 +76,7 @@ export default async function DashboardPage() {
             )}
           </Stack>
         </Box>
+        <SharedAccess invitations={invitations} shared={shared} />
         {onboarding && <Onboarding data={onboarding} />}
         {stores.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 8, px: 2, border: "2px dashed", borderColor: "#cfd4ef", borderRadius: 4, bgcolor: "#fafbff" }}>
