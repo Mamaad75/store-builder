@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
-import AddBoxOutlined from '@mui/icons-material/AddBoxOutlined';
 import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
@@ -27,7 +26,6 @@ import RocketLaunchOutlined from '@mui/icons-material/RocketLaunchOutlined';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined';
-import ViewListOutlined from '@mui/icons-material/ViewListOutlined';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
@@ -110,20 +108,6 @@ function buildNav(base: string): Item[] {
       href: `${base}/products`,
       icon: <Inventory2Outlined />,
       match: (p) => p.startsWith(`${base}/products`),
-      children: [
-        {
-          label: 'همهٔ محصولات',
-          href: `${base}/products`,
-          icon: <ViewListOutlined fontSize='small' />,
-          exact: true,
-        },
-        {
-          label: 'افزودن محصول',
-          href: `${base}/products/new`,
-          icon: <AddBoxOutlined fontSize='small' />,
-          exact: true,
-        },
-      ],
     },
     {
       label: 'دسته‌بندی‌ها',

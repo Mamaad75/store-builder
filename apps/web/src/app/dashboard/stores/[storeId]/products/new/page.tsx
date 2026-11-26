@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Paper from "@mui/material/Paper";
+import { TextLink } from "@/components/NextLinks";
 import Typography from "@mui/material/Typography";
 import ProductForm from "@/components/catalog/ProductForm";
 import { requireUser } from "@/modules/auth/session";
@@ -24,6 +25,9 @@ export default async function NewProductPage({ params }: { params: Promise<{ sto
   }
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 } }}>
+      <TextLink href={`/dashboard/stores/${storeId}/products`} underline="hover" sx={{ display: "inline-block", mb: 1.5 }}>
+        → بازگشت به محصولات
+      </TextLink>
       <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 700 }}>
         افزودن محصول
       </Typography>
