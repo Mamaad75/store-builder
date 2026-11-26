@@ -442,6 +442,7 @@ export default function StoreShell({
             px: { xs: 1.5, md: 3 },
             py: 1.25,
             display: 'flex',
+            flexWrap: 'wrap',
             alignItems: 'center',
             gap: 1.5,
           }}
@@ -458,7 +459,7 @@ export default function StoreShell({
             role='search'
             action={`${base}/products`}
             data-testid='store-search'
-            sx={{ flex: 1, maxWidth: 520 }}
+            sx={{ flex: 1, maxWidth: 520, minWidth: { xs: '100%', sm: 200 }, order: { xs: 3, sm: 0 } }}
           >
             <TextField
               name='q'
