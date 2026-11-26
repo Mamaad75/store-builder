@@ -53,7 +53,7 @@ export default function StoreSetupChecklist({ storeId }: { storeId: string }) {
               <Box sx={{ flex: 1, minWidth: 200 }}>
                 <Typography sx={{ fontWeight: 600 }}>
                   {t.label}
-                  <Box component="span" sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>{i.done ? " (انجام شد)" : " (انجام نشده)"}</Box>
+                  <Box component="span" sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>{i.done ? " (انجام شد)" : " (انجام نشده)"}</Box>
                 </Typography>
                 {!i.done && <Typography variant="body2" color="text.secondary">{t.hint}</Typography>}
               </Box>
