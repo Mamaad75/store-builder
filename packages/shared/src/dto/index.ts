@@ -75,6 +75,8 @@ export interface ProductDto {
   updatedAt: string;
   /** Variants and price links: with variants the price and stock come from them; a link on a product without variants owns its price. */
   _count: { variants: number; priceLinks: number };
+  /** The extra images after `image` (at most five), in order. */
+  gallery: { media: MediaRefDto }[];
 }
 
 export interface ProductListDto {

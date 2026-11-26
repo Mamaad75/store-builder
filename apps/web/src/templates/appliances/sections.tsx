@@ -9,6 +9,7 @@ import type { StorefrontProduct } from "@store-builder/shared/templates/storefro
 import { initial } from "./Layout";
 import s from "./appliances.module.css";
 import BuyBox from "../commerce/BuyBox";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 function Section({ title, children, alt, id, level = 2 }: { title?: string; children: ReactNode; alt?: boolean; id: string; level?: 1 | 2 }) {
   const H = `h${level}` as "h1" | "h2";
@@ -213,6 +214,7 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
             <div className={s.detailArt} aria-hidden={p.image ? undefined : "true"}>
               <Art product={p} ctx={ctx} eager />
             </div>
+            <GalleryStrip ctx={ctx} product={p} />
           </div>
           <div>
             <h1 id={`${section.id}-title`} className={s.detailTitle}>

@@ -46,6 +46,8 @@ function toState(e: unknown, notFoundUrl: string): MediaFormState {
   if (e instanceof MediaStorageError) {
     return { error: "ذخیره‌سازی تصویر در حال حاضر ممکن نیست. بعداً دوباره تلاش کنید." };
   }
+  // e.g. the gallery is full: the API's own sentence
+  if (e instanceof ValidationError) return { error: Object.values(e.fieldErrors).flat()[0] ?? "اطلاعات واردشده معتبر نیست." };
   throw e;
 }
 
@@ -69,6 +71,44 @@ export async function uploadProductImageAction(_prev: MediaFormState, fd: FormDa
   }
   refresh();
   return { success: "تصویر محصول ذخیره شد." };
+}
+
+export async function addGalleryImageAction(_prev: MediaFormState, fd: FormData): Promise<MediaFormState> {
+  const storeId = str(fd, "storeId");
+  const productId = str(fd, "productId");
+  const bytes = await readFile(fd);
+  if (!(bytes instanceof File)) return bytes;
+  try {
+    await api.uploadProductGalleryImage(storeId, productId, bytes);
+  } catch (e) {
+    return toState(e, productUrl(storeId, productId));
+  }
+  refresh();
+  return { success: "تصویر به گالری محصول اضافه شد." };
+}
+
+export async function removeGalleryImageAction(_prev: MediaFormState, fd: FormData): Promise<MediaFormState> {
+  const storeId = str(fd, "storeId");
+  const productId = str(fd, "productId");
+  try {
+    await api.removeProductGalleryImage(storeId, productId, str(fd, "mediaId"));
+  } catch (e) {
+    return toState(e, productUrl(storeId, productId));
+  }
+  refresh();
+  return { success: "تصویر از گالری حذف شد." };
+}
+
+export async function makeGalleryPrimaryAction(_prev: MediaFormState, fd: FormData): Promise<MediaFormState> {
+  const storeId = str(fd, "storeId");
+  const productId = str(fd, "productId");
+  try {
+    await api.makeProductGalleryPrimary(storeId, productId, str(fd, "mediaId"));
+  } catch (e) {
+    return toState(e, productUrl(storeId, productId));
+  }
+  refresh();
+  return { success: "این تصویر اکنون تصویر اصلی محصول است." };
 }
 
 export async function removeProductImageAction(_prev: MediaFormState, fd: FormData): Promise<MediaFormState> {

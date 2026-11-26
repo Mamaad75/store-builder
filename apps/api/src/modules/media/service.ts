@@ -4,10 +4,11 @@ import { consoleSink } from "../../logging/json-logger.js";
 import { getMediaStorage, newMediaKey, type MediaStorage } from "../../lib/storage/index.js";
 import { getRateLimiter, rateLimitKey, type RateLimiter } from "../../lib/rate-limit.js";
 import { withStoreLock, withStoreMutation, type StoreLockedContext } from "../stores/mutation.js";
-import { DraftBusyError, NotFoundError } from "@store-builder/shared/modules/stores/errors";
+import { DraftBusyError, NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
+import { GALLERY_FULL_MESSAGE, nextGalleryPosition } from "@store-builder/shared/modules/products/gallery";
 import { StoreRepository } from "../stores/repository.js";
 import { parseStoreId } from "../stores/service.js";
-import { setProductImageRow, findProductImageInTx } from "../products/repository.js";
+import { setProductImageRow, findProductImageInTx, galleryRows, addGalleryRow, deleteGalleryRow } from "../products/repository.js";
 import { MAX_MEDIA_BYTES_PER_STORE, MAX_MEDIA_PER_STORE, MEDIA_RULES } from "./limits.js";
 import { MediaInUseError, MediaQuotaError, MediaRateLimitError, MediaStorageError } from "@store-builder/shared/modules/media/errors";
 import { processImage } from "./process.js";
@@ -131,10 +132,67 @@ export async function detachProductImage(ownerId: string, storeId: unknown, prod
   const previous = await withStoreMutation(ownerId, sid, async (ctx) => {
     const cur = await findProductImageInTx(ctx, productId);
     if (!cur) throw new NotFoundError();
-    if (cur.imageId) await setProductImageRow(ctx, productId, null);
+    if (cur.imageId) {
+      await setProductImageRow(ctx, productId, null);
+      // The gallery's first extra becomes the product's image (a product with other pictures never ends up without a main one).
+      const [next] = await galleryRows(ctx, productId);
+      if (next) {
+        await deleteGalleryRow(ctx, productId, next.mediaId);
+        await setProductImageRow(ctx, productId, next.mediaId);
+      }
+    }
     return cur.imageId;
   });
   if (previous) await releaseMediaBestEffort(ownerId, sid, previous, deps);
+}
+
+/**
+ * Adds an uploaded image to the product's gallery: it becomes the product's own image when it has none, otherwise the next extra
+ * (at most six images in all). All under the store lock, so two uploads at once can never exceed the limit or take the same position.
+ */
+export async function addProductGalleryImage(ownerId: string, storeId: unknown, productId: string, mediaId: string): Promise<void> {
+  const sid = parseStoreId(storeId);
+  await withStoreMutation(ownerId, sid, async (ctx) => {
+    await loadReadyMedia(ctx, mediaId);
+    const cur = await findProductImageInTx(ctx, productId);
+    if (!cur) throw new NotFoundError();
+    if (cur.imageId === mediaId) return;
+    const extras = await galleryRows(ctx, productId);
+    if (extras.some((e) => e.mediaId === mediaId)) return;
+    if (!cur.imageId) return void (await setProductImageRow(ctx, productId, mediaId));
+    const position = nextGalleryPosition(extras.map((e) => e.position));
+    if (position === null) throw new ValidationError({ image: [GALLERY_FULL_MESSAGE] });
+    await addGalleryRow(ctx, productId, mediaId, position);
+  });
+}
+
+/** Removes one of the extra images (not the product's own image: that is `detachProductImage`), then releases the file if nothing else uses it. */
+export async function removeProductGalleryImage(ownerId: string, storeId: unknown, productId: string, mediaId: string, deps: MediaDeps = {}): Promise<void> {
+  const sid = parseStoreId(storeId);
+  await withStoreMutation(ownerId, sid, async (ctx) => {
+    if (!(await deleteGalleryRow(ctx, productId, mediaId))) throw new NotFoundError();
+  });
+  await releaseMediaBestEffort(ownerId, sid, mediaId, deps);
+}
+
+/** Makes an extra image the product's own image; the old main image takes its place in the gallery. Nothing is released: both stay in use. */
+export async function makeGalleryImagePrimary(ownerId: string, storeId: unknown, productId: string, mediaId: string): Promise<void> {
+  const sid = parseStoreId(storeId);
+  await withStoreMutation(ownerId, sid, async (ctx) => {
+    const cur = await findProductImageInTx(ctx, productId);
+    if (!cur) throw new NotFoundError();
+    const extras = await galleryRows(ctx, productId);
+    if (!extras.some((e) => e.mediaId === mediaId)) throw new NotFoundError();
+    if (cur.imageId) {
+      // one statement order that never has the same image twice: free the extra's row first, then swap
+      await deleteGalleryRow(ctx, productId, mediaId);
+      await setProductImageRow(ctx, productId, mediaId);
+      await addGalleryRow(ctx, productId, cur.imageId, extras.find((e) => e.mediaId === mediaId)!.position);
+    } else {
+      await deleteGalleryRow(ctx, productId, mediaId);
+      await setProductImageRow(ctx, productId, mediaId);
+    }
+  });
 }
 
 export async function setStoreLogo(ownerId: string, storeId: unknown, mediaId: string, deps: MediaDeps = {}): Promise<void> {

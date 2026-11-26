@@ -16,6 +16,7 @@ import StatusButtons from "@/components/catalog/StatusButtons";
 import StatusChip from "@/components/catalog/StatusChip";
 import { requireUser } from "@/modules/auth/session";
 import { getCurrentRates, getProduct, listCategories, listPriceLinks, listVariants } from "@/gateway/catalog";
+import ProductGalleryManager from "@/components/catalog/ProductGalleryManager";
 import VariantsEditor from "@/components/catalog/VariantsEditor";
 import { ProductPriceLinkCard } from "@/components/catalog/PriceLinks";
 import type { ProductStatus } from "@store-builder/shared/modules/products/status";
@@ -106,6 +107,13 @@ export default async function EditProductPage({
             hidden={{ storeId, productId: product.id }}
             imageUrl={product.image ? safeUrl(product.image.key) : null}
             image={product.image?.width && product.image.height ? { width: product.image.width, height: product.image.height } : null}
+          />
+          <Divider />
+          <ProductGalleryManager
+            storeId={storeId}
+            productId={product.id}
+            hasMain={product.image !== null}
+            tiles={product.gallery.map((g) => ({ mediaId: g.media.id, url: safeUrl(g.media.key), width: g.media.width ?? 1, height: g.media.height ?? 1 }))}
           />
           <Divider />
           <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>

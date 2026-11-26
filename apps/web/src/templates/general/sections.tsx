@@ -7,6 +7,7 @@ import { ProductSpecs } from "../engine/Specs";
 import ProductCard, { ProductArt, StockBadge, initial } from "./ProductCard";
 import s from "./general.module.css";
 import BuyBox from "../commerce/BuyBox";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 function Section({
   title,
@@ -199,8 +200,11 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
           )}
         </nav>
         <div className={s.detail}>
-          <div className={s.detailArt} aria-hidden={p.image ? undefined : "true"}>
-            <ProductArt product={p} ctx={ctx} eager />
+          <div>
+            <div className={s.detailArt} aria-hidden={p.image ? undefined : "true"}>
+              <ProductArt product={p} ctx={ctx} eager />
+            </div>
+            <GalleryStrip ctx={ctx} product={p} />
           </div>
           <div>
             <h1 id={`${section.id}-title`} className={s.detailTitle}>

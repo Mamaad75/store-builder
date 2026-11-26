@@ -2,8 +2,8 @@ import { BadRequestException, Body, Controller, HttpCode, Param, Post, Query, Re
 import type { Request } from "express";
 import { SessionGuard } from "../../auth/session.guard.js";
 import { setSectionImage } from "../pages/service.js";
-import { uploadProductImage, uploadSectionImage, uploadStoreLogo } from "./orchestration.js";
-import { detachProductImage, removeStoreLogo } from "./service.js";
+import { uploadProductGalleryImage, uploadProductImage, uploadSectionImage, uploadStoreLogo } from "./orchestration.js";
+import { detachProductImage, makeGalleryImagePrimary, removeProductGalleryImage, removeStoreLogo } from "./service.js";
 import { Audit, RequirePermission, StoreAccess, StoreAccessGuard, type StoreAccessContext } from "../access/access.api.js";
 
 /** The image bytes of an upload: the raw request body (`application/octet-stream`, size-limited in app.ts). */
@@ -30,6 +30,31 @@ export class MediaController {
   @Audit("product.image_removed", { type: "product", param: "productId" })
   async removeProductImage(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Param("productId") productId: string): Promise<void> {
     await detachProductImage(a.ownerId, storeId, productId);
+  }
+
+  /** Adds an image to the product's gallery: its own image when it has none, otherwise the next of at most six. */
+  @Post("products/:productId/gallery")
+  @HttpCode(200)
+  @RequirePermission("media.write")
+  @Audit("product.gallery_image_added", { type: "product", param: "productId" })
+  async galleryAdd(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Param("productId") productId: string, @Req() req: Request) {
+    return uploadProductGalleryImage(a.ownerId, storeId, productId, imageBytes(req));
+  }
+
+  @Post("products/:productId/gallery/:mediaId/delete")
+  @HttpCode(204)
+  @RequirePermission("media.write")
+  @Audit("product.gallery_image_removed", { type: "product", param: "productId" })
+  async galleryRemove(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Param("productId") productId: string, @Param("mediaId") mediaId: string): Promise<void> {
+    await removeProductGalleryImage(a.ownerId, storeId, productId, mediaId);
+  }
+
+  @Post("products/:productId/gallery/:mediaId/primary")
+  @HttpCode(204)
+  @RequirePermission("media.write")
+  @Audit("product.gallery_image_primary", { type: "product", param: "productId" })
+  async galleryPrimary(@StoreAccess() a: StoreAccessContext, @Param("storeId") storeId: string, @Param("productId") productId: string, @Param("mediaId") mediaId: string): Promise<void> {
+    await makeGalleryImagePrimary(a.ownerId, storeId, productId, mediaId);
   }
 
   @Post("logo")

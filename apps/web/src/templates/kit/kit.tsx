@@ -19,6 +19,7 @@ import { CONTACT_ICON, highlightIcon, Icon, type IconName } from "./icons";
 import BuyBox from "../commerce/BuyBox";
 import ShopNav from "../commerce/ShopNav";
 import EnamadSeal from "../common/EnamadSeal";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 /**
  * The storefront kit, v2 (2026-11): one accessible implementation of every core section and of the kit sections, styled by
@@ -699,13 +700,16 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
               </ol>
             </nav>
             <div className={s.detail}>
-              <div className={s.detailArt}>
-                <ProductArt product={p} ctx={ctx} eager />
-                {out && (
-                  <span className={s.badge} aria-hidden="true">
-                    ناموجود
-                  </span>
-                )}
+              <div>
+                <div className={s.detailArt}>
+                  <ProductArt product={p} ctx={ctx} eager />
+                  {out && (
+                    <span className={s.badge} aria-hidden="true">
+                      ناموجود
+                    </span>
+                  )}
+                </div>
+                <GalleryStrip ctx={ctx} product={p} />
               </div>
               <div className={s.detailInfo}>
                 {category && (

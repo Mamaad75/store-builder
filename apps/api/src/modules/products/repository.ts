@@ -21,6 +21,8 @@ export const productSelect = {
   updatedAt: true,
   // How many variants and price links the product has: the list disables the quick edit of a price or stock that something else owns.
   _count: { select: { variants: true, priceLinks: true } },
+  // The extra gallery images after `image`, in order.
+  gallery: { select: { media: { select: { id: true, key: true, width: true, height: true } } }, orderBy: { position: "asc" } },
 } satisfies Prisma.ProductSelect;
 
 export type ProductView = Prisma.ProductGetPayload<{ select: typeof productSelect }>;
@@ -170,6 +172,23 @@ export async function deleteProductRow(ctx: MutationContext, id: string): Promis
 
 export const findProductImageInTx = (ctx: MutationContext, id: string) =>
   ctx.tx.product.findFirst({ where: scope(ctx, id), select: { id: true, imageId: true } });
+
+/** The gallery rows of a product (images 2 to 6), in position order. */
+export const galleryRows = (ctx: MutationContext, productId: string) =>
+  ctx.tx.productImage.findMany({ where: { storeId: ctx.storeId, productId }, select: { id: true, mediaId: true, position: true }, orderBy: { position: "asc" } });
+
+export async function addGalleryRow(ctx: MutationContext, productId: string, mediaId: string, position: number): Promise<void> {
+  await ctx.tx.productImage.create({ data: { storeId: ctx.storeId, productId, mediaId, position } });
+}
+
+export async function deleteGalleryRow(ctx: MutationContext, productId: string, mediaId: string): Promise<boolean> {
+  return (await ctx.tx.productImage.deleteMany({ where: { storeId: ctx.storeId, productId, mediaId } })).count === 1;
+}
+
+/** Points a gallery row at another media (the primary image and a gallery image swap places). */
+export async function retargetGalleryRow(ctx: MutationContext, productId: string, fromMediaId: string, toMediaId: string): Promise<void> {
+  await ctx.tx.productImage.updateMany({ where: { storeId: ctx.storeId, productId, mediaId: fromMediaId }, data: { mediaId: toMediaId } });
+}
 
 export async function setProductImageRow(ctx: MutationContext, id: string, imageId: string | null): Promise<boolean> {
   const res = await ctx.tx.product.updateMany({ where: scope(ctx, id), data: { imageId } });

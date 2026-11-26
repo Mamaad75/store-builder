@@ -8,6 +8,7 @@ import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } fro
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
 import EnamadSeal from "../common/EnamadSeal";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 function Layout({ ctx, children }: LayoutProps) {
 
@@ -38,7 +39,7 @@ const Detail: SectionComponent<"productDetail"> = ({ ctx }) => {
 
   const related = relatedProducts(ctx, p, 6);
   return <>
-    <article className={s.detail} data-structure="sticky-tech-gallery"><figure><Art ctx={ctx} product={p} alt={p.name} priority /></figure><div><h1>{p.name}</h1><div className={s.purchase}><Stock product={p} /><Price product={p} /><Variants product={p} /><OrderLinks ctx={ctx} product={p} /></div><details open><summary>مشخصات</summary><Specs product={p} full /></details><details open><summary>توضیحات</summary><p>{p.description || "توضیحی برای این محصول ثبت نشده است."}</p></details></div></article>
+    <article className={s.detail} data-structure="sticky-tech-gallery"><figure><Art ctx={ctx} product={p} alt={p.name} priority /><GalleryStrip ctx={ctx} product={p} /></figure><div><h1>{p.name}</h1><div className={s.purchase}><Stock product={p} /><Price product={p} /><Variants product={p} /><OrderLinks ctx={ctx} product={p} /></div><details open><summary>مشخصات</summary><Specs product={p} full /></details><details open><summary>توضیحات</summary><p>{p.description || "توضیحی برای این محصول ثبت نشده است."}</p></details></div></article>
     {related.length > 0 && <section className={s.featured}><h2>کالاهای مشابه</h2><Cards ctx={ctx} items={related} /></section>}
   </>;
 };

@@ -7,6 +7,7 @@ import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } fro
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
 import EnamadSeal from "../common/EnamadSeal";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 function Layout({ ctx, children }: LayoutProps) {
 
@@ -40,7 +41,7 @@ const Detail: SectionComponent<"productDetail"> = ({ ctx }) => {
 
   const related = relatedProducts(ctx, p, 6);
   return <>
-    <article className={s.detail} data-structure="homeware-trust"><header><h1>{p.name}</h1><div className={s.trust}><Icon name="shield" /><a href={ctx.href("/contact")}>شرایط گارانتی و ارسال</a></div></header><div><figure><Art ctx={ctx} product={p} alt={p.name} priority /></figure><section><p>{p.description}</p><div className={s.purchase}><Price product={p} /><Stock product={p} /><Variants product={p} /><OrderLinks ctx={ctx} product={p} /></div><Specs product={p} full /></section></div></article>
+    <article className={s.detail} data-structure="homeware-trust"><header><h1>{p.name}</h1><div className={s.trust}><Icon name="shield" /><a href={ctx.href("/contact")}>شرایط گارانتی و ارسال</a></div></header><div><figure><Art ctx={ctx} product={p} alt={p.name} priority /><GalleryStrip ctx={ctx} product={p} /></figure><section><p>{p.description}</p><div className={s.purchase}><Price product={p} /><Stock product={p} /><Variants product={p} /><OrderLinks ctx={ctx} product={p} /></div><Specs product={p} full /></section></div></article>
     {related.length > 0 && <section className={s.featured}><h2>کالاهای مشابه</h2><Cards ctx={ctx} items={related} /></section>}
   </>;
 };

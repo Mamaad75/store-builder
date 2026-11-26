@@ -48,6 +48,10 @@ export const getPageEditor = (storeId: string, type: string) => send<PageEditorV
 // media (raw bytes)
 export const uploadProductImage = (storeId: string, id: string, bytes: Blob) => send("POST", `${store(storeId)}/products/${enc(id)}/image`, { raw: bytes });
 export const removeProductImage = (storeId: string, id: string) => send("POST", `${store(storeId)}/products/${enc(id)}/image/delete`);
+// the extra images of a product's gallery
+export const uploadProductGalleryImage = (storeId: string, id: string, bytes: Blob) => send("POST", `${store(storeId)}/products/${enc(id)}/gallery`, { raw: bytes });
+export const removeProductGalleryImage = (storeId: string, id: string, mediaId: string) => send("POST", `${store(storeId)}/products/${enc(id)}/gallery/${enc(mediaId)}/delete`);
+export const makeProductGalleryPrimary = (storeId: string, id: string, mediaId: string) => send("POST", `${store(storeId)}/products/${enc(id)}/gallery/${enc(mediaId)}/primary`);
 export const uploadStoreLogo = (storeId: string, bytes: Blob) => send("POST", `${store(storeId)}/logo`, { raw: bytes });
 export const removeStoreLogo = (storeId: string) => send("POST", `${store(storeId)}/logo/delete`);
 export const uploadSectionImage = (storeId: string, type: string, sectionId: string, expectedRevision: unknown, bytes: Blob) =>

@@ -43,7 +43,7 @@ export async function deleteMediaRow(ctx: StoreLockedContext, id: string, status
 
 /**
  * Is the media referenced by anything that must keep the object alive?
- *  - a product image, the store logo (also protected by the composite foreign keys)
+ *  - a product image, a product's extra gallery image, the store logo (also protected by the composite foreign keys)
  *  - any page section that mentions the media id (sections are JSON, so no FK can protect them), in ANY state: active,
  *    dormant (another theme's section) or invalid
  *  - any ARCHIVED section (`Page.legacySections`, where the Phase 8 recovery moves invalid entries): an archived
@@ -52,11 +52,12 @@ export async function deleteMediaRow(ctx: StoreLockedContext, id: string, status
  * New kinds of reference must be added here.
  */
 export async function isMediaReferenced(ctx: StoreLockedContext, media: { id: string; key: string }): Promise<boolean> {
-  const [products, logos] = await Promise.all([
+  const [products, logos, gallery] = await Promise.all([
     ctx.tx.product.count({ where: { storeId: ctx.storeId, imageId: media.id } }),
     ctx.tx.store.count({ where: { id: ctx.storeId, logoId: media.id } }),
+    ctx.tx.productImage.count({ where: { storeId: ctx.storeId, mediaId: media.id } }),
   ]);
-  if (products > 0 || logos > 0) return true;
+  if (products > 0 || logos > 0 || gallery > 0) return true;
   const rows = await ctx.tx.$queryRaw<{ used: boolean }[]>`
     SELECT (
       EXISTS (SELECT 1 FROM "Page" WHERE "storeId" = ${ctx.storeId} AND position(${media.id} in "sections"::text) > 0)
@@ -119,6 +120,7 @@ export async function listReadyCandidates(cutoff: Date, after: { createdAt: Date
     FROM "Media" m JOIN "Store" s ON s."id" = m."storeId"
     WHERE m."status" = 'READY' AND m."createdAt" < ${cutoff} ${keyset}
       AND NOT EXISTS (SELECT 1 FROM "Product" p WHERE p."imageId" = m."id")
+      AND NOT EXISTS (SELECT 1 FROM "ProductImage" g WHERE g."mediaId" = m."id")
       AND s."logoId" IS DISTINCT FROM m."id"
     ORDER BY m."createdAt", m."id"
     LIMIT ${take}`;

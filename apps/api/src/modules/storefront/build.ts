@@ -20,7 +20,7 @@ export interface StorefrontSource {
   template: { key: string; version: number; defaultSettings: unknown };
   pages: { type: string; title: string; slug: string; position: number; sections: unknown }[];
   categories: { id: string; name: string; slug: string }[];
-  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; weightGrams?: number | null; categoryId: string | null; image?: MediaSource | null; specs?: unknown; variants?: { id: string; options: unknown; price: number; stockQuantity: number }[] }[];
+  products: { id: string; name: string; slug: string; description: string; price: number; stockQuantity: number; weightGrams?: number | null; categoryId: string | null; image?: MediaSource | null; gallery?: { media: MediaSource }[]; specs?: unknown; variants?: { id: string; options: unknown; price: number; stockQuantity: number }[] }[];
   /** READY media of the store that sections may reference, by media id (only ids found here can ever be rendered). */
   images?: Record<string, MediaSource>;
   /** Products that exist but are not storefront-eligible (draft/archived). Only a count: never their data. */
@@ -105,7 +105,7 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
     store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social, logo: toMediaRef(src.store.logo), typography: resolved.typography, ...(resolved.description ? { description: resolved.description } : {}), ...(resolved.enamad ? { enamad: resolved.enamad } : {}) },
     pages,
     categories: src.categories,
-    products: src.products.map(({ image, specs, variants, ...p }) => {
+    products: src.products.map(({ image, gallery, specs, variants, ...p }) => {
       const a = analyzeSpecs(specs ?? []);
       // Stored JSON is validated, never trusted: a variant whose options are malformed is left out (the API never writes one).
       const shown = (variants ?? []).flatMap((v) => {
@@ -113,7 +113,12 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
         return r.success ? [r.data] : [];
       });
       if (!a.ok) invalidSpecsProductCount += 1; // never rendered, never repaired here
-      return { ...p, image: toMediaRef(image), specs: a.ok ? a.rows : [], variants: shown };
+      // Only READY extras with known dimensions are shown; absent (not an empty list) when there are none.
+      const extra = (gallery ?? []).flatMap((g) => {
+        const ref = toMediaRef(g.media);
+        return ref ? [ref] : [];
+      });
+      return { ...p, image: toMediaRef(image), ...(extra.length ? { gallery: extra } : {}), specs: a.ok ? a.rows : [], variants: shown };
     }),
     images,
   };

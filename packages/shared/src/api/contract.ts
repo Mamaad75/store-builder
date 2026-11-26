@@ -130,6 +130,9 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", st("/products/:productId/status"), "Change a product's status", { permission: "catalog.write", status: 200, body: doc({ status: statusSchema }), bodyDoc: true, response: S.productDto }),
   r("POST", st("/products/:productId/delete"), "Delete a product", { permission: "catalog.write", status: 204 }),
   r("POST", st("/products/:productId/image"), "Upload the product image (raw image bytes)", { permission: "media.write", status: 200, body: raw, untyped: true }),
+  r("POST", st("/products/:productId/gallery"), "Add an image to the product's gallery (raw image bytes): its own image when it has none, otherwise the next extra (six images in all)", { permission: "media.write", status: 200, body: raw, response: S.mediaUploadDto }),
+  r("POST", st("/products/:productId/gallery/:mediaId/delete"), "Remove one of the product's extra gallery images", { permission: "media.write", status: 204 }),
+  r("POST", st("/products/:productId/gallery/:mediaId/primary"), "Make an extra gallery image the product's own image (the old one takes its place)", { permission: "media.write", status: 204 }),
   r("POST", st("/products/:productId/image/delete"), "Remove the product image", { permission: "media.write", status: 204 }),
   r("GET", st("/products/:productId/variants"), "Variants of a product", { permission: "store.view", response: z.array(S.variantDto) }),
   // ---- phase 3.2b: prices linked to the dollar or gold

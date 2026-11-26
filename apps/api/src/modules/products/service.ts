@@ -17,6 +17,7 @@ import {
   deleteProductRow,
   findInTx,
   findProductImageInTx,
+  galleryRows,
   insertProduct,
   publishedSlugFacts,
   setStatusRow,
@@ -279,12 +280,14 @@ export async function changeProductStatus(
 export async function deleteProduct(ownerId: string, storeId: unknown, productId: unknown): Promise<void> {
   const sid = parseStoreId(storeId);
   const pid = parseId(productId);
-  const imageId = await withStoreMutation(ownerId, sid, async (ctx) => {
+  const { imageId, extras } = await withStoreMutation(ownerId, sid, async (ctx) => {
     const cur = await findProductImageInTx(ctx, pid);
-    if (!cur || !(await deleteProductRow(ctx, pid))) throw new NotFoundError();
-    return cur.imageId;
+    if (!cur) throw new NotFoundError();
+    const extras = (await galleryRows(ctx, pid)).map((g) => g.mediaId); // read before the rows go with the product
+    if (!(await deleteProductRow(ctx, pid))) throw new NotFoundError();
+    return { imageId: cur.imageId, extras };
   });
-  // The product row is gone, so its image is now unreferenced (unless something else still uses it): release it.
+  // The product row is gone, so its images are now unreferenced (unless something else still uses them): release them.
   // Never fails the delete; a failure is logged and the media cleanup removes the image later.
-  if (imageId) await releaseMediaBestEffort(ownerId, sid, imageId);
+  for (const id of [imageId, ...extras]) if (id) await releaseMediaBestEffort(ownerId, sid, id);
 }

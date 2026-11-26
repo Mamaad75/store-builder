@@ -284,6 +284,8 @@ model Product {
   priceLinks   PriceLink[]
   livePrices   LivePrice[]
   cartItems    CartItem[]
+  /// The extra images of the gallery (positions 1 to 5); the first image stays `image` (imageId).
+  gallery      ProductImage[]
 
   @@unique([storeId, slug])
   /// Phase 3.2: lets variants and reservations reference (storeId, id), so a row can never point at a product of another store.
@@ -305,10 +307,11 @@ model Media {
   status       MediaStatus @default(READY)
   createdAt    DateTime    @default(now())
 
-  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  uploadedBy User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  store      Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  uploadedBy User           @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   products   Product[]
-  logoOf     Store[]   @relation("StoreLogo")
+  galleryOf  ProductImage[]
+  logoOf     Store[]        @relation("StoreLogo")
 
   @@unique([storeId, id])
   @@index([storeId, createdAt])
@@ -1170,4 +1173,23 @@ model StoreDailyVisitor {
 
   @@id([storeId, day, hash])
   @@index([day])
+}
+
+/// The extra images of a product's gallery. The FIRST image is Product.imageId (so cards, snapshots and every existing reader are unchanged);
+/// these are images 2 to 6, at positions 1 to 5 (CHECK in the migration). Composite keys keep a row inside its own store; a media row that is
+/// still used here cannot be deleted (NO ACTION), exactly like Product.image.
+model ProductImage {
+  id        String   @id @default(cuid())
+  storeId   String
+  productId String
+  mediaId   String
+  position  Int
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [storeId, productId], references: [storeId, id], onDelete: Cascade)
+  media   Media   @relation(fields: [storeId, mediaId], references: [storeId, id], onDelete: NoAction)
+
+  @@unique([productId, position])
+  @@unique([productId, mediaId])
+  @@index([storeId, mediaId])
 }

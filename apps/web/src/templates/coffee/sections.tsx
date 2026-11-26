@@ -9,6 +9,7 @@ import type { StorefrontProduct } from "@store-builder/shared/templates/storefro
 import { initial } from "./Layout";
 import s from "./coffee.module.css";
 import BuyBox from "../commerce/BuyBox";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 function Section({ title, children, alt, id, level = 2 }: { title?: string; children: ReactNode; alt?: boolean; id: string; level?: 1 | 2 }) {
   const H = `h${level}` as "h1" | "h2";
@@ -215,13 +216,16 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
           )}
         </nav>
         <div className={s.detail}>
-          <div className={s.detailArt} aria-hidden={p.image && url ? undefined : "true"}>
-            {p.image && url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className={s.img} src={url} alt={p.name} width={p.image.width} height={p.image.height} loading="eager" decoding="async" />
-            ) : (
-              initial(p.name)
-            )}
+          <div>
+            <div className={s.detailArt} aria-hidden={p.image && url ? undefined : "true"}>
+              {p.image && url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className={s.img} src={url} alt={p.name} width={p.image.width} height={p.image.height} loading="eager" decoding="async" />
+              ) : (
+                initial(p.name)
+              )}
+            </div>
+            <GalleryStrip ctx={ctx} product={p} />
           </div>
           <div>
             <h1 id={`${section.id}-title`} className={s.detailTitle}>

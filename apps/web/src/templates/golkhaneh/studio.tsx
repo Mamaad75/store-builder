@@ -7,6 +7,7 @@ import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } fro
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
 import EnamadSeal from "../common/EnamadSeal";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 function Layout({ ctx, children }: LayoutProps) {
   const delivery = ctx.data.pages.find((page) => page.type === "HOME")?.sections.find((section) => section.type === "golkhaneh.delivery");
@@ -38,7 +39,7 @@ const Detail: SectionComponent<"productDetail"> = ({ ctx }) => {
 
   const related = relatedProducts(ctx, p, 6);
   return <>
-    <article className={s.detail} data-structure="gift-product"><figure><Art ctx={ctx} product={p} alt={p.name} priority /></figure><div><h1>{p.name}</h1><p>{p.description}</p><fieldset><legend>مرور بر اساس مناسبت</legend><Categories ctx={ctx} label="مناسبت‌های دیگر" /></fieldset><details><summary>پیام همراه گل</summary><p>برای هماهنگی کارت پیام، متن دلخواه را هنگام تماس یا سفارش به فروشگاه بگویید.</p></details><div className={s.purchase}><Price product={p} /><Stock product={p} /><Variants product={p} /><OrderLinks ctx={ctx} product={p} /></div><Specs product={p} full /></div></article>
+    <article className={s.detail} data-structure="gift-product"><figure><Art ctx={ctx} product={p} alt={p.name} priority /><GalleryStrip ctx={ctx} product={p} /></figure><div><h1>{p.name}</h1><p>{p.description}</p><fieldset><legend>مرور بر اساس مناسبت</legend><Categories ctx={ctx} label="مناسبت‌های دیگر" /></fieldset><details><summary>پیام همراه گل</summary><p>برای هماهنگی کارت پیام، متن دلخواه را هنگام تماس یا سفارش به فروشگاه بگویید.</p></details><div className={s.purchase}><Price product={p} /><Stock product={p} /><Variants product={p} /><OrderLinks ctx={ctx} product={p} /></div><Specs product={p} full /></div></article>
     {related.length > 0 && <section className={s.featured}><h2>کالاهای مشابه</h2><Cards ctx={ctx} items={related} /></section>}
   </>;
 };

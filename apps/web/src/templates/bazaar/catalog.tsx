@@ -10,6 +10,7 @@ import { Variants } from "../kit/primitives";
 import type { ExtraSectionComponent, RenderContext, SectionComponent } from "../types";
 import s from "./market.module.css";
 import BuyBox from "../commerce/BuyBox";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 const sorts: [ProductSort | undefined, string][] = [[undefined, "پیشنهاد فروشگاه"], ["cheap", "ارزان‌ترین"], ["expensive", "گران‌ترین"], ["available", "موجودها اول"]];
 
@@ -108,7 +109,7 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ ctx, section 
       <span aria-current="page">{product.name}</span>
     </nav>
     <section className={s.detail} data-bazaar-region="product-summary" aria-labelledby={section.id}>
-      <div className={s.detailImage}><ProductImage ctx={ctx} product={product} detail /></div>
+      <div className={s.detailImage}><ProductImage ctx={ctx} product={product} detail /><GalleryStrip ctx={ctx} product={product} /></div>
       <div className={s.detailInfo}>
         <h1 id={section.id}>{product.name}</h1>
         {product.description && <p className={s.prose}>{product.description}</p>}

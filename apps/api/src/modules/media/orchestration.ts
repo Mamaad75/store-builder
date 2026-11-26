@@ -1,4 +1,4 @@
-import { releaseMediaBestEffort, attachProductImage, setStoreLogo, uploadMedia, type MediaView } from "./service.js";
+import { releaseMediaBestEffort, attachProductImage, addProductGalleryImage, setStoreLogo, uploadMedia, type MediaView } from "./service.js";
 import { setSectionImage } from "../pages/service.js";
 
 /**
@@ -20,6 +20,10 @@ async function withRollback(ownerId: string, storeId: string, bytes: Buffer, att
 
 export const uploadProductImage = (ownerId: string, storeId: string, productId: string, bytes: Buffer) =>
   withRollback(ownerId, storeId, bytes, (id) => attachProductImage(ownerId, storeId, productId, id));
+
+/** Adds an image to the product's gallery (its own image when it has none, otherwise the next of at most six). */
+export const uploadProductGalleryImage = (ownerId: string, storeId: string, productId: string, bytes: Buffer) =>
+  withRollback(ownerId, storeId, bytes, (id) => addProductGalleryImage(ownerId, storeId, productId, id));
 
 export const uploadStoreLogo = (ownerId: string, storeId: string, bytes: Buffer) => withRollback(ownerId, storeId, bytes, (id) => setStoreLogo(ownerId, storeId, id));
 

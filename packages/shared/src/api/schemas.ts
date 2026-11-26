@@ -18,6 +18,8 @@ const storeStatus = z.enum(["DRAFT", "PUBLISHED", "UNPUBLISHED"]);
 const productStatus = z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]);
 const opaque = <T>(name: string) => z.custom<T>(() => true).describe(name);
 
+/** What an image upload answers: the stored media (the key is relative; the dashboard builds the address). */
+export const mediaUploadDto = z.object({ id: z.string(), key: z.string(), width: z.number().nullable(), height: z.number().nullable(), sizeBytes: z.number(), mimeType: z.string() });
 export const mediaRefDto = z.object({ id: z.string(), key: z.string(), width: z.number().nullable(), height: z.number().nullable() });
 export const storeDto = z.object({
   id: z.string(),
@@ -51,6 +53,7 @@ export const productDto = z.object({
   createdAt: iso,
   updatedAt: iso,
   _count: z.object({ variants: z.number().int(), priceLinks: z.number().int() }).describe("with variants, price and stock come from them; a link on a product without variants owns its price"),
+  gallery: z.array(z.object({ media: mediaRefDto })).describe("the extra images after `image` (at most five), in order"),
 });
 /** Phase 3.2: one purchasable combination of a product. */
 export const variantDto = z.object({

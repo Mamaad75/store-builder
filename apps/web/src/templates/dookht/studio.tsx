@@ -6,6 +6,7 @@ import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } fro
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
 import EnamadSeal from "../common/EnamadSeal";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 function Layout({ ctx, children }: LayoutProps) {
 
@@ -37,7 +38,7 @@ const Detail: SectionComponent<"productDetail"> = ({ ctx }) => {
   const guide = side as Parameters<typeof SizeGuide>[0]["section"] | undefined;
   const related = relatedProducts(ctx, p, 6);
   return <>
-    <article className={s.detail} data-structure="fashion-vertical-gallery"><figure><Art ctx={ctx} product={p} alt={p.name} priority /></figure><aside><h1>{p.name}</h1><Price product={p} /><Stock product={p} /><p>{p.description}</p><Variants product={p} /><OrderLinks ctx={ctx} product={p} />{guide && <SizeGuide section={guide} />}<Specs product={p} full /></aside></article>
+    <article className={s.detail} data-structure="fashion-vertical-gallery"><figure><Art ctx={ctx} product={p} alt={p.name} priority /><GalleryStrip ctx={ctx} product={p} /></figure><aside><h1>{p.name}</h1><Price product={p} /><Stock product={p} /><p>{p.description}</p><Variants product={p} /><OrderLinks ctx={ctx} product={p} />{guide && <SizeGuide section={guide} />}<Specs product={p} full /></aside></article>
     {related.length > 0 && <section className={s.featured}><h2>کالاهای مشابه</h2><Cards ctx={ctx} items={related} /></section>}
   </>;
 };

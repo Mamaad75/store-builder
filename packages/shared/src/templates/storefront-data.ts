@@ -92,6 +92,9 @@ export const storefrontProductSchema = z
     variants: z.array(storefrontVariantSchema).max(MAX_VARIANTS_PER_PRODUCT).default([]),
     // Phase 3.3 (D33-1): shipping weight in grams, null = unknown. Optional with a null default, so older snapshots stay valid.
     weightGrams: z.number().int().min(0).max(1_000_000).nullable().default(null),
+    // The extra gallery images after `image` (at most five). OPTIONAL WITHOUT a default and absent when there are none, so the data and
+    // content hash of a product without a gallery are byte-for-byte what they were before.
+    gallery: z.array(mediaRefSchema).max(5).optional(),
   })
   .strict();
 

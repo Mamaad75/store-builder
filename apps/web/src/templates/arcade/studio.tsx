@@ -7,6 +7,7 @@ import type { LayoutProps, RenderContext, SectionComponent, TemplateModule } fro
 import s from "./studio.module.css";
 import ShopNav from "../commerce/ShopNav";
 import EnamadSeal from "../common/EnamadSeal";
+import { GalleryStrip } from "../common/GalleryStrip";
 
 function Layout({ ctx, children }: LayoutProps) {
 
@@ -37,7 +38,7 @@ const Detail: SectionComponent<"productDetail"> = ({ ctx }) => {
 
   const related = relatedProducts(ctx, p, 6);
   return <>
-    <article className={s.detail} data-structure="arcade-purchase"><div><figure><Art ctx={ctx} product={p} alt={p.name} priority /></figure><h1>{p.name}</h1><p>{p.description}</p><Specs product={p} full /></div><aside className={s.purchase}><h2>قیمت و موجودی</h2><Price product={p} /><Stock product={p} /><Variants product={p} /><OrderLinks ctx={ctx} product={p} /></aside></article>
+    <article className={s.detail} data-structure="arcade-purchase"><div><figure><Art ctx={ctx} product={p} alt={p.name} priority /><GalleryStrip ctx={ctx} product={p} /></figure><h1>{p.name}</h1><p>{p.description}</p><Specs product={p} full /></div><aside className={s.purchase}><h2>قیمت و موجودی</h2><Price product={p} /><Stock product={p} /><Variants product={p} /><OrderLinks ctx={ctx} product={p} /></aside></article>
     {related.length > 0 && <section className={s.featured}><h2>کالاهای مشابه</h2><Cards ctx={ctx} items={related} /></section>}
   </>;
 };
