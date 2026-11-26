@@ -15,11 +15,12 @@ import ProductForm from "@/components/catalog/ProductForm";
 import StatusButtons from "@/components/catalog/StatusButtons";
 import StatusChip from "@/components/catalog/StatusChip";
 import { requireUser } from "@/modules/auth/session";
-import { listCategories } from "@/gateway/catalog";
-import { getProduct } from "@/gateway/catalog";
+import { getCurrentRates, getProduct, listCategories, listPriceLinks, listVariants } from "@/gateway/catalog";
+import VariantsEditor from "@/components/catalog/VariantsEditor";
+import { ProductPriceLinkCard } from "@/components/catalog/PriceLinks";
 import type { ProductStatus } from "@store-builder/shared/modules/products/status";
 import { NotFoundError } from "@store-builder/shared/modules/stores/errors";
-import { getStore } from "@/gateway/stores";
+import { getStore, getStoreAccess } from "@/gateway/stores";
 
 function safeUrl(key: string): string | null {
   try {
@@ -49,6 +50,15 @@ export default async function EditProductPage({
     throw e;
   }
   const analysis = analyzeSpecs(product.specs);
+  // Variants and linked prices (a failure here must not take the product page down: the form still works without them).
+  const [variants, links, rates, access] = await Promise.all([
+    listVariants(storeId, productId).catch(() => []),
+    listPriceLinks(storeId, productId).catch(() => []),
+    getCurrentRates(storeId).catch(() => null),
+    getStoreAccess(storeId).catch(() => null),
+  ]);
+  const canLink = access?.permissions.includes("publish") ?? false;
+  const productLink = links.find((l) => l.variantId === null) ?? null;
   return (
     <Stack spacing={2}>
       <Notice code={raw.notice} />
@@ -77,7 +87,10 @@ export default async function EditProductPage({
               price: product.price,
               stockQuantity: product.stockQuantity,
               categoryId: product.categoryId,
+              weightGrams: product.weightGrams,
             }}
+            hasVariants={variants.length > 0}
+            priceLinked={productLink !== null}
             specs={
               analysis.ok
                 ? { state: "valid", rows: analysis.rows }
@@ -103,6 +116,18 @@ export default async function EditProductPage({
           </Stack>
         </Stack>
       </Paper>
+      {variants.length === 0 && <ProductPriceLinkCard storeId={storeId} productId={product.id} link={productLink} rates={rates} canLink={canLink} />}
+      <VariantsEditor
+        key={variants.map((v) => `${v.id}:${v.price}:${v.stockQuantity}`).join("|") + links.map((l) => `${l.variantId}:${l.lastPriceToman}`).join("|")}
+        storeId={storeId}
+        productId={product.id}
+        variants={variants}
+        links={links}
+        rates={rates}
+        canLink={canLink}
+        defaultPrice={product.price}
+        productLinked={productLink !== null}
+      />
     </Stack>
   );
 }

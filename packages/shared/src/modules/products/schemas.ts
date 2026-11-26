@@ -29,7 +29,9 @@ const description = z
 const price = intField(0, MAX_PRICE_TOMAN, "قیمت باید عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد");
 const stockQuantity = intField(0, MAX_STOCK_QUANTITY, "موجودی باید عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰ باشد");
 /** Phase 3.3: shipping weight in grams (null = unknown; weight-based shipping then counts the method's default). */
-const weightGrams = z.union([intField(0, MAX_WEIGHT_GRAMS, "وزن باید عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰ گرم باشد"), z.null()]);
+const WEIGHT_MESSAGE = "وزن باید عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰ گرم باشد";
+// A union reports ONE generic "Invalid input" when no branch fits, so the Persian message is given to the union itself.
+const weightGrams = z.union([intField(0, MAX_WEIGHT_GRAMS, WEIGHT_MESSAGE), z.null()], { error: WEIGHT_MESSAGE });
 
 /** Blank => no value (auto-generate / keep current). Otherwise sanitised to the canonical slug. */
 const slug = z

@@ -22,6 +22,8 @@ export interface ProductFormValues {
   price: number;
   stockQuantity: number;
   categoryId: string | null;
+  /** Grams; null = not entered. */
+  weightGrams: number | null;
 }
 
 interface Props {
@@ -33,17 +35,22 @@ interface Props {
   specs?: SpecsInitial;
   /** Every spec preset (any store may use any preset); optional label suggestions only. */
   presets?: PresetOption[];
+  /** The product has variants: price and stock come from them and are edited there. */
+  hasVariants?: boolean;
+  /** The product's own price follows a dollar or gold link (no variants). */
+  priceLinked?: boolean;
 }
 
 const fe = (s: CatalogFormState, k: string) => s.fieldErrors?.[k]?.[0];
 const ltr = { htmlInput: { dir: "ltr" as const } };
 
-export default function ProductForm({ mode, storeId, categories, product, specs = { state: "valid", rows: [] }, presets = [] }: Props) {
+export default function ProductForm({ mode, storeId, categories, product, specs = { state: "valid", rows: [] }, presets = [], hasVariants = false, priceLinked = false }: Props) {
   const [state, action, pending] = useActionState(mode === "create" ? createProductAction : updateProductAction, {});
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [price, setPrice] = useState(product ? String(product.price) : "");
   const [stock, setStock] = useState(product ? String(product.stockQuantity) : "0");
+  const [weight, setWeight] = useState(product?.weightGrams != null ? String(product.weightGrams) : "");
 
   const priceNum = parseIntegerInput(price);
   const priceOk = price.trim() !== "" && Number.isFinite(priceNum) && priceNum <= MAX_PRICE_TOMAN;
@@ -105,10 +112,17 @@ export default function ProductForm({ mode, storeId, categories, product, specs 
             label="قیمت (تومان)"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            required
+            required={!hasVariants && !priceLinked}
             fullWidth
-            error={!!fe(state, "price") || (price.trim() !== "" && !priceOk)}
-            helperText={fe(state, "price") ?? (priceOk ? formatToman(priceNum) : "عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰٬۰۰۰ وارد کنید")}
+            disabled={hasVariants || priceLinked}
+            error={!hasVariants && !priceLinked && (!!fe(state, "price") || (price.trim() !== "" && !priceOk))}
+            helperText={
+              hasVariants
+                ? "قیمت محصول کمترین قیمت تنوع‌هاست؛ در بخش «تنوع‌ها» پایین صفحه تعیین می‌شود."
+                : priceLinked
+                  ? "قیمت به نرخ دلار یا طلا متصل است و خودکار به‌روز می‌شود. برای قیمت دستی، اتصال را بردارید."
+                  : (fe(state, "price") ?? (priceOk ? formatToman(priceNum) : "عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰٬۰۰۰ وارد کنید"))
+            }
             slotProps={{ htmlInput: { inputMode: "numeric", dir: "ltr" } }}
           />
           <TextField
@@ -116,13 +130,24 @@ export default function ProductForm({ mode, storeId, categories, product, specs 
             label="موجودی (عدد)"
             value={stock}
             onChange={(e) => setStock(e.target.value)}
-            required
+            required={!hasVariants}
             fullWidth
-            error={!!fe(state, "stockQuantity")}
-            helperText={fe(state, "stockQuantity") ?? "موجودی صفر محصول را مخفی یا بایگانی نمی‌کند."}
+            disabled={hasVariants}
+            error={!hasVariants && !!fe(state, "stockQuantity")}
+            helperText={hasVariants ? "موجودی محصول جمع موجودی تنوع‌هاست و در بخش «تنوع‌ها» تعیین می‌شود." : (fe(state, "stockQuantity") ?? "موجودی صفر محصول را مخفی یا بایگانی نمی‌کند.")}
             slotProps={{ htmlInput: { inputMode: "numeric", dir: "ltr" } }}
           />
         </Stack>
+
+        <TextField
+          name="weightGrams"
+          label="وزن (گرم، اختیاری)"
+          value={weight}
+          onChange={(e) => setWeight(e.target.value)}
+          error={!!fe(state, "weightGrams")}
+          helperText={fe(state, "weightGrams") ?? "برای روش‌های ارسال بر اساس وزن؛ اگر خالی بماند وزن پیش‌فرض همان روش ارسال حساب می‌شود."}
+          slotProps={{ htmlInput: { inputMode: "numeric", dir: "ltr" } }}
+        />
 
         <TextField
           select

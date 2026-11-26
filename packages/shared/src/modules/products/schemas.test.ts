@@ -75,3 +75,13 @@ describe("category schemas", () => {
     expect(deleteCategoryOptionsSchema.safeParse({}).success).toBe(false);
   });
 });
+
+describe("weight message", () => {
+  it("a wrong weight is explained in Persian (a union's own generic message never reaches the merchant)", () => {
+    for (const bad of ["1.5", "x", -1, 1_000_001]) {
+      const r = createProductSchema.safeParse({ name: "چای", price: 1, stockQuantity: 0, weightGrams: bad });
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error.flatten().fieldErrors.weightGrams).toEqual(["وزن باید عدد صحیح بین ۰ تا ۱٬۰۰۰٬۰۰۰ گرم باشد"]);
+    }
+  });
+});

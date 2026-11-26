@@ -56,6 +56,12 @@ function toState(e: unknown, notFoundUrl: string): CatalogFormState {
 
 // ---------------------------------------------------------------- products
 
+/** The weight field: empty = unknown (null); anything else goes to the API's integer rule as typed. */
+const weightFrom = (fd: FormData): string | null => {
+  const v = str(fd, "weightGrams").trim();
+  return v === "" ? null : v;
+};
+
 export async function createProductAction(_prev: CatalogFormState, fd: FormData): Promise<CatalogFormState> {
   const storeId = str(fd, "storeId");
   try {
@@ -66,6 +72,7 @@ export async function createProductAction(_prev: CatalogFormState, fd: FormData)
       stockQuantity: str(fd, "stockQuantity"),
       categoryId: str(fd, "categoryId"),
       slug: str(fd, "slug"),
+      weightGrams: weightFrom(fd),
       specs: specsFromForm(fd),
     });
   } catch (e) {
@@ -82,11 +89,14 @@ export async function updateProductAction(_prev: CatalogFormState, fd: FormData)
     await api.updateProduct(storeId, productId, {
       name: str(fd, "name"),
       description: str(fd, "description"),
-      price: str(fd, "price"),
-      stockQuantity: str(fd, "stockQuantity"),
+      // A product with variants (or a price linked to a rate) has those fields owned elsewhere: the form disables them, and the API would
+      // refuse them, so they are only sent when the form had them.
+      ...(fd.has("price") ? { price: str(fd, "price") } : {}),
+      ...(fd.has("stockQuantity") ? { stockQuantity: str(fd, "stockQuantity") } : {}),
       categoryId: str(fd, "categoryId"),
       slug: str(fd, "slug"),
       confirmSlugChange: str(fd, "confirmSlugChange") === "true",
+      weightGrams: weightFrom(fd),
       specs: specsFromForm(fd),
     });
   } catch (e) {

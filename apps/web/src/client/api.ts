@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -68,6 +68,17 @@ export type ShippingMethodDto = z.infer<typeof shippingMethodDto>;
 export const listOrders = (storeId: string, query: { status?: string; customerId?: string; review?: "receipt"; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
 // M2: the store overview (orders.view: owner and manager).
 export type StoreOverview = z.infer<typeof storeOverviewDto>;
+// ---- product variants and prices linked to the dollar or gold (phases 3.2 / 3.2b)
+export type VariantView = z.infer<typeof variantDto>;
+export type PriceLinkView = z.infer<typeof priceLinkDto>;
+export type CurrentRates = z.infer<typeof currentRatesDto>;
+export type VariantDraft = { options: { name: string; value: string }[]; price: number; stockQuantity: number; sku?: string };
+export const replaceVariants = (storeId: string, productId: string, variants: VariantDraft[]) => send<VariantView[]>("PUT", `${store(storeId)}/products/${enc(productId)}/variants`, { body: { variants } });
+export const getRates = (storeId: string) => send<CurrentRates>("GET", `${store(storeId)}/rates`);
+export const setPriceLink = (storeId: string, productId: string, variantId: string | null, link: unknown) =>
+  send<PriceLinkView>("PUT", `${store(storeId)}/products/${enc(productId)}/price-link`, { body: { variantId, link } });
+export const removePriceLink = (storeId: string, productId: string, variantId: string | null) => send("POST", `${store(storeId)}/products/${enc(productId)}/price-link/delete`, { body: { variantId } });
+
 // ---- team, activity log and my invitations (phase 2.3): staff of a store, what happened, and the invitations addressed to me
 // (the "me" routes are called on the versioned path: that is the one Caddy routes to the API in production)
 export type TeamView = z.infer<typeof teamDto>;
