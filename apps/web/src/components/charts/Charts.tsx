@@ -143,7 +143,7 @@ export function TrendChart({ points, kind, color, label, label2, color2 = "#0891
       )}
       <Box component="details" sx={{ mt: 1, fontSize: 13 }}>
         <Typography component="summary" variant="body2" sx={{ cursor: "pointer", color: "text.secondary", width: "fit-content" }}>جدول داده‌ها</Typography>
-        <Box sx={{ maxHeight: 220, overflow: "auto", mt: 1 }}>
+        <Box tabIndex={0} role="region" aria-label={`جدول داده‌های ${label}`} sx={{ maxHeight: 220, overflow: "auto", mt: 1 }}>
           <table style={{ borderCollapse: "collapse", width: "100%" }}>
             <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>{summary}</caption>
             <thead>
