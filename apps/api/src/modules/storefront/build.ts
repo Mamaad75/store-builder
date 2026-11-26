@@ -25,6 +25,8 @@ export interface StorefrontSource {
   images?: Record<string, MediaSource>;
   /** Products that exist but are not storefront-eligible (draft/archived). Only a count: never their data. */
   excludedProductCount: number;
+  /** Blog posts marked PUBLISHED, newest first. */
+  posts?: { slug: string; title: string; excerpt: string; body: string; publishedAt: Date | null }[];
 }
 
 /** What the builder had to work around. Surfaced to the owner in the preview; never modifies stored data. */
@@ -121,6 +123,10 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
       return { ...p, image: toMediaRef(image), ...(extra.length ? { gallery: extra } : {}), specs: a.ok ? a.rows : [], variants: shown };
     }),
     images,
+    // Absent (not an empty list) when the store has no published post, so existing data and its hash are unchanged.
+    ...((src.posts?.length ?? 0) > 0
+      ? { posts: src.posts!.map((x) => ({ slug: x.slug, title: x.title, ...(x.excerpt ? { excerpt: x.excerpt } : {}), body: x.body, publishedAt: (x.publishedAt ?? new Date(0)).toISOString() })) }
+      : {}),
   };
   const parsed = storefrontDataSchema.safeParse(candidate);
   if (!parsed.success) throw new StorefrontBuildError("storefront data violates the contract");

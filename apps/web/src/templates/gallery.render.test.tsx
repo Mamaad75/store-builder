@@ -4,6 +4,7 @@ import { loadThemeDemo } from "@/app/themes/demo";
 import { THEME_CATALOG } from "@store-builder/shared/templates/theme-catalog";
 import StorefrontRenderer from "./engine/StorefrontRenderer";
 import { buildView } from "./engine/view";
+import { LEGACY_THEMES, legacyData, legacyMediaUrl } from "./legacy-fixture";
 
 /** The extra product images on the product page of EVERY registered theme version; products without extras render exactly as before. */
 function detail(key: string, version: number, extras: number) {
@@ -36,5 +37,24 @@ describe("product gallery in every theme's product page", () => {
 
   it("every theme was rendered (the loop is not vacuous)", () => {
     expect(themes.filter(([k, v]) => detail(k, v, 3) !== null).length).toBeGreaterThanOrEqual(20);
+  });
+});
+
+describe("product gallery in the four original themes (own layouts, no demo)", () => {
+  const detail = (key: string, extras: number) => {
+    const base = legacyData(key);
+    const first = base.products[0]!;
+    const image = { key: "stores/s/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp", width: 640, height: 480 };
+    const gallery = Array.from({ length: extras }, (_, i) => ({ ...image, key: `stores/s/${String(i + 1).repeat(32)}.webp` }));
+    const data = { ...base, products: base.products.map((p) => (p.id === first.id ? { ...p, image, ...(extras ? { gallery } : {}) } : p)) };
+    const view = buildView(data, { basePath: "/p", segments: ["products", first.slug], mediaUrl: legacyMediaUrl });
+    if (view.status !== "ok") throw new Error(`${key}: ${view.status}`);
+    return renderToStaticMarkup(<StorefrontRenderer template={view.template} ctx={view.ctx} />);
+  };
+  it.each(LEGACY_THEMES)("%s shows the extra images only when the product has them", (key) => {
+    const strip = detail(key, 3);
+    expect(strip).toContain("data-gallery");
+    expect(strip.slice(strip.indexOf("data-gallery")).match(/<img /g)?.length).toBeGreaterThanOrEqual(3);
+    expect(detail(key, 0)).not.toContain("data-gallery");
   });
 });

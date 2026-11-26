@@ -35,7 +35,7 @@ export async function generateMetadata({ params, searchParams }: { params: Param
   const r = await resolve(params, searchParams);
   if (!r) return {}; // the page itself answers notFound(); Next marks that response noindex
   const { data } = r.store;
-  return buildMetadata({ data, page: r.view.ctx.page, query: r.view.ctx.query, product: r.view.ctx.product, mediaUrl: seoMediaUrl(r.store.baseUrl) }, r.store.baseUrl);
+  return buildMetadata({ data, page: r.view.ctx.page, query: r.view.ctx.query, product: r.view.ctx.product, blog: r.view.ctx.blog, mediaUrl: seoMediaUrl(r.store.baseUrl) }, r.store.baseUrl);
 }
 
 /**

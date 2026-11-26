@@ -32,10 +32,13 @@ const NAV: { type: PageType; path: string }[] = [
 ];
 
 /** Visible pages that belong in the main navigation, with their fixed public paths. */
-export function navItems(ctx: RenderContext): { type: PageType; path: string; title: string; current: boolean }[] {
-  const current = ctx.page.type === "PRODUCT_DETAIL" ? "PRODUCTS" : ctx.page.type;
-  return NAV.flatMap((n) => {
+export function navItems(ctx: RenderContext): { type: PageType | "BLOG"; path: string; title: string; current: boolean }[] {
+  const current = ctx.blog ? "BLOG" : ctx.page.type === "PRODUCT_DETAIL" ? "PRODUCTS" : ctx.page.type;
+  const items: { type: PageType | "BLOG"; path: string; title: string; current: boolean }[] = NAV.flatMap((n) => {
     const page = ctx.data.pages.find((p) => p.type === n.type);
     return page ? [{ ...n, title: page.title, current: current === n.type }] : [];
   });
+  // The blog is a link only when the store has published posts (and then also while reading it, where the home page stands in as the shell).
+  if ((ctx.data.posts?.length ?? 0) > 0 && items.length > 0) items.push({ type: "BLOG", path: "/blog", title: "وبلاگ", current: current === "BLOG" });
+  return items.map((i) => (ctx.blog && i.type === "HOME" ? { ...i, current: false } : i));
 }

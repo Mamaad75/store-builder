@@ -23,6 +23,10 @@ export function sitemapPaths(data: StorefrontData): string[] {
   if (has("ABOUT")) paths.push("/about");
   if (has("CONTACT")) paths.push("/contact");
   if (has("PRODUCT_DETAIL")) for (const p of data.products) paths.push(`/products/${encodeURIComponent(p.slug)}`);
+  if ((data.posts?.length ?? 0) > 0 && has("HOME")) {
+    paths.push("/blog");
+    for (const p of data.posts!) paths.push(`/blog/${encodeURIComponent(p.slug)}`);
+  }
   return paths.slice(0, SITEMAP_MAX_URLS);
 }
 

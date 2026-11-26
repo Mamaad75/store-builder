@@ -7,13 +7,14 @@ import { clip, cleanText } from "./text.js";
  * `RenderContext` the renderer uses). Pure: the public base URL (`<protocol>://<label>.<root>`) comes from configuration and
  * is passed in; nothing here reads a request header, a draft table or the network.
  */
-export type SeoContext = Pick<RenderContext, "data" | "page" | "query" | "product"> & { mediaUrl: (key: string) => string | null };
+export type SeoContext = Pick<RenderContext, "data" | "page" | "query" | "product"> & { blog?: RenderContext["blog"]; mediaUrl: (key: string) => string | null };
 
 export const OG_LOCALE = "fa_IR";
 const faNumber = (n: number) => n.toLocaleString("fa-IR");
 
 /** The canonical path (and query) of the page being rendered. Junk parameters never appear: only the parsed query does. */
 export function canonicalPath(ctx: SeoContext): string {
+  if (ctx.blog) return ctx.blog.view === "post" ? `/blog/${encodeURIComponent(ctx.blog.post.slug)}` : "/blog";
   switch (ctx.page.type) {
     case "HOME":
       return "/";
@@ -52,6 +53,7 @@ function firstSectionText(ctx: SeoContext): string | null {
 
 export function pageTitle(ctx: SeoContext): string {
   const name = ctx.data.store.name;
+  if (ctx.blog) return `${ctx.blog.view === "post" ? ctx.blog.post.title : "وبلاگ"} | ${name}`;
   switch (ctx.page.type) {
     case "HOME":
       return name;
@@ -71,6 +73,8 @@ export function pageTitle(ctx: SeoContext): string {
 export function pageDescription(ctx: SeoContext): string {
   const { store } = ctx.data;
   const owner = store.description ? cleanText(store.description) : "";
+  if (ctx.blog?.view === "post") return clip(ctx.blog.post.excerpt || ctx.blog.post.body.replace(/^##\s+/gm, ""));
+  if (ctx.blog) return clip(`وبلاگ ${store.name}${owner ? `. ${owner}` : ""}`);
   switch (ctx.page.type) {
     case "PRODUCT_DETAIL": {
       if (ctx.product && cleanText(ctx.product.description)) return clip(ctx.product.description);

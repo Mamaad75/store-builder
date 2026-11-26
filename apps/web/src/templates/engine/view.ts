@@ -37,6 +37,6 @@ export function buildView(raw: unknown, req: ViewRequest): StorefrontView {
   return {
     status: "ok",
     template,
-    ctx: { data, page: route.page, query: route.query, product: route.product, basePath: req.basePath, href: makeHref(req.basePath, req.carryQuery), mediaUrl: req.mediaUrl ?? (() => null) },
+    ctx: { data, page: route.page, query: route.query, product: route.product, ...(route.blog ? { blog: route.blog } : {}), basePath: req.basePath, href: makeHref(req.basePath, req.carryQuery), mediaUrl: req.mediaUrl ?? (() => null) },
   };
 }

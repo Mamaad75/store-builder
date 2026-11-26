@@ -4,6 +4,7 @@ import { loadThemeDemo } from "@/app/themes/demo";
 import { THEME_CATALOG } from "@store-builder/shared/templates/theme-catalog";
 import StorefrontRenderer from "./engine/StorefrontRenderer";
 import { buildView } from "./engine/view";
+import { LEGACY_THEMES, legacyData, legacyMediaUrl } from "./legacy-fixture";
 
 /** The eNamad seal in the footer of EVERY registered theme version: the official image and link when set, nothing when not. */
 const SEAL = { id: "123456", code: "AbCdEfGh12345678" };
@@ -38,5 +39,20 @@ describe("eNamad seal in every theme's footer", () => {
   it("every theme was rendered (the loop is not vacuous)", () => {
     const rendered = themes.filter(([k, v]) => html(k, v, SEAL) !== null);
     expect(rendered.length).toBeGreaterThanOrEqual(20);
+  });
+});
+
+describe("eNamad seal in the footer of the four original themes (no demo)", () => {
+  const render = (key: string, enamad?: typeof SEAL) => {
+    const base = legacyData(key);
+    const view = buildView(enamad ? { ...base, store: { ...base.store, enamad } } : base, { basePath: "/p", segments: [], mediaUrl: legacyMediaUrl });
+    if (view.status !== "ok") throw new Error(`${key}: ${view.status}`);
+    return renderToStaticMarkup(<StorefrontRenderer template={view.template} ctx={view.ctx} />);
+  };
+  it.each(LEGACY_THEMES)("%s shows the seal in its footer only when set", (key) => {
+    const withSeal = render(key, SEAL);
+    expect(withSeal).toContain('src="https://trustseal.enamad.ir/logo.aspx?id=123456&amp;Code=AbCdEfGh12345678"');
+    expect(withSeal.slice(withSeal.lastIndexOf("<footer"))).toContain("enamad-seal");
+    expect(render(key)).not.toMatch(/enamad/i);
   });
 });

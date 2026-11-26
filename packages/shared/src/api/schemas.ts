@@ -482,3 +482,6 @@ export const reviewStatusDto = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 export const publicReviewDto = z.object({ id: z.string(), authorName: z.string(), rating: z.number().int(), body: z.string(), reply: z.string().nullable(), createdAt: iso });
 export const publicReviewsDto = z.object({ summary: z.object({ count: z.number().int(), average: z.number().nullable() }), reviews: z.array(publicReviewDto) });
 export const storeReviewDto = publicReviewDto.extend({ productId: z.string(), productName: z.string(), status: reviewStatusDto });
+
+export const blogPostSummaryDto = z.object({ id: z.string(), title: z.string(), slug: z.string(), excerpt: z.string(), status: z.enum(["DRAFT", "PUBLISHED"]), publishedAt: iso.nullable(), createdAt: iso, updatedAt: iso });
+export const blogPostDto = blogPostSummaryDto.extend({ body: z.string() });

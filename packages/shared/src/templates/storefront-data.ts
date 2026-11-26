@@ -62,6 +62,17 @@ export const storefrontPageSchema = z
   })
   .strict();
 
+/** A blog post of the published site. Absent from the data (like `gallery`) when the store has none, so existing snapshots keep their hash. */
+export const storefrontPostSchema = z
+  .object({
+    slug,
+    title: z.string().min(1).max(120),
+    excerpt: z.string().max(300).optional(),
+    body: z.string().min(1).max(10_000),
+    publishedAt: z.string().max(40),
+  })
+  .strict();
+
 export const storefrontCategorySchema = z.object({ id, name: z.string().min(1).max(60), slug }).strict();
 
 /** Phase 3.2: a purchasable combination as the storefront shows it (no SKU: internal to the merchant). */
@@ -106,6 +117,7 @@ export const storefrontDataSchema = z
     pages: z.array(storefrontPageSchema).max(20),
     categories: z.array(storefrontCategorySchema).max(50),
     products: z.array(storefrontProductSchema).max(500),
+    posts: z.array(storefrontPostSchema).max(50).optional(),
     /** Images referenced by sections (hero/imageText `imageId`), keyed by media id. Relative keys only. */
     images: z.record(id, mediaRefSchema).default({}),
   })
@@ -121,6 +133,7 @@ export const storefrontDataSchema = z
     const dup = (xs: string[]) => new Set(xs).size !== xs.length;
     if (dup(d.pages.map((p) => p.type))) ctx.addIssue({ code: "custom", path: ["pages"], message: "duplicate page type" });
     if (dup(d.products.map((p) => p.slug))) ctx.addIssue({ code: "custom", path: ["products"], message: "duplicate product slug" });
+    if (dup((d.posts ?? []).map((p) => p.slug))) ctx.addIssue({ code: "custom", path: ["posts"], message: "duplicate post slug" });
     if (dup(d.categories.map((c) => c.slug))) ctx.addIssue({ code: "custom", path: ["categories"], message: "duplicate category slug" });
   });
 
@@ -129,6 +142,7 @@ export type { PageSection };
 export type StorefrontStore = z.infer<typeof storefrontStoreSchema>;
 export type StorefrontPage = z.infer<typeof storefrontPageSchema>;
 export type StorefrontCategory = z.infer<typeof storefrontCategorySchema>;
+export type StorefrontPost = z.infer<typeof storefrontPostSchema>;
 export type StorefrontProduct = z.infer<typeof storefrontProductSchema>;
 export type StorefrontVariant = z.infer<typeof storefrontVariantSchema>;
 

@@ -38,6 +38,7 @@ export class DraftStorefrontRepository {
           select: { id: true, name: true, slug: true, description: true, price: true, stockQuantity: true, weightGrams: true, categoryId: true, specs: true, image: { select: { key: true, width: true, height: true, status: true } }, gallery: { select: { media: { select: { key: true, width: true, height: true, status: true } } }, orderBy: { position: "asc" } }, variants: { select: { id: true, options: true, price: true, stockQuantity: true }, orderBy: [{ position: "asc" }, { id: "asc" }] } },
           orderBy: [{ position: "asc" }, { createdAt: "desc" }, { id: "asc" }],
         },
+        posts: { where: { status: "PUBLISHED" }, select: { slug: true, title: true, excerpt: true, body: true, publishedAt: true }, orderBy: [{ publishedAt: "desc" }, { id: "desc" }], take: 50 },
         _count: { select: { products: { where: { status: { not: "ACTIVE" } } } } },
       },
     });
@@ -65,6 +66,7 @@ export class DraftStorefrontRepository {
       pages: store.pages,
       categories: store.categories,
       products: store.products,
+      posts: store.posts,
       excludedProductCount: store._count.products,
     };
   }

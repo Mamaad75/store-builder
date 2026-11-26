@@ -13,6 +13,7 @@ import { customerLoginSchema, customerRegisterSchema } from "../modules/customer
 import { orderExportQuerySchema, orderListQuerySchema, orderTransitionSchema, placeOrderSchema, setTrackingSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
 import { createTicketSchema, ticketListQuerySchema, ticketReplySchema, ticketStatusSchema } from "../modules/support/tickets.js";
 import { reviewListQuerySchema, reviewReplySchema, reviewStatusSchema, submitReviewSchema, publicReviewsQuerySchema } from "../modules/reviews/reviews.js";
+import { postInputSchema } from "../modules/blog/blog.js";
 import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { discountInputSchema } from "../modules/discounts/discounts.js";
 import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
@@ -260,6 +261,11 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", st("/reviews"), "The store's product reviews for moderation, newest first", { permission: "content.manage", query: reviewListQuerySchema, response: z.array(S.storeReviewDto) }),
   r("POST", st("/reviews/:reviewId/status"), "Approve or reject a review", { permission: "content.manage", status: 204, body: reviewStatusSchema }),
   r("POST", st("/reviews/:reviewId/reply"), "Answer a review publicly (empty text removes the answer)", { permission: "content.manage", status: 204, body: reviewReplySchema }),
+  r("GET", st("/blog"), "The store's blog posts (without their text), newest first", { permission: "content.manage", response: z.array(S.blogPostSummaryDto) }),
+  r("GET", st("/blog/:postId"), "One blog post with its text", { permission: "content.manage", response: S.blogPostDto }),
+  r("POST", st("/blog"), "Write a blog post (at most 50 per store); a post marked PUBLISHED goes live with the next store publish", { permission: "content.manage", status: 201, body: postInputSchema, response: S.blogPostDto }),
+  r("PUT", st("/blog/:postId"), "Change a blog post", { permission: "content.manage", body: postInputSchema, response: S.blogPostDto }),
+  r("POST", st("/blog/:postId/delete"), "Delete a blog post", { permission: "content.manage", status: 204 }),
   r("GET", "/api/platform/invites", "Invitation codes (newest 100; never the codes themselves)", { platform: true, response: z.array(S.inviteDto) }),
   r("POST", "/api/platform/invites", "Issue a single-use invitation code (returned once with its sign-up link; audited)", { platform: true, status: 201, body: createInviteSchema, response: z.object({ id: z.string(), code: z.string(), url: z.string(), expiresAt: z.string() }) }),
   r("POST", "/api/platform/invites/:id/revoke", "Revoke an unused invitation (audited)", { platform: true, status: 204 }),

@@ -3,6 +3,7 @@ import { isCoreSectionType } from "@store-builder/shared/templates/section-regis
 import type { PageSection } from "@store-builder/shared/templates/section-parse";
 import type { RenderContext, SectionComponent, TemplateModule } from "../types";
 import ProductReviews from "../common/ProductReviews";
+import BlogView from "../common/BlogView";
 
 function renderSection(template: TemplateModule, section: PageSection, ctx: RenderContext): ReactElement | null {
   if (isCoreSectionType(section.type)) {
@@ -20,5 +21,6 @@ export default function StorefrontRenderer({ template, ctx }: { template: Templa
   const { Layout } = template;
   // Reviews are live data of a published store (its own host: no base path); previews and theme demos have none.
   const reviews = ctx.page.type === "PRODUCT_DETAIL" && ctx.product && ctx.basePath === "" ? <ProductReviews slug={ctx.product.slug} /> : null;
+  if (ctx.blog) return <Layout ctx={ctx}><BlogView ctx={ctx} /></Layout>;
   return <Layout ctx={ctx}>{ctx.page.sections.map((s) => renderSection(template, s, ctx))}{reviews}</Layout>;
 }

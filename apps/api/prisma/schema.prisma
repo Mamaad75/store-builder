@@ -175,6 +175,7 @@ model Store {
   members          StoreMember[]
   secrets          StoreSecret[]
   tickets          SupportTicket[]
+  posts            BlogPost[]
   invitations      StoreInvitation[]
   publishedSlugs   PublishedSlug[]
   customers        Customer[]
@@ -1271,4 +1272,30 @@ model ProductReview {
   @@unique([productId, customerId])
   @@index([storeId, status, createdAt])
   @@index([productId, status, createdAt])
+}
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// A blog article of a store. PUBLISHED goes live with the next store publish (it is part of the published snapshot). Plain text only.
+model BlogPost {
+  id          String         @id @default(cuid())
+  storeId     String
+  title       String         @db.VarChar(120)
+  /// Generated from the title when the post is created and never changed afterwards (links stay stable).
+  slug        String         @db.VarChar(140)
+  excerpt     String         @default("") @db.VarChar(300)
+  body        String         @db.VarChar(10000)
+  status      BlogPostStatus @default(DRAFT)
+  /// When it was first marked PUBLISHED (kept when it is unpublished and published again).
+  publishedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, slug])
+  @@index([storeId, status, publishedAt])
 }

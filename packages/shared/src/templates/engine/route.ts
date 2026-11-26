@@ -1,5 +1,5 @@
 import type { StorefrontData, StorefrontPage, StorefrontProduct } from "../storefront-data.js";
-import { PRODUCT_SORTS, type ProductSort, type StorefrontQuery } from "../context-types.js";
+import { PRODUCT_SORTS, type ProductSort, type RenderContext, type StorefrontQuery } from "../context-types.js";
 import { makeSearchKey, normalizeFa } from "../../lib/text.js";
 
 export const PRODUCTS_PER_PAGE = 12;
@@ -7,7 +7,7 @@ export const PRODUCTS_PER_PAGE = 12;
 export const SEARCH_MAX = 60;
 
 export type StorefrontRoute =
-  | { kind: "page"; page: StorefrontPage; product: StorefrontProduct | null; query: StorefrontQuery }
+  | { kind: "page"; page: StorefrontPage; product: StorefrontProduct | null; query: StorefrontQuery; blog?: RenderContext["blog"] }
   | { kind: "not_found" };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -55,6 +55,15 @@ export function resolveStorefrontRoute(data: StorefrontData, rawSegments: string
     return page ? { kind: "page", page, product: null, query } : { kind: "not_found" };
   }
   const [head, second] = segments;
+  // The blog: only when the store has published posts; rendered inside the theme's own layout (the page is the home page without sections).
+  if (head === "blog" && (data.posts?.length ?? 0) > 0 && segments.length <= 2) {
+    const home = byType("HOME");
+    if (!home) return { kind: "not_found" };
+    const shell = { ...home, sections: [] };
+    if (segments.length === 1) return { kind: "page", page: shell, product: null, query, blog: { view: "list" } };
+    const post = data.posts!.find((p) => p.slug === second);
+    return post ? { kind: "page", page: shell, product: null, query, blog: { view: "post", post } } : { kind: "not_found" };
+  }
   if (segments.length === 1 && head && head in SEGMENT_PAGE) {
     const page = byType(SEGMENT_PAGE[head as keyof typeof SEGMENT_PAGE]);
     return page ? { kind: "page", page, product: null, query } : { kind: "not_found" };

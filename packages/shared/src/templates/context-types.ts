@@ -1,4 +1,4 @@
-import type { StorefrontData, StorefrontPage, StorefrontProduct } from "./storefront-data.js";
+import type { StorefrontData, StorefrontPage, StorefrontPost, StorefrontProduct } from "./storefront-data.js";
 
 /** Query parameters a storefront page understands (already parsed and bounded by the engine). */
 export interface StorefrontQuery {
@@ -26,6 +26,8 @@ export interface RenderContext {
   query: StorefrontQuery;
   /** Product being shown on a PRODUCT_DETAIL page, otherwise null. */
   product: StorefrontProduct | null;
+  /** Set on the blog's own pages (`/blog`, `/blog/<slug>`): the list, or one post. `page` is then the home page without its sections. */
+  blog?: { view: "list" } | { view: "post"; post: StorefrontPost };
   /** Prefix of every storefront URL (`/preview/<id>` for the draft preview, `` for a public host). */
   basePath: string;
   /** Resolves an internal path (e.g. "/products") against `basePath`. */

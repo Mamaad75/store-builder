@@ -10,6 +10,7 @@ import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
 import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
 import SupportAgentOutlined from '@mui/icons-material/SupportAgentOutlined';
 import RateReviewOutlined from '@mui/icons-material/RateReviewOutlined';
+import EditNoteOutlined from '@mui/icons-material/EditNoteOutlined';
 import WebOutlined from '@mui/icons-material/WebOutlined';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
@@ -146,11 +147,12 @@ function buildNav(base: string): Item[] {
       label: 'سایت و تم‌ها',
       href: `${base}/pages`,
       icon: <WebOutlined />,
-      match: (p) => ['pages', 'appearance', 'reviews'].some((x) => p.startsWith(`${base}/${x}`)),
+      match: (p) => ['pages', 'appearance', 'reviews', 'blog'].some((x) => p.startsWith(`${base}/${x}`)),
       children: [
         { label: 'صفحه‌ها', href: `${base}/pages`, icon: <ArticleOutlined fontSize='small' /> },
         { label: 'ظاهر', href: `${base}/appearance`, icon: <PaletteOutlined fontSize='small' /> },
         { label: 'نظرات', href: `${base}/reviews`, icon: <RateReviewOutlined fontSize='small' /> },
+        { label: 'وبلاگ', href: `${base}/blog`, icon: <EditNoteOutlined fontSize='small' /> },
       ],
     },
     {
@@ -202,6 +204,7 @@ const NAV_PERMISSION: Record<string, Permission> = {
   'کدهای تخفیف': 'discounts.manage',
   'پیامک سفارش': 'store.settings',
   نظرات: 'content.manage',
+  وبلاگ: 'content.manage',
   ظاهر: 'theme.switch',
   انتشار: 'publish',
   تیم: 'members.manage',

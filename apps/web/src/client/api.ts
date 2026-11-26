@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, ticketDto, ticketDetailDto, storeReviewDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, ticketDto, ticketDetailDto, storeReviewDto, blogPostDto, blogPostSummaryDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -170,3 +170,12 @@ export type StoreReviewDto = z.infer<typeof storeReviewDto>;
 export const getReviews = (storeId: string, query: { status?: string; before?: string; limit?: string }) => send<StoreReviewDto[]>("GET", `${store(storeId)}/reviews`, { query });
 export const setReviewStatus = (storeId: string, id: string, status: string) => send("POST", `${store(storeId)}/reviews/${enc(id)}/status`, { body: { status } });
 export const replyReview = (storeId: string, id: string, reply: string) => send("POST", `${store(storeId)}/reviews/${enc(id)}/reply`, { body: { reply } });
+
+// blog posts
+export type BlogPostDto = z.infer<typeof blogPostDto>;
+export type BlogPostSummaryDto = z.infer<typeof blogPostSummaryDto>;
+export const getBlogPosts = (storeId: string) => send<BlogPostSummaryDto[]>("GET", `${store(storeId)}/blog`);
+export const getBlogPost = (storeId: string, id: string) => send<BlogPostDto>("GET", `${store(storeId)}/blog/${enc(id)}`);
+export const createBlogPost = (storeId: string, body: unknown) => send<BlogPostDto>("POST", `${store(storeId)}/blog`, { body });
+export const updateBlogPost = (storeId: string, id: string, body: unknown) => send<BlogPostDto>("PUT", `${store(storeId)}/blog/${enc(id)}`, { body });
+export const deleteBlogPost = (storeId: string, id: string) => send("POST", `${store(storeId)}/blog/${enc(id)}/delete`);
