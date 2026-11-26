@@ -29,8 +29,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <SkipLink />
         <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Toolbar>
-            <Typography sx={{ flexGrow: 1, fontWeight: 700 }}>سایت‌ساز فروشگاهی</Typography>
-            <Box component="nav" aria-label="منوی حساب" sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 2 }, mx: { xs: 1, sm: 2 } }}>
+            <Typography sx={{ flexGrow: 1, fontWeight: 700, display: { xs: "none", sm: "block" } }}>سایت‌ساز فروشگاهی</Typography>
+            <Box component="nav" aria-label="منوی حساب" sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 2 }, marginInlineStart: { xs: 0, sm: 2 }, marginInlineEnd: { xs: "auto", sm: 2 } }}>
               <TextLink href="/dashboard">فروشگاه‌ها</TextLink>
               <TextLink href="/dashboard/account" title={user.name} sx={{ display: "inline-block", maxWidth: { xs: 84, sm: "none" }, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}>
                 {user.name}
