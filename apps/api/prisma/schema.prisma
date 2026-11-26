@@ -162,11 +162,11 @@ model Store {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  templateVersion  TemplateVersion   @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
-  logo             Media?            @relation("StoreLogo", fields: [id, logoId], references: [storeId, id], onDelete: NoAction)
-  publishedVersion StoreVersion?     @relation("PublishedVersion", fields: [id, publishedVersionId], references: [storeId, id], onDelete: Restrict)
-  versions         StoreVersion[]    @relation("AllVersions")
+  owner            User                 @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  templateVersion  TemplateVersion      @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  logo             Media?               @relation("StoreLogo", fields: [id, logoId], references: [storeId, id], onDelete: NoAction)
+  publishedVersion StoreVersion?        @relation("PublishedVersion", fields: [id, publishedVersionId], references: [storeId, id], onDelete: Restrict)
+  versions         StoreVersion[]       @relation("AllVersions")
   pages            Page[]
   categories       ProductCategory[]
   products         Product[]
@@ -183,6 +183,8 @@ model Store {
   orders           Order[]
   payments         Payment[]
   bankCards        StoreBankCard[]
+  dailyStats       StoreDailyStat[]
+  dailyVisitors    StoreDailyVisitor[]
   smsSetting       StoreSmsSetting?
   discounts        Discount[]
   redemptions      DiscountRedemption[]
@@ -870,11 +872,11 @@ model Order {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
-  store    Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  items    OrderItem[]
-  events   OrderEvent[]
-  payments Payment[]
-  receipts TransferReceipt[]
+  store      Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items      OrderItem[]
+  events     OrderEvent[]
+  payments   Payment[]
+  receipts   TransferReceipt[]
   redemption DiscountRedemption?
 
   @@unique([storeId, number])
@@ -928,33 +930,33 @@ model OrderEvent {
 /// One attempt to pay an order at the gateway. Verified ONLY by the server (auto_verify=false): an attempt the server never verified is
 /// refunded to the buyer by Zarinpal. The authority is unique per gateway session; amounts are rial as sent to the gateway.
 model Payment {
-  id         String        @id @default(cuid())
-  storeId    String
-  orderId    String
-  provider   String        @db.VarChar(20)
-  sandbox    Boolean
-  authority  String        @unique @db.VarChar(40)
-  amountRial BigInt
-  status     PaymentStatus @default(CREATED)
+  id                  String        @id @default(cuid())
+  storeId             String
+  orderId             String
+  provider            String        @db.VarChar(20)
+  sandbox             Boolean
+  authority           String        @unique @db.VarChar(40)
+  amountRial          BigInt
+  status              PaymentStatus @default(CREATED)
   /// When VERIFYING began (a verification interrupted for long is resumed by the reconciliation job).
-  claimedAt  DateTime?
+  claimedAt           DateTime?
   /// Set when a verify call was first SENT (its answer may be lost): from then on the attempt is never closed without a definite answer.
-  verifySentAt DateTime?
+  verifySentAt        DateTime?
   /// SHA-256 of the merchant id the session was opened with: never verified with a different one (review 3.5).
-  merchantFingerprint String @db.VarChar(64)
+  merchantFingerprint String        @db.VarChar(64)
   /// SHA-256 of the return key held by the paying browser (HttpOnly cookie): only that browser gets the order link back.
-  returnKeyHash String @db.VarChar(64)
+  returnKeyHash       String        @db.VarChar(64)
   /// Reconciler back-off: when the attempt is checked next, and how often it was checked.
-  nextCheckAt DateTime @default(now())
-  checks      Int      @default(0)
-  refId      String?       @db.VarChar(40)
-  cardPan    String?       @db.VarChar(32)
-  fee        BigInt?
+  nextCheckAt         DateTime      @default(now())
+  checks              Int           @default(0)
+  refId               String?       @db.VarChar(40)
+  cardPan             String?       @db.VarChar(32)
+  fee                 BigInt?
   /// Last gateway code seen (100, 101, -51, ...), for support; never a message from the provider.
-  lastCode   Int?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  verifiedAt DateTime?
+  lastCode            Int?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  verifiedAt          DateTime?
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   order Order @relation(fields: [storeId, orderId], references: [storeId, id], onDelete: Cascade)
@@ -1024,18 +1026,18 @@ model StoreSmsSetting {
 /// Phase 3.6 (D36-1): one order SMS (or the decision not to send it), keyed by the domain event and the kind: delivery of events is
 /// at-least-once, so a second delivery finds the row and sends nothing. Also the store's monthly count. No phone number, no message text.
 model SmsMessage {
-  id        String   @id @default(cuid())
-  storeId   String
-  eventId   String   @db.VarChar(40)
-  kind      String   @db.VarChar(40)
-  orderId   String?
+  id            String   @id @default(cuid())
+  storeId       String
+  eventId       String   @db.VarChar(40)
+  kind          String   @db.VarChar(40)
+  orderId       String?
   /// SHA-256 of the recipient's phone (never the number): the platform-wide daily limit per phone (review 3.6).
-  recipientHash String? @db.VarChar(64)
+  recipientHash String?  @db.VarChar(64)
   /// PENDING (claimed, being sent), SENT, FAILED (retried by the queue), SKIPPED (off, capped, no phone, no template).
-  status    String   @db.VarChar(10)
-  reason    String?  @db.VarChar(30)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status        String   @db.VarChar(10)
+  reason        String?  @db.VarChar(30)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
@@ -1140,4 +1142,30 @@ model StoreSuspension {
   liftNote              String?          @db.VarChar(2000)
 
   @@index([storeId, suspendedAt])
+}
+
+/// Store trend charts: page views and visitors per Tehran calendar day (MVP analytics). Counters only; nothing identifies a shopper.
+model StoreDailyStat {
+  storeId  String
+  /// The Tehran calendar day.
+  day      DateTime @db.Date
+  views    Int      @default(0)
+  visitors Int      @default(0)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, day])
+}
+
+/// Counts a visitor once per day: a SHA-256 of (secret, day, store, address, browser) that cannot be reversed or linked across days.
+/// Rows older than two days are deleted by the db-cleanup job; the daily counters above are what is kept.
+model StoreDailyVisitor {
+  storeId String
+  day     DateTime @db.Date
+  hash    String   @db.Char(64)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, day, hash])
+  @@index([day])
 }

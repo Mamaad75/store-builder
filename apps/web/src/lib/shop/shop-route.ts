@@ -6,7 +6,7 @@
  * Only these shopper routes are forwarded (everything else on /api/shop is the neutral 404).
  */
 const SHOP_PATH_RE =
-  /^\/api\/shop\/(cart|cart\/items|checkout\/quote|checkout\/orders|checkout\/orders\/[A-Za-z0-9_-]{43}(\/cancel|\/pay|\/receipt)?|checkout\/payment-methods|checkout\/payments\/verify|customer\/(status|me|logout|logout-all|login|register|otp\/request|otp\/verify|addresses|orders)|customer\/addresses\/[a-z0-9]{1,64}|customer\/orders\/[a-z0-9]{1,64}(\/cancel|\/pay|\/receipt)?)$/;
+  /^\/api\/shop\/(visit|cart|cart\/items|checkout\/quote|checkout\/orders|checkout\/orders\/[A-Za-z0-9_-]{43}(\/cancel|\/pay|\/receipt)?|checkout\/payment-methods|checkout\/payments\/verify|customer\/(status|me|logout|logout-all|login|register|otp\/request|otp\/verify|addresses|orders)|customer\/addresses\/[a-z0-9]{1,64}|customer\/orders\/[a-z0-9]{1,64}(\/cancel|\/pay|\/receipt)?)$/;
 
 export const SHOP_API_PREFIX = "/api/shop/";
 

@@ -281,6 +281,17 @@ export const storeSetupDto = z.object({
   paymentMethods: z.array(z.enum(["cod", "online", "cardTransfer"])).describe("payment methods usable now: cash on delivery needs an enabled shipping method that allows it"),
   complete: z.boolean(),
 });
+// ---- store trend charts (rules in modules/analytics/analytics.ts)
+const dayStatsShape = { views: z.number().int(), visitors: z.number().int(), orders: z.number().int(), sales: z.number().int().describe("toman, gross order value"), customers: z.number().int() };
+export const storeAnalyticsDto = z.object({
+  days: z.union([z.literal(7), z.literal(30), z.literal(90)]),
+  from: z.string().describe("first Tehran day of the period, YYYY-MM-DD"),
+  to: z.string().describe("last Tehran day (today), YYYY-MM-DD"),
+  trackingSince: z.string().nullable().describe("first day page views were recorded; visit figures are zero before it"),
+  series: z.array(z.object({ day: z.string(), ...dayStatsShape })).describe("one entry per day, oldest first, zeros for days without data"),
+  totals: z.object({ current: z.object(dayStatsShape), previous: z.object(dayStatsShape).describe("the same number of days right before the period") }),
+  conversionPercent: z.number().nullable().describe("orders per hundred visitors in the period; null without visitors"),
+});
 export const shippingMethodDto = z.object({
   id: z.string(),
   name: z.string(),

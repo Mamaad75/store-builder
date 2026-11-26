@@ -5,6 +5,7 @@ import { purgeExpiredChallenges } from "../src/modules/customers/customers.api.j
 import { createInventoryService } from "../src/modules/inventory/inventory.api.js";
 import { purgeExpiredCarts } from "../src/modules/checkout/checkout.api.js";
 import { CART_TTL_DAYS } from "@store-builder/shared/modules/checkout/checkout";
+import { purgeAnalytics } from "../src/modules/analytics/analytics.api.js";
 import { bootstrapJob } from "./bootstrap.js";
 import { db } from "../src/lib/db.js";
 
@@ -20,7 +21,8 @@ async function main() {
   const otp = await purgeExpiredChallenges(); // phase 3.1: sign-in codes expired more than a day ago
   const held = await createInventoryService().releaseExpired(); // phase 3.2: stock held by abandoned checkouts goes back on sale
   const carts = await purgeExpiredCarts(new Date(), CART_TTL_DAYS); // phase 3.3: carts nobody touched for 30 days
-  console.log(`Deleted ${buckets} expired rate-limit buckets, ${events} published outbox events, ${audit} audit events past retention, ${otp} expired sign-in codes and ${carts} abandoned carts; released ${held} expired stock reservations`);
+  const stats = await purgeAnalytics(); // store trend charts: daily visitor hashes older than two days, counters older than 400 days
+  console.log(`Deleted ${buckets} expired rate-limit buckets, ${events} published outbox events, ${audit} audit events past retention, ${otp} expired sign-in codes and ${carts} abandoned carts, ${stats.visitors} visitor hashes and ${stats.stats} old daily counters; released ${held} expired stock reservations`);
 }
 main()
   .catch((e) => {

@@ -294,6 +294,7 @@ Previously stated: "V0, V1, V2 before the first real merchant" (ADR 0005 §15.8)
   stored as SHA-256 only and redeemed in the same transaction as the account; `pnpm platform:admin invite` issues the first admin's code;
   `/platform/access` manages the mode, codes and recovery; Caddy's access log drops the `token` and `invite` query parameters.
 * **Store setup checklist (MVP item 3, implemented 2026-11-26):** the store dashboard lists what is missing before a shopper can finish an order (active product, enabled shipping method, a usable payment method, subdomain, published), each with a link to the page that fixes it. Guidance only: it does not block publishing. `GET /api/stores/:id/setup` (`store.settings`).
+* **Trend charts (owner request 2026-11-26):** the store dashboard shows sales, orders, visits and new customers per day (7/30/90 days) from real data; page views are counted anonymously by a storefront beacon (no cookie, no stored address). This pulls forward the basic part of "charts"; funnels, per-page and traffic-source analytics stay post-MVP. `GET /api/stores/:id/analytics` returns a stable structure the later daily LLM suggestion can read.
 * **Exposure limits:** see ADR 0005 §18 (number of stores, payment methods, per-order cap decision).
 * **Immediate stop:** exists — per-store suspension (ADR 0003 G2) and the platform payment switches; add a documented "stop the pilot"
   runbook step.
