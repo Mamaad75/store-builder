@@ -8,6 +8,7 @@ import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
+import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
 import CreditCardOutlined from '@mui/icons-material/CreditCardOutlined';
@@ -189,6 +190,12 @@ function buildNav(base: string): Item[] {
       href: base,
       icon: <SettingsOutlined />,
       match: (p) => p === base,
+    },
+    {
+      label: 'راهنما و پشتیبانی',
+      href: `${base}/support`,
+      icon: <HelpOutlineRounded />,
+      match: (p) => p.startsWith(`${base}/support`),
     },
   ];
 }

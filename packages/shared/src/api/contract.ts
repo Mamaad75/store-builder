@@ -10,7 +10,7 @@ import { secretValueSchema } from "../modules/secrets/schemas.js";
 import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
 import { customerLoginSchema, customerRegisterSchema } from "../modules/customers/schemas.js";
-import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
+import { orderListQuerySchema, orderTransitionSchema, placeOrderSchema, setTrackingSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
 import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { discountInputSchema } from "../modules/discounts/discounts.js";
 import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
@@ -226,6 +226,7 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", st("/payment-settings"), "Online payment state (phase 3.5): platform switch, sandbox, whether the merchant id is set, the return address", { permission: "secrets.manage", response: S.paymentSettingsViewDto }),
   r("GET", st("/orders/:orderId/payments"), "The order's online payment attempts (phase 3.5): status, reference number, masked card", { permission: "orders.view", response: z.array(S.paymentAttemptDto) }),
   r("POST", st("/orders/:orderId/status"), "Confirm, ship, deliver or cancel an order (cancelling gives the stock back)", { permission: "orders.manage", status: 200, body: orderTransitionSchema, response: S.orderDto }),
+  r("POST", st("/orders/:orderId/tracking"), "Set, change or clear (empty) the carrier's tracking code of a shipped order; the shopper sees it on their order page", { permission: "orders.manage", status: 200, body: setTrackingSchema, response: S.orderDto }),
   r("GET", st("/suspension"), "ADR 0003: whether the platform suspended this store, with its public message", { permission: "store.view", response: S.merchantSuspensionDto }),
   r("GET", st("/customers"), "The store's customers, newest first", { permission: "customers.view", query: z.object({ before: z.string().optional(), limit: z.number().int().min(1).max(100).optional() }), response: z.array(S.customerListItemDto) }),
 

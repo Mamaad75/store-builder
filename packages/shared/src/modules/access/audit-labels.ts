@@ -47,6 +47,7 @@ export const AUDIT_ACTIONS: Readonly<Record<string, { group: AuditGroup; label: 
   "category.deleted": A("catalog", "دسته‌بندی حذف شد"),
 
   "order.status_changed": A("orders", "وضعیت سفارش تغییر کرد"),
+  "order.tracking_set": A("orders", "کد رهگیری سفارش ثبت یا تغییر کرد"),
   "order.receipt_reviewed": A("orders", "رسید کارت‌به‌کارت بررسی شد"),
   "discount.created": A("orders", "کد تخفیف ساخته شد"),
   "discount.updated": A("orders", "کد تخفیف ویرایش شد"),

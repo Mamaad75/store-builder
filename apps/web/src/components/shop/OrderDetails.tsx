@@ -38,6 +38,7 @@ export default function OrderDetails({
       {!data.storeOpen && <p className={s.muted}>این فروشگاه در حال حاضر سفارش جدید نمی‌پذیرد؛ پیگیری این سفارش همچنان از همین صفحه ممکن است.</p>}
       <div className={s.card}>
         <p>وضعیت: <span className={s.status}>{ORDER_STATUS_LABELS[o.status]}</span></p>
+        {o.trackingCode && <p data-testid="shopper-tracking">کد رهگیری مرسوله: <span dir="ltr" className={s.num}>{o.trackingCode}</span></p>}
         <p className={s.muted}>ثبت در {date(o.createdAt)} — {PAYMENT_METHOD_LABELS[o.paymentMethod]}{o.paymentGateway ? ` (${GATEWAY_LABELS[o.paymentGateway]})` : ""}</p>
         {o.payment && <p className={s.muted}>پرداخت‌شده — کد پیگیری <span className={s.num}>{o.payment.refId}</span>{o.payment.cardPan ? <> — کارت <span className={s.num} dir="ltr">{o.payment.cardPan}</span></> : null}</p>}
         {o.paymentMethod === "ONLINE" && o.status === "AWAITING_PAYMENT" && o.paymentDeadline && (

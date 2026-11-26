@@ -67,8 +67,10 @@ export interface OrderStore {
     to: OrderStatus,
     /** Throws when the move is not allowed; gets the current status and the order's payment method. */
     check: (current: OrderStatus, paymentMethod: PaymentMethod) => void,
-    by: { actor: OrderActor; actorId: string | null; note: string },
+    by: { actor: OrderActor; actorId: string | null; note: string; /** Only with a move to SHIPPED. */ trackingCode?: string },
   ): Promise<OrderView | null>;
+  /** The tracking code of a SHIPPED or DELIVERED order, set, changed or (null) cleared, with the order row locked. "not_shipped" = any other status. */
+  setTracking(storeId: string, id: string, code: string | null): Promise<OrderView | null | "not_shipped">;
 }
 
 /** The stock hold (the 3.2 ledger): taken before the order is written, consumed inside its transaction, released if writing fails. */

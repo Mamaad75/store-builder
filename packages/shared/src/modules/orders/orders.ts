@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizeFaText } from "../../lib/text.js";
+import { normalizeFa, normalizeFaText } from "../../lib/text.js";
 
 /**
  * Orders (phase 3.4, D34-1). Pure: shared by the API (rules) and the dashboard/storefront (labels, which buttons to show).
@@ -156,11 +156,35 @@ export const placeOrderSchema = z
   .refine((v) => v.paymentMethod === "ONLINE" || v.gateway === undefined, { message: "درگاه فقط برای پرداخت اینترنتی است", path: ["gateway"] });
 export type PlaceOrderInput = z.output<typeof placeOrderSchema>;
 
-export const orderTransitionSchema = z.object({ to: z.enum(ORDER_STATUSES, { error: "وضعیت نامعتبر است" }), note }).strict();
+/**
+ * The carrier's tracking code (Iranian post codes are 20+ digits; other carriers use letters): Persian and Arabic digits become ASCII and
+ * spaces go, then it must be 3 to 40 letters, digits or . _ - (the DB has the same CHECK). Empty = none.
+ */
+export const TRACKING_CODE_RE = /^[A-Za-z0-9._-]{3,40}$/;
+export const TRACKING_CODE_MESSAGE = "کد رهگیری باید ۳ تا ۴۰ حرف انگلیسی، عدد یا . _ - باشد (بدون فاصله)";
+export const normalizeTrackingCode = (v: string): string =>
+  v
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/\s+/g, "");
+const trackingCodeField = z
+  .string({ error: TRACKING_CODE_MESSAGE })
+  .max(80, TRACKING_CODE_MESSAGE)
+  .transform(normalizeTrackingCode)
+  .refine((v) => v === "" || TRACKING_CODE_RE.test(v), { message: TRACKING_CODE_MESSAGE });
+
+export const orderTransitionSchema = z
+  .object({ to: z.enum(ORDER_STATUSES, { error: "وضعیت نامعتبر است" }), note, trackingCode: trackingCodeField.optional() })
+  .strict()
+  .refine((v) => !v.trackingCode || v.to === "SHIPPED", { message: "کد رهگیری فقط هنگام ثبت ارسال معنی دارد", path: ["trackingCode"] });
+/** Set, change or (empty) clear the tracking code of a shipped order. */
+export const setTrackingSchema = z.object({ trackingCode: trackingCodeField }).strict();
 
 export const orderListQuerySchema = z
   .object({
     status: z.enum(ORDER_STATUSES).optional(),
+    /** The merchant's search box: an order number ("#128"), part of a mobile number, or part of the recipient's name. */
+    q: z.string().trim().max(60).optional(),
     /** Phase 3.3b: one customer's orders (the merchant's customer page). */
     customerId: z.string().regex(ID_RE).optional(),
     /** M2: "receipt" = card-to-card orders awaiting payment with a receipt waiting for the merchant's review (the overview's count). */
@@ -169,3 +193,34 @@ export const orderListQuerySchema = z
     limit: z.coerce.number().int().min(1).max(100).default(30),
   })
   .strict();
+
+/**
+ * What the merchant's search box means (pure, shared by the API and its tests). Digits are an order number (up to 9 digits) and, from 4
+ * digits on, also part of a mobile number (stored as +989xxxxxxxxx, so a typed leading 0 or 98 is dropped); any text is part of the
+ * recipient's name. A box holding only digits matches by number or phone, text matches by name. An empty box searches nothing. (A digit
+ * string is never empty after this: up to 9 digits are an order number, 10 or more leave a phone fragment.)
+ */
+export interface OrderSearch {
+  number?: number;
+  phone?: string;
+  name?: string;
+}
+const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+const AR_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+export function parseOrderSearch(input: string | undefined): OrderSearch | null {
+  const raw = (input ?? "")
+    .trim()
+    .replace(/[۰-۹]/g, (d) => String(FA_DIGITS.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String(AR_DIGITS.indexOf(d)));
+  if (!raw) return null;
+  const digits = raw.replace(/^[#+]/, "").replace(/[\s-]/g, "");
+  if (/^\d+$/.test(digits)) {
+    const out: OrderSearch = {};
+    if (digits.length <= 9) out.number = Number(digits);
+    if (digits.length >= 4) out.phone = digits.replace(/^(?:0098|098|98|0)/, "");
+    if (out.phone === "") delete out.phone; // "0098" alone is only a prefix; the number match above still applies
+    return out;
+  }
+  const name = normalizeFa(raw.replace(/^#/, "")).slice(0, 60);
+  return name ? { name } : null;
+}

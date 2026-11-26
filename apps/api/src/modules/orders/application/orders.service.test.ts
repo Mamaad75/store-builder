@@ -28,7 +28,7 @@ class MemoryOrders implements OrderStore {
     return {
       id: o.id, number: n, status: o.paymentMethod === "ONLINE" ? "AWAITING_PAYMENT" : "PLACED", paymentGateway: o.paymentGateway, discountCode: o.discount?.code ?? null, discountAmount: o.discount?.amount ?? 0, paymentDeadline: o.paymentDeadline?.toISOString() ?? null, payment: null, createdAt: "2026-01-01T00:00:00.000Z", customerId: o.customerId, address: o.address,
       shipping: { name: o.shipping.name, kind: o.shipping.kind, cost: o.shipping.cost }, paymentMethod: o.paymentMethod, subtotal: o.subtotal, codFee: o.codFee,
-      total: o.total, itemCount: o.itemCount, note: o.note, items: o.items.map((i) => ({ productId: i.productId, variantId: i.variantId, name: i.name, variantLabel: i.variantLabel, unitPrice: i.unitPrice, quantity: i.quantity, lineTotal: i.lineTotal, weightGrams: i.weightGrams })), history: [{ from: null, to: "PLACED", actor: "CUSTOMER", note: "", at: "" }],
+      total: o.total, itemCount: o.itemCount, note: o.note, trackingCode: null, items: o.items.map((i) => ({ productId: i.productId, variantId: i.variantId, name: i.name, variantLabel: i.variantLabel, unitPrice: i.unitPrice, quantity: i.quantity, lineTotal: i.lineTotal, weightGrams: i.weightGrams })), history: [{ from: null, to: "PLACED", actor: "CUSTOMER", note: "", at: "" }],
     };
   }
   async findByRequestKey(storeId: string, k: string) { return this.rows.find((r) => r.storeId === storeId && r.requestKey === k) ?? null; }
@@ -44,11 +44,19 @@ class MemoryOrders implements OrderStore {
   async listForCustomer(storeId: string, c: string) { return this.rows.filter((r) => r.storeId === storeId && r.customerId === c); }
   async list() { return { items: this.rows, nextCursor: null }; }
   async customerStats() { return []; }
-  async transition(storeId: string, id: string, to: OrderStatus, check: (s: OrderStatus, m: "COD" | "ONLINE" | "CARD_TRANSFER") => void) {
+  async transition(storeId: string, id: string, to: OrderStatus, check: (s: OrderStatus, m: "COD" | "ONLINE" | "CARD_TRANSFER") => void, by?: { trackingCode?: string }) {
     const r = this.rows.find((x) => x.storeId === storeId && x.id === id);
     if (!r) return null;
     check(r.status, r.paymentMethod);
     r.status = to;
+    if (to === "SHIPPED" && by?.trackingCode) r.trackingCode = by.trackingCode;
+    return r;
+  }
+  async setTracking(storeId: string, id: string, code: string | null) {
+    const r = this.rows.find((x) => x.storeId === storeId && x.id === id);
+    if (!r) return null;
+    if (r.status !== "SHIPPED" && r.status !== "DELIVERED") return "not_shipped" as const;
+    r.trackingCode = code;
     return r;
   }
 }
@@ -151,6 +159,39 @@ describe("following and cancelling", () => {
     await expect(svc.cancelMine("s1", "c2", "o1")).rejects.toBeInstanceOf(NotFoundError);
     await expect(svc.transition({ storeId: "s1", actorId: "u1" }, "o1", { to: "DELIVERED" })).rejects.toBeInstanceOf(OrderTransitionError);
     expect((await svc.cancelMine("s1", "c1", "o1")).order.status).toBe("CANCELLED");
+  });
+});
+
+describe("tracking code", () => {
+  const a = { storeId: "s1", actorId: "u1" };
+  async function shipped() {
+    const { svc } = setup();
+    await svc.place("shop", guest, body);
+    await svc.transition(a, "o1", { to: "CONFIRMED" });
+    return svc;
+  }
+  it("is saved when the order is shipped (Persian digits and spaces normalised) and shown on the order", async () => {
+    const svc = await shipped();
+    const o = await svc.transition(a, "o1", { to: "SHIPPED", trackingCode: " ۱۲۳۴ ۵۶۷۸۹۰ " });
+    expect([o.status, o.trackingCode]).toEqual(["SHIPPED", "1234567890"]);
+  });
+  it("shipping without a code is fine; the code can be added, changed and cleared while shipped, and after delivery", async () => {
+    const svc = await shipped();
+    expect((await svc.transition(a, "o1", { to: "SHIPPED" })).trackingCode).toBeNull();
+    expect((await svc.setTracking(a, "o1", { trackingCode: "RR123456789IR" })).trackingCode).toBe("RR123456789IR");
+    expect((await svc.setTracking(a, "o1", { trackingCode: "NEW-CODE.2" })).trackingCode).toBe("NEW-CODE.2");
+    await svc.transition(a, "o1", { to: "DELIVERED" });
+    expect((await svc.setTracking(a, "o1", { trackingCode: "" })).trackingCode).toBeNull();
+  });
+  it("is refused with a reason: a bad code, a code on any move but SHIPPED, an order that was not shipped, a foreign or malformed id", async () => {
+    const svc = await shipped();
+    await expect(svc.transition(a, "o1", { to: "SHIPPED", trackingCode: "no" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(svc.transition(a, "o1", { to: "SHIPPED", trackingCode: "<script>" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(svc.transition(a, "o1", { to: "CANCELLED", trackingCode: "ABC123" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(svc.setTracking(a, "o1", { trackingCode: "ABC123" })).rejects.toBeInstanceOf(ValidationError); // still CONFIRMED
+    await expect(svc.setTracking({ storeId: "other" }, "o1", { trackingCode: "ABC123" })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(svc.setTracking(a, "../x", { trackingCode: "ABC123" })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(svc.setTracking(a, "o1", { trackingCode: "ABC123", extra: 1 })).rejects.toBeInstanceOf(ValidationError);
   });
 });
 

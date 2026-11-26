@@ -268,6 +268,15 @@ export class StoreOrdersController {
   transition(@StoreAccess() a: StoreAccessContext, @Param("orderId") id: string, @Body() body: unknown) {
     return this.orders.transition(a, id, body);
   }
+
+  /** Set, change or clear (empty) the carrier's tracking code of a shipped order; the shopper sees it on their order page. */
+  @Post(":orderId/tracking")
+  @HttpCode(200)
+  @RequirePermission("orders.manage")
+  @Audit("order.tracking_set", { type: "order", param: "orderId" })
+  tracking(@StoreAccess() a: StoreAccessContext, @Param("orderId") id: string, @Body() body: unknown) {
+    return this.orders.setTracking(a, id, body);
+  }
 }
 
 /**

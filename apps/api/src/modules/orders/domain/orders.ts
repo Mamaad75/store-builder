@@ -130,6 +130,8 @@ export interface OrderView {
   total: number;
   itemCount: number;
   note: string;
+  /** The carrier's tracking code (shipped orders), shown to the shopper too. */
+  trackingCode: string | null;
   items: Omit<NewOrderItem, "position">[];
   history: { from: OrderStatus | null; to: OrderStatus; actor: OrderActor; note: string; at: string }[];
 }

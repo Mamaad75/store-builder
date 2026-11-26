@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAnalytics, changePercent, dayKeys, parseAnalyticsRange, tehranDayKey } from "./analytics";
+import { buildAnalytics, changePercent, dayKeys, parseAnalyticsRange, tehranDayKey } from "./analytics.js";
 
 describe("tehranDayKey / dayKeys", () => {
   it("uses the Tehran calendar day (UTC+03:30), not the UTC day", () => {

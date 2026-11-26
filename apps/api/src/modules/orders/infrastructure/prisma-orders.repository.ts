@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { restocksOn, type Gateway, type OrderStatus, type PaymentMethod } from "@store-builder/shared/modules/orders/orders";
+import { parseOrderSearch, restocksOn, type Gateway, type OrderStatus, type PaymentMethod } from "@store-builder/shared/modules/orders/orders";
 import type { ShippingKind } from "@store-builder/shared/modules/checkout/checkout";
 import { PaymentNotAllowedError } from "@store-builder/shared/modules/orders/errors";
 import { db } from "../../../lib/db.js";
@@ -22,7 +22,7 @@ const prismaCode = (e: unknown) => (typeof e === "object" && e !== null ? (e as 
 const orderSelect = {
   id: true, number: true, status: true, createdAt: true, customerId: true,
   recipientName: true, phone: true, province: true, city: true, addressLine: true, postalCode: true,
-  shippingName: true, shippingKind: true, shippingCost: true, paymentMethod: true, paymentGateway: true, paymentDeadline: true, codFee: true, discountCode: true, discountAmount: true, subtotal: true, total: true, itemCount: true, note: true,
+  shippingName: true, shippingKind: true, shippingCost: true, paymentMethod: true, paymentGateway: true, paymentDeadline: true, codFee: true, discountCode: true, discountAmount: true, subtotal: true, total: true, itemCount: true, note: true, trackingCode: true,
   items: { select: { productId: true, variantId: true, name: true, variantLabel: true, unitPrice: true, quantity: true, lineTotal: true, weightGrams: true }, orderBy: { position: "asc" as const } },
   payments: { where: { status: "PAID" as const }, select: { refId: true, cardPan: true, verifiedAt: true }, take: 1 },
   events: { select: { fromStatus: true, toStatus: true, actor: true, note: true, createdAt: true }, orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }] },
@@ -49,6 +49,7 @@ function toView(r: OrderRow): OrderView {
     total: Number(r.total),
     itemCount: r.itemCount,
     note: r.note,
+    trackingCode: r.trackingCode,
     items: r.items.map((i) => ({ ...i, lineTotal: Number(i.lineTotal) })),
     history: r.events.map((e) => ({ from: e.fromStatus as OrderStatus | null, to: e.toStatus as OrderStatus, actor: e.actor, note: e.note, at: e.createdAt.toISOString() })),
   };
@@ -95,7 +96,7 @@ export class PrismaOrderStore implements OrderStore {
     return rows.map((r) => ({ customerId: r.customerId!, orders: r._count._all, spent: spentBy.get(r.customerId) ?? 0, lastOrderAt: r._max.createdAt?.toISOString() ?? null }));
   }
 
-  async list(storeId: string, q: { status?: OrderStatus; customerId?: string; review?: "receipt"; before?: string; limit: number }): Promise<OrderListPage> {
+  async list(storeId: string, q: { status?: OrderStatus; customerId?: string; review?: "receipt"; q?: string; before?: string; limit: number }): Promise<OrderListPage> {
     const where: Prisma.OrderWhereInput = {
       storeId,
       ...(q.status ? { status: q.status } : {}),
@@ -103,6 +104,15 @@ export class PrismaOrderStore implements OrderStore {
       // M2: combined with AND, so a conflicting ?status= gives an empty page rather than widening the filter.
       ...(q.review === "receipt" ? { AND: [RECEIPT_REVIEW_WHERE] } : {}),
     };
+    // The merchant's search box: an order number, part of a mobile number, or part of the recipient's name (any of them, within this store).
+    const search = parseOrderSearch(q.q);
+    if (search) {
+      where.OR = [
+        ...(search.number !== undefined ? [{ number: search.number }] : []),
+        ...(search.phone ? [{ phone: { contains: search.phone } }] : []),
+        ...(search.name ? [{ recipientName: { contains: search.name, mode: "insensitive" as const } }] : []),
+      ];
+    }
     if (q.before) {
       // Keyset on the gap-free per-store number (strictly increasing with time; createdAt can tie within a millisecond). The cursor
       // must be an order of THIS store; a foreign or unknown cursor is an empty page.
@@ -169,7 +179,7 @@ export class PrismaOrderStore implements OrderStore {
     id: string,
     to: OrderStatus,
     check: (current: OrderStatus, paymentMethod: PaymentMethod) => void,
-    by: { actor: "CUSTOMER" | "MERCHANT" | "SYSTEM"; actorId: string | null; note: string },
+    by: { actor: "CUSTOMER" | "MERCHANT" | "SYSTEM"; actorId: string | null; note: string; trackingCode?: string },
   ): Promise<OrderView | null> {
     const done = await db.$transaction(async (tx) => {
       // Lock order: the order row first, then (cancellation) product rows and reservation rows, as the stock ledger does.
@@ -192,7 +202,7 @@ export class PrismaOrderStore implements OrderStore {
           });
         }
       }
-      await tx.order.updateMany({ where: { id, storeId, status: row.status }, data: { status: to } });
+      await tx.order.updateMany({ where: { id, storeId, status: row.status }, data: { status: to, ...(to === "SHIPPED" && by.trackingCode ? { trackingCode: by.trackingCode } : {}) } });
       await tx.orderEvent.create({ data: { storeId, orderId: id, fromStatus: row.status, toStatus: to, actor: by.actor, actorId: by.actorId, note: by.note } });
       if (restocksOn(to)) {
         await restockReservationInTx({ tx }, storeId, id);
@@ -202,5 +212,17 @@ export class PrismaOrderStore implements OrderStore {
       return true;
     }, TX);
     return done ? this.getById(storeId, id) : null;
+  }
+  /** Sets, changes or (null) clears the tracking code of a SHIPPED or DELIVERED order; false = no such order or it was not shipped. */
+  async setTracking(storeId: string, id: string, code: string | null): Promise<OrderView | null | "not_shipped"> {
+    const r = await db.$transaction(async (tx) => {
+      const [row] = await tx.$queryRaw<{ status: OrderStatus }[]>`SELECT status::text AS status FROM "Order" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`;
+      if (!row) return null;
+      if (row.status !== "SHIPPED" && row.status !== "DELIVERED") return "not_shipped" as const;
+      await tx.order.update({ where: { id }, data: { trackingCode: code } });
+      return true as const;
+    }, TX);
+    if (r === null || r === "not_shipped") return r;
+    return this.getById(storeId, id);
   }
 }

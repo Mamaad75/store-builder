@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AUDIT_ACTIONS, AUDIT_GROUPS, auditActionGroup, auditActionLabel, auditDetails } from "./audit-labels";
+import { AUDIT_ACTIONS, AUDIT_GROUPS, auditActionGroup, auditActionLabel, auditDetails } from "./audit-labels.js";
 
 describe("audit labels", () => {
   it("every action has a Persian sentence and a known group", () => {

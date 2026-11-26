@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 import { GATEWAY_LABELS, nextStatuses, PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, type OrderStatus } from "@store-builder/shared/modules/orders/orders";
 import { provinceName } from "@store-builder/shared/modules/checkout/provinces";
 import { formatIranMobile } from "@store-builder/shared/lib/phone";
-import { changeOrderStatus, getOrder, getOrderPayments, type OrderDto, type PaymentAttempt } from "@/client/api";
+import { changeOrderStatus, setOrderTracking, getOrder, getOrderPayments, type OrderDto, type PaymentAttempt } from "@/client/api";
 import ReceiptReview from "./ReceiptReview";
 import { ACTION_LABEL, ORDER_STATUS_LABELS, STATUS_COLOR, date, failText, toman } from "./labels";
 
@@ -20,6 +20,10 @@ import { ACTION_LABEL, ORDER_STATUS_LABELS, STATUS_COLOR, date, failText, toman 
 export default function OrderDetail({ storeId, orderId }: { storeId: string; orderId: string }) {
   const [order, setOrder] = useState<OrderDto | null>(null);
   const [note, setNote] = useState("");
+  // The carrier's code: typed when shipping (optional), and editable afterwards while the order is shipped or delivered.
+  const [shipCode, setShipCode] = useState("");
+  const [codeDraft, setCodeDraft] = useState<string | null>(null);
+  const [codeSaved, setCodeSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [attempts, setAttempts] = useState<PaymentAttempt[]>([]);
@@ -43,8 +47,24 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
     setBusy(true);
     setError(null);
     try {
-      setOrder(await changeOrderStatus(storeId, orderId, to, note));
+      setOrder(await changeOrderStatus(storeId, orderId, to, note, to === "SHIPPED" ? shipCode : undefined));
       setNote("");
+      setShipCode("");
+    } catch (e) {
+      setError(failText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveTracking(code: string) {
+    setBusy(true);
+    setError(null);
+    setCodeSaved(false);
+    try {
+      setOrder(await setOrderTracking(storeId, orderId, code));
+      setCodeDraft(null);
+      setCodeSaved(true);
     } catch (e) {
       setError(failText(e));
     } finally {
@@ -66,6 +86,16 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
       {steps.length > 0 && (
         <Paper variant="outlined" sx={{ p: 2, display: "grid", gap: 1.5 }}>
           <TextField label="یادداشت (اختیاری، در تاریخچه ثبت می‌شود)" value={note} onChange={(e) => setNote(e.target.value)} slotProps={{ htmlInput: { maxLength: 500 } }} size="small" />
+          {steps.includes("SHIPPED") && (
+            <TextField
+              label="کد رهگیری مرسوله (اختیاری)"
+              value={shipCode}
+              onChange={(e) => setShipCode(e.target.value)}
+              size="small"
+              helperText="اگر کد پست یا باربری دارید اینجا بنویسید؛ خریدار آن را در صفحهٔ پیگیری سفارش می‌بیند. بعداً هم می‌توانید ثبت یا اصلاحش کنید."
+              slotProps={{ htmlInput: { maxLength: 80, dir: "ltr" } }}
+            />
+          )}
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             {steps.map((to) => (
               <Button key={to} variant={to === "CANCELLED" ? "outlined" : "contained"} color={to === "CANCELLED" ? "error" : "primary"} onClick={() => move(to)} disabled={busy}>
@@ -73,6 +103,25 @@ export default function OrderDetail({ storeId, orderId }: { storeId: string; ord
               </Button>
             ))}
           </Box>
+        </Paper>
+      )}
+
+      {(order.status === "SHIPPED" || order.status === "DELIVERED") && (
+        <Paper variant="outlined" sx={{ p: 2, display: "grid", gap: 1 }} data-testid="order-tracking">
+          <Typography sx={{ fontWeight: 700 }}>کد رهگیری مرسوله</Typography>
+          {codeDraft === null ? (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+              {order.trackingCode ? <Typography>کد: <strong dir="ltr">{order.trackingCode}</strong></Typography> : <Typography color="text.secondary">هنوز کد رهگیری ثبت نشده است.</Typography>}
+              <Button size="small" onClick={() => { setCodeDraft(order.trackingCode ?? ""); setCodeSaved(false); }}>{order.trackingCode ? "اصلاح کد" : "ثبت کد رهگیری"}</Button>
+              {codeSaved && <Typography variant="body2" color="success.main" role="status">ذخیره شد.</Typography>}
+            </Box>
+          ) : (
+            <Box component="form" onSubmit={(e) => { e.preventDefault(); void saveTracking(codeDraft); }} sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <TextField label="کد رهگیری" value={codeDraft} onChange={(e) => setCodeDraft(e.target.value)} size="small" helperText="خالی بگذارید تا کد پاک شود." slotProps={{ htmlInput: { maxLength: 80, dir: "ltr" } }} />
+              <Button type="submit" variant="contained" size="small" disabled={busy} sx={{ height: 40 }}>ذخیره</Button>
+              <Button size="small" onClick={() => setCodeDraft(null)} sx={{ height: 40 }}>انصراف</Button>
+            </Box>
+          )}
         </Paper>
       )}
 

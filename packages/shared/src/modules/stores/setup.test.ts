@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSetupChecklist, SETUP_ITEM_TEXT, SETUP_KEYS, type SetupFacts } from "./setup";
+import { buildSetupChecklist, SETUP_ITEM_TEXT, SETUP_KEYS, type SetupFacts } from "./setup.js";
 
 const none: SetupFacts = { activeProducts: 0, enabledShipping: 0, codShipping: 0, hasBankCards: false, onlineGateways: 0, hasSubdomain: false, published: false };
 const done = (f: Partial<SetupFacts>) => Object.fromEntries(buildSetupChecklist({ ...none, ...f }).items.map((i) => [i.key, i.done]));

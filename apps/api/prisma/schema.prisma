@@ -868,6 +868,8 @@ model Order {
   subtotal         BigInt
   total            BigInt
   itemCount        Int
+  /// The carrier's tracking code, entered by the merchant when shipping (SHIPPED or DELIVERED orders only; CHECK in the migration).
+  trackingCode     String?            @db.VarChar(40)
   note             String             @default("") @db.VarChar(500)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt

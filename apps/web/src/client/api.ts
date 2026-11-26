@@ -65,7 +65,7 @@ export const claimSubdomain = (storeId: string, input: { label: unknown; confirm
 export type OrderDto = z.infer<typeof orderDto>;
 export type OrderListDto = z.infer<typeof orderListDto>;
 export type ShippingMethodDto = z.infer<typeof shippingMethodDto>;
-export const listOrders = (storeId: string, query: { status?: string; customerId?: string; review?: "receipt"; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
+export const listOrders = (storeId: string, query: { status?: string; customerId?: string; review?: "receipt"; q?: string; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
 // M2: the store overview (orders.view: owner and manager).
 export type StoreOverview = z.infer<typeof storeOverviewDto>;
 // ---- product variants and prices linked to the dollar or gold (phases 3.2 / 3.2b)
@@ -139,7 +139,10 @@ export const getReceipts = (storeId: string, orderId: string) => send<Receipt[]>
 export const receiptImageUrl = (storeId: string, orderId: string, receiptId: string) => `${store(storeId)}/orders/${enc(orderId)}/receipts/${enc(receiptId)}/image`;
 export const reviewReceipt = (storeId: string, orderId: string, receiptId: string, decision: "approve" | "reject", reason: string) =>
   send<{ result: "approved" | "rejected"; order: OrderDto }>("POST", `${store(storeId)}/orders/${enc(orderId)}/receipts/${enc(receiptId)}/review`, { body: { decision, reason } });
-export const changeOrderStatus = (storeId: string, orderId: string, to: string, note: string) => send<OrderDto>("POST", `${store(storeId)}/orders/${enc(orderId)}/status`, { body: { to, note } });
+export const changeOrderStatus = (storeId: string, orderId: string, to: string, note: string, trackingCode?: string) =>
+  send<OrderDto>("POST", `${store(storeId)}/orders/${enc(orderId)}/status`, { body: { to, note, ...(trackingCode ? { trackingCode } : {}) } });
+/** Set, change or clear (empty) the carrier's tracking code of a shipped order. */
+export const setOrderTracking = (storeId: string, orderId: string, trackingCode: string) => send<OrderDto>("POST", `${store(storeId)}/orders/${enc(orderId)}/tracking`, { body: { trackingCode } });
 export const listShippingMethods = (storeId: string) => send<ShippingMethodDto[]>("GET", `${store(storeId)}/shipping-methods`);
 export const replaceShippingMethods = (storeId: string, methods: unknown[]) => send<ShippingMethodDto[]>("PUT", `${store(storeId)}/shipping-methods`, { body: { methods } });
 

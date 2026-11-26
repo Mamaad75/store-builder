@@ -7,7 +7,7 @@ import {
   canTransition,
   type Gateway,
   orderListQuerySchema,
-  orderTransitionSchema,
+  orderTransitionSchema, setTrackingSchema,
   placeOrderSchema,
   type OrderStatus,
 } from "@store-builder/shared/modules/orders/orders";
@@ -276,7 +276,17 @@ export class OrdersService {
     const to: OrderStatus = q.to;
     const r = await this.orders.transition(a.storeId, id, to, (from) => {
       if (!canTransition("MERCHANT", from, to)) throw new OrderTransitionError(from, to);
-    }, { actor: "MERCHANT", actorId: a.actorId, note: q.note });
+    }, { actor: "MERCHANT", actorId: a.actorId, note: q.note, ...(q.trackingCode ? { trackingCode: q.trackingCode } : {}) });
+    if (!r) throw new NotFoundError();
+    return r;
+  }
+
+  /** Sets, changes or clears (empty) the tracking code of a shipped order; any other status is the same refusal as a move that is not allowed. */
+  async setTracking(a: { storeId: string }, id: string, body: unknown): Promise<OrderView> {
+    if (!ID_RE.test(id)) throw new NotFoundError();
+    const q = parse(setTrackingSchema, body);
+    const r = await this.orders.setTracking(a.storeId, id, q.trackingCode || null);
+    if (r === "not_shipped") throw new ValidationError({ trackingCode: ["کد رهگیری فقط برای سفارش ارسال‌شده یا تحویل‌شده ثبت می‌شود."] });
     if (!r) throw new NotFoundError();
     return r;
   }

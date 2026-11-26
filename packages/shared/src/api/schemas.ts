@@ -216,6 +216,7 @@ export const orderDto = z.object({
   total: z.number(),
   itemCount: z.number(),
   note: z.string(),
+  trackingCode: z.string().nullable().describe("the carrier's tracking code, entered by the store when it ships the order"),
   items: z.array(z.object({ productId: z.string(), variantId: z.string().nullable(), name: z.string(), variantLabel: z.string(), unitPrice: z.number(), quantity: z.number(), lineTotal: z.number(), weightGrams: z.number().nullable() })),
   history: z.array(z.object({ from: orderStatus.nullable(), to: orderStatus, actor: z.enum(["CUSTOMER", "MERCHANT", "SYSTEM"]), note: z.string(), at: iso })),
 });

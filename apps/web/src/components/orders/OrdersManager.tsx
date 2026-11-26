@@ -13,6 +13,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { ORDER_STATUSES, type OrderStatus } from "@store-builder/shared/modules/orders/orders";
 import { listOrders, type OrderDto } from "@/client/api";
@@ -27,8 +28,11 @@ export default function OrdersManager({ storeId, customerId, initialStatus, init
   const [next, setNext] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The search box: `draft` is what is typed, `search` is what was submitted (typing does not query on every key).
+  const [draft, setDraft] = useState("");
+  const [search, setSearch] = useState("");
 
-  const query = useCallback((before?: string) => listOrders(storeId, { status: status === "ALL" ? undefined : status, customerId, review, before, limit: "30" }), [storeId, status, customerId, review]);
+  const query = useCallback((before?: string) => listOrders(storeId, { status: status === "ALL" ? undefined : status, customerId, review, q: search || undefined, before, limit: "30" }), [storeId, status, customerId, review, search]);
 
   // First page whenever the filter changes (state is set only when the answer arrives).
   useEffect(() => {
@@ -61,6 +65,21 @@ export default function OrdersManager({ storeId, customerId, initialStatus, init
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      {!customerId && (
+        <Box component="form" role="search" aria-label="جست‌وجوی سفارش" onSubmit={(e) => { e.preventDefault(); setSearch(draft.trim()); }} sx={{ display: "flex", gap: 1, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            label="جست‌وجو: شمارهٔ سفارش، موبایل یا نام گیرنده"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            sx={{ flex: "1 1 280px", maxWidth: 460 }}
+            slotProps={{ htmlInput: { maxLength: 60 } }}
+          />
+          <Button type="submit" variant="contained" size="small" sx={{ height: 40 }}>جست‌وجو</Button>
+          {search && <Button size="small" sx={{ height: 40 }} onClick={() => { setDraft(""); setSearch(""); }}>پاک کردن جست‌وجو</Button>}
+        </Box>
+      )}
+      {search && <Typography variant="body2" color="text.secondary" role="status">نتیجهٔ جست‌وجوی «{search}»{items ? `: ${items.length.toLocaleString("fa-IR")}${next ? "+" : ""} سفارش` : ""}</Typography>}
       <Tabs value={status} onChange={(_, v) => { setReview(undefined); setStatus(v); }} variant="scrollable" allowScrollButtonsMobile aria-label="وضعیت سفارش">
         <Tab value="ALL" label="همه" />
         {ORDER_STATUSES.map((s) => <Tab key={s} value={s} label={ORDER_STATUS_LABELS[s]} />)}
@@ -72,7 +91,7 @@ export default function OrdersManager({ storeId, customerId, initialStatus, init
       )}
       {customerId && <Alert severity="info">فقط سفارش‌های یک مشتری نمایش داده می‌شود. <a href={`/dashboard/stores/${encodeURIComponent(storeId)}/orders`}>همهٔ سفارش‌ها</a></Alert>}
       {error && <Alert severity="error">{error}</Alert>}
-      {items && items.length === 0 && <Typography color="text.secondary">{review === "receipt" ? "رسیدی منتظر بررسی نیست." : "سفارشی با این وضعیت نیست."}</Typography>}
+      {items && items.length === 0 && <Typography color="text.secondary" data-testid="orders-empty">{search ? "سفارشی با این جست‌وجو پیدا نشد؛ شماره، بخشی از موبایل یا نام گیرنده را بررسی کنید." : review === "receipt" ? "رسیدی منتظر بررسی نیست." : "سفارشی با این وضعیت نیست."}</Typography>}
       {items && items.length > 0 && (
         <TableContainer>
           <Table size="small" aria-label="سفارش‌ها">

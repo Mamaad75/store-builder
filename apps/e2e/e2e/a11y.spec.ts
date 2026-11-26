@@ -37,7 +37,7 @@ test.describe("accessibility (axe, WCAG 2.2 AA)", () => {
     await signUpAndIn(page);
     await expectAccessible(page, "dashboard");
     const storeId = await createStoreViaUi(page, "فروشگاه دسترس‌پذیر");
-    const tabs: [string, string][] = [["dashboard", "/dashboard"], ["team", "/team"], ["activity log", "/activity"], ["store settings", ""], ["products", "/products"], ["product form", "/products/new"], ["categories", "/categories"], ["pages", "/pages"], ["page editor", "/pages/HOME"], ["appearance", "/appearance"], ["publish", "/publish"]];
+    const tabs: [string, string][] = [["dashboard", "/dashboard"], ["team", "/team"], ["activity log", "/activity"], ["support", "/support"], ["store settings", ""], ["products", "/products"], ["product form", "/products/new"], ["categories", "/categories"], ["pages", "/pages"], ["page editor", "/pages/HOME"], ["appearance", "/appearance"], ["publish", "/publish"]];
     for (const [label, sub] of tabs) {
       await page.goto(`/dashboard/stores/${storeId}${sub}`);
       await expectAccessible(page, label);
