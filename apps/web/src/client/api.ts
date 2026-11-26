@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -68,6 +68,9 @@ export type ShippingMethodDto = z.infer<typeof shippingMethodDto>;
 export const listOrders = (storeId: string, query: { status?: string; customerId?: string; review?: "receipt"; before?: string; limit?: string }) => send<OrderListDto>("GET", `${store(storeId)}/orders`, { query });
 // M2: the store overview (orders.view: owner and manager).
 export type StoreOverview = z.infer<typeof storeOverviewDto>;
+// MVP item 3: the setup checklist (store.settings: owner and manager).
+export type StoreSetup = z.infer<typeof storeSetupDto>;
+export const getSetup = (storeId: string) => send<StoreSetup>("GET", `${store(storeId)}/setup`);
 export const getOverview = (storeId: string) => send<StoreOverview>("GET", `${store(storeId)}/overview`);
 export const getOrder = (storeId: string, orderId: string) => send<OrderDto>("GET", `${store(storeId)}/orders/${enc(orderId)}`);
 // phase 3.5: online payment (the merchant id is a write-only store secret)

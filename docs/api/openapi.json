@@ -13294,6 +13294,172 @@
         }
       }
     },
+    "/api/v1/admin/stores/{storeId}/setup": {
+      "get": {
+        "operationId": "getApiV1AdminStoresStoreIdSetup",
+        "summary": "Setup checklist (MVP item 3): active product, enabled shipping method, usable payment method, subdomain, published",
+        "tags": [
+          "admin"
+        ],
+        "parameters": [
+          {
+            "name": "storeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "x-permission": "store.settings",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "product",
+                              "shipping",
+                              "payment",
+                              "subdomain",
+                              "publish"
+                            ]
+                          },
+                          "done": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "done"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "paymentMethods": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "cod",
+                          "online",
+                          "cardTransfer"
+                        ]
+                      },
+                      "description": "payment methods usable now: cash on delivery needs an enabled shipping method that allows it"
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "paymentMethods",
+                    "complete"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in, but this action needs a permission the member does not have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (also: a store the user has no role in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. the page changed since it was read)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (`fieldErrors`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests (`retryAfterSeconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error (details never leave the server)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorV1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/stores/{storeId}/shipping-methods": {
       "get": {
         "operationId": "getApiV1AdminStoresStoreIdShippingMethods",

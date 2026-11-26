@@ -11,6 +11,7 @@ import { OrdersService } from "../application/orders.service.js";
 import { PaymentsService } from "../application/payments.service.js";
 import { TransfersService } from "../application/transfers.service.js";
 import { OverviewService } from "../application/overview.service.js";
+import { SetupService } from "../application/setup.service.js";
 
 /**
  * Placing and following orders on ONE published store (phase 3.4). Guests follow an order with the access token they got when placing it
@@ -303,6 +304,22 @@ export class StoreBankCardsController {
   @RequirePermission("payout.manage")
   replace(@StoreAccess() a: StoreAccessContext, @Body() body: unknown) {
     return this.transfers.replaceCards(a, body);
+  }
+}
+
+/**
+ * MVP item 3: the setup checklist (what is missing before shoppers can finish an order). Read-only; `store.settings` (owner and manager:
+ * the roles that can fix the items). Allowed while suspended (GET).
+ */
+@Controller("stores/:storeId/setup")
+@UseGuards(SessionGuard, StoreAccessGuard)
+export class StoreSetupController {
+  constructor(@Inject(SetupService) private readonly setup: SetupService) {}
+
+  @Get()
+  @RequirePermission("store.settings")
+  checklist(@StoreAccess() a: StoreAccessContext) {
+    return this.setup.checklist(a);
   }
 }
 

@@ -275,6 +275,12 @@ export const storeOverviewDto = z.object({
     items: z.array(z.object({ productId: z.string(), name: z.string(), stock: z.number().int().describe("the product's stock, or its lowest variant's") })),
   }),
 });
+// ---- MVP item 3: the setup checklist (rules in modules/stores/setup.ts)
+export const storeSetupDto = z.object({
+  items: z.array(z.object({ key: z.enum(["product", "shipping", "payment", "subdomain", "publish"]), done: z.boolean() })),
+  paymentMethods: z.array(z.enum(["cod", "online", "cardTransfer"])).describe("payment methods usable now: cash on delivery needs an enabled shipping method that allows it"),
+  complete: z.boolean(),
+});
 export const shippingMethodDto = z.object({
   id: z.string(),
   name: z.string(),

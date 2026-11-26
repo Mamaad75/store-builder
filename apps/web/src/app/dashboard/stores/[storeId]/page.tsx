@@ -7,6 +7,7 @@ import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import { LinkButton } from "@/components/NextLinks";
+import StoreSetupChecklist from "@/components/StoreSetupChecklist";
 import StoreOverview from "@/components/orders/StoreOverview";
 import { StoreLogoUploader } from "@/components/BoundForms";
 import { mediaPublicUrl } from "@/lib/media-url";
@@ -42,6 +43,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeId:
   return (
     <Stack spacing={3}>
     {/* M2: sales overview, action items and low stock (owner and manager; hidden for other roles) */}
+    <StoreSetupChecklist storeId={store.id} />
     <StoreOverview storeId={store.id} />
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 } }}>
       <Stack spacing={4}>
