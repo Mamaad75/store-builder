@@ -155,7 +155,7 @@ describe("ADR 0003 (G2): a suspended store", () => {
       for (const p of PERMISSIONS) {
         expect((await svc.resolve("owner", "s1", p, false)).role).toBe("OWNER"); // every read stays possible
         const w = await svc.resolve("owner", "s1", p, true).catch((x: unknown) => x);
-        if (p === "orders.manage") expect(w).toMatchObject({ role: "OWNER" });
+        if (p === "orders.manage" || p === "support.write") expect(w).toMatchObject({ role: "OWNER" });
         else expect(w).toBeInstanceOf(StoreSuspendedError);
       }
       expect(((await svc.resolve("owner", "s1", "publish").catch((x: unknown) => x)) as StoreSuspendedError).code).toBe("STORE_SUSPENDED");

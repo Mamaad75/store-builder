@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, ticketDto, ticketDetailDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -155,3 +155,12 @@ export type CustomerRow = { id: string; phone: string; name: string | null; phon
 export type CustomerStats = { customerId: string; orders: number; spent: number; lastOrderAt: string | null };
 export const listCustomers = (storeId: string, before?: string) => send<CustomerRow[]>("GET", `${store(storeId)}/customers`, { query: { before, limit: "50" } });
 export const customerStats = (storeId: string, ids: string[]) => send<CustomerStats[]>("GET", `${store(storeId)}/orders/customer-stats`, { query: { ids: ids.join(",") } });
+
+// support requests (tickets) to the platform
+export type TicketDto = z.infer<typeof ticketDto>;
+export type TicketDetailDto = z.infer<typeof ticketDetailDto>;
+export const getTickets = (storeId: string) => send<TicketDto[]>("GET", `${store(storeId)}/tickets`);
+export const getTicket = (storeId: string, id: string) => send<TicketDetailDto>("GET", `${store(storeId)}/tickets/${enc(id)}`);
+export const openTicket = (storeId: string, body: unknown) => send<TicketDto>("POST", `${store(storeId)}/tickets`, { body });
+export const replyTicket = (storeId: string, id: string, body: string) => send<TicketDto>("POST", `${store(storeId)}/tickets/${enc(id)}/messages`, { body: { body } });
+export const closeTicket = (storeId: string, id: string) => send("POST", `${store(storeId)}/tickets/${enc(id)}/close`);

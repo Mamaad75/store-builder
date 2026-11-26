@@ -470,3 +470,10 @@ export const merchantSuspensionDto = z.object({
   publicMessage: z.string().nullable().describe("the platform's message to the store (never the reason details or internal notes)"),
   since: iso.nullable(),
 });
+
+export const ticketStatusDto = z.enum(["OPEN", "ANSWERED", "CLOSED"]);
+export const ticketDto = z.object({ id: z.string(), subject: z.string(), status: ticketStatusDto, messageCount: z.number().int(), lastMessageAt: iso, createdAt: iso });
+export const ticketMessageDto = z.object({ id: z.string(), from: z.enum(["SELLER", "STAFF"]), authorName: z.string().nullable().describe("the merchant's own name; always null for staff"), body: z.string(), createdAt: iso });
+export const ticketDetailDto = ticketDto.extend({ messages: z.array(ticketMessageDto) });
+export const staffTicketDto = ticketDto.extend({ storeId: z.string(), storeName: z.string() });
+export const staffTicketDetailDto = ticketDetailDto.extend({ storeId: z.string(), storeName: z.string() });

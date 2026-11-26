@@ -8,6 +8,7 @@ import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
 import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
+import SupportAgentOutlined from '@mui/icons-material/SupportAgentOutlined';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
 import CreditCardOutlined from '@mui/icons-material/CreditCardOutlined';
@@ -181,6 +182,12 @@ function buildNav(base: string): Item[] {
       icon: <HelpOutlineRounded />,
       match: (p) => p.startsWith(`${base}/support`),
     },
+    {
+      label: 'درخواست پشتیبانی',
+      href: `${base}/tickets`,
+      icon: <SupportAgentOutlined />,
+      match: (p) => p.startsWith(`${base}/tickets`),
+    },
   ];
 }
 
@@ -198,6 +205,7 @@ const NAV_PERMISSION: Record<string, Permission> = {
   تیم: 'members.manage',
   'گزارش فعالیت‌ها': 'audit.view',
   تنظیمات: 'store.settings',
+  'درخواست پشتیبانی': 'support.write',
 };
 const visibleNav = (items: Item[], permissions: readonly Permission[] | null): Item[] =>
   permissions === null ? items : items.filter((i) => !NAV_PERMISSION[i.label] || permissions.includes(NAV_PERMISSION[i.label]!));

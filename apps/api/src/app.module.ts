@@ -21,6 +21,7 @@ import { CustomersModule } from "./modules/customers/customers.module.js";
 import { InventoryModule } from "./modules/inventory/inventory.module.js";
 import { CheckoutModule } from "./modules/checkout/checkout.module.js";
 import { AnalyticsModule } from "./modules/analytics/analytics.module.js";
+import { SupportModule } from "./modules/support/support.module.js";
 import { OrdersModule } from "./modules/orders/orders.module.js";
 import { NotificationsModule } from "./modules/notifications/notifications.module.js";
 import { DiscountsModule } from "./modules/discounts/discounts.module.js";
@@ -81,7 +82,7 @@ export class AppModule {
       module: AppModule,
       // Global, so the feature modules (ADR 0002 layout) resolve SessionGuard and its dependencies without importing AppModule back.
       global: true,
-      imports: [AccessModule, CategoriesModule, SecretsModule, CustomersModule, PlatformModule, InventoryModule, PricingModule, CheckoutModule, OrdersModule, AnalyticsModule, NotificationsModule, DiscountsModule],
+      imports: [AccessModule, CategoriesModule, SecretsModule, CustomersModule, PlatformModule, InventoryModule, PricingModule, CheckoutModule, OrdersModule, AnalyticsModule, NotificationsModule, DiscountsModule, SupportModule],
       controllers: [HealthController, AuthController, StoresController, CatalogController, PagesController, MediaController, PublishingController, PublicStoresController, ...(overrides.extraControllers ?? [])],
       providers,
       exports: [CONFIG, LOGGER, DATABASE, RATE_LIMITER, PAYMENT_GATEWAY, AuthService, SessionGuard],

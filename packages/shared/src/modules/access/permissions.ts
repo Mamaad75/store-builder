@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   "orders.view", // orders with the shopper's name, phone and address (phase 3.4): personal data, owner and manager only
   "orders.manage", // confirm, ship, deliver, cancel orders (phase 3.4)
   "discounts.manage", // discount codes (phase 5.1): owner and manager
+  "support.write", // support requests to the platform (owner and manager); also allowed while the store is suspended, so the owner can ask why
   "payout.manage", // the bank cards shoppers transfer money to (D-3, V0-1): create, replace, remove. Owner only
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
@@ -51,8 +52,9 @@ export const MAX_STAFF_PER_STORE = 20;
 
 /**
  * ADR 0003 (D4): what store staff may still do while the platform suspends a store. Reads (GET) stay allowed for whatever the role allows;
- * of the writes, only managing EXISTING orders (fulfil, cancel, review receipts) is allowed, to protect shoppers. Everything else - publishing,
+ * of the writes, only managing EXISTING orders (fulfil, cancel, review receipts) is allowed, to protect shoppers, and writing to the platform's
+ * support (the owner must be able to ask why). Everything else - publishing,
  * catalog, pages, theme, settings, subdomain, staff, secrets and bank cards, discounts, deleting the store - is refused with STORE_SUSPENDED.
  */
-export const SUSPENDED_WRITE_PERMISSIONS: readonly Permission[] = ["orders.manage"];
+export const SUSPENDED_WRITE_PERMISSIONS: readonly Permission[] = ["orders.manage", "support.write"];
 export const allowedWhileSuspended = (permission: Permission, write: boolean): boolean => !write || SUSPENDED_WRITE_PERMISSIONS.includes(permission);

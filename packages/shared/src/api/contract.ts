@@ -11,6 +11,7 @@ import { replaceVariantsSchema } from "../modules/inventory/variants.js";
 import { addressInputSchema, cartLineInputSchema, checkoutQuoteSchema, replaceShippingMethodsSchema } from "../modules/checkout/checkout.js";
 import { customerLoginSchema, customerRegisterSchema } from "../modules/customers/schemas.js";
 import { orderExportQuerySchema, orderListQuerySchema, orderTransitionSchema, placeOrderSchema, setTrackingSchema, verifyPaymentSchema } from "../modules/orders/orders.js";
+import { createTicketSchema, ticketListQuerySchema, ticketReplySchema, ticketStatusSchema } from "../modules/support/tickets.js";
 import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { discountInputSchema } from "../modules/discounts/discounts.js";
 import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
@@ -244,6 +245,15 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", "/api/platform/stores/:id/suspension/amend", "ADR 0003: change the reason or notes of the open suspension", { platform: true, status: 204, body: suspendStoreSchema }),
   r("POST", "/api/platform/stores/:id/restore", "ADR 0003: lift the suspension (never publishes the store or changes anything else)", { platform: true, status: 204, body: restoreStoreSchema }),
   r("GET", "/api/platform/stores/:id/suspensions", "ADR 0003: the store's suspension history with internal notes", { platform: true, response: z.array(S.storeSuspensionDto) }),
+  r("GET", st("/tickets"), "The store's support requests to the platform, newest activity first", { permission: "support.write", response: z.array(S.ticketDto) }),
+  r("POST", st("/tickets"), "Open a support request (at most five open at once)", { permission: "support.write", status: 201, body: createTicketSchema, response: S.ticketDto }),
+  r("GET", st("/tickets/:ticketId"), "A support request with its messages", { permission: "support.write", response: S.ticketDetailDto }),
+  r("POST", st("/tickets/:ticketId/messages"), "Write to a support request (reopens a closed one)", { permission: "support.write", status: 201, body: ticketReplySchema, response: S.ticketDto }),
+  r("POST", st("/tickets/:ticketId/close"), "Close a support request", { permission: "support.write", status: 204 }),
+  r("GET", "/api/platform/tickets", "Every store's support requests, newest activity first", { platform: true, query: ticketListQuerySchema, response: z.array(S.staffTicketDto) }),
+  r("GET", "/api/platform/tickets/:ticketId", "A support request with its messages", { platform: true, response: S.staffTicketDetailDto }),
+  r("POST", "/api/platform/tickets/:ticketId/messages", "Answer a support request (audited)", { platform: true, status: 201, body: ticketReplySchema, response: S.ticketDto }),
+  r("POST", "/api/platform/tickets/:ticketId/status", "Set a support request's status (audited)", { platform: true, status: 204, body: ticketStatusSchema }),
   r("GET", "/api/platform/invites", "Invitation codes (newest 100; never the codes themselves)", { platform: true, response: z.array(S.inviteDto) }),
   r("POST", "/api/platform/invites", "Issue a single-use invitation code (returned once with its sign-up link; audited)", { platform: true, status: 201, body: createInviteSchema, response: z.object({ id: z.string(), code: z.string(), url: z.string(), expiresAt: z.string() }) }),
   r("POST", "/api/platform/invites/:id/revoke", "Revoke an unused invitation (audited)", { platform: true, status: 204 }),

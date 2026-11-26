@@ -1,4 +1,5 @@
 import { send } from "./http";
+import type { TicketDetailDto, TicketDto } from "./api";
 
 /** Browser writes of the super admin pages (phase 3.1): same-origin calls to /api/v1/platform (Caddy in production, Next in development). */
 const P = "/api/v1/platform";
@@ -26,3 +27,11 @@ export const suspendStore = (storeId: string, body: { reason: string; publicMess
 export const restoreStore = (storeId: string, note: string) => send("POST", `${P}/stores/${enc(storeId)}/restore`, { body: { note } });
 export type SuspensionRow = { id: string; reason: string; publicMessage: string; internalNote: string; merchantStatusAtStart: string; suspendedAt: string; liftedAt: string | null; liftNote: string | null };
 export const getSuspensions = (storeId: string) => send<SuspensionRow[]>("GET", `${P}/stores/${enc(storeId)}/suspensions`);
+
+// support requests from every store
+export type StaffTicket = TicketDto & { storeId: string; storeName: string };
+export type StaffTicketDetail = TicketDetailDto & { storeId: string; storeName: string };
+export const listStaffTickets = (status?: string) => send<StaffTicket[]>("GET", `${P}/tickets`, { query: { status, limit: "100" } });
+export const getStaffTicket = (id: string) => send<StaffTicketDetail>("GET", `${P}/tickets/${enc(id)}`);
+export const replyStaffTicket = (id: string, body: string) => send<TicketDto>("POST", `${P}/tickets/${enc(id)}/messages`, { body: { body } });
+export const setStaffTicketStatus = (id: string, status: string) => send("POST", `${P}/tickets/${enc(id)}/status`, { body: { status } });
