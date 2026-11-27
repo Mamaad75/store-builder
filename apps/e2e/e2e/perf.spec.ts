@@ -60,8 +60,11 @@ async function measure(browser: Browser, url: string): Promise<Sample> {
   const types = new Map<string, string>();
   const bytes: Record<string, number> = { document: 0, script: 0, stylesheet: 0, image: 0, font: 0, other: 0 };
   let requests = 0;
-  cdp.on("Network.requestWillBeSent", (e: { requestId: string; type?: string }) => { types.set(e.requestId, (e.type ?? "Other").toLowerCase()); requests++; });
+  const urls = new Map<string, string>();
+  const detail: { url: string; type: string; kb: number }[] = [];
+  cdp.on("Network.requestWillBeSent", (e: { requestId: string; type?: string; request?: { url: string } }) => { types.set(e.requestId, (e.type ?? "Other").toLowerCase()); urls.set(e.requestId, e.request?.url ?? ""); requests++; });
   cdp.on("Network.loadingFinished", (e: { requestId: string; encodedDataLength: number }) => {
+    if (process.env.PERF_DETAIL) detail.push({ url: urls.get(e.requestId) ?? "", type: types.get(e.requestId) ?? "", kb: Math.round(e.encodedDataLength / 102.4) / 10 });
     const t = types.get(e.requestId) ?? "other";
     const k = t in bytes ? t : "other";
     bytes[k] = (bytes[k] ?? 0) + e.encodedDataLength;
@@ -77,6 +80,7 @@ async function measure(browser: Browser, url: string): Promise<Sample> {
   await page.waitForTimeout(1500); // let late paints and layout shifts happen
   const m = await page.evaluate(() => (window as unknown as { __m: { lcp: number; cls: number; lt: number } }).__m);
   const load = await page.evaluate(() => performance.getEntriesByType("navigation").map((n) => (n as PerformanceNavigationTiming).loadEventEnd)[0] ?? 0);
+  if (process.env.PERF_DETAIL) writeFileSync(`/tmp/perf-detail-${url.replace(/[^a-z0-9]+/gi, "_").slice(-60)}.json`, JSON.stringify(detail.filter((d) => d.type !== "image"), null, 1));
   await context.close();
   return { lcp: Math.round(m.lcp), cls: Math.round(m.cls * 1000) / 1000, longTaskMs: Math.round(m.lt), bytes, requests, load: Math.round(load) };
 }

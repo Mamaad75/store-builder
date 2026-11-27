@@ -6,13 +6,8 @@ export const REVIEW_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
 export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
 export const REVIEW_STATUS_LABELS: Readonly<Record<ReviewStatus, string>> = { PENDING: "در انتظار تأیید", APPROVED: "تأیید شده", REJECTED: "رد شده" };
 
-export const REVIEW_BODY_MIN = 5;
-export const REVIEW_BODY_MAX = 1000;
-export const REPLY_MAX = 1000;
-/** A customer's unreviewed backlog per store: stops one account from filling the moderation queue. */
-export const MAX_PENDING_PER_CUSTOMER = 5;
-/** Reviews shown per product page (the newest approved ones). */
-export const PUBLIC_REVIEWS_LIMIT = 30;
+import { MAX_PENDING_PER_CUSTOMER, PUBLIC_REVIEWS_LIMIT, REPLY_MAX, REVIEW_BODY_MAX, REVIEW_BODY_MIN } from "./limits.js";
+export { MAX_PENDING_PER_CUSTOMER, PUBLIC_REVIEWS_LIMIT, REPLY_MAX, REVIEW_BODY_MAX, REVIEW_BODY_MIN };
 
 const body = z.string().transform(cleanText).pipe(z.string().min(REVIEW_BODY_MIN, "نظر را کامل‌تر بنویسید (حداقل ۵ حرف).").max(REVIEW_BODY_MAX, "نظر بیش از حد طولانی است (حداکثر ۱۰۰۰ حرف)."));
 

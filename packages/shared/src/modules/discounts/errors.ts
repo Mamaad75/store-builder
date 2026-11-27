@@ -1,4 +1,4 @@
-import { DISCOUNT_REASON_MESSAGES, type DiscountReason } from "./discounts.js";
+import { DISCOUNT_REASON_MESSAGES, type DiscountReason } from "./reasons.js";
 
 /** Phase 5.1: the code cannot be used on this order (reason shown to the shopper). */
 export class DiscountInvalidError extends Error {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import { REVIEW_BODY_MAX } from "@store-builder/shared/modules/reviews/reviews";
+import { REVIEW_BODY_MAX } from "@store-builder/shared/modules/reviews/limits";
 import { me, problemText, productReviews, submitReview, type ShopReviews } from "@/client/shop";
 
 const fa = (n: number) => n.toLocaleString("fa-IR");
