@@ -1,4 +1,5 @@
 import * as api from "@/client/api";
+import { PlanLimitError, planLimitMessage } from "@store-builder/shared/modules/billing/errors";
 import { transportState, unexpected } from "@/client/guard";
 import { go, refresh } from "@/client/nav";
 import { buildProductsUrl, categoriesUrl, productUrl, storeUrl } from "@store-builder/shared/modules/products/list-url";
@@ -46,6 +47,7 @@ function toState(e: unknown, notFoundUrl: string): CatalogFormState {
     const what = e.kind === "product" ? "محصول" : "دسته‌بندی";
     return { error: `حداکثر ${e.limit.toLocaleString("fa-IR")} ${what} در هر فروشگاه مجاز است.` };
   }
+  if (e instanceof PlanLimitError) return { error: planLimitMessage(e) };
   if (e instanceof ConflictError) return { error: "هم‌زمان تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید." };
   if (e instanceof DraftBusyError) return { error: DRAFT_BUSY_MESSAGE };
   if (e instanceof CategoryNotEmptyError) {

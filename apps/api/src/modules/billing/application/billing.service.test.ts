@@ -11,6 +11,7 @@ function repo(over: Partial<BillingRepository> = {}): BillingRepository {
   return {
     plans: async () => [], createPlan: NOT_CALLED, updatePlan: NOT_CALLED, storeName: async () => "فروشگاه", subscription: async () => null, purchases: async () => [],
     wallet: async () => ({ balanceToman: 0, entries: [] }), referralCode: async () => "ABCDEFGH", referralsMade: async () => [], referredBy: async () => null,
+    limitsAndUsage: async () => ({ limits: { maxProducts: 30, maxStaff: 1 }, free: true, usage: { products: 3, staff: 0 } }),
     redeem: NOT_CALLED, recordPurchase: NOT_CALLED, adjustWallet: NOT_CALLED, ...over,
   };
 }
@@ -20,6 +21,7 @@ describe("StoreBillingService", () => {
     const none = await new StoreBillingService(repo(), () => NOW).overview({ storeId: "s1" });
     expect(none.state).toEqual({ kind: "none" });
     expect(none.referralDiscountPercent).toBe(0);
+    expect(none).toMatchObject({ free: true, limits: { maxProducts: 30, maxStaff: 1 }, usage: { products: 3, staff: 0 } });
     const active = await new StoreBillingService(
       repo({ subscription: async () => ({ planId: "p", planName: "ماهانه", startsAt: NOW, endsAt: new Date("2026-12-07T10:00:00Z") }), referredBy: async () => ({ id: "r", status: "PENDING", rewardToman: 0, createdAt: NOW, rewardedAt: null }) }),
       () => NOW,
@@ -41,7 +43,7 @@ describe("StoreBillingService", () => {
 describe("StaffBillingService", () => {
   it("validates plans first and audits with the staff member", async () => {
     let audit: unknown;
-    const svc = new StaffBillingService(repo({ createPlan: async (_i, _n, a) => ((audit = a), { id: "p1", name: "ماهانه", description: "", priceToman: 1, durationDays: 30, active: true, createdAt: NOW }) }), () => NOW);
+    const svc = new StaffBillingService(repo({ createPlan: async (_i, _n, a) => ((audit = a), { id: "p1", name: "ماهانه", description: "", priceToman: 1, durationDays: 30, maxProducts: 500, maxStaff: 20, active: true, createdAt: NOW }) }), () => NOW);
     await expect(svc.createPlan("staff1", { name: "x", priceToman: 1, durationDays: 30 })).rejects.toBeInstanceOf(ValidationError);
     expect(audit).toBeUndefined();
     await svc.createPlan("staff1", { name: "ماهانه", priceToman: 100_000, durationDays: 30 });

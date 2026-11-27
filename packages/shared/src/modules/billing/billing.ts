@@ -2,6 +2,8 @@ import { z } from "zod";
 import { MAX_PRICE_TOMAN } from "../../lib/money.js";
 import { cleanText } from "../../lib/clean-text.js";
 import { digitsToAscii } from "../../lib/text.js";
+import { MAX_PRODUCTS_PER_STORE } from "../products/schemas.js";
+import { MAX_STAFF_PER_STORE } from "../access/permissions.js";
 
 /**
  * The platform's own money rules for a store: subscription plans, the store's wallet (gift credit) and the referral programme.
@@ -27,6 +29,8 @@ export const planInputSchema = z
     description: description.default(""),
     priceToman: z.number({ error: "قیمت را به تومان و عدد صحیح بنویسید." }).int("قیمت را به تومان و عدد صحیح بنویسید.").min(0, "قیمت نمی‌تواند منفی باشد.").max(MAX_PRICE_TOMAN, "قیمت بیش از حد بزرگ است."),
     durationDays: z.number({ error: "مدت را به روز بنویسید." }).int("مدت را به روز بنویسید.").min(1, "مدت دست‌کم یک روز است.").max(3660, "مدت بیش از ده سال نمی‌شود."),
+    maxProducts: z.number({ error: "سقف محصولات را به‌صورت عدد بنویسید." }).int("سقف محصولات را به‌صورت عدد بنویسید.").min(1, "سقف محصولات دست‌کم ۱ است.").max(MAX_PRODUCTS_PER_STORE, `سقف محصولات حداکثر ${MAX_PRODUCTS_PER_STORE} است.`).default(MAX_PRODUCTS_PER_STORE),
+    maxStaff: z.number({ error: "سقف همکاران را به‌صورت عدد بنویسید." }).int("سقف همکاران را به‌صورت عدد بنویسید.").min(0, "سقف همکاران منفی نمی‌شود.").max(MAX_STAFF_PER_STORE, `سقف همکاران حداکثر ${MAX_STAFF_PER_STORE} است.`).default(MAX_STAFF_PER_STORE),
     active: z.boolean().default(true),
   })
   .strict();
@@ -88,6 +92,20 @@ export function quotePurchase(i: { price: number; invited: boolean; walletBalanc
   const due = price - discount;
   const walletUsed = i.useWallet ? Math.min(Math.max(0, Math.floor(i.walletBalance)), due) : 0;
   return { price, discount, due, walletUsed, cash: due - walletUsed, reward: qualifies ? percentOf(due, REFERRAL_PERCENT) : 0 };
+}
+
+// ---- what a plan allows ----
+
+/** What a store may hold: products, and staff (members plus pending invitations; the owner is not counted). */
+export interface PlanLimits {
+  maxProducts: number;
+  maxStaff: number;
+}
+/** A store with no running subscription (never bought one, or it ended) gets these. Existing data above a limit is kept; only adding stops. */
+export const FREE_LIMITS: Readonly<PlanLimits> = { maxProducts: 30, maxStaff: 1 };
+/** The limits that apply now: the subscribed plan's while its period runs, otherwise the free ones. */
+export function effectiveLimits(plan: PlanLimits | null, state: SubscriptionState): PlanLimits {
+  return plan && state.kind === "active" ? { maxProducts: plan.maxProducts, maxStaff: plan.maxStaff } : { ...FREE_LIMITS };
 }
 
 // ---- the subscription period ----

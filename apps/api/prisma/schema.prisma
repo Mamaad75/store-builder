@@ -1315,6 +1315,9 @@ model Plan {
   description  String   @default("") @db.VarChar(300)
   priceToman   Int
   durationDays Int
+  /// What the plan allows while its period runs: products in the store, and staff (members plus pending invitations).
+  maxProducts  Int      @default(500)
+  maxStaff     Int      @default(20)
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1323,7 +1326,7 @@ model Plan {
   purchases     SubscriptionPurchase[]
 }
 
-/// The store's current subscription period (one row per store; each purchase moves it forward). Informational in this phase: nothing is restricted by it yet.
+/// The store's current subscription period (one row per store; each purchase moves it forward). Its plan's limits apply while it runs; without one the free limits apply.
 model StoreSubscription {
   storeId   String   @id
   planId    String

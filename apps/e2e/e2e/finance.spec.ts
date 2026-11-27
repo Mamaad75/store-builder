@@ -17,9 +17,12 @@ test("finance: plan, referral code, first purchase with the 10% discount, the in
   await staff.getByLabel("نام پلن").fill("ماهانه");
   await staff.getByLabel("قیمت (تومان)").fill("500000");
   await staff.getByLabel("مدت (روز)").fill("30");
+  await staff.getByLabel("سقف محصولات").fill("100");
+  await staff.getByLabel("سقف همکاران").fill("2");
   await staff.getByRole("button", { name: "ذخیره" }).click();
   await expect(staff.getByTestId("plan-row")).toContainText("ماهانه");
   await expect(staff.getByTestId("plan-row")).toContainText("۳۰ روز");
+  await expect(staff.getByTestId("plan-row")).toContainText("تا ۱۰۰ محصول");
   await clean(staff, "plans");
 
   // the inviter (this browser)
@@ -50,6 +53,9 @@ test("finance: plan, referral code, first purchase with the 10% discount, the in
   await invited.goto(`/dashboard/stores/${friend.storeId}/billing`);
   await expect(invited.getByTestId("invite-discount")).toBeVisible();
   await expect(invited.getByTestId("plan-card")).toContainText("۵۰۰٬۰۰۰ تومان");
+  // no subscription yet: the free limits show, with what is used
+  await expect(invited.getByTestId("limits-card")).toContainText("اشتراک فعالی ندارید");
+  await expect(invited.getByTestId("limits-card")).toContainText("از ۳۰");
   await clean(invited, "billing");
 
   // staff record the first purchase: the preview and the result agree on 450,000
@@ -69,6 +75,8 @@ test("finance: plan, referral code, first purchase with the 10% discount, the in
   await expect(invited.getByTestId("subscription-card")).toContainText("فعال");
   await expect(invited.getByTestId("purchase-row")).toContainText("۴۵۰٬۰۰۰ تومان");
   await expect(invited.getByTestId("invite-discount")).toHaveCount(0);
+  await expect(invited.getByTestId("limits-card")).toContainText("از ۱۰۰"); // the plan's limit now applies
+  await expect(invited.getByTestId("limits-card")).toContainText("سقف‌های پلن فعلی");
 
   // the inviter's wallet got 45,000, and the referral shows as rewarded
   await page.goto(`/dashboard/stores/${inviter.storeId}/wallet`);

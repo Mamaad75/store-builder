@@ -326,3 +326,68 @@ describe("audit and cleanup", () => {
     await expect(prisma.plan.create({ data: { name: "بد", priceToman: -1, durationDays: 30 } })).rejects.toThrow();
   });
 });
+
+describe("plan limits", () => {
+  const product = (m: { cookie: string; storeId: string }, i: number) => call(m.cookie, "POST", `/stores/${m.storeId}/products`, { name: `کالا ${i}`, price: 1000 });
+  const fill = (storeId: string, count: number) => prisma.product.createMany({ data: Array.from({ length: count }, (_, i) => ({ storeId, name: `p${i}`, slug: `p${i}`, price: 1000, searchKey: `p${i}` })) });
+
+  it("without a running subscription the free limit stops new products (existing ones stay); a plan raises it; an ended plan returns to the free limit", async () => {
+    const s = await staff();
+    const m = await owner();
+    await fill(m.storeId, 30);
+    const refused = await product(m, 31);
+    expect(refused.status).toBe(409);
+    expect(refused.json).toMatchObject({ errorName: "PlanLimitError", payload: { kind: "product", limit: 30, free: true } });
+    expect(await prisma.product.count({ where: { storeId: m.storeId } })).toBe(30);
+
+    const plan = await mkPlan(s, { maxProducts: 35, maxStaff: 2 });
+    expect((await buy(s, m.storeId, plan.id)).status).toBe(201);
+    for (let i = 31; i <= 35; i++) expect((await product(m, i)).status, `product ${i}`).toBe(201);
+    const full = await product(m, 36);
+    expect(full.status).toBe(409);
+    expect(full.json).toMatchObject({ errorName: "PlanLimitError", payload: { limit: 35, free: false } });
+
+    // the period ends: back to the free limit (35 products are kept, none can be added)
+    await prisma.storeSubscription.update({ where: { storeId: m.storeId }, data: { startsAt: new Date(Date.now() - 40 * 86_400_000), endsAt: new Date(Date.now() - 86_400_000) } });
+    const after = await product(m, 36);
+    expect(after.status).toBe(409);
+    expect(after.json).toMatchObject({ errorName: "PlanLimitError", payload: { limit: 30, free: true } });
+    expect(await prisma.product.count({ where: { storeId: m.storeId } })).toBe(35);
+  });
+
+  it("simultaneous product creation cannot pass the limit", async () => {
+    const m = await owner();
+    await fill(m.storeId, 28);
+    const r = await Promise.all(Array.from({ length: 6 }, (_, i) => product(m, 100 + i)));
+    expect(r.filter((x) => x.status === 201)).toHaveLength(2);
+    expect(await prisma.product.count({ where: { storeId: m.storeId } })).toBe(30);
+  });
+
+  it("staff invitations follow the plan too: one on the free limit, more with a plan", async () => {
+    const s = await staff();
+    const m = await owner();
+    const a = await makeUser();
+    const b = await makeUser();
+    const invite = (username: string) => call(m.cookie, "POST", `/stores/${m.storeId}/team/invitations`, { username, role: "OPERATOR" });
+    expect((await invite(a.username)).status).toBe(201);
+    const refused = await invite(b.username);
+    expect(refused.status).toBe(409);
+    expect(refused.json).toMatchObject({ errorName: "PlanLimitError", payload: { kind: "staff", limit: 1, free: true } });
+    const plan = await mkPlan(s, { maxStaff: 2 });
+    await buy(s, m.storeId, plan.id);
+    expect((await invite(b.username)).status).toBe(201);
+  });
+
+  it("the billing page reports the limits and what is used; plans carry their limits; bad limits are refused", async () => {
+    const s = await staff();
+    const m = await owner();
+    await fill(m.storeId, 4);
+    const free = (await call(m.cookie, "GET", `/stores/${m.storeId}/billing`)).json;
+    expect(free).toMatchObject({ free: true, limits: { maxProducts: 30, maxStaff: 1 }, usage: { products: 4, staff: 0 } });
+    const plan = await mkPlan(s, { maxProducts: 100, maxStaff: 0 });
+    expect(plan).toMatchObject({ maxProducts: 100, maxStaff: 0 });
+    await buy(s, m.storeId, plan.id);
+    expect((await call(m.cookie, "GET", `/stores/${m.storeId}/billing`)).json).toMatchObject({ free: false, limits: { maxProducts: 100, maxStaff: 0 } });
+    for (const bad of [{ maxProducts: 0 }, { maxProducts: 501 }, { maxStaff: -1 }, { maxStaff: 21 }, { maxProducts: 1.5 }]) expect((await mkPlan(s, bad)).error ?? (await call(s.cookie, "POST", "/platform/plans", { name: "بد", priceToman: 1, durationDays: 30, ...bad })).status, JSON.stringify(bad)).toBeTruthy();
+  });
+});

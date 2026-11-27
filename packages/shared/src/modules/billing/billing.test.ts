@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MAX_PRICE_TOMAN } from "../../lib/money.js";
-import { REFERRAL_ALPHABET, normalizeReferralCode, nextPeriod, percentOf, planInputSchema, quotePurchase, referralCodeFrom, subscriptionState, walletAdjustSchema } from "./billing.js";
+import { planLimitMessage } from "./errors.js";
+import { FREE_LIMITS, effectiveLimits, REFERRAL_ALPHABET, normalizeReferralCode, nextPeriod, percentOf, planInputSchema, quotePurchase, referralCodeFrom, subscriptionState, walletAdjustSchema } from "./billing.js";
 
 describe("quotePurchase", () => {
   it("a plain purchase: no discount, no reward, cash is the price", () => {
@@ -71,7 +72,7 @@ describe("referral codes", () => {
 
 describe("inputs", () => {
   it("plans: whole Toman, a real duration, Persian messages", () => {
-    expect(planInputSchema.parse({ name: " ماهانه ", priceToman: 100_000, durationDays: 30 })).toEqual({ name: "ماهانه", description: "", priceToman: 100_000, durationDays: 30, active: true });
+    expect(planInputSchema.parse({ name: " ماهانه ", priceToman: 100_000, durationDays: 30 })).toEqual({ name: "ماهانه", description: "", priceToman: 100_000, durationDays: 30, maxProducts: 500, maxStaff: 20, active: true });
     expect(planInputSchema.safeParse({ name: "x", priceToman: 1, durationDays: 30 }).success).toBe(false);
     expect(planInputSchema.safeParse({ name: "پلن", priceToman: -1, durationDays: 30 }).success).toBe(false);
     expect(planInputSchema.safeParse({ name: "پلن", priceToman: 1.5, durationDays: 30 }).success).toBe(false);
@@ -84,5 +85,25 @@ describe("inputs", () => {
     expect(walletAdjustSchema.safeParse({ amountToman: 0, reason: "اصلاح" }).success).toBe(false);
     expect(walletAdjustSchema.safeParse({ amountToman: 10, reason: "" }).success).toBe(false);
     expect(walletAdjustSchema.safeParse({ amountToman: 2_000_000_000, reason: "اصلاح" }).success).toBe(false);
+  });
+});
+
+describe("plan limits", () => {
+  const plan = { maxProducts: 100, maxStaff: 3 };
+  it("a running subscription brings its plan's limits; none or an ended one the free limits", () => {
+    expect(effectiveLimits(plan, { kind: "active", daysLeft: 5 })).toEqual(plan);
+    expect(effectiveLimits(plan, { kind: "expired" })).toEqual(FREE_LIMITS);
+    expect(effectiveLimits(null, { kind: "none" })).toEqual(FREE_LIMITS);
+    expect(effectiveLimits(plan, { kind: "none" })).toEqual(FREE_LIMITS);
+  });
+  it("the plan form takes whole numbers inside the platform's maxima and defaults to them", () => {
+    const base = { name: "ماهانه", priceToman: 1000, durationDays: 30 };
+    expect(planInputSchema.parse(base)).toMatchObject({ maxProducts: 500, maxStaff: 20 });
+    expect(planInputSchema.parse({ ...base, maxProducts: 1, maxStaff: 0 })).toMatchObject({ maxProducts: 1, maxStaff: 0 });
+    for (const bad of [{ maxProducts: 0 }, { maxProducts: 501 }, { maxProducts: 2.5 }, { maxStaff: -1 }, { maxStaff: 21 }]) expect(planInputSchema.safeParse({ ...base, ...bad }).success, JSON.stringify(bad)).toBe(false);
+  });
+  it("the owner's sentence names the limit and whether a plan would raise it", () => {
+    expect(planLimitMessage({ kind: "product", limit: 30, free: true })).toContain("بدون اشتراک فعال");
+    expect(planLimitMessage({ kind: "staff", limit: 3, free: false })).toContain("پلن شما");
   });
 });

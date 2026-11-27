@@ -1,6 +1,6 @@
 import { createCategoryService, type CategoryService } from "../modules/categories/categories.api.js";
 import { createStore } from "../modules/stores/service.js";
-import { makeUser, prisma } from "./db-helpers.js";
+import { makeUser, prisma, subscribe } from "./db-helpers.js";
 
 export const revision = async (storeId: string) =>
   (await prisma.store.findUniqueOrThrow({ where: { id: storeId } })).draftRevision;
@@ -13,6 +13,7 @@ export async function twoTenants() {
   const a2 = (await createStore(a.id, { name: "A two", templateKey: "coffee" })).id;
   const b1 = (await createStore(b.id, { name: "B one", templateKey: "general" })).id;
   const b2 = (await createStore(b.id, { name: "B two", templateKey: "fashion" })).id;
+  for (const id of [a1, a2, b1, b2]) await subscribe(id); // these tests are about the catalog, not plan limits
   return { a, b, a1, a2, b1, b2 };
 }
 

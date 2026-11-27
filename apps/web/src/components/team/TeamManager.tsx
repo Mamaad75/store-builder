@@ -18,6 +18,7 @@ import Skeleton from "@mui/material/Skeleton";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { cancelInvitation, changeMemberRole, getTeam, inviteStaff, removeMember, type TeamView } from "@/client/api";
+import { planLimitMessage } from "@store-builder/shared/modules/billing/errors";
 import { failText } from "@/components/orders/labels";
 import { MAX_STAFF_PER_STORE, ROLE_LABELS, type StaffRole } from "@store-builder/shared/modules/access/permissions";
 
@@ -47,6 +48,7 @@ function inviteError(e: unknown): string {
     )[reason ?? ""] ?? "این کاربر را نمی‌توان دعوت کرد.";
   }
   if (n === "StaffLimitError") return `تعداد همکاران و دعوت‌های در انتظار به سقف ${fa(MAX_STAFF_PER_STORE)} رسیده است.`;
+  if (n === "PlanLimitError") return planLimitMessage(e as unknown as { kind: "product" | "staff"; limit: number; free: boolean });
   if (n === "PermissionDeniedError") return "مدیریت تیم فقط برای مالک فروشگاه است.";
   return failText(e);
 }

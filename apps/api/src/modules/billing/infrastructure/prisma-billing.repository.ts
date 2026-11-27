@@ -1,5 +1,6 @@
 import { MAX_PLANS, MAX_WALLET_TOMAN, nextPeriod, quotePurchase, type PlanInput } from "@store-builder/shared/modules/billing/billing";
 import { db } from "../../../lib/db.js";
+import { storeLimits } from "./limits.js";
 import type { RedeemRefusal } from "../domain/billing.js";
 import type { BillingRepository, EntryRow, PlanRow, PlatformAudit, PurchaseResult, PurchaseRow, ReferralRow, SubscriptionRow } from "../application/ports.js";
 
@@ -9,7 +10,7 @@ const TX = { timeout: 15_000, maxWait: 10_000 } as const;
 type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0];
 const prismaCode = (e: unknown) => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined);
 
-const plan = (p: { id: string; name: string; description: string; priceToman: number; durationDays: number; active: boolean; createdAt: Date }): PlanRow => ({ id: p.id, name: p.name, description: p.description, priceToman: p.priceToman, durationDays: p.durationDays, active: p.active, createdAt: p.createdAt });
+const plan = (p: { id: string; name: string; description: string; priceToman: number; durationDays: number; maxProducts: number; maxStaff: number; active: boolean; createdAt: Date }): PlanRow => ({ id: p.id, name: p.name, description: p.description, priceToman: p.priceToman, durationDays: p.durationDays, maxProducts: p.maxProducts, maxStaff: p.maxStaff, active: p.active, createdAt: p.createdAt });
 const purchase = (p: PurchaseRow & Record<string, unknown>): PurchaseRow => ({ id: p.id, planName: p.planName, priceToman: p.priceToman, discountToman: p.discountToman, walletUsedToman: p.walletUsedToman, cashToman: p.cashToman, periodStart: p.periodStart, periodEnd: p.periodEnd, note: p.note, createdAt: p.createdAt });
 const referral = (r: { id: string; status: "PENDING" | "REWARDED"; rewardToman: number; createdAt: Date; rewardedAt: Date | null }): ReferralRow => ({ id: r.id, status: r.status, rewardToman: r.rewardToman, createdAt: r.createdAt, rewardedAt: r.rewardedAt });
 
@@ -68,6 +69,16 @@ export class PrismaBillingRepository implements BillingRepository {
   async subscription(storeId: string): Promise<SubscriptionRow | null> {
     const s = await db.storeSubscription.findUnique({ where: { storeId } });
     return s ? { planId: s.planId, planName: s.planName, startsAt: s.startsAt, endsAt: s.endsAt } : null;
+  }
+
+  async limitsAndUsage(storeId: string, now: Date) {
+    const [l, products, members, invitations] = await Promise.all([
+      storeLimits(db, storeId, now),
+      db.product.count({ where: { storeId } }),
+      db.storeMember.count({ where: { storeId } }),
+      db.storeInvitation.count({ where: { storeId, expiresAt: { gt: now } } }),
+    ]);
+    return { limits: { maxProducts: l.maxProducts, maxStaff: l.maxStaff }, free: l.free, usage: { products, staff: members + invitations } };
   }
 
   async purchases(storeId: string, limit: number) {

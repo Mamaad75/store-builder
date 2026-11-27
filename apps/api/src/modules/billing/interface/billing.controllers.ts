@@ -17,7 +17,7 @@ export class StoreBillingController {
   @RequirePermission("billing.manage")
   async overview(@StoreAccess() a: StoreAccessContext) {
     const o = await this.billing.overview(a);
-    return { subscription: subscriptionDto(o.subscription), state: o.state, plans: o.plans.map(planDto), purchases: o.purchases.map(purchaseDto), referralDiscountPercent: o.referralDiscountPercent };
+    return { subscription: subscriptionDto(o.subscription), state: o.state, plans: o.plans.map(planDto), purchases: o.purchases.map(purchaseDto), referralDiscountPercent: o.referralDiscountPercent, limits: o.limits, free: o.free, usage: o.usage };
   }
 
   @Get("wallet")

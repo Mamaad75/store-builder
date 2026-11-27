@@ -7,6 +7,8 @@ export interface PlanRow {
   description: string;
   priceToman: number;
   durationDays: number;
+  maxProducts: number;
+  maxStaff: number;
   active: boolean;
   createdAt: Date;
 }
@@ -67,6 +69,8 @@ export interface BillingRepository {
 
   storeName(storeId: string): Promise<string | null>;
   subscription(storeId: string): Promise<SubscriptionRow | null>;
+  /** What the store may hold now, and what it holds. */
+  limitsAndUsage(storeId: string, now: Date): Promise<{ limits: { maxProducts: number; maxStaff: number }; free: boolean; usage: { products: number; staff: number } }>;
   purchases(storeId: string, limit: number): Promise<PurchaseRow[]>;
   wallet(storeId: string, limit: number): Promise<{ balanceToman: number; entries: EntryRow[] }>;
   /** The store's own code, made on first use. */

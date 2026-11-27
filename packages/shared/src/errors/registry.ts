@@ -4,6 +4,7 @@ import { CandidateThemeUnavailableError } from "../modules/storefront/errors.js"
 import { MediaInUseError, MediaQuotaError, MediaRateLimitError, MediaStorageError, MediaValidationError } from "../modules/media/errors.js";
 import { PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError } from "../modules/pages/errors.js";
 import * as publishing from "../modules/publishing/errors.js";
+import { PlanLimitError } from "../modules/billing/errors.js";
 import { CatalogLimitError, CategoryNotEmptyError, ConflictError, DraftBusyError, NotFoundError, StoreLimitError, ValidationError } from "../modules/stores/errors.js";
 import { ThemeSwitchBlockedError } from "../modules/stores/theme-switch-types.js";
 import { CustomerExistsError, CustomerLoginError, CustomerLoginRateLimitedError, OtpDeliveryError, OtpInvalidError, OtpRateLimitedError, OtpUnavailableError } from "../modules/customers/errors.js";
@@ -23,7 +24,7 @@ type ErrorClass = new (...args: never[]) => Error;
 const publishingErrors = Object.fromEntries(Object.entries(publishing).filter(([, v]) => typeof v === "function")) as Record<string, ErrorClass>;
 
 export const DOMAIN_ERRORS: Record<string, ErrorClass> = {
-  NotFoundError, ValidationError, ConflictError, StoreLimitError, CatalogLimitError, CategoryNotEmptyError, DraftBusyError,
+  NotFoundError, ValidationError, ConflictError, StoreLimitError, CatalogLimitError, PlanLimitError, CategoryNotEmptyError, DraftBusyError,
   PageNeedsRecoveryError, SectionLimitError, UnsupportedTemplateError,
   MediaValidationError, MediaQuotaError, MediaInUseError, MediaRateLimitError, MediaStorageError,
   ThemeSwitchBlockedError, CandidateThemeUnavailableError,
@@ -40,7 +41,7 @@ export const DOMAIN_ERRORS: Record<string, ErrorClass> = {
 /** HTTP status per class (the default for a domain error is 422). */
 const STATUS: Record<string, number> = {
   NotFoundError: 404, ValidationError: 400, ConflictError: 409, DraftBusyError: 409, PublishBusyError: 409, StoreAlreadyLiveError: 409, VersionAlreadyLiveError: 409,
-  PermissionDeniedError: 403, StoreSuspendedError: 403, InvitationTargetError: 400, StaffLimitError: 409, SecretsUnavailableError: 503, SecretLimitError: 409,
+  PermissionDeniedError: 403, StoreSuspendedError: 403, InvitationTargetError: 400, StaffLimitError: 409, PlanLimitError: 409, SecretsUnavailableError: 503, SecretLimitError: 409,
   OtpUnavailableError: 503, OtpRateLimitedError: 429, OtpInvalidError: 400, OtpDeliveryError: 502, PlatformAdminConflictError: 409, PlatformForbiddenError: 403, StoreSuspensionConflictError: 409, RecoveryRefusedError: 409, ReauthFailedError: 403, PlatformRateLimitedError: 429, OutOfStockError: 409, ReservationLostError: 409, VariantLimitError: 409, CartLimitError: 409, AddressLimitError: 409, CartRateLimitedError: 429, OrderNotReadyError: 422, OrderTransitionError: 409, OrderRateLimitedError: 429, CustomerLoginError: 400, CustomerExistsError: 409, CustomerLoginRateLimitedError: 429, PaymentUnavailableError: 422, PaymentGatewayError: 502, PaymentNotAllowedError: 409, ReceiptNotAllowedError: 409, DiscountInvalidError: 422, DiscountCodeTakenError: 409, DiscountLimitError: 409,
   SubdomainTakenError: 409, SlugReservationConflictError: 409, MediaInUseError: 409, MediaRateLimitError: 429, PublishRateLimitedError: 429, MediaStorageError: 502, PublishTimedOutError: 503,
 };

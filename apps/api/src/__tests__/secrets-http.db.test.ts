@@ -7,7 +7,7 @@ import { createSecretService, rotateSecrets } from "../modules/secrets/secrets.a
 import { createStore } from "../modules/stores/service.js";
 import { EnvelopeError, decrypt, type MasterKeys } from "../platform/crypto/envelope.js";
 import { MemoryMediaStorage } from "../test/memory-storage.js";
-import { makeUser, prisma, resetDb } from "../test/db-helpers.js";
+import { makeUser, prisma, resetDb, subscribe } from "../test/db-helpers.js";
 import { testConfig } from "./helpers.js";
 
 /** Phase 2.4 (D24-1) over HTTP on real PostgreSQL: owner-only, write-only secrets, encrypted at rest, bound to their store. */
@@ -52,6 +52,7 @@ async function as(userId: string) {
 async function ownerWithStore() {
   const owner = await makeUser();
   const { id: storeId } = await createStore(owner.id, { name: "فروشگاه", templateKey: "bazaar" });
+  await subscribe(storeId); // the tests invite staff: a store without a plan has room for one
   return { owner, storeId, o: await as(owner.id) };
 }
 

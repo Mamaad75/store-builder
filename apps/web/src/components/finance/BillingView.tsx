@@ -59,6 +59,17 @@ export default function BillingView({ storeId }: { storeId: string }) {
         )}
       </Paper>
 
+      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }} data-testid="limits-card" component="section" aria-labelledby="limits-h">
+        <Typography id="limits-h" variant="subtitle1" component="h3" sx={{ fontWeight: 700, mb: 0.5 }}>سقف‌های فروشگاه شما</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {b.free ? "اشتراک فعالی ندارید؛ سقف‌های رایگان اعمال می‌شود. کالاها و همکاران موجود حذف نمی‌شوند، فقط افزودن تازه از سقف می‌گذرد." : "سقف‌های پلن فعلی شما."}
+        </Typography>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1, sm: 4 }}>
+          <Typography>محصولات: <strong>{fa(b.usage.products)}</strong> از {fa(b.limits.maxProducts)}</Typography>
+          <Typography>همکاران و دعوت‌ها: <strong>{fa(b.usage.staff)}</strong> از {fa(b.limits.maxStaff)}</Typography>
+        </Stack>
+      </Paper>
+
       <Box component="section" aria-labelledby="plans-h">
         <Typography id="plans-h" variant="subtitle1" component="h3" sx={{ fontWeight: 700, mb: 1 }}>پلن‌های موجود</Typography>
         {b.plans.length === 0 && <Typography color="text.secondary">فعلاً پلنی برای فروش تعریف نشده است.</Typography>}
@@ -67,7 +78,7 @@ export default function BillingView({ storeId }: { storeId: string }) {
             <Paper key={p.id} component="li" variant="outlined" data-testid="plan-card" sx={{ p: 2 }}>
               <Typography sx={{ fontWeight: 700 }}>{p.name}</Typography>
               <Typography variant="h6" component="p">{p.priceToman === 0 ? "رایگان" : toman(p.priceToman)}</Typography>
-              <Typography variant="body2" color="text.secondary">برای {fa(p.durationDays)} روز</Typography>
+              <Typography variant="body2" color="text.secondary">برای {fa(p.durationDays)} روز · تا {fa(p.maxProducts)} محصول · {fa(p.maxStaff)} همکار</Typography>
               {p.description && <Typography variant="body2" sx={{ mt: 1, overflowWrap: "anywhere" }}>{p.description}</Typography>}
             </Paper>
           ))}

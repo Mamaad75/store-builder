@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PlanLimitError } from "@store-builder/shared/modules/billing/errors";
 import { InvitationTargetError, PermissionDeniedError, StaffLimitError, StoreSuspendedError } from "@store-builder/shared/modules/access/errors";
 import { MAX_STAFF_PER_STORE, ROLE_PERMISSIONS, allowedWhileSuspended, can, type Permission, type StoreRole } from "@store-builder/shared/modules/access/permissions";
 import { NotFoundError, ValidationError } from "@store-builder/shared/modules/stores/errors";
@@ -40,6 +41,8 @@ export class AccessService {
     private readonly repo: AccessRepository,
     private readonly audit: AuditRepository,
     private readonly now: () => Date = () => new Date(),
+    /** What the store's plan allows now (the billing module's answer, injected); without it only the global maximum applies. */
+    private readonly staffLimit: (storeId: string, now: Date) => Promise<{ limit: number; free: boolean }> = async () => ({ limit: MAX_STAFF_PER_STORE, free: false }),
   ) {}
 
   /**
@@ -73,7 +76,10 @@ export class AccessService {
     const targetId = await this.repo.userIdByUsername(username);
     const refusal = inviteRefusal({ inviterId: a.actorId, ownerId: a.ownerId, targetId, targetIsMember: targetId ? await this.repo.isMember(a.storeId, targetId) : false });
     if (refusal) throw new InvitationTargetError(refusal);
-    if ((await this.repo.staffCount(a.storeId, now)) >= MAX_STAFF_PER_STORE) throw new StaffLimitError(MAX_STAFF_PER_STORE);
+    const staff = await this.repo.staffCount(a.storeId, now);
+    if (staff >= MAX_STAFF_PER_STORE) throw new StaffLimitError(MAX_STAFF_PER_STORE);
+    const plan = await this.staffLimit(a.storeId, now);
+    if (staff >= plan.limit) throw new PlanLimitError("staff", plan.limit, plan.free);
     try {
       const inv = await this.repo.createInvitation({ storeId: a.storeId, invitedUserId: targetId!, role, invitedById: a.actorId, expiresAt: invitationExpiry(now) }, now);
       await this.audit.record({ storeId: a.storeId, actorId: a.actorId, action: "staff.invited", targetType: "user", targetId: targetId!, metadata: { role } });

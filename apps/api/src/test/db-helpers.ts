@@ -63,3 +63,14 @@ export async function makeUnregisteredThemeStore(ownerId: string, name = "Legacy
     },
   });
 }
+
+/**
+ * A running subscription with room for everything the global maxima allow, for tests that are not about plan limits (a store without one has the
+ * free limits). Re-callable: the store keeps one subscription.
+ */
+export async function subscribe(storeId: string, limits: { maxProducts?: number; maxStaff?: number } = {}) {
+  const plan = await prisma.plan.create({ data: { name: `test-plan-${storeId}`.slice(0, 60), priceToman: 0, durationDays: 365, maxProducts: limits.maxProducts ?? 500, maxStaff: limits.maxStaff ?? 20 } });
+  const now = new Date();
+  const data = { planId: plan.id, planName: plan.name, startsAt: now, endsAt: new Date(now.getTime() + 365 * 86_400_000) };
+  await prisma.storeSubscription.upsert({ where: { storeId }, create: { storeId, ...data }, update: data });
+}

@@ -37,6 +37,8 @@ import {
   type ProductListParams,
 } from "@store-builder/shared/modules/products/schemas";
 import { parseProductListParams } from "@store-builder/shared/modules/products/schemas";
+import { PlanLimitError } from "@store-builder/shared/modules/billing/errors";
+import { storeLimits } from "../billing/billing.api.js";
 import { STATUS_LABEL_FA, canTransition, type ProductStatus } from "@store-builder/shared/modules/products/status";
 
 /** `ownerId` always comes from the server session (requireUser()), never from request data. */
@@ -158,7 +160,10 @@ export async function createProduct(ownerId: string, storeId: unknown, input: un
   const data = parseOrThrow(createProductSchema, input);
   try {
     return await withStoreMutation(ownerId, sid, async (ctx) => {
-      if ((await countInTx(ctx)) >= MAX_PRODUCTS_PER_STORE) throw new CatalogLimitError("product", MAX_PRODUCTS_PER_STORE);
+      const have = await countInTx(ctx);
+      if (have >= MAX_PRODUCTS_PER_STORE) throw new CatalogLimitError("product", MAX_PRODUCTS_PER_STORE);
+      const plan = await storeLimits(ctx.tx, sid, new Date()); // the plan's limit (or the free one), read in the same transaction
+      if (have >= plan.maxProducts) throw new PlanLimitError("product", plan.maxProducts, plan.free);
       if (data.categoryId) await assertCategoryInStore(ctx, data.categoryId);
       // Generated under the store lock, so concurrent creates get distinct slugs; an explicit slug that
       // is taken is a validation error (the unique constraint is the final arbiter).

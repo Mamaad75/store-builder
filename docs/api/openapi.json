@@ -2277,6 +2277,16 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "maxProducts": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "maxStaff": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "active": {
                             "type": "boolean"
                           }
@@ -2287,6 +2297,8 @@
                           "description",
                           "priceToman",
                           "durationDays",
+                          "maxProducts",
+                          "maxStaff",
                           "active"
                         ],
                         "additionalProperties": false
@@ -2359,6 +2371,52 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991,
                       "description": "the invitation discount still waiting for the first purchase, in percent (0 = none)"
+                    },
+                    "limits": {
+                      "type": "object",
+                      "properties": {
+                        "maxProducts": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "maxStaff": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "maxProducts",
+                        "maxStaff"
+                      ],
+                      "additionalProperties": false,
+                      "description": "what the store may hold now: the plan's while its period runs, otherwise the free limits"
+                    },
+                    "free": {
+                      "type": "boolean",
+                      "description": "no running subscription: the free limits apply"
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "products": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "staff": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "members plus pending invitations (the owner is not counted)"
+                        }
+                      },
+                      "required": [
+                        "products",
+                        "staff"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -2366,7 +2424,10 @@
                     "state",
                     "plans",
                     "purchases",
-                    "referralDiscountPercent"
+                    "referralDiscountPercent",
+                    "limits",
+                    "free",
+                    "usage"
                   ],
                   "additionalProperties": false
                 }
@@ -25421,6 +25482,16 @@
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
                       },
+                      "maxProducts": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "maxStaff": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
                       "active": {
                         "type": "boolean"
                       }
@@ -25431,6 +25502,8 @@
                       "description",
                       "priceToman",
                       "durationDays",
+                      "maxProducts",
+                      "maxStaff",
                       "active"
                     ],
                     "additionalProperties": false
@@ -25556,6 +25629,18 @@
                     "minimum": 1,
                     "maximum": 3660
                   },
+                  "maxProducts": {
+                    "default": 500,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500
+                  },
+                  "maxStaff": {
+                    "default": 20,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20
+                  },
                   "active": {
                     "default": true,
                     "type": "boolean"
@@ -25598,6 +25683,16 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "maxProducts": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "maxStaff": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "active": {
                       "type": "boolean"
                     }
@@ -25608,6 +25703,8 @@
                     "description",
                     "priceToman",
                     "durationDays",
+                    "maxProducts",
+                    "maxStaff",
                     "active"
                   ],
                   "additionalProperties": false
@@ -25744,6 +25841,18 @@
                     "minimum": 1,
                     "maximum": 3660
                   },
+                  "maxProducts": {
+                    "default": 500,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500
+                  },
+                  "maxStaff": {
+                    "default": 20,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20
+                  },
                   "active": {
                     "default": true,
                     "type": "boolean"
@@ -25786,6 +25895,16 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "maxProducts": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "maxStaff": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "active": {
                       "type": "boolean"
                     }
@@ -25796,6 +25915,8 @@
                     "description",
                     "priceToman",
                     "durationDays",
+                    "maxProducts",
+                    "maxStaff",
                     "active"
                   ],
                   "additionalProperties": false
@@ -28294,6 +28415,16 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "maxProducts": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "maxStaff": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "active": {
                             "type": "boolean"
                           }
@@ -28304,6 +28435,8 @@
                           "description",
                           "priceToman",
                           "durationDays",
+                          "maxProducts",
+                          "maxStaff",
                           "active"
                         ],
                         "additionalProperties": false

@@ -5,7 +5,7 @@ import { TokenService } from "../auth/token.js";
 import { setMediaStorageForTests } from "../lib/storage/index.js";
 import { createStore } from "../modules/stores/service.js";
 import { MemoryMediaStorage } from "../test/memory-storage.js";
-import { makeUser, prisma, resetDb } from "../test/db-helpers.js";
+import { makeUser, prisma, resetDb, subscribe } from "../test/db-helpers.js";
 import { testConfig } from "./helpers.js";
 
 /** Phase 2.3 (D23-1..3) over HTTP on real PostgreSQL: the real guard, real roles, real invitations and the audit log. */
@@ -150,6 +150,7 @@ describe("invitations and staff changes (D23-2)", () => {
     const owner = await makeUser();
     const ali = await makeUser();
     const { id: storeId } = await createStore(owner.id, { name: "فروشگاه", templateKey: "bazaar" });
+    await subscribe(storeId);
     const o = await as(owner.id);
     const reason = async (username: string) => (await o("POST", `/stores/${storeId}/team/invitations`, { username, role: "OPERATOR" })).json?.payload?.reason ?? null;
     expect(await reason("no_such_user")).toBe("unknown_user");

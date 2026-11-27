@@ -7,7 +7,7 @@ import type { StorefrontProduct } from "@store-builder/shared/templates/storefro
 import { createApp } from "../../app.js";
 import { TokenService } from "../../auth/token.js";
 import { listenFetchable, testConfig } from "../../__tests__/helpers.js";
-import { makeStore, makeUser, prisma, resetDb } from "../../test/db-helpers.js";
+import { makeStore, makeUser, prisma, resetDb, subscribe } from "../../test/db-helpers.js";
 import type { VerifyResult } from "../orders/application/ports.js";
 
 /**
@@ -306,6 +306,7 @@ describe("platform suspension (ADR 0003, G2)", () => {
 
   it("staff roles while suspended: managers manage orders, operators are refused, invitations cannot be accepted until restored", async () => {
     const s = await liveStore("shop");
+    await subscribe(s.storeId);
     const admin = await superAdmin();
     const cod = await order(s, "COD");
     const [manager, operator, invitee] = [await makeUser(), await makeUser(), await makeUser()];
