@@ -108,7 +108,8 @@ test.describe("login and logout", () => {
   test("logout ends access to the dashboard", async ({ page }) => {
     const username = await createUser(page);
     await loginAndWaitForDashboard(page, username);
-    await page.getByRole("button", { name: "خروج" }).click();
+    await page.getByRole("button", { name: /^منوی حساب/ }).click(); // the account menu in the top bar
+    await page.getByRole("menuitem", { name: "خروج از حساب" }).click();
     await expect(page).toHaveURL(/\/login/);
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);

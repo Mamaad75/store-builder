@@ -1,3 +1,4 @@
+import { AxeBuilder } from "@axe-core/playwright";
 import { PASSWORD, createStoreViaUi, db, expect, login, loginAndWaitForDashboard, signUpAndIn, test } from "./helpers";
 
 test.afterAll(() => db.$disconnect());
@@ -119,4 +120,27 @@ test.describe("onboarding checklist", () => {
     await box.getByRole("link", { name: "افزودن دسته‌بندی" }).click();
     await expect(page).toHaveURL(new RegExp(`/dashboard/stores/${storeId}/categories`));
   });
+});
+
+test("the top bar: the account menu shows who is signed in, links to stores and account, and works on a phone", async ({ page }) => {
+  await signUpAndIn(page);
+  await page.goto("/dashboard");
+  // a CSS locator: while the menu is open the rest of the page is aria-hidden, which getByRole ignores
+  const trigger = page.locator("button[aria-haspopup=menu]");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("menuitem", { name: "حساب کاربری" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "فروشگاه‌های من" })).toBeVisible();
+  const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(axe.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 90)}`)).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "حساب کاربری" })).toBeHidden();
+  await page.getByRole("button", { name: /^منوی حساب/ }).click();
+  await page.getByRole("menuitem", { name: "حساب کاربری" }).click();
+  await page.waitForURL(/\/dashboard\/account$/);
+  // 320px: no horizontal scroll, the avatar stays reachable
+  await page.setViewportSize({ width: 320, height: 640 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await expect(page.getByRole("button", { name: /^منوی حساب/ })).toBeVisible();
 });

@@ -4,7 +4,9 @@ import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import AppBar from "@mui/material/AppBar";
-import LogoutButton from "@/components/LogoutButton";
+import StorefrontOutlined from "@mui/icons-material/StorefrontOutlined";
+import StorefrontRounded from "@mui/icons-material/StorefrontRounded";
+import AccountMenu from "@/components/AccountMenu";
 import { RouterBridge } from "@/client/nav";
 import { TextLink } from "@/components/NextLinks";
 import SiteFooter from "@/components/SiteFooter";
@@ -27,16 +29,22 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <RouterBridge />
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
         <SkipLink />
-        <AppBar data-print="hide" position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
-          <Toolbar>
-            <Typography sx={{ flexGrow: 1, fontWeight: 700, display: { xs: "none", sm: "block" } }}>سایت‌ساز فروشگاهی</Typography>
-            <Box component="nav" aria-label="منوی حساب" sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 2 }, marginInlineStart: { xs: 0, sm: 2 }, marginInlineEnd: { xs: "auto", sm: 2 } }}>
-              <TextLink href="/dashboard">فروشگاه‌ها</TextLink>
-              <TextLink href="/dashboard/account" title={user.name} sx={{ display: "inline-block", maxWidth: { xs: 84, sm: "none" }, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}>
-                {user.name}
+        <AppBar data-print="hide" position="sticky" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "rgba(255,255,255,0.92)", backdropFilter: "blur(8px)" }}>
+          <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, gap: 1.5 }}>
+            <TextLink href="/dashboard" underline="none" aria-label="سایت‌ساز فروشگاهی: فروشگاه‌های من" sx={{ display: "flex", alignItems: "center", gap: 1.25, color: "text.primary", flexGrow: 1, minWidth: 0 }}>
+              <Box aria-hidden sx={{ width: 34, height: 34, borderRadius: 2, display: "grid", placeItems: "center", color: "#fff", background: "linear-gradient(135deg, #4f46e5, #7c3aed)", flexShrink: 0 }}>
+                <StorefrontRounded fontSize="small" />
+              </Box>
+              <Typography component="span" sx={{ fontWeight: 800, display: { xs: "none", sm: "block" } }}>سایت‌ساز فروشگاهی</Typography>
+            </TextLink>
+            <Box component="nav" aria-label="منوی حساب" sx={{ display: "flex", alignItems: "center", gap: { xs: 0.75, sm: 1.5 } }}>
+              <TextLink href="/dashboard" underline="none" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75, px: { xs: 1, sm: 1.5 }, py: 0.75, minHeight: 40, borderRadius: 99, fontWeight: 600, fontSize: 14, color: "text.primary", "&:hover": { bgcolor: "action.hover" } }}>
+                <StorefrontOutlined fontSize="small" aria-hidden />
+                <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>فروشگاه‌ها</Box>
+                <Box component="span" sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", display: { xs: "inline", sm: "none" } }}>فروشگاه‌ها</Box>
               </TextLink>
+              <AccountMenu name={user.name} username={user.username} />
             </Box>
-            <LogoutButton />
           </Toolbar>
         </AppBar>
         <Box component="main" id="main">
