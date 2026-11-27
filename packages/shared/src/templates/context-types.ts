@@ -11,6 +11,11 @@ export interface StorefrontQuery {
   q?: string;
   /** Sort order of the product listing; absent = the store's own order. */
   sort?: ProductSort;
+  /** Price range of the listing in Toman (whole numbers, bounds included); absent = no bound. A product matches when its price, or any variant's price, is inside. */
+  min?: number;
+  max?: number;
+  /** Only products in stock. */
+  available?: true;
 }
 
 /** Listing sort orders a visitor may pick (the default, the store's own order, has no key). */

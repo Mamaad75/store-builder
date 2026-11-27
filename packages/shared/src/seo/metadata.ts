@@ -30,12 +30,15 @@ export function canonicalPath(ctx: SeoContext): string {
       const q = new URLSearchParams();
       if (list.category) q.set("category", list.category.slug);
       // Search results (noindex) canonicalise to the listing they search; a sort never changes the canonical page.
-      if (list.page > 1 && !list.q) q.set("page", String(list.page)); // the clamped page, so ?page=999 canonicalises to the last page
+      if (list.page > 1 && !list.q && !hasListFilter(ctx)) q.set("page", String(list.page)); // the clamped page, so ?page=999 canonicalises to the last page
       const s = q.toString();
       return `/products${s ? `?${s}` : ""}`;
     }
   }
 }
+
+/** A price range or the in-stock filter makes a listing a thin, endless variant of the real one: kept out of the index, like a search. */
+export const hasListFilter = (ctx: Pick<SeoContext, "query">): boolean => ctx.query.min !== undefined || ctx.query.max !== undefined || ctx.query.available === true;
 
 export function canonicalUrl(ctx: SeoContext, baseUrl: string): string {
   return `${baseUrl}${canonicalPath(ctx)}`;

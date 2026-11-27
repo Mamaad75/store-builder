@@ -1,6 +1,7 @@
 import type { StorefrontData, StorefrontPage, StorefrontProduct } from "../storefront-data.js";
 import { PRODUCT_SORTS, type ProductSort, type RenderContext, type StorefrontQuery } from "../context-types.js";
-import { makeSearchKey, normalizeFa } from "../../lib/text.js";
+import { MAX_PRICE_TOMAN } from "../../lib/money.js";
+import { digitsToAscii, makeSearchKey, normalizeFa } from "../../lib/text.js";
 import { filledInfoPages } from "../../modules/stores/info-pages.js";
 
 export const PRODUCTS_PER_PAGE = 12;
@@ -15,6 +16,15 @@ type SearchParams = Record<string, string | string[] | undefined>;
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
+/** A price typed in a filter: digits (Persian or Arabic ones too, thousands separators and spaces ignored), at most MAX_PRICE_TOMAN; anything else is no bound. */
+function parsePrice(raw: string | undefined): number | undefined {
+  if (!raw) return undefined;
+  const digits = digitsToAscii(raw).replace(/[\s,٬،.]/g, "");
+  if (!/^\d{1,10}$/.test(digits)) return undefined;
+  const n = Number(digits);
+  return n <= MAX_PRICE_TOMAN ? n : undefined;
+}
+
 /** Bounded, forgiving parse of the listing query: garbage never throws, it falls back to defaults. */
 export function parseQuery(sp: SearchParams | undefined, data: StorefrontData): StorefrontQuery {
   const rawPage = first(sp?.page);
@@ -26,7 +36,10 @@ export function parseQuery(sp: SearchParams | undefined, data: StorefrontData): 
   const q = rawQ ? normalizeFa(rawQ.slice(0, 200)).slice(0, SEARCH_MAX).trim() : "";
   const rawSort = first(sp?.sort);
   const sort = (PRODUCT_SORTS as readonly string[]).includes(rawSort ?? "") ? (rawSort as ProductSort) : undefined;
-  return { page: Math.max(1, n), ...(category ? { category } : {}), ...(q && makeSearchKey(q) ? { q } : {}), ...(sort ? { sort } : {}) };
+  const min = parsePrice(first(sp?.min));
+  const max = parsePrice(first(sp?.max));
+  const available = first(sp?.available) === "1";
+  return { page: Math.max(1, n), ...(category ? { category } : {}), ...(q && makeSearchKey(q) ? { q } : {}), ...(sort ? { sort } : {}), ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}), ...(available ? { available: true as const } : {}) };
 }
 
 /**

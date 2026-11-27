@@ -21,12 +21,20 @@ const SORTERS: Record<ProductSort, (a: StorefrontProduct, b: StorefrontProduct) 
   available: (a, b) => Number(b.stockQuantity > 0) - Number(a.stockQuantity > 0),
 };
 
+/** A product is inside a price range when its price, or any of its variants' prices, is (a shirt from 100,000 to 500,000 shows for "up to 200,000"). */
+export function priceMatches(p: Pick<StorefrontProduct, "price" | "variants">, min: number | undefined, max: number | undefined): boolean {
+  const prices = p.variants.length > 0 ? p.variants.map((v) => v.price) : [p.price];
+  return prices.some((x) => (min === undefined || x >= min) && (max === undefined || x <= max));
+}
+
 export function listProducts(ctx: RenderContext) {
   const { data, query } = ctx;
   const category = query.category ? data.categories.find((c) => c.slug === query.category) : undefined;
   let filtered = category ? data.products.filter((p) => p.categoryId === category.id) : data.products;
   const words = query.q ? searchWords(query.q) : [];
   if (words.length > 0) filtered = filtered.filter((p) => ((h) => words.every((w) => h.includes(w)))(haystack(ctx, p)));
+  if (query.available) filtered = filtered.filter((p) => p.stockQuantity > 0);
+  if (query.min !== undefined || query.max !== undefined) filtered = filtered.filter((p) => priceMatches(p, query.min, query.max));
   if (query.sort) filtered = [...filtered].sort(SORTERS[query.sort]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PER_PAGE));
   const page = Math.min(query.page, totalPages);
@@ -34,6 +42,9 @@ export function listProducts(ctx: RenderContext) {
     category,
     q: words.length > 0 ? query.q : undefined,
     sort: query.sort,
+    min: query.min,
+    max: query.max,
+    available: query.available,
     total: filtered.length,
     page,
     totalPages,
@@ -61,11 +72,18 @@ export function categoryOf(ctx: RenderContext, categoryId: string | null) {
   return categoryId ? (ctx.data.categories.find((c) => c.id === categoryId) ?? null) : null;
 }
 
-export function listUrl(ctx: RenderContext, params: { category?: string; page?: number; q?: string; sort?: ProductSort }): string {
+export function listUrl(ctx: RenderContext, params: { category?: string; page?: number; q?: string; sort?: ProductSort; min?: number; max?: number; available?: true | undefined }): string {
   const q = new URLSearchParams();
   if (params.q) q.set("q", params.q);
   if (params.category) q.set("category", params.category);
   if (params.sort) q.set("sort", params.sort);
+  // The price range and the stock filter stay on every link of the listing (sort, category, pages), unless a caller names them.
+  const min = "min" in params ? params.min : ctx.query.min;
+  const max = "max" in params ? params.max : ctx.query.max;
+  const available = "available" in params ? params.available : ctx.query.available;
+  if (min !== undefined) q.set("min", String(min));
+  if (max !== undefined) q.set("max", String(max));
+  if (available) q.set("available", "1");
   if (params.page && params.page > 1) q.set("page", String(params.page));
   const s = q.toString();
   const base = ctx.href("/products"); // may already carry a query (candidate-theme preview)

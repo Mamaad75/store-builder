@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { OG_LOCALE, canonicalUrl, pageDescription, pageTitle, shareImage, type SeoContext } from "@store-builder/shared/seo/metadata";
+import { OG_LOCALE, canonicalUrl, hasListFilter, pageDescription, pageTitle, shareImage, type SeoContext } from "@store-builder/shared/seo/metadata";
 
 export function buildMetadata(ctx: SeoContext, baseUrl: string): Metadata {
   const title = pageTitle(ctx);
@@ -14,7 +14,7 @@ export function buildMetadata(ctx: SeoContext, baseUrl: string): Metadata {
     ...(logo ? { icons: { icon: [{ url: logo, type: "image/webp" }], apple: [{ url: logo }] } } : {}),
     alternates: { canonical: url },
     // Search results are thin, endless pages: kept out of the index, their links still followed.
-    robots: ctx.query.q ? { index: false, follow: true } : { index: true, follow: true },
+    robots: ctx.query.q || hasListFilter(ctx) ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: {
       type: "website",
       url,
