@@ -45,3 +45,9 @@ export function safeMediaUrl(key: string): string | null {
 
 /** The one neutral answer for everything unavailable on a store host. */
 export const neutralNotFound = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+
+/** The store label of the raw Host header (`<label>.<root domain>`), or null when the request is not on a store host. Never read from the path or forwarded headers. */
+export async function storeHostLabel(): Promise<string | null> {
+  const host = resolveHost((await headers()).get("host"), getAppEnv().APP_ROOT_DOMAIN);
+  return host.kind === "store" ? host.subdomain : null;
+}
