@@ -1,3 +1,4 @@
+import { filledInfoPages } from "../modules/stores/info-pages.js";
 import type { StorefrontData } from "../templates/storefront-data.js";
 
 /** Sitemap and robots.txt of a published store host. Pure; the base URL comes from configuration. */
@@ -23,6 +24,7 @@ export function sitemapPaths(data: StorefrontData): string[] {
   if (has("ABOUT")) paths.push("/about");
   if (has("CONTACT")) paths.push("/contact");
   if (has("PRODUCT_DETAIL")) for (const p of data.products) paths.push(`/products/${encodeURIComponent(p.slug)}`);
+  if (has("HOME")) for (const p of filledInfoPages(data.store.infoPages)) paths.push(`/info/${p.key}`);
   if ((data.posts?.length ?? 0) > 0 && has("HOME")) {
     paths.push("/blog");
     for (const p of data.posts!) paths.push(`/blog/${encodeURIComponent(p.slug)}`);

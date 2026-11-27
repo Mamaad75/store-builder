@@ -4,6 +4,9 @@ import type { PageSection } from "@store-builder/shared/templates/section-parse"
 import type { RenderContext, SectionComponent, TemplateModule } from "../types";
 import ProductReviews from "../common/ProductReviews";
 import BlogView from "../common/BlogView";
+import InfoView from "../common/InfoView";
+import InfoLinks from "../common/InfoLinks";
+import AnnouncementBar from "../common/AnnouncementBar";
 
 function renderSection(template: TemplateModule, section: PageSection, ctx: RenderContext): ReactElement | null {
   if (isCoreSectionType(section.type)) {
@@ -21,6 +24,12 @@ export default function StorefrontRenderer({ template, ctx }: { template: Templa
   const { Layout } = template;
   // Reviews are live data of a published store (its own host: no base path); previews and theme demos have none.
   const reviews = ctx.page.type === "PRODUCT_DETAIL" && ctx.product && ctx.basePath === "" ? <ProductReviews slug={ctx.product.slug} /> : null;
-  if (ctx.blog) return <Layout ctx={ctx}><BlogView ctx={ctx} /></Layout>;
-  return <Layout ctx={ctx}>{ctx.page.sections.map((s) => renderSection(template, s, ctx))}{reviews}</Layout>;
+  // Around every page: the announcement above the theme's layout, and the links to the store's information pages at the end of its content.
+  const body = ctx.blog ? <BlogView ctx={ctx} /> : ctx.info ? <InfoView ctx={ctx} /> : <>{ctx.page.sections.map((s) => renderSection(template, s, ctx))}{reviews}</>;
+  return (
+    <>
+      <AnnouncementBar ctx={ctx} />
+      <Layout ctx={ctx}>{body}<InfoLinks ctx={ctx} /></Layout>
+    </>
+  );
 }

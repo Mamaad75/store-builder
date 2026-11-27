@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { buildView } from "@/templates/engine/view";
+import AnnouncementBar from "@/templates/common/AnnouncementBar";
+import InfoLinks from "@/templates/common/InfoLinks";
 import { hostNamesLabel, loadPublicStore, safeMediaUrl } from "./_public";
 
 /** Shop pages (cart, checkout, order) are personal: never indexed, never cached. */
@@ -23,7 +25,13 @@ export async function ShopPage({ params, children, orderAccess = false }: { para
   const view = buildView(store.data, { basePath: "", segments: [], mediaUrl: safeMediaUrl });
   if (view.status !== "ok") notFound();
   const { Layout } = view.template;
-  return <Layout ctx={{ ...view.ctx, commerce: true }}>{children}</Layout>;
+  const ctx = { ...view.ctx, commerce: true };
+  return (
+    <>
+      <AnnouncementBar ctx={ctx} />
+      <Layout ctx={ctx}>{children}<InfoLinks ctx={ctx} /></Layout>
+    </>
+  );
 }
 
 /** The frame of order pages when the store's own theme is not available (unpublished or suspended store). */

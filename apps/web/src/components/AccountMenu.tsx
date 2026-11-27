@@ -37,7 +37,8 @@ export default function AccountMenu({ name, username }: { name: string; username
         aria-label={`منوی حساب ${name}`}
         sx={{ display: "flex", alignItems: "center", gap: 1, ps: 0.5, pe: { xs: 0.5, sm: 1 }, py: 0.5, borderRadius: 99, border: 1, borderColor: "divider", bgcolor: open ? "action.selected" : "background.paper", minHeight: 40, "&:hover": { bgcolor: "action.hover" }, "&.Mui-focusVisible": { outline: "3px solid", outlineColor: "primary.main", outlineOffset: 2 } }}
       >
-        <Avatar sx={{ width: 30, height: 30, fontSize: 15, fontWeight: 800, bgcolor: "#eef0ff", color: "#3730a3" }} aria-hidden>{initial}</Avatar>
+        {/* the letter is generated content, not text: the button's visible text is only the name, which its accessible name contains (WCAG 2.5.3) */}
+        <Avatar data-initial={initial} sx={{ width: 30, height: 30, fontSize: 15, fontWeight: 800, bgcolor: "#eef0ff", color: "#3730a3", "&::after": { content: "attr(data-initial)" } }} aria-hidden />
         <Typography component="span" sx={{ display: { xs: "none", sm: "block" }, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 14, fontWeight: 600 }}>{name}</Typography>
         <KeyboardArrowDownRounded fontSize="small" aria-hidden sx={{ display: { xs: "none", sm: "block" }, color: "text.secondary", transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
       </ButtonBase>

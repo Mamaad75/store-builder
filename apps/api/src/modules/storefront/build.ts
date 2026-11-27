@@ -55,6 +55,8 @@ const FALLBACK_SETTINGS: TemplateSettings = {
   social: { instagram: "", telegram: "", whatsapp: "" },
   description: "",
   enamad: null,
+  infoPages: {},
+  announcement: null,
 };
 
 /**
@@ -101,10 +103,12 @@ export function buildStorefrontData(src: StorefrontSource): { data: StorefrontDa
     }
   }
 
+  // Information pages with text only; absent (not an empty object) when there are none, so existing snapshots keep their hash.
+  const filledPages = Object.fromEntries(Object.entries(resolved.infoPages).filter((e): e is [string, string] => typeof e[1] === "string" && e[1].trim() !== ""));
   const candidate = {
     schemaVersion: STOREFRONT_SCHEMA_VERSION,
     template: { key: src.template.key, version: src.template.version },
-    store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social, logo: toMediaRef(src.store.logo), typography: resolved.typography, ...(resolved.description ? { description: resolved.description } : {}), ...(resolved.enamad ? { enamad: resolved.enamad } : {}) },
+    store: { name: src.store.name, direction: resolved.direction, primaryColor: resolved.primaryColor, contact: resolved.contact, social: resolved.social, logo: toMediaRef(src.store.logo), typography: resolved.typography, ...(resolved.description ? { description: resolved.description } : {}), ...(resolved.enamad ? { enamad: resolved.enamad } : {}), ...(Object.keys(filledPages).length > 0 ? { infoPages: filledPages } : {}), ...(resolved.announcement ? { announcement: resolved.announcement } : {}) },
     pages,
     categories: src.categories,
     products: src.products.map(({ image, gallery, specs, variants, ...p }) => {

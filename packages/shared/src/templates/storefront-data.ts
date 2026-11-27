@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { enamadSchema } from "../lib/enamad.js";
+import { announcementSchema, infoPagesSchema } from "../modules/stores/info-pages.js";
 import { formatToman, MAX_PRICE_TOMAN } from "../lib/money.js";
 import { MAX_SPEC_ROWS, specRowSchema } from "../lib/product-specs.js";
 import { MAX_OPTIONS, MAX_VARIANTS_PER_PRODUCT } from "../modules/inventory/variants.js";
@@ -48,6 +49,9 @@ export const storefrontStoreSchema = z
     description: z.string().max(160).optional(),
     // The eNamad seal (phase: merchant trust). Absent when unset, for the same reason as `description`.
     enamad: enamadSchema.optional(),
+    // The information pages (terms, shipping, returns, privacy, FAQ) and the announcement bar: absent when empty, for the same reason.
+    infoPages: infoPagesSchema.optional(),
+    announcement: announcementSchema.optional(),
   })
   .strict();
 

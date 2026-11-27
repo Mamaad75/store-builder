@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { enamadSchema } from "../lib/enamad.js";
+import { announcementSchema, infoPagesSchema } from "../modules/stores/info-pages.js";
 
 /** Whitelisted section types. Each type has a strict props schema in `sectionPropsSchemas` below. */
 export const SECTION_TYPES = [
@@ -88,6 +89,9 @@ export const templateSettingsSchema = z.object({
   description: z.string().max(160).default(""),
   // The eNamad trust seal (id and code only; the addresses are built from them). Stores that never set one parse with null.
   enamad: enamadSchema.nullable().default(null),
+  // The information pages and the announcement bar. Stores that never set them parse with empty / null.
+  infoPages: infoPagesSchema.default({}),
+  announcement: announcementSchema.nullable().default(null),
   // Settings stored before phase 8 have no typography: they parse with the defaults (and are persisted normalised on the next save).
   typography: typographySchema.default(DEFAULT_TYPOGRAPHY),
 });

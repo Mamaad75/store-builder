@@ -1,3 +1,4 @@
+import type { InfoPageKey } from "../modules/stores/info-pages.js";
 import type { StorefrontData, StorefrontPage, StorefrontPost, StorefrontProduct } from "./storefront-data.js";
 
 /** Query parameters a storefront page understands (already parsed and bounded by the engine). */
@@ -28,6 +29,8 @@ export interface RenderContext {
   product: StorefrontProduct | null;
   /** Set on the blog's own pages (`/blog`, `/blog/<slug>`): the list, or one post. `page` is then the home page without its sections. */
   blog?: { view: "list" } | { view: "post"; post: StorefrontPost };
+  /** Set on an information page (`/info/<key>`: terms, shipping, returns, privacy, FAQ); `page` is then the home page without its sections. */
+  info?: { key: InfoPageKey; title: string; body: string };
   /** Prefix of every storefront URL (`/preview/<id>` for the draft preview, `` for a public host). */
   basePath: string;
   /** Resolves an internal path (e.g. "/products") against `basePath`. */

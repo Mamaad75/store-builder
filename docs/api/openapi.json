@@ -857,6 +857,62 @@
                       }
                     ]
                   },
+                  "infoPages": {
+                    "type": "object",
+                    "properties": {
+                      "terms": {
+                        "type": "string"
+                      },
+                      "shipping": {
+                        "type": "string"
+                      },
+                      "returns": {
+                        "type": "string"
+                      },
+                      "privacy": {
+                        "type": "string"
+                      },
+                      "faq": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "announcement": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          },
+                          "link": {
+                            "default": "none",
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "products",
+                              "about",
+                              "contact",
+                              "blog",
+                              "terms",
+                              "shipping",
+                              "returns",
+                              "privacy",
+                              "faq"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "description": {
                     "type": "string"
                   }

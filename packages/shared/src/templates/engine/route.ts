@@ -1,13 +1,14 @@
 import type { StorefrontData, StorefrontPage, StorefrontProduct } from "../storefront-data.js";
 import { PRODUCT_SORTS, type ProductSort, type RenderContext, type StorefrontQuery } from "../context-types.js";
 import { makeSearchKey, normalizeFa } from "../../lib/text.js";
+import { filledInfoPages } from "../../modules/stores/info-pages.js";
 
 export const PRODUCTS_PER_PAGE = 12;
 /** Longest search text a listing accepts (longer input is cut, never rejected). */
 export const SEARCH_MAX = 60;
 
 export type StorefrontRoute =
-  | { kind: "page"; page: StorefrontPage; product: StorefrontProduct | null; query: StorefrontQuery; blog?: RenderContext["blog"] }
+  | { kind: "page"; page: StorefrontPage; product: StorefrontProduct | null; query: StorefrontQuery; blog?: RenderContext["blog"]; info?: RenderContext["info"] }
   | { kind: "not_found" };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -63,6 +64,12 @@ export function resolveStorefrontRoute(data: StorefrontData, rawSegments: string
     if (segments.length === 1) return { kind: "page", page: shell, product: null, query, blog: { view: "list" } };
     const post = data.posts!.find((p) => p.slug === second);
     return post ? { kind: "page", page: shell, product: null, query, blog: { view: "post", post } } : { kind: "not_found" };
+  }
+  // Information pages: only those with text. Rendered in the theme's layout, like the blog.
+  if (head === "info" && segments.length === 2 && second) {
+    const home = byType("HOME");
+    const found = filledInfoPages(data.store.infoPages).find((p) => p.key === second);
+    return home && found ? { kind: "page", page: { ...home, sections: [] }, product: null, query, info: found } : { kind: "not_found" };
   }
   if (segments.length === 1 && head && head in SEGMENT_PAGE) {
     const page = byType(SEGMENT_PAGE[head as keyof typeof SEGMENT_PAGE]);

@@ -6,9 +6,12 @@ export function buildMetadata(ctx: SeoContext, baseUrl: string): Metadata {
   const description = pageDescription(ctx);
   const url = canonicalUrl(ctx, baseUrl);
   const image = shareImage(ctx);
+  // The browser tab and home-screen icon: the store's logo (not the platform's), when it has one.
+  const logo = ctx.data.store.logo ? ctx.mediaUrl(ctx.data.store.logo.key) : null;
   return {
     title: { absolute: title }, // never the platform's "| سایت‌ساز فروشگاهی" suffix
     description,
+    ...(logo ? { icons: { icon: [{ url: logo, type: "image/webp" }], apple: [{ url: logo }] } } : {}),
     alternates: { canonical: url },
     // Search results are thin, endless pages: kept out of the index, their links still followed.
     robots: ctx.query.q ? { index: false, follow: true } : { index: true, follow: true },

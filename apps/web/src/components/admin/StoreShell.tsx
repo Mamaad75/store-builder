@@ -14,6 +14,7 @@ import EditNoteOutlined from '@mui/icons-material/EditNoteOutlined';
 import AccountBalanceWalletOutlined from '@mui/icons-material/AccountBalanceWalletOutlined';
 import WorkspacePremiumOutlined from '@mui/icons-material/WorkspacePremiumOutlined';
 import CardGiftcardOutlined from '@mui/icons-material/CardGiftcardOutlined';
+import GavelOutlined from '@mui/icons-material/GavelOutlined';
 import WebOutlined from '@mui/icons-material/WebOutlined';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
@@ -150,12 +151,13 @@ function buildNav(base: string): Item[] {
       label: 'سایت و تم‌ها',
       href: `${base}/pages`,
       icon: <WebOutlined />,
-      match: (p) => ['pages', 'appearance', 'reviews', 'blog'].some((x) => p.startsWith(`${base}/${x}`)),
+      match: (p) => ['pages', 'appearance', 'reviews', 'blog', 'info-pages'].some((x) => p.startsWith(`${base}/${x}`)),
       children: [
         { label: 'صفحه‌ها', href: `${base}/pages`, icon: <ArticleOutlined fontSize='small' /> },
         { label: 'ظاهر', href: `${base}/appearance`, icon: <PaletteOutlined fontSize='small' /> },
         { label: 'نظرات', href: `${base}/reviews`, icon: <RateReviewOutlined fontSize='small' /> },
         { label: 'وبلاگ', href: `${base}/blog`, icon: <EditNoteOutlined fontSize='small' /> },
+        { label: 'قوانین و اطلاعات', href: `${base}/info-pages`, icon: <GavelOutlined fontSize='small' /> },
       ],
     },
     {
@@ -223,6 +225,7 @@ const NAV_PERMISSION: Record<string, Permission> = {
   'کیف پول': 'billing.manage',
   'دعوت از دوستان': 'billing.manage',
   وبلاگ: 'content.manage',
+  'قوانین و اطلاعات': 'store.settings',
   ظاهر: 'theme.switch',
   انتشار: 'publish',
   تیم: 'members.manage',

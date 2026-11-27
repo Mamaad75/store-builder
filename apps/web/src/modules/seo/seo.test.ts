@@ -302,3 +302,30 @@ describe("snapshot contract: the optional description", () => {
     expect("description" in parsed.store).toBe(false);
   });
 });
+
+describe("information pages and the tab icon", () => {
+  const withInfo = () => withStore({ infoPages: { returns: "## بازگشت\nتا هفت روز.", faq: "## سؤال؟\nپاسخ." } });
+  const infoCtx = (key: string): SeoContext => {
+    const view = buildView(withInfo(), { basePath: "", segments: ["info", key], mediaUrl: media });
+    if (view.status !== "ok") throw new Error(`view ${view.status}`);
+    return { data: view.ctx.data, page: view.ctx.page, query: view.ctx.query, product: null, info: view.ctx.info, mediaUrl: media };
+  };
+  it("have their own title, description and canonical address", () => {
+    const c = infoCtx("returns");
+    expect(pageTitle(c)).toBe("بازگشت کالا | فروشگاه نمونه");
+    expect(canonicalPath(c)).toBe("/info/returns");
+    expect(pageDescription(c)).toContain("بازگشت کالا");
+    expect(buildMetadata(c, BASE).alternates?.canonical).toBe(`${BASE}/info/returns`);
+  });
+  it("are listed in the sitemap, only when they have text", () => {
+    expect(sitemapPaths(withInfo())).toEqual(expect.arrayContaining(["/info/returns", "/info/faq"]));
+    expect(sitemapPaths(withInfo()).some((p) => p.includes("terms"))).toBe(false);
+    expect(sitemapPaths(makeStorefront()).some((p) => p.startsWith("/info"))).toBe(false);
+  });
+  it("the tab and home-screen icon is the store's logo, and nothing is set without one", () => {
+    const logo = { key: KEY, width: 256, height: 256 };
+    const md = buildMetadata(ctxFor(withStore({ logo })), BASE);
+    expect(md.icons).toEqual({ icon: [{ url: `https://cdn.example.com/${KEY}`, type: "image/webp" }], apple: [{ url: `https://cdn.example.com/${KEY}` }] });
+    expect(buildMetadata(ctxFor(withStore({ logo: null })), BASE).icons).toBeUndefined();
+  });
+});

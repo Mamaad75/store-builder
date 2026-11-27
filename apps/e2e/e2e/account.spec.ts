@@ -127,6 +127,8 @@ test("the top bar: the account menu shows who is signed in, links to stores and 
   await page.goto("/dashboard");
   // a CSS locator: while the menu is open the rest of the page is aria-hidden, which getByRole ignores
   const trigger = page.locator("button[aria-haspopup=menu]");
+  const closed = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze(); // the bar itself, menu closed
+  expect(closed.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 90)}`)).toEqual([]);
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await trigger.click();
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
