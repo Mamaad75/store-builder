@@ -29,6 +29,13 @@ export function parseQuery(sp: SearchParams | undefined, data: StorefrontData): 
   return { page: Math.max(1, n), ...(category ? { category } : {}), ...(q && makeSearchKey(q) ? { q } : {}), ...(sort ? { sort } : {}) };
 }
 
+/**
+ * The page object behind the blog and the information pages (they are not pages of the store's own page list). It is typed CONTACT with no sections on
+ * purpose: the themes add a fallback heading to a home or about page that has no hero/text section, and these pages draw their own heading; a contact page
+ * has no such rule. Nothing renders its sections; it only gives the theme's layout a page to be "on".
+ */
+const shellPage = (title: string): StorefrontPage => ({ type: "CONTACT", title: title.slice(0, 80) || "صفحه", slug: "content", position: 0, sections: [] });
+
 const SEGMENT_PAGE = { products: "PRODUCTS", about: "ABOUT", contact: "CONTACT" } as const;
 
 /**
@@ -58,18 +65,14 @@ export function resolveStorefrontRoute(data: StorefrontData, rawSegments: string
   const [head, second] = segments;
   // The blog: only when the store has published posts; rendered inside the theme's own layout (the page is the home page without sections).
   if (head === "blog" && (data.posts?.length ?? 0) > 0 && segments.length <= 2) {
-    const home = byType("HOME");
-    if (!home) return { kind: "not_found" };
-    const shell = { ...home, sections: [] };
-    if (segments.length === 1) return { kind: "page", page: shell, product: null, query, blog: { view: "list" } };
+    if (segments.length === 1) return { kind: "page", page: shellPage("وبلاگ"), product: null, query, blog: { view: "list" } };
     const post = data.posts!.find((p) => p.slug === second);
-    return post ? { kind: "page", page: shell, product: null, query, blog: { view: "post", post } } : { kind: "not_found" };
+    return post ? { kind: "page", page: shellPage(post.title), product: null, query, blog: { view: "post", post } } : { kind: "not_found" };
   }
   // Information pages: only those with text. Rendered in the theme's layout, like the blog.
   if (head === "info" && segments.length === 2 && second) {
-    const home = byType("HOME");
     const found = filledInfoPages(data.store.infoPages).find((p) => p.key === second);
-    return home && found ? { kind: "page", page: { ...home, sections: [] }, product: null, query, info: found } : { kind: "not_found" };
+    return found ? { kind: "page", page: shellPage(found.title), product: null, query, info: found } : { kind: "not_found" };
   }
   if (segments.length === 1 && head && head in SEGMENT_PAGE) {
     const page = byType(SEGMENT_PAGE[head as keyof typeof SEGMENT_PAGE]);

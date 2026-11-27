@@ -36,7 +36,7 @@ export default function Layout({ ctx, children }: LayoutProps) {
   const nav: { type: string; path: string; title: string }[] = NAV.filter((n) => pages.some((p) => p.type === n.type)).map((n) => ({ ...n, title: pages.find((p) => p.type === n.type)!.title }));
   // The blog is a link only when the store has published posts.
   if ((ctx.data.posts?.length ?? 0) > 0) nav.push({ type: "BLOG", path: "/blog", title: "وبلاگ" });
-  const currentType = ctx.blog ? "BLOG" : ctx.page.type === "PRODUCT_DETAIL" ? "PRODUCTS" : ctx.page.type;
+  const currentType = ctx.blog ? "BLOG" : ctx.info ? "INFO" : ctx.page.type === "PRODUCT_DETAIL" ? "PRODUCTS" : ctx.page.type;
 
   return (
     <div className={s.root} dir={store.direction} lang={store.direction === "rtl" ? "fa" : "en"} style={vars} data-template="general">

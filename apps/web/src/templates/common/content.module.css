@@ -1,0 +1,67 @@
+/*
+ * Reviews, blog, information pages and their links, drawn with whatever theme the store uses. A theme sets its look as custom properties on its
+ * root (the kit themes: --line, --surface, --ink, --muted, --radius-card, --radius-btn, --display, --btn-bg; the four original themes:
+ * --border, --surface, --text, --muted, --radius, plus --primary and --on-primary for all). Every rule here reads those with a plain fallback, so a
+ * theme that sets none of them still gets a neutral, readable page. Logical properties only (RTL and LTR stores).
+ */
+ .wrap { width: min(100%, 760px); max-width: 760px; margin-inline: auto; margin-block: 32px; padding-inline: 16px; }
+ .wide { width: min(100%, 960px); max-width: 960px; margin-inline: auto; margin-block: 32px; padding-inline: 16px; }
+ .scope .title { font-family: var(--display, inherit); margin: 16px 0 24px; line-height: 1.5; }
+ .scope .h2 { font-family: var(--display, inherit); margin: 24px 0 8px; line-height: 1.5; }
+ .scope .p { margin: 0 0 16px; line-height: 1.9; overflow-wrap: anywhere; }
+ .scope .muted { color: var(--muted, inherit); margin: 0 0 8px; }
+ .scope .back { color: inherit; text-decoration: underline; display: inline-block; padding-block: 8px; min-height: 24px; }
+ .scope .stack { display: grid; gap: 16px; list-style: none; margin: 0; padding: 0; }
+ .scope .card {
+  border: 1px solid var(--line, var(--border, rgba(128, 128, 128, .4)));
+  border-radius: var(--radius-card, var(--radius, 10px));
+  background: var(--card-bg, var(--surface, transparent));
+  padding: 14px 16px;
+}
+ .scope .card h2, .scope .card h3 { font-family: var(--display, inherit); margin: 0 0 4px; font-size: 1.15em; line-height: 1.5; }
+ .scope .card a { color: inherit; text-decoration: underline; }
+ .scope .disclosure { border: 1px solid var(--line, var(--border, rgba(128, 128, 128, .4))); border-radius: var(--radius-card, var(--radius, 10px)); padding: 4px 14px; background: var(--card-bg, var(--surface, transparent)); }
+ .scope .disclosure summary { cursor: pointer; font-weight: 700; padding-block: 10px; min-height: 24px; }
+ .scope .disclosure p { margin: 0 0 12px; line-height: 1.9; overflow-wrap: anywhere; }
+ .infoLinks { width: min(100%, 960px); max-width: 960px; margin-inline: auto; margin-block: 32px 16px; padding: 16px 16px 0; border-top: 1px solid var(--line, var(--border, rgba(128, 128, 128, .35))); }
+ .infoLinks.scope ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 20px; justify-content: center; }
+ .infoLinks.scope a { color: inherit; text-decoration: underline; display: inline-block; padding-block: 8px; min-height: 24px; }
+ .scope /* reviews */
+.reviews { width: min(100%, 960px); max-width: 960px; margin-inline: auto; margin-block: 32px; padding-inline: 16px; }
+ .reviews.scope h2 { font-family: var(--display, inherit); margin: 0 0 4px; }
+ .reviews.scope h3 { font-family: var(--display, inherit); margin: 0; }
+ .scope .reviewHead { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+ .scope .stars { letter-spacing: 2px; color: var(--accent, inherit); }
+ .scope .reply { margin: 10px 0 0; padding-inline-start: 12px; border-inline-start: 3px solid var(--line, var(--border, rgba(128, 128, 128, .45))); white-space: pre-wrap; overflow-wrap: anywhere; }
+ .scope .form { display: grid; gap: 12px; }
+ .scope .fieldset { border: 0; margin: 0; padding: 0; }
+ .scope .legend { padding: 0; margin-block-end: 6px; }
+ .scope .ratings { display: flex; flex-wrap: wrap; gap: 8px; }
+ .scope .rating {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding-inline: 10px; cursor: pointer;
+  border: 1px solid var(--line, var(--border, rgba(128, 128, 128, .45))); border-radius: var(--radius-btn, var(--radius, 8px));
+}
+ .scope .rating[data-on="true"] { font-weight: 700; border-color: var(--primary, currentColor); box-shadow: 0 0 0 1px var(--primary, currentColor); }
+ .scope .field { display: grid; gap: 6px; }
+ .scope .textarea {
+  font: inherit; color: var(--ink, var(--text, inherit)); background: var(--bg, transparent); width: 100%; box-sizing: border-box; padding: 10px;
+  border: 1px solid var(--line, var(--border, rgba(128, 128, 128, .5))); border-radius: var(--radius-btn, var(--radius, 8px));
+}
+ .scope .textarea:focus-visible, .scope .rating:focus-within, .scope .submit:focus-visible { outline: 3px solid var(--accent, var(--primary, currentColor)); outline-offset: 2px; }
+ .scope .submit {
+  font: inherit; font-weight: 700; min-height: 44px; padding-inline: 20px; border: 0; cursor: pointer;
+  border-radius: var(--radius-btn, var(--radius, 8px)); background: var(--btn-bg, var(--primary, #1f2937)); color: var(--btn-ink, var(--on-primary, #fff));
+}
+ .scope .submit:disabled { opacity: .6; cursor: not-allowed; }
+ .scope .alert { margin: 0; font-weight: 700; }
+ .scope /* the gallery under a product's main image */
+.gallery { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 12px 0 0; padding: 0; }
+ .gallery.scope li { margin: 0; }
+ .scope .thumb {
+  display: block; width: 72px; height: 72px; min-width: 44px; min-height: 44px; overflow: hidden;
+  border: 1px solid var(--line, var(--border, rgba(128, 128, 128, .4))); border-radius: var(--radius-card, var(--radius, 8px));
+}
+ .scope .thumb img { display: block; width: 72px; height: 72px; object-fit: cover; }
+
+/* every container carries .scope so these rules out-rank a theme's own element resets (`.root h2 { margin: 0 }`) */
+.scope { position: relative; }

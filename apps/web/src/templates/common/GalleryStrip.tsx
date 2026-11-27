@@ -1,6 +1,7 @@
 import { srcSetFor } from "@store-builder/shared/lib/storage/variants";
 import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { RenderContext } from "../types";
+import c from "./content.module.css";
 
 /**
  * The extra images of a product (after the main one), as a small row of thumbnails under the main image on a product page.
@@ -11,12 +12,12 @@ export function GalleryStrip({ ctx, product }: { ctx: Pick<RenderContext, "media
   const items = (product.gallery ?? []).map((ref) => ({ ref, url: ctx.mediaUrl(ref.key) })).filter((x): x is { ref: typeof x.ref; url: string } => Boolean(x.url));
   if (items.length === 0) return null;
   return (
-    <ul aria-label={`تصاویر بیشتر ${product.name}`} data-gallery="" style={{ display: "flex", flexWrap: "wrap", gap: 8, listStyle: "none", margin: "12px 0 0", padding: 0 }}>
+    <ul aria-label={`تصاویر بیشتر ${product.name}`} data-gallery="" className={`${c.gallery} ${c.scope}`}>
       {items.map(({ ref, url }, i) => (
-        <li key={ref.key} style={{ margin: 0 }}>
-          <a href={url} style={{ display: "block", width: 72, height: 72, minWidth: 44, minHeight: 44, borderRadius: 8, overflow: "hidden", border: "1px solid rgba(128,128,128,.4)" }}>
+        <li key={ref.key}>
+          <a href={url} className={c.thumb}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} srcSet={srcSetFor(ref, ctx.mediaUrl) ?? undefined} sizes={ref.variants ? "72px" : undefined} alt={`${product.name} — تصویر ${(i + 2).toLocaleString("fa-IR")}`} width={72} height={72} loading="lazy" decoding="async" style={{ display: "block", width: 72, height: 72, objectFit: "cover" }} />
+            <img src={url} srcSet={srcSetFor(ref, ctx.mediaUrl) ?? undefined} sizes={ref.variants ? "72px" : undefined} alt={`${product.name} — تصویر ${(i + 2).toLocaleString("fa-IR")}`} width={72} height={72} loading="lazy" decoding="async" />
           </a>
         </li>
       ))}
