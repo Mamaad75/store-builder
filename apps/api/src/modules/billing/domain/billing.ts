@@ -17,3 +17,12 @@ export const WALLET_FULL_MESSAGE = "اعتبار کیف پول از سقف مج�
 export const PLAN_LIMIT_MESSAGE = "تعداد پلن‌ها به سقف رسیده است؛ یک پلن قدیمی را غیرفعال کنید و نام آن را عوض کنید.";
 
 export const stateOf = (endsAt: Date | null, now: Date): SubscriptionState => subscriptionState(endsAt, now);
+
+export const GATEWAY_UNAVAILABLE_MESSAGE = "پرداخت آنلاین فعلاً در دسترس نیست. از کیف پول استفاده کنید یا با پشتیبانی تماس بگیرید.";
+export const PAYMENT_MESSAGES = {
+  no_plan: NO_PLAN_MESSAGE,
+  plan_inactive: PLAN_INACTIVE_MESSAGE,
+  open_exists: "پرداخت قبلی شما هنوز باز است. اگر آن را کامل کرده‌اید چند دقیقه صبر کنید؛ در غیر این صورت چند دقیقه بعد دوباره تلاش کنید.",
+  cash_out_of_range: "مبلغ قابل پرداخت از درگاه خارج از محدوده است (حداقل ۱٬۰۰۰ و حداکثر ۱۰۰٬۰۰۰٬۰۰۰ تومان). بخشی را از کیف پول بپردازید یا شارژ کنید.",
+  wallet_full: "با این شارژ اعتبار کیف پول از سقف مجاز بیشتر می‌شود.",
+} as const;

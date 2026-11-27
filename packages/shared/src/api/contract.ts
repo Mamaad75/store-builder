@@ -14,7 +14,7 @@ import { orderExportQuerySchema, orderListQuerySchema, orderTransitionSchema, pl
 import { createTicketSchema, ticketListQuerySchema, ticketReplySchema, ticketStatusSchema } from "../modules/support/tickets.js";
 import { reviewListQuerySchema, reviewReplySchema, reviewStatusSchema, submitReviewSchema, publicReviewsQuerySchema } from "../modules/reviews/reviews.js";
 import { postInputSchema } from "../modules/blog/blog.js";
-import { planInputSchema, purchaseInputSchema, redeemReferralSchema, walletAdjustSchema } from "../modules/billing/billing.js";
+import { payPlanSchema, planInputSchema, purchaseInputSchema, redeemReferralSchema, topupSchema, verifyPlatformPaymentSchema, walletAdjustSchema } from "../modules/billing/billing.js";
 import { accountListQuerySchema, platformActivityQuerySchema } from "../modules/platform/insights.js";
 import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { discountInputSchema } from "../modules/discounts/discounts.js";
@@ -269,6 +269,9 @@ export const ROUTES: readonly RouteSpec[] = [
   r("PUT", st("/blog/:postId"), "Change a blog post", { permission: "content.manage", body: postInputSchema, response: S.blogPostDto }),
   r("POST", st("/blog/:postId/delete"), "Delete a blog post", { permission: "content.manage", status: 204 }),
   r("GET", st("/billing"), "The store's subscription and state, the plans on sale and recent purchases (owner only)", { permission: "billing.manage", response: S.storeBillingDto }),
+  r("POST", st("/billing/pay"), "Buy a plan: wallet credit first, the rest through the platform's gateway. Active at once when the wallet covers it; otherwise the gateway address to pay at (owner only)", { permission: "billing.manage", status: 200, body: payPlanSchema, response: S.payResultDto }),
+  r("POST", st("/billing/topup"), "Charge the wallet through the platform's gateway; answers the gateway address to pay at (owner only)", { permission: "billing.manage", status: 200, body: topupSchema, response: S.topupResultDto }),
+  r("POST", st("/billing/payments/verify"), "The buyer is back from the gateway: verify the payment on the server and grant what was paid for, once (owner only)", { permission: "billing.manage", status: 200, body: verifyPlatformPaymentSchema, response: S.platformPaymentReturnDto }),
   r("GET", st("/wallet"), "The store's wallet balance and ledger (owner only)", { permission: "billing.manage", response: S.walletDto }),
   r("GET", st("/referral"), "The store's referral code, the stores it invited, and who invited it (owner only)", { permission: "billing.manage", response: S.referralInfoDto }),
   r("POST", st("/referral/redeem"), "Enter the referral code of the store that invited this one (once, before the first paid purchase)", { permission: "billing.manage", status: 204, body: redeemReferralSchema }),

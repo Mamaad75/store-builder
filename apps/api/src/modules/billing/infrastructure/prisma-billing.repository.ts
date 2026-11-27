@@ -1,4 +1,4 @@
-import { MAX_PLANS, MAX_WALLET_TOMAN, nextPeriod, quotePurchase, type PlanInput } from "@store-builder/shared/modules/billing/billing";
+import { MAX_PLANS, MAX_WALLET_TOMAN, nextPeriod, quotePurchase, type PlanInput, type WalletEntryKind } from "@store-builder/shared/modules/billing/billing";
 import { db } from "../../../lib/db.js";
 import { storeLimits } from "./limits.js";
 import type { RedeemRefusal } from "../domain/billing.js";
@@ -29,13 +29,62 @@ async function lockWallets(tx: Tx, storeIds: string[], now: Date): Promise<Map<s
 }
 
 /** Applies a signed amount to a LOCKED wallet and writes its ledger line. The caller has checked the result stays within 0..MAX_WALLET_TOMAN. */
-async function moveWallet(tx: Tx, storeId: string, balance: number, delta: number, kind: "REFERRAL_REWARD" | "PURCHASE" | "ADMIN_ADJUST", note: string, refId: string | null, now: Date): Promise<number> {
+async function moveWallet(tx: Tx, storeId: string, balance: number, delta: number, kind: WalletEntryKind, note: string, refId: string | null, now: Date): Promise<number> {
   const after = balance + delta;
   await tx.storeWallet.update({ where: { storeId }, data: { balanceToman: after, updatedAt: now } });
   await tx.walletEntry.create({ data: { storeId, amountToman: delta, balanceAfter: after, kind, note, refId, createdAt: now } });
   return after;
 }
 
+
+/**
+ * One subscription purchase inside the caller's transaction: lock the wallets, price it, record it, move the subscription forward, take the wallet part, reward the
+ * inviter. `onlyIfCovered`: when the wallet does not cover the whole amount, nothing is written and "needs_payment" is returned (self-service without the gateway).
+ */
+async function recordInTx(
+  tx: Tx,
+  storeId: string,
+  p: { id: string; name: string; priceToman: number; durationDays: number },
+  o: { useWallet: boolean; note: string; onlyIfCovered?: boolean },
+  now: Date,
+  a: Omit<PlatformAudit, "metadata">,
+): Promise<PurchaseResult | "needs_payment"> {
+  const ref = await tx.referral.findUnique({ where: { referredStoreId: storeId } });
+  // Lock this store's wallet (and the inviter's, in id order): the money of one purchase moves as one unit.
+  const balances = await lockWallets(tx, ref ? [storeId, ref.referrerStoreId] : [storeId], now);
+  const fresh = ref ? await tx.referral.findUnique({ where: { id: ref.id } }) : null; // re-read under the lock
+  const invited = fresh?.status === "PENDING";
+  const q = quotePurchase({ price: p.priceToman, invited, walletBalance: balances.get(storeId)!, useWallet: o.useWallet });
+  if (o.onlyIfCovered && q.cash > 0) return "needs_payment";
+
+  const sub = await tx.storeSubscription.findUnique({ where: { storeId } });
+  const period = nextPeriod(sub?.endsAt ?? null, now, p.durationDays);
+  const row = await tx.subscriptionPurchase.create({
+    data: { storeId, planId: p.id, planName: p.name, priceToman: q.price, discountToman: q.discount, walletUsedToman: q.walletUsed, cashToman: q.cash, periodStart: period.startsAt, periodEnd: period.endsAt, note: o.note, recordedById: a.actorId, createdAt: now },
+  });
+  const subscription = await tx.storeSubscription.upsert({
+    where: { storeId },
+    create: { storeId, planId: p.id, planName: p.name, startsAt: period.startsAt, endsAt: period.endsAt, updatedAt: now },
+    update: { planId: p.id, planName: p.name, startsAt: sub && sub.endsAt.getTime() > now.getTime() ? sub.startsAt : period.startsAt, endsAt: period.endsAt, updatedAt: now },
+  });
+  if (q.walletUsed > 0) await moveWallet(tx, storeId, balances.get(storeId)!, -q.walletUsed, "PURCHASE", p.name, row.id, now);
+  const rewarded = await rewardInviter(tx, fresh, balances, q.price, q.reward, row.id, now);
+  await audit(tx, { ...a, metadata: { planId: p.id, priceToman: q.price, discountToman: q.discount, walletUsedToman: q.walletUsed, cashToman: q.cash, rewardToman: rewarded.credited, rewardedStoreId: rewarded.storeId } });
+  return { purchase: purchase(row), quote: q, subscription: { planId: subscription.planId, planName: subscription.planName, startsAt: subscription.startsAt, endsAt: subscription.endsAt }, rewardedStoreId: rewarded.storeId };
+}
+
+/** The inviter's credit for the invited store's first PAID purchase (only while the referral is still pending; a full wallet cuts the reward to what fits). */
+async function rewardInviter(tx: Tx, fresh: { id: string; status: string; referrerStoreId: string } | null, balances: Map<string, number>, price: number, reward: number, purchaseId: string, now: Date): Promise<{ storeId: string | null; credited: number }> {
+  if (!(fresh && fresh.status === "PENDING" && price > 0)) return { storeId: null, credited: 0 };
+  const referrerBalance = balances.get(fresh.referrerStoreId)!;
+  const credited = Math.max(0, Math.min(reward, MAX_WALLET_TOMAN - referrerBalance));
+  if (credited > 0) await moveWallet(tx, fresh.referrerStoreId, referrerBalance, credited, "REFERRAL_REWARD", "", fresh.id, now);
+  await tx.referral.update({ where: { id: fresh.id }, data: { status: "REWARDED", rewardToman: credited, rewardedAt: now, purchaseId } });
+  return { storeId: credited > 0 ? fresh.referrerStoreId : null, credited };
+}
+
+export { recordInTx, lockWallets, moveWallet, audit as writeAudit };
+export type { Tx };
 export class PrismaBillingRepository implements BillingRepository {
   constructor(private readonly newCode: () => string) {}
 
@@ -144,40 +193,7 @@ export class PrismaBillingRepository implements BillingRepository {
       const p = await tx.plan.findUnique({ where: { id: planId } });
       if (!p) return "no_plan" as const;
       if (!p.active) return "plan_inactive" as const;
-      const ref = await tx.referral.findUnique({ where: { referredStoreId: storeId } });
-      // Lock this store's wallet (and the inviter's, in id order): the money of one purchase moves as one unit.
-      const balances = await lockWallets(tx, ref ? [storeId, ref.referrerStoreId] : [storeId], now);
-      const fresh = ref ? await tx.referral.findUnique({ where: { id: ref.id } }) : null; // re-read under the lock
-      const invited = fresh?.status === "PENDING";
-      const q = quotePurchase({ price: p.priceToman, invited, walletBalance: balances.get(storeId)!, useWallet: o.useWallet });
-
-      const sub = await tx.storeSubscription.findUnique({ where: { storeId } });
-      const period = nextPeriod(sub?.endsAt ?? null, now, p.durationDays);
-      const row = await tx.subscriptionPurchase.create({
-        data: { storeId, planId: p.id, planName: p.name, priceToman: q.price, discountToman: q.discount, walletUsedToman: q.walletUsed, cashToman: q.cash, periodStart: period.startsAt, periodEnd: period.endsAt, note: o.note, recordedById: a.actorId, createdAt: now },
-      });
-      const subscription = await tx.storeSubscription.upsert({
-        where: { storeId },
-        create: { storeId, planId: p.id, planName: p.name, startsAt: period.startsAt, endsAt: period.endsAt, updatedAt: now },
-        update: { planId: p.id, planName: p.name, startsAt: sub && sub.endsAt.getTime() > now.getTime() ? sub.startsAt : period.startsAt, endsAt: period.endsAt, updatedAt: now },
-      });
-      if (q.walletUsed > 0) await moveWallet(tx, storeId, balances.get(storeId)!, -q.walletUsed, "PURCHASE", p.name, row.id, now);
-
-      let rewardedStoreId: string | null = null;
-      let credited = 0;
-      if (invited && fresh && q.price > 0) {
-        const referrerBalance = balances.get(fresh.referrerStoreId)!;
-        // A full wallet cannot take the reward (it would break the ceiling): the reward is then cut to what fits. Never an error for the purchase.
-        const reward = Math.min(q.reward, MAX_WALLET_TOMAN - referrerBalance);
-        if (reward > 0) {
-          await moveWallet(tx, fresh.referrerStoreId, referrerBalance, reward, "REFERRAL_REWARD", "", fresh.id, now);
-          rewardedStoreId = fresh.referrerStoreId;
-          credited = reward;
-        }
-        await tx.referral.update({ where: { id: fresh.id }, data: { status: "REWARDED", rewardToman: credited, rewardedAt: now, purchaseId: row.id } });
-      }
-      await audit(tx, { ...a, metadata: { planId: p.id, priceToman: q.price, discountToman: q.discount, walletUsedToman: q.walletUsed, cashToman: q.cash, rewardToman: credited, rewardedStoreId } });
-      return { purchase: purchase(row), quote: q, subscription: { planId: subscription.planId, planName: subscription.planName, startsAt: subscription.startsAt, endsAt: subscription.endsAt }, rewardedStoreId };
+      return (await recordInTx(tx, storeId, p, o, now, a)) as PurchaseResult;
     }, TX);
   }
 

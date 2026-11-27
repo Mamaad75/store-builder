@@ -490,15 +490,31 @@ export const planDto = z.object({ id: z.string(), name: z.string(), description:
 export const subscriptionDto = z.object({ planName: z.string(), startsAt: iso, endsAt: iso });
 export const subscriptionStateDto = z.discriminatedUnion("kind", [z.object({ kind: z.literal("none") }), z.object({ kind: z.literal("active"), daysLeft: z.number().int() }), z.object({ kind: z.literal("expired") })]);
 export const subscriptionPurchaseDto = z.object({ id: z.string(), planName: z.string(), priceToman: z.number().int(), discountToman: z.number().int(), walletUsedToman: z.number().int(), cashToman: z.number().int(), periodStart: iso, periodEnd: iso, note: z.string(), createdAt: iso });
-export const walletEntryDto = z.object({ id: z.string(), amountToman: z.number().int(), balanceAfter: z.number().int(), kind: z.enum(["REFERRAL_REWARD", "PURCHASE", "ADMIN_ADJUST"]), note: z.string(), createdAt: iso });
+export const walletEntryDto = z.object({ id: z.string(), amountToman: z.number().int(), balanceAfter: z.number().int(), kind: z.enum(["REFERRAL_REWARD", "PURCHASE", "ADMIN_ADJUST", "TOPUP", "REFUND"]), note: z.string(), createdAt: iso });
 export const referralDto = z.object({ id: z.string(), status: z.enum(["PENDING", "REWARDED"]), rewardToman: z.number().int(), createdAt: iso, rewardedAt: iso.nullable() });
-export const storeBillingDto = z.object({ subscription: subscriptionDto.nullable(), state: subscriptionStateDto, plans: z.array(planDto), purchases: z.array(subscriptionPurchaseDto), referralDiscountPercent: z.number().int().describe("the invitation discount still waiting for the first purchase, in percent (0 = none)"),
+export const platformPaymentDto = z.object({
+  id: z.string(), purpose: z.enum(["PURCHASE", "TOPUP"]), planName: z.string().nullable(), priceToman: z.number().int(), discountToman: z.number().int(), walletHeldToman: z.number().int(),
+  amountToman: z.number().int().describe("what the gateway charges"), status: z.enum(["CREATED", "PAID", "FAILED", "EXPIRED", "LATE_CREDITED"]), refId: z.string().nullable(), createdAt: iso, paidAt: iso.nullable(),
+});
+export const storeBillingDto = z.object({
+  gatewayReady: z.boolean().describe("the platform's gateway can take a payment now"),
+  openPayment: platformPaymentDto.nullable().describe("a payment not finished yet (at most one per store)"),
+  payments: z.array(platformPaymentDto).describe("the latest gateway payments, newest first"),
+  subscription: subscriptionDto.nullable(), state: subscriptionStateDto, plans: z.array(planDto), purchases: z.array(subscriptionPurchaseDto), referralDiscountPercent: z.number().int().describe("the invitation discount still waiting for the first purchase, in percent (0 = none)"),
   limits: z.object({ maxProducts: z.number().int(), maxStaff: z.number().int() }).describe("what the store may hold now: the plan's while its period runs, otherwise the free limits"),
   free: z.boolean().describe("no running subscription: the free limits apply"),
-  usage: z.object({ products: z.number().int(), staff: z.number().int().describe("members plus pending invitations (the owner is not counted)") }) });
-export const walletDto = z.object({ balanceToman: z.number().int(), entries: z.array(walletEntryDto) });
+  usage: z.object({ products: z.number().int(), staff: z.number().int().describe("members plus pending invitations (the owner is not counted)") }),
+  walletToman: z.number().int().describe("the wallet balance (used first when buying a plan)"),
+});
+export const payResultDto = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("activated"), purchase: subscriptionPurchaseDto, quote: z.object({ price: z.number().int(), discount: z.number().int(), due: z.number().int(), walletUsed: z.number().int(), cash: z.number().int(), reward: z.number().int() }), subscription: subscriptionDto }),
+  z.object({ status: z.literal("redirect"), url: z.string().describe("the gateway page to send the buyer to"), payment: platformPaymentDto }),
+]);
+export const topupResultDto = z.object({ status: z.literal("redirect"), url: z.string(), payment: platformPaymentDto });
+export const platformPaymentReturnDto = z.object({ outcome: z.enum(["paid", "failed", "pending"]), payment: platformPaymentDto });
+export const walletDto = z.object({ balanceToman: z.number().int(), entries: z.array(walletEntryDto), gatewayReady: z.boolean().describe("a top-up through the gateway can be started now") });
 export const referralInfoDto = z.object({ code: z.string(), percent: z.number().int(), referrals: z.array(referralDto), referredBy: referralDto.nullable() });
-export const staffStoreBillingDto = z.object({ storeId: z.string(), storeName: z.string(), subscription: subscriptionDto.nullable(), state: subscriptionStateDto, purchases: z.array(subscriptionPurchaseDto), wallet: walletDto, code: z.string(), referrals: z.array(referralDto), referredBy: referralDto.nullable(), plans: z.array(planDto) });
+export const staffStoreBillingDto = z.object({ storeId: z.string(), storeName: z.string(), subscription: subscriptionDto.nullable(), state: subscriptionStateDto, purchases: z.array(subscriptionPurchaseDto), wallet: walletDto.omit({ gatewayReady: true }), code: z.string(), referrals: z.array(referralDto), referredBy: referralDto.nullable(), plans: z.array(planDto) });
 export const purchaseResultDto = z.object({
   purchase: subscriptionPurchaseDto,
   quote: z.object({ price: z.number().int(), discount: z.number().int(), due: z.number().int(), walletUsed: z.number().int(), cash: z.number().int(), reward: z.number().int() }),

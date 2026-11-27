@@ -44,7 +44,7 @@ async function readJson(req) {
 function callbackAllowed(url) {
   try {
     const u = new URL(url);
-    return u.protocol === "http:" && u.host.endsWith(callbackSuffix);
+    return u.protocol === "http:" && (u.host.endsWith(callbackSuffix) || u.host === callbackSuffix.slice(1)); // a store host, or the platform itself (the stores paying the platform)
   } catch {
     return false;
   }

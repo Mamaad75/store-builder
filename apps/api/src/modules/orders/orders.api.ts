@@ -10,3 +10,4 @@ export { PaymentsService } from "./application/payments.service.js";
 export { createPaymentsService } from "./infrastructure/compose.js";
 // Phase 3.6: what the order SMS read from an order.
 export { createOrderNotificationReader, type OrderForNotification } from "./infrastructure/notification-reader.js";
+export { ZarinpalGateway } from "./infrastructure/zarinpal.js";

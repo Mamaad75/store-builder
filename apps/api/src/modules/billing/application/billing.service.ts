@@ -30,8 +30,8 @@ export class StoreBillingService {
   /** The current subscription and its state, the plans on sale, recent purchases, and the invitation discount still waiting. */
   async overview(a: { storeId: string }) {
     const now = this.clock();
-    const [subscription, plans, purchases, referredBy, held] = await Promise.all([this.repo.subscription(a.storeId), this.repo.plans(true), this.repo.purchases(a.storeId, LIST), this.repo.referredBy(a.storeId), this.repo.limitsAndUsage(a.storeId, now)]);
-    return { subscription, state: stateOf(subscription?.endsAt ?? null, now), plans, purchases, referralDiscountPercent: referredBy?.status === "PENDING" ? REFERRAL_PERCENT : 0, limits: held.limits, free: held.free, usage: held.usage };
+    const [subscription, plans, purchases, referredBy, held, wallet] = await Promise.all([this.repo.subscription(a.storeId), this.repo.plans(true), this.repo.purchases(a.storeId, LIST), this.repo.referredBy(a.storeId), this.repo.limitsAndUsage(a.storeId, now), this.repo.wallet(a.storeId, 0)]);
+    return { subscription, state: stateOf(subscription?.endsAt ?? null, now), plans, purchases, referralDiscountPercent: referredBy?.status === "PENDING" ? REFERRAL_PERCENT : 0, limits: held.limits, free: held.free, usage: held.usage, walletToman: wallet.balanceToman };
   }
 
   wallet(a: { storeId: string }) {

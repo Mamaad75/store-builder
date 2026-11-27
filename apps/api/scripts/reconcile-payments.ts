@@ -2,6 +2,7 @@ import { parseMasterKeys } from "../src/platform/crypto/envelope.js";
 import { createPlatformSettingsService } from "../src/modules/platform/platform.api.js";
 import { createSecretService } from "../src/modules/secrets/secrets.api.js";
 import { createPaymentsService } from "../src/modules/orders/orders.api.js";
+import { createPlatformPaymentsService } from "../src/modules/billing/billing.api.js";
 import { bootstrapJob } from "./bootstrap.js";
 import { db } from "../src/lib/db.js";
 import { resolveAppEnv } from "../src/config/env.js";
@@ -10,7 +11,7 @@ bootstrapJob({ storage: false });
 
 /**
  * The `payments-reconcile` job (phase 3.5, D35-1), every 5 minutes in the worker: online payments nobody came back for are asked about at
- * Zarinpal and verified when paid, interrupted verifications are resumed, unpaid orders past their deadline expire and give their stock
+ * Zarinpal and verified when paid (and the same for the stores' payments to the platform: plans and wallet top-ups), interrupted verifications are resumed, unpaid orders past their deadline expire and give their stock
  * back. Prints one JSON line of counts (never an authority, merchant id or provider text). Unclear attempts (buyer still at the bank, no
  * answer) are normal and retried on the next run, so they do not fail the job; exit 1 = the run itself crashed.
  */
@@ -41,6 +42,14 @@ async function main() {
   });
   const report = await payments.reconcile();
   console.log(JSON.stringify({ event: "payments.reconciled", ...report }));
+  // The stores' own payments to the PLATFORM (plans and wallet top-ups): settled when the gateway says paid, closed (held credit returned) when not.
+  const platform = createPlatformPaymentsService({
+    appEnv: identity.appEnv,
+    sources: { settings: async () => settings.settings(), reveal: (name) => settings.reveal(name) },
+    returnUrl: () => "", // the job opens no gateway sessions
+    devBaseUrl: devBase,
+  });
+  console.log(JSON.stringify({ event: "billing.payments_reconciled", ...(await platform.reconcile()) }));
 }
 main()
   .catch((e) => {

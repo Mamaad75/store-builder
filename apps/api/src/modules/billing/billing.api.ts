@@ -2,3 +2,5 @@
 export { StaffBillingService, StoreBillingService } from "./application/billing.service.js";
 export { createStaffBillingService, createStoreBillingService } from "./infrastructure/compose.js";
 export { storeLimits, storeLimitsNow, type StoreLimits } from "./infrastructure/limits.js";
+export { PlatformPaymentsService } from "./application/payments.service.js";
+export { createPlatformPaymentsService } from "./infrastructure/compose.js";

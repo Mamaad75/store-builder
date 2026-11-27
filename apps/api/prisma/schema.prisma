@@ -177,6 +177,7 @@ model Store {
   tickets          SupportTicket[]
   posts            BlogPost[]
   subscription     StoreSubscription?
+  platformPayments PlatformPayment[]
   purchases        SubscriptionPurchase[]
   wallet           StoreWallet?
   referralCode     StoreReferralCode?
@@ -1354,12 +1355,64 @@ model SubscriptionPurchase {
   periodEnd       DateTime
   note            String   @default("") @db.VarChar(200)
   recordedById    String
+  /// The gateway payment this purchase settled (null = recorded by platform staff or paid entirely from the wallet).
+  paymentId       String?  @unique
   createdAt       DateTime @default(now())
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   plan  Plan  @relation(fields: [planId], references: [id], onDelete: Restrict)
 
   @@index([storeId, createdAt])
+}
+
+enum PlatformPaymentPurpose {
+  PURCHASE
+  TOPUP
+}
+
+enum PlatformPaymentStatus {
+  CREATED
+  PAID
+  FAILED
+  EXPIRED
+  LATE_CREDITED
+}
+
+/// A payment a store makes to the PLATFORM through the gateway: a plan (possibly with wallet credit held for it) or a wallet top-up.
+/// The wallet part of a plan payment is taken when the payment opens (ledger kind PURCHASE) and given back (REFUND) if it never succeeds.
+/// At most ONE open (CREATED) row per store (partial unique index "PlatformPayment_one_open_per_store" in the migration).
+/// Amounts are toman; the gateway is asked in rial (x10). Money is verified server side before anything is granted.
+model PlatformPayment {
+  id            String                 @id @default(cuid())
+  storeId       String
+  userId        String
+  purpose       PlatformPaymentPurpose
+  planId        String?
+  /// The plan as it was when the payment opened: the subscription is granted from THIS, whatever changes later.
+  planName      String?                @db.VarChar(60)
+  durationDays  Int?
+  priceToman    Int                    @default(0)
+  discountToman Int                    @default(0)
+  /// Wallet credit taken when the payment opened (plan payments only).
+  heldToman     Int                    @default(0)
+  /// What the gateway charges.
+  amountToman   Int
+  status        PlatformPaymentStatus  @default(CREATED)
+  sandbox       Boolean
+  authority     String?                @unique @db.VarChar(40)
+  refId         String?                @db.VarChar(40)
+  cardPan       String?                @db.VarChar(32)
+  /// Reconciler back-off.
+  nextCheckAt   DateTime               @default(now())
+  checks        Int                    @default(0)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  paidAt        DateTime?
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
+  @@index([status, nextCheckAt])
 }
 
 /// The store's gift-credit balance. The row is the one lock that serialises every credit and debit of the store; the balance never goes below 0 (CHECK).
@@ -1376,6 +1429,8 @@ enum WalletEntryKind {
   REFERRAL_REWARD
   PURCHASE
   ADMIN_ADJUST
+  TOPUP
+  REFUND
 }
 
 /// An append-only ledger line of a wallet: a signed amount and the balance after it.

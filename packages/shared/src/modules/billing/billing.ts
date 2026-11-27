@@ -43,6 +43,33 @@ export const walletAdjustSchema = z
     reason: z.string().transform(cleanText).pipe(z.string().min(3, "دلیل را بنویسید (حداقل ۳ حرف).").max(200, "دلیل حداکثر ۲۰۰ حرف باشد.")),
   })
   .strict();
+/** Paying for a plan yourself: from the wallet, the gateway, or both. */
+export const payPlanSchema = z.object({ planId: z.string().min(1).max(64), useWallet: z.boolean().default(true) }).strict();
+
+/** Wallet top-up through the gateway: whole Toman inside what the gateway accepts (Zarinpal 100 to 100,000,000) and a sensible floor. */
+export const TOPUP_MIN_TOMAN = 10_000;
+export const TOPUP_MAX_TOMAN = 50_000_000;
+/** The part of a payment the gateway can take (Zarinpal's range). */
+export const GATEWAY_CASH_MIN_TOMAN = 1_000;
+export const GATEWAY_CASH_MAX_TOMAN = 100_000_000;
+export const topupSchema = z
+  .object({
+    amountToman: z
+      .number({ error: "مبلغ را به تومان و عدد صحیح بنویسید." })
+      .int("مبلغ را به تومان و عدد صحیح بنویسید.")
+      .min(TOPUP_MIN_TOMAN, `حداقل مبلغ شارژ ${TOPUP_MIN_TOMAN.toLocaleString("fa-IR")} تومان است.`)
+      .max(TOPUP_MAX_TOMAN, `حداکثر مبلغ هر شارژ ${TOPUP_MAX_TOMAN.toLocaleString("fa-IR")} تومان است.`),
+  })
+  .strict();
+
+/** What the gateway sends the browser back with (Zarinpal: `Authority` and `Status`). Only the authority shape is trusted to look up an attempt. */
+export const AUTHORITY_RE = /^[AS][0-9A-Za-z]{35}$/;
+export const verifyPlatformPaymentSchema = z.object({ authority: z.string().regex(AUTHORITY_RE), status: z.enum(["OK", "NOK"]) }).strict();
+/** An open payment older than this is closed (its held wallet credit is given back) unless the gateway says it is paid. */
+export const PAYMENT_OPEN_MINUTES = 30;
+export const PLATFORM_PAYMENT_STATUSES = ["CREATED", "PAID", "FAILED", "EXPIRED", "LATE_CREDITED"] as const;
+export type PlatformPaymentStatus = (typeof PLATFORM_PAYMENT_STATUSES)[number];
+
 export const redeemReferralSchema = z.object({ code: z.string().max(40) }).strict();
 
 // ---- referral codes ----
@@ -124,6 +151,6 @@ export function subscriptionState(endsAt: Date | null, now: Date): SubscriptionS
   return left > 0 ? { kind: "active", daysLeft: Math.ceil(left / DAY_MS) } : { kind: "expired" };
 }
 
-export const WALLET_ENTRY_KINDS = ["REFERRAL_REWARD", "PURCHASE", "ADMIN_ADJUST"] as const;
+export const WALLET_ENTRY_KINDS = ["REFERRAL_REWARD", "PURCHASE", "ADMIN_ADJUST", "TOPUP", "REFUND"] as const;
 export type WalletEntryKind = (typeof WALLET_ENTRY_KINDS)[number];
-export const WALLET_KIND_LABELS: Readonly<Record<WalletEntryKind, string>> = { REFERRAL_REWARD: "هدیهٔ دعوت از دوستان", PURCHASE: "پرداخت بخشی از اشتراک", ADMIN_ADJUST: "تنظیم توسط پشتیبانی" };
+export const WALLET_KIND_LABELS: Readonly<Record<WalletEntryKind, string>> = { REFERRAL_REWARD: "هدیهٔ دعوت از دوستان", PURCHASE: "پرداخت بخشی از اشتراک", ADMIN_ADJUST: "تنظیم توسط پشتیبانی", TOPUP: "شارژ کیف پول", REFUND: "بازگشت اعتبار پرداخت ناتمام" };

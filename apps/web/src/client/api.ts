@@ -3,7 +3,7 @@ import type { EditResultDto, PageEditorViewDto, PublishResultDto } from "@store-
 import type { ThemeRef } from "@store-builder/shared/modules/stores/theme-switch-types";
 import { enc, send } from "./http";
 import type { z } from "zod";
-import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, ticketDto, ticketDetailDto, storeReviewDto, blogPostDto, blogPostSummaryDto, storeBillingDto, walletDto, referralInfoDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
+import type { variantDto, priceLinkDto, currentRatesDto, teamDto, auditEventDto, myInvitationDto, sharedStoreDto, storeAnalyticsDto, storeSetupDto, storeOverviewDto, merchantBankCardsDto, bankCardDto, discountDto, ticketDto, ticketDetailDto, storeReviewDto, blogPostDto, blogPostSummaryDto, storeBillingDto, walletDto, payResultDto, topupResultDto, platformPaymentReturnDto, platformPaymentDto, referralInfoDto, storeSmsSettingsViewDto, orderDto, orderListDto, paymentAttemptDto, paymentSettingsViewDto, receiptDto, shippingMethodDto } from "@store-builder/shared/api/schemas";
 import { GATEWAY_SECRETS, type Gateway } from "@store-builder/shared/modules/orders/orders";
 
 /** Every write the dashboard can make, as browser calls (reads are rendered by the server components through `@/gateway`). */
@@ -183,8 +183,15 @@ export const deleteBlogPost = (storeId: string, id: string) => send("POST", `${s
 // finance (owner only): subscription, wallet, referral
 export type StoreBillingDto = z.infer<typeof storeBillingDto>;
 export type WalletDto = z.infer<typeof walletDto>;
+export type PayResultDto = z.infer<typeof payResultDto>;
+export type TopupResultDto = z.infer<typeof topupResultDto>;
+export type PlatformPaymentReturnDto = z.infer<typeof platformPaymentReturnDto>;
+export type PlatformPaymentDto = z.infer<typeof platformPaymentDto>;
 export type ReferralInfoDto = z.infer<typeof referralInfoDto>;
 export const getBilling = (storeId: string) => send<StoreBillingDto>("GET", `${store(storeId)}/billing`);
+export const payPlan = (storeId: string, planId: string, useWallet: boolean) => send<PayResultDto>("POST", `${store(storeId)}/billing/pay`, { body: { planId, useWallet } });
+export const topUpWallet = (storeId: string, amountToman: number) => send<TopupResultDto>("POST", `${store(storeId)}/billing/topup`, { body: { amountToman } });
+export const verifyPlatformPayment = (storeId: string, authority: string, status: "OK" | "NOK") => send<PlatformPaymentReturnDto>("POST", `${store(storeId)}/billing/payments/verify`, { body: { authority, status } });
 export const getWallet = (storeId: string) => send<WalletDto>("GET", `${store(storeId)}/wallet`);
 export const getReferral = (storeId: string) => send<ReferralInfoDto>("GET", `${store(storeId)}/referral`);
 export const redeemReferral = (storeId: string, code: string) => send("POST", `${store(storeId)}/referral/redeem`, { body: { code } });
