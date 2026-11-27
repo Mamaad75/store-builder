@@ -1,12 +1,13 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3";
-import { isValidMediaKey } from "@store-builder/shared/lib/storage/keys";
+import { isStorableMediaKey } from "@store-builder/shared/lib/storage/variants";
 import type { StorageConfig } from "./config.js";
 import type { ListPage, MediaStorage } from "./types.js";
 
@@ -30,7 +31,7 @@ export class S3MediaStorage implements MediaStorage {
   }
 
   async put(key: string, body: Buffer, opts: { contentType: string }): Promise<void> {
-    if (!isValidMediaKey(key)) throw new Error("refusing to write an invalid media key");
+    if (!isStorableMediaKey(key)) throw new Error("refusing to write an invalid media key");
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.config.bucket,
@@ -44,7 +45,7 @@ export class S3MediaStorage implements MediaStorage {
   }
 
   async delete(key: string): Promise<void> {
-    if (!isValidMediaKey(key)) throw new Error("refusing to delete an invalid media key");
+    if (!isStorableMediaKey(key)) throw new Error("refusing to delete an invalid media key");
     // S3 DeleteObject succeeds for a missing key, which makes this idempotent.
     await this.client.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }));
   }
@@ -57,6 +58,17 @@ export class S3MediaStorage implements MediaStorage {
       objects: (out.Contents ?? []).flatMap((o) => (o.Key && o.LastModified ? [{ key: o.Key, size: o.Size ?? 0, lastModified: o.LastModified }] : [])),
       next: out.IsTruncated ? out.NextContinuationToken : undefined,
     };
+  }
+
+  async get(key: string): Promise<Buffer | null> {
+    if (!isStorableMediaKey(key)) throw new Error("refusing to read an invalid media key");
+    try {
+      const out = await this.client.send(new GetObjectCommand({ Bucket: this.config.bucket, Key: key }));
+      return out.Body ? Buffer.from(await out.Body.transformToByteArray()) : null;
+    } catch (e) {
+      if (e instanceof S3ServiceException && (e.$metadata.httpStatusCode === 404 || e.name === "NoSuchKey")) return null;
+      throw e;
+    }
   }
 
   async exists(key: string): Promise<boolean> {

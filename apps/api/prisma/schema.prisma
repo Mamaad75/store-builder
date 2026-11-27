@@ -305,16 +305,18 @@ model Product {
 }
 
 model Media {
-  id           String      @id @default(cuid())
-  storeId      String
-  uploadedById String
-  key          String      @unique
-  mimeType     String
-  sizeBytes    Int
-  width        Int?
-  height       Int?
-  status       MediaStatus @default(READY)
-  createdAt    DateTime    @default(now())
+  id            String      @id @default(cuid())
+  storeId       String
+  uploadedById  String
+  key           String      @unique
+  mimeType      String
+  sizeBytes     Int
+  width         Int?
+  height        Int?
+  status        MediaStatus @default(READY)
+  /// The smaller copies (`-w320/-w640/-w1024` objects, see shared/lib/storage/variants) exist in storage. False for images uploaded before they were made.
+  variantsReady Boolean     @default(false)
+  createdAt     DateTime    @default(now())
 
   store      Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
   uploadedBy User           @relation(fields: [uploadedById], references: [id], onDelete: Restrict)

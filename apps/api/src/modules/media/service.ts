@@ -11,7 +11,9 @@ import { parseStoreId } from "../stores/service.js";
 import { setProductImageRow, findProductImageInTx, galleryRows, addGalleryRow, deleteGalleryRow } from "../products/repository.js";
 import { MAX_MEDIA_BYTES_PER_STORE, MAX_MEDIA_PER_STORE, MEDIA_RULES } from "./limits.js";
 import { MediaInUseError, MediaQuotaError, MediaRateLimitError, MediaStorageError } from "@store-builder/shared/modules/media/errors";
-import { processImage } from "./process.js";
+import { makeVariants, processImage } from "./process.js";
+import { deleteMediaObjects } from "./variants.js";
+import { variantKey, variantKeysOf } from "@store-builder/shared/lib/storage/variants";
 import {
   deleteMediaRow,
   findMediaInTx,
@@ -78,7 +80,9 @@ export async function uploadMedia(ownerId: string, storeId: unknown, bytes: Buff
   }
 
   try {
-    const ok = await withStoreMutation(ownerId, sid, (ctx) => markMediaReady(ctx, pending.id));
+    // The smaller copies (best effort: without them the image is just served at full size).
+    const variantsReady = await storeVariants(storage, key, image.buffer, image.width, log);
+    const ok = await withStoreMutation(ownerId, sid, (ctx) => markMediaReady(ctx, pending.id, variantsReady));
     if (!ok) throw new Error("reservation vanished");
   } catch (e) {
     // Database failed after the object was stored: remove object and row if we can; otherwise cleanup will.
@@ -88,11 +92,28 @@ export async function uploadMedia(ownerId: string, storeId: unknown, bytes: Buff
   return toView({ ...pending, status: "READY" });
 }
 
+/**
+ * Stores the smaller copies of an image whose main object is already stored. All or nothing: if any copy fails, the ones written are removed
+ * (best effort) and false is returned, so the image simply has no copies (it still works, at its full size). Never throws.
+ */
+export async function storeVariants(storage: MediaStorage, key: string, webp: Buffer, width: number, log: (msg: string, err?: unknown) => void): Promise<boolean> {
+  try {
+    const copies = await makeVariants(webp, width);
+    if (copies.length === 0) return false;
+    for (const c of copies) await storage.put(variantKey(key, c.width), c.buffer, { contentType: "image/webp" });
+    return true;
+  } catch (e) {
+    log("could not store the smaller copies of an image; it will be shown at full size", e);
+    for (const k of variantKeysOf(key)) await storage.delete(k).catch(() => undefined);
+    return false;
+  }
+}
+
 /** Best effort compensation; never throws. The row is only removed once the object is known to be gone. */
 async function discard(ownerId: string, storeId: string, id: string, key: string, storage: MediaStorage, log: NonNullable<MediaDeps["log"]>, deleteObject: boolean) {
   if (deleteObject) {
     try {
-      await storage.delete(key);
+      await deleteMediaObjects(storage, key);
     } catch (e) {
       log("could not delete object of a failed upload; cleanup will retry", e);
       return; // keep the PENDING row: it is what lets cleanup find (and later remove) the object
@@ -256,7 +277,7 @@ async function releaseWith(run: RunLocked, ownerId: string, sid: string, mediaId
   if (typeof marked === "string") return marked;
 
   try {
-    if (!starterAssetForKey(marked.key)) await (deps.storage ?? getMediaStorage()).delete(marked.key);
+    if (!starterAssetForKey(marked.key)) await deleteMediaObjects(deps.storage ?? getMediaStorage(), marked.key);
   } catch (e) {
     log("object delete failed; row stays DELETING for cleanup", e);
     return "pending_delete";

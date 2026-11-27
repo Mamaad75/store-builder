@@ -18,7 +18,7 @@ export const Hero: SectionComponent<"hero"> = ({ section, ctx }) => {
     </div>
     {art && (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={art.url} width={art.width} height={art.height} alt="" fetchPriority="high" decoding="async" />
+      <img src={art.url} srcSet={art.srcSet} sizes={art.sizes} width={art.width} height={art.height} alt="" fetchPriority="high" decoding="async" />
     )}
   </section>;
 };
@@ -79,7 +79,7 @@ export const ImageText: SectionComponent<"imageText"> = ({ ctx, section }) => {
     <div><h2 id={section.id}>{section.props.title}</h2><p className={s.prose}>{section.props.body}</p></div>
     {art && (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={art.url} width={art.width} height={art.height} alt="" loading="lazy" decoding="async" />
+      <img src={art.url} srcSet={art.srcSet} sizes={art.sizes} width={art.width} height={art.height} alt="" loading="lazy" decoding="async" />
     )}
   </section>;
 };

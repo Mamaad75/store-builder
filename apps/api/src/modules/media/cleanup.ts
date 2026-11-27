@@ -1,6 +1,8 @@
 import { starterAssetForKey } from "@store-builder/shared/lib/storage/keys";
+import { mainKeyOf } from "@store-builder/shared/lib/storage/variants";
+import { deleteMediaObjects } from "./variants.js";
 import { log as appLog } from "../../lib/log.js";
-import { MEDIA_KEY_PREFIX, getMediaStorage, isValidMediaKey, type MediaStorage } from "../../lib/storage/index.js";
+import { MEDIA_KEY_PREFIX, getMediaStorage, type MediaStorage } from "../../lib/storage/index.js";
 import { CLEANUP_GRACE_MS } from "./limits.js";
 import { claimExpiredPending, deleteMediaRowIfStatus, existingMediaKeys, listDeletingOlderThan, listPendingOlderThan, listReadyCandidates } from "./repository.js";
 import { reclaimMedia } from "./service.js";
@@ -63,7 +65,7 @@ export async function runMediaCleanup(opts: CleanupOptions = {}): Promise<Cleanu
       try {
         // Claim first: only a row that is still PENDING (not completed meanwhile) becomes a DELETING tombstone.
         if (status === "PENDING" && !(await claimExpiredPending(row.id, cutoff))) continue;
-        if (!starterAssetForKey(row.key)) await storage.delete(row.key);
+        if (!starterAssetForKey(row.key)) await deleteMediaObjects(storage, row.key);
         if (await deleteMediaRowIfStatus(row.id, "DELETING")) onDone();
       } catch (e) {
         report.failures++;
@@ -79,12 +81,13 @@ export async function runMediaCleanup(opts: CleanupOptions = {}): Promise<Cleanu
   do {
     const page = await storage.list(MEDIA_KEY_PREFIX, { limit: 500, after: token });
     token = page.next;
-    const candidates = page.objects.filter((o) => isValidMediaKey(o.key) && o.lastModified < cutoff);
+    // Main objects and their smaller copies (a copy belongs to its main object's row: it is an orphan only when that row is gone).
+    const candidates = page.objects.filter((o) => mainKeyOf(o.key) !== null && o.lastModified < cutoff);
     report.objectsScanned += page.objects.length;
     if (candidates.length > 0) {
-      const known = await existingMediaKeys(candidates.map((o) => o.key));
+      const known = await existingMediaKeys([...new Set(candidates.map((o) => mainKeyOf(o.key)!))]);
       for (const o of candidates) {
-        if (known.has(o.key)) continue;
+        if (known.has(mainKeyOf(o.key)!)) continue;
         try {
           await storage.delete(o.key);
           report.orphanObjectsRemoved++;

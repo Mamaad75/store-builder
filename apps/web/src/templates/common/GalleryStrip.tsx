@@ -1,3 +1,4 @@
+import { srcSetFor } from "@store-builder/shared/lib/storage/variants";
 import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { RenderContext } from "../types";
 
@@ -15,7 +16,7 @@ export function GalleryStrip({ ctx, product }: { ctx: Pick<RenderContext, "media
         <li key={ref.key} style={{ margin: 0 }}>
           <a href={url} style={{ display: "block", width: 72, height: 72, minWidth: 44, minHeight: 44, borderRadius: 8, overflow: "hidden", border: "1px solid rgba(128,128,128,.4)" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt={`${product.name} — تصویر ${(i + 2).toLocaleString("fa-IR")}`} width={72} height={72} loading="lazy" decoding="async" style={{ display: "block", width: 72, height: 72, objectFit: "cover" }} />
+            <img src={url} srcSet={srcSetFor(ref, ctx.mediaUrl) ?? undefined} sizes={ref.variants ? "72px" : undefined} alt={`${product.name} — تصویر ${(i + 2).toLocaleString("fa-IR")}`} width={72} height={72} loading="lazy" decoding="async" style={{ display: "block", width: 72, height: 72, objectFit: "cover" }} />
           </a>
         </li>
       ))}

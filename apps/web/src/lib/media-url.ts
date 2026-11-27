@@ -1,4 +1,5 @@
-import { isValidMediaKey, starterAssetForKey } from "@store-builder/shared/lib/storage/keys";
+import { starterAssetForKey } from "@store-builder/shared/lib/storage/keys";
+import { isStorableMediaKey } from "@store-builder/shared/lib/storage/variants";
 
 /**
  * The single place in the web app that turns an object key into a public image URL: `<S3_PUBLIC_BASE_URL>/<key>`. The database and
@@ -8,7 +9,7 @@ import { isValidMediaKey, starterAssetForKey } from "@store-builder/shared/lib/s
  * SECURITY NOTE: anyone who has an object's URL can read it. Never store private files with this mechanism.
  */
 export function mediaPublicUrl(key: string, env: Record<string, string | undefined> = process.env): string | null {
-  if (!isValidMediaKey(key)) return null;
+  if (!isStorableMediaKey(key)) return null; // a main key or the key of a smaller copy
   const starter = starterAssetForKey(key);
   if (starter) return starter.path;
   const base = (env.S3_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");

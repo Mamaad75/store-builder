@@ -1,5 +1,5 @@
 import { formatNumberFa } from "@store-builder/shared/lib/money";
-import { categoryOf, featuredProducts, listProducts, listUrl, productsInCategory, relatedProducts } from "@store-builder/shared/templates/engine/listing";
+import { categoryOf, featuredProducts, imgSet, listProducts, listUrl, productsInCategory, relatedProducts } from "@store-builder/shared/templates/engine/listing";
 import { buildContactLinks } from "@store-builder/shared/templates/engine/links";
 import { productPriceLabel, type StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { ProductSort } from "@store-builder/shared/templates/context-types";
@@ -18,7 +18,7 @@ export function ProductImage({ ctx, product, detail = false }: { ctx: RenderCont
   const url = product.image && ctx.mediaUrl(product.image.key);
   if (!url || !product.image) return <span className={s.placeholder}><Icon name="bag" size={42} /></span>;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} width={product.image.width} height={product.image.height} alt={detail ? product.name : ""} loading={detail ? "eager" : "lazy"} fetchPriority={detail ? "high" : undefined} decoding="async" />;
+  return <img src={url} {...imgSet(ctx, product.image, detail ? "large" : "card")} width={product.image.width} height={product.image.height} alt={detail ? product.name : ""} loading={detail ? "eager" : "lazy"} fetchPriority={detail ? "high" : undefined} decoding="async" />;
 }
 
 function Cards({ ctx, products, rail = false, label }: { ctx: RenderContext; products: StorefrontProduct[]; rail?: boolean; label?: string }) {

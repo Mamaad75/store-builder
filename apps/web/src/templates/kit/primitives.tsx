@@ -1,7 +1,7 @@
 import { storyImage } from "./story-image";
 import type { ReactNode } from "react";
 import { formatNumberFa, formatToman } from "@store-builder/shared/lib/money";
-import { formTarget, listProducts, listUrl, sectionImage } from "@store-builder/shared/templates/engine/listing";
+import { formTarget, imgSet, listProducts, listUrl, sectionImage } from "@store-builder/shared/templates/engine/listing";
 import { buildContactLinks } from "@store-builder/shared/templates/engine/links";
 import { SEARCH_MAX } from "@store-builder/shared/templates/engine/route";
 import { parseLabelLines, parseTable } from "@store-builder/shared/templates/engine/lines";
@@ -81,10 +81,10 @@ export function Art({ ctx, product, imageId, priority = false, alt = "", fallbac
 }) {
   const banner = imageId ? sectionImage(ctx, imageId) : null;
   const ref = product?.image ?? (!banner && fallbackProduct ? ctx.data.products.find((item) => item.image)?.image : null);
-  const image = banner ?? (ref ? { ...ref, url: ctx.mediaUrl(ref.key) } : null);
+  const image = banner ?? (ref ? { ...ref, url: ctx.mediaUrl(ref.key), ...imgSet(ctx, ref, priority ? "large" : "card") } : null);
   if (!image?.url) return <span className={s.placeholder} aria-hidden="true"><Icon name="bag" size={48} /></span>;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className={s.image} src={image.url} width={image.width} height={image.height} alt={alt} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} decoding="async" />;
+  return <img className={s.image} src={image.url} srcSet={image.srcSet} sizes={image.sizes} width={image.width} height={image.height} alt={alt} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} decoding="async" />;
 }
 
 export function Price({ product }: { product: StorefrontProduct }) { return <strong className={s.price}>{productPriceLabel(product)}</strong>; }
@@ -154,7 +154,7 @@ export const Story: SectionComponent<"imageText"> = ({ ctx, section }) => {
     <div><h2>{section.props.title}</h2><p>{section.props.body}</p></div>
     {image && (
       // eslint-disable-next-line @next/next/no-img-element
-      <img className={s.image} src={image.url} width={image.width} height={image.height} alt="" loading="lazy" decoding="async" />
+      <img className={s.image} src={image.url} srcSet={image.srcSet} sizes={image.sizes} width={image.width} height={image.height} alt="" loading="lazy" decoding="async" />
     )}
   </section>;
 };

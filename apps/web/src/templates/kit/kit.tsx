@@ -5,7 +5,7 @@ import { detailSpecs } from "@store-builder/shared/lib/product-specs";
 import type { ProductSort } from "@store-builder/shared/templates/context-types";
 import { buildContactLinks, type ContactLink } from "@store-builder/shared/templates/engine/links";
 import { parseLabelLines, parseTable } from "@store-builder/shared/templates/engine/lines";
-import { categoryOf, featuredProducts, formTarget, listProducts, listUrl, productsInCategory, relatedProducts, sectionImage } from "@store-builder/shared/templates/engine/listing";
+import { categoryOf, featuredProducts, formTarget, imgSet, listProducts, listUrl, productsInCategory, relatedProducts, sectionImage } from "@store-builder/shared/templates/engine/listing";
 import { SEARCH_MAX } from "@store-builder/shared/templates/engine/route";
 import { hasPriceRange, type StorefrontCategory, type StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { ThemeDefinition } from "@store-builder/shared/templates/theme";
@@ -88,7 +88,7 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
   function categoryArt(ctx: RenderContext, categoryId: string | undefined) {
     const p = ctx.data.products.find((x) => (categoryId ? x.categoryId === categoryId : true) && x.image);
     const url = p?.image ? ctx.mediaUrl(p.image.key) : null;
-    return p?.image && url ? { url, width: p.image.width, height: p.image.height } : null;
+    return p?.image && url ? { url, width: p.image.width, height: p.image.height, ...imgSet(ctx, p.image, "card") } : null;
   }
   const countIn = (ctx: RenderContext, id: string) => ctx.data.products.filter((p) => p.categoryId === id).length;
 
@@ -114,9 +114,9 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
     );
   }
 
-  function Img({ img, eager = false }: { img: { url: string; width: number; height: number }; eager?: boolean }) {
+  function Img({ img, eager = false }: { img: { url: string; width: number; height: number; srcSet?: string; sizes?: string }; eager?: boolean }) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img className={s.img} src={img.url} alt="" width={img.width} height={img.height} loading={eager ? "eager" : "lazy"} decoding="async" />;
+    return <img className={s.img} src={img.url} srcSet={img.srcSet} sizes={img.sizes} alt="" width={img.width} height={img.height} loading={eager ? "eager" : "lazy"} decoding="async" />;
   }
 
   function ProductArt({ product, ctx, eager = false }: { product: StorefrontProduct; ctx: RenderContext; eager?: boolean }) {
@@ -125,7 +125,7 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
     return (
       // Decorative in cards (the product name is the adjacent link text); descriptive on the detail page.
       // eslint-disable-next-line @next/next/no-img-element
-      <img className={s.img} src={url} alt={eager ? product.name : ""} width={product.image.width} height={product.image.height} loading={eager ? "eager" : "lazy"} decoding="async" {...(eager ? { fetchPriority: "high" as const } : {})} />
+      <img className={s.img} src={url} {...imgSet(ctx, product.image, eager ? "large" : "card")} alt={eager ? product.name : ""} width={product.image.width} height={product.image.height} loading={eager ? "eager" : "lazy"} decoding="async" {...(eager ? { fetchPriority: "high" as const } : {})} />
     );
   }
 
@@ -510,7 +510,7 @@ function createKitTemplate(definition: ThemeDefinition, theme: Styles, opts: Kit
             <div className={s.heroArt}>
               {img ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img className={s.img} src={img.url} alt="" width={img.width} height={img.height} decoding="async" fetchPriority="high" />
+                <img className={s.img} src={img.url} srcSet={img.srcSet} sizes={img.sizes} alt="" width={img.width} height={img.height} decoding="async" fetchPriority="high" />
               ) : (
                 <Placeholder text={ctx.data.store.name} className={s.heroPlaceholder} />
               )}

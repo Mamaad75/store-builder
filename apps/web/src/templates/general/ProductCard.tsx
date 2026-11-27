@@ -1,3 +1,4 @@
+import { imgSet } from "@store-builder/shared/templates/engine/listing";
 import { CardSpecs } from "../engine/Specs";
 import type { StorefrontCategory, StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
 import type { RenderContext } from "../types";
@@ -24,6 +25,7 @@ export function ProductArt({ product, ctx, eager = false }: { product: Storefron
     <img
       className={s.img}
       src={url}
+      {...imgSet(ctx, product.image, eager ? "large" : "card")}
       alt={eager ? product.name : ""}
       width={product.image.width}
       height={product.image.height}

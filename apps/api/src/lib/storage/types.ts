@@ -22,6 +22,8 @@ export interface MediaStorage {
   delete(key: string): Promise<void>;
   /** Lists objects under a prefix (used only by the cleanup job). */
   list(prefix: string, opts?: { limit?: number; after?: string }): Promise<ListPage>;
+  /** The object's bytes, or null when it does not exist (used by the variants backfill). */
+  get(key: string): Promise<Buffer | null>;
   /** Existence check (integration tests and diagnostics). */
   exists(key: string): Promise<boolean>;
 }

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { CardSpecs, ProductSpecs } from "../engine/Specs";
 import { formatNumberFa, formatToman } from "@store-builder/shared/lib/money";
 import { buildContactLinks } from "@store-builder/shared/templates/engine/links";
-import { categoryOf, featuredProducts, listProducts, listUrl, sectionImage } from "@store-builder/shared/templates/engine/listing";
+import { categoryOf, featuredProducts, imgSet, listProducts, listUrl, sectionImage } from "@store-builder/shared/templates/engine/listing";
 import { parseLabelLines } from "@store-builder/shared/templates/engine/lines";
 import type { ExtraSectionComponent, RenderContext, SectionComponent } from "../types";
 import type { StorefrontProduct } from "@store-builder/shared/templates/storefront-data";
@@ -44,7 +44,7 @@ function Thumb({ product, ctx }: { product: StorefrontProduct; ctx: RenderContex
   const url = product.image ? ctx.mediaUrl(product.image.key) : null;
   if (!product.image || !url) return <>{initial(product.name)}</>;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className={s.img} src={url} alt="" width={product.image.width} height={product.image.height} loading="lazy" decoding="async" />;
+  return <img className={s.img} src={url} {...imgSet(ctx, product.image, "card")} alt="" width={product.image.width} height={product.image.height} loading="lazy" decoding="async" />;
 }
 
 /** Menu-style row: thumbnail, name, short description, stock and price. */
@@ -104,7 +104,7 @@ export const Hero: SectionComponent<"hero"> = ({ section, ctx }) => {
         <div className={s.heroArt} aria-hidden={img ? undefined : "true"}>
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className={s.img} src={img.url} alt="" width={img.width} height={img.height} decoding="async" />
+            <img className={s.img} src={img.url} srcSet={img.srcSet} sizes={img.sizes} alt="" width={img.width} height={img.height} decoding="async" />
           ) : (
             initial(ctx.data.store.name)
           )}
@@ -220,7 +220,7 @@ export const ProductDetail: SectionComponent<"productDetail"> = ({ section, ctx 
             <div className={s.detailArt} aria-hidden={p.image && url ? undefined : "true"}>
               {p.image && url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img className={s.img} src={url} alt={p.name} width={p.image.width} height={p.image.height} loading="eager" decoding="async" />
+                <img className={s.img} src={url} {...imgSet(ctx, p.image, "large")} alt={p.name} width={p.image.width} height={p.image.height} loading="eager" decoding="async" />
               ) : (
                 initial(p.name)
               )}
@@ -268,7 +268,7 @@ export const ImageText: SectionComponent<"imageText"> = ({ section, ctx }) => {
         <div className={s.splitArt} aria-hidden={img ? undefined : "true"}>
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className={s.img} src={img.url} alt="" width={img.width} height={img.height} loading="lazy" decoding="async" />
+            <img className={s.img} src={img.url} srcSet={img.srcSet} sizes={img.sizes} alt="" width={img.width} height={img.height} loading="lazy" decoding="async" />
           ) : (
             initial(section.props.title)
           )}

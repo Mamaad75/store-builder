@@ -31,7 +31,7 @@ const id = z.string().min(1).max(64);
  * Optional with a null default so data/snapshots written before media existed stay valid under schemaVersion 1.
  */
 export const mediaRefSchema = z
-  .object({ key: z.string().regex(MEDIA_KEY_RE), width: z.number().int().min(1).max(2048), height: z.number().int().min(1).max(2048) })
+  .object({ key: z.string().regex(MEDIA_KEY_RE), width: z.number().int().min(1).max(2048), height: z.number().int().min(1).max(2048), variants: z.literal(true).optional() })
   .strict();
 export type MediaRef = z.infer<typeof mediaRefSchema>;
 

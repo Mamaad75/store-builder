@@ -10,9 +10,11 @@ export interface MediaSource {
   width: number | null;
   height: number | null;
   status: string;
+  /** The smaller copies exist in storage (then the published reference says so and pages can use `srcset`). */
+  variantsReady?: boolean;
 }
 
-const toMediaRef = (m: MediaSource | null | undefined) => (m && m.status === "READY" && m.width && m.height ? { key: m.key, width: m.width, height: m.height } : null);
+const toMediaRef = (m: MediaSource | null | undefined) => (m && m.status === "READY" && m.width && m.height ? { key: m.key, width: m.width, height: m.height, ...(m.variantsReady ? { variants: true as const } : {}) } : null);
 
 /** Plain rows as the repository hands them over (JSON columns are `unknown`: they are validated here). */
 export interface StorefrontSource {

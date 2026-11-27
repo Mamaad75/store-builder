@@ -31,6 +31,23 @@ Product images and the store logo use the **same** pipeline (`uploadMedia`); an 
 * **Format conversion:** every accepted image is stored as `image/webp` with the `.webp` extension. The stored MIME type, the key extension and the width/height/size recorded in the database always come from the encoder's output (not from the client), and a database CHECK constraint enforces `mimeType = 'image/webp'` and a `.webp` key.
 * Library error text is never shown to users (fixed Persian messages).
 
+## Smaller copies (responsive images)
+
+Every upload also stores up to three smaller WebP copies next to the main object: `stores/<store>/<token>-w320.webp`, `-w640.webp`, `-w1024.webp`
+(only the widths smaller than the picture; a picture of 300 px has none). Pages offer them with `srcset`/`sizes`, so a phone downloads a few
+tens of kilobytes instead of the 2048 px original (measured: a product list of 12 photos went from about 8 to 14 MB to about 0.5 MB).
+
+* The **main key stays the only key** a row, a product or a published snapshot holds (`MEDIA_KEY_RE` is unchanged). A copy's key is derived
+  (`shared/lib/storage/variants.ts`), never stored, and never a valid reference.
+* `Media.variantsReady` says the copies exist. The published reference carries `variants: true` only then; without it pages render exactly as
+  before. Images uploaded before this feature stay without copies (and keep working) until `pnpm media:backfill-variants` makes them; a store
+  shows the copies after its next publish.
+* **Failure is soft:** if a copy cannot be stored, the ones written are removed, `variantsReady` stays false, and the upload still succeeds.
+* **Lifecycle:** deleting an image (`deleteMediaObjects`) removes its copies first, then the main object, so a failure is retried as a whole.
+  The cleanup job treats a copy as an orphan only when its main object has no row (copies of live images are never touched).
+* **Backfill:** `pnpm media:backfill-variants` (idempotent, pages by id; exit code 2 when an image could not be done). Run it once after the
+  migration `20261218090000_media_variants` is deployed, and again if it reports failures. Images whose object is missing are reported.
+
 ## Object keys and public URLs
 
 * Keys are generated only by `newMediaKey`: `stores/<storeId>/<128 random bits as hex>.webp` (CSPRNG). They cannot be guessed from a media id, product or time, and nothing user-controlled is part of a key. Every storage operation re-validates the key shape, and a CHECK constraint binds the key to its owning store.

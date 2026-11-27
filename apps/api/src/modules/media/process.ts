@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { variantWidthsFor, type VariantWidth } from "@store-builder/shared/lib/storage/variants";
 import { MAX_INPUT_PIXELS, MAX_OUTPUT_DIMENSION, MAX_UPLOAD_BYTES, OUTPUT_MIME } from "./limits.js";
 import { MediaValidationError } from "@store-builder/shared/modules/media/errors";
 
@@ -99,4 +100,13 @@ export async function processImage(input: Buffer, o: { maxDimension?: number; qu
     // Library errors (corrupt data, pixel limit exceeded by the decoder, ...) are mapped, never leaked.
     throw new MediaValidationError(/pixel limit/i.test(String((e as Error)?.message)) ? "too_many_pixels" : "corrupt");
   }
+}
+
+/** Smaller WebP copies of a processed image (responsive images): only the widths below the image's own width, never enlarged. Pure CPU work. */
+export async function makeVariants(webp: Buffer, width: number): Promise<{ width: VariantWidth; buffer: Buffer }[]> {
+  const out: { width: VariantWidth; buffer: Buffer }[] = [];
+  for (const w of variantWidthsFor(width)) {
+    out.push({ width: w, buffer: await sharp(webp).resize({ width: w, withoutEnlargement: true }).webp({ quality: 78, alphaQuality: 100, effort: 4 }).toBuffer() });
+  }
+  return out;
 }

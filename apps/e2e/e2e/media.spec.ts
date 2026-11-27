@@ -65,7 +65,9 @@ test.describe("product images", () => {
     await page.goto(`/preview/${storeId}/products`);
     const card = page.locator("article", { hasText: "چای تصویردار" });
     await expect(card.locator("img")).toHaveAttribute("src", src);
-    await expect.poll(() => card.locator("img").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(400);
+    // the 400 px picture has one smaller copy (320 px): the card offers it, and a desktop browser picks it for a card that small
+    await expect(card.locator("img")).toHaveAttribute("srcset", /-w320\.webp 320w, .*\.webp 400w/);
+    await expect.poll(() => card.locator("img").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(320);
     await page.goto(`/preview/${storeId}/products/${encodeURIComponent(product.slug)}`);
     await expect(page.getByRole("img", { name: "چای تصویردار" })).toBeVisible();
 

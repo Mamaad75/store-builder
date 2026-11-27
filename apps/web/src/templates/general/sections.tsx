@@ -67,7 +67,7 @@ export const Hero: SectionComponent<"hero"> = ({ section, ctx }) => {
           return img ? (
             <div className={s.heroArt}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className={s.img} src={img.url} alt="" width={img.width} height={img.height} decoding="async" />
+              <img className={s.img} src={img.url} srcSet={img.srcSet} sizes={img.sizes} alt="" width={img.width} height={img.height} decoding="async" />
             </div>
           ) : (
             <div className={s.heroArt} aria-hidden="true">
@@ -247,7 +247,7 @@ export const ImageText: SectionComponent<"imageText"> = ({ section, ctx }) => {
         <div className={s.splitArt} aria-hidden={img ? undefined : "true"}>
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className={s.img} src={img.url} alt="" width={img.width} height={img.height} loading="lazy" decoding="async" />
+            <img className={s.img} src={img.url} srcSet={img.srcSet} sizes={img.sizes} alt="" width={img.width} height={img.height} loading="lazy" decoding="async" />
           ) : (
             initial(section.props.title)
           )}

@@ -1,3 +1,4 @@
+import { IMAGE_SIZES, srcSetFor } from "../../lib/storage/variants.js";
 import { makeSearchKey } from "../../lib/text.js";
 import type { ProductSort, RenderContext } from "../context-types.js";
 import type { StorefrontProduct } from "../storefront-data.js";
@@ -81,9 +82,19 @@ export function formTarget(ctx: RenderContext, path: string): { action: string; 
 }
 
 /** Image of a section (`imageId` -> contract `images` map -> public URL), or null for the placeholder. */
-export function sectionImage(ctx: RenderContext, imageId: string | null): { url: string; width: number; height: number } | null {
+export function sectionImage(ctx: RenderContext, imageId: string | null): { url: string; width: number; height: number; srcSet?: string; sizes?: string } | null {
   if (!imageId) return null;
   const ref = ctx.data.images[imageId];
   const url = ref ? ctx.mediaUrl(ref.key) : null;
-  return ref && url ? { url, width: ref.width, height: ref.height } : null;
+  return ref && url ? { url, width: ref.width, height: ref.height, ...imgSet(ctx, ref, "large") } : null;
+}
+
+/**
+ * The `srcset` and `sizes` of an image whose smaller copies exist (an image without copies gets neither, and is shown as before). `card` is a
+ * small image in a grid, `large` a main product or banner image: the browser picks the copy that fits the space and the screen.
+ */
+export function imgSet(ctx: Pick<RenderContext, "mediaUrl">, ref: { key: string; width: number; variants?: boolean } | null | undefined, kind: "card" | "large"): { srcSet?: string; sizes?: string } {
+  if (!ref) return {};
+  const srcSet = srcSetFor(ref, ctx.mediaUrl);
+  return srcSet ? { srcSet, sizes: IMAGE_SIZES[kind] } : {};
 }

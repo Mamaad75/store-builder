@@ -35,6 +35,9 @@ export class MemoryMediaStorage implements MediaStorage {
       next: start + limit < keys.length ? slice[slice.length - 1] : undefined,
     };
   }
+  async get(key: string) {
+    return this.objects.get(key)?.body ?? null;
+  }
   async exists(key: string) {
     return this.objects.has(key);
   }

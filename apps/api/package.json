@@ -23,6 +23,7 @@
     "rates:refresh": "tsx scripts/refresh-rates.ts",
     "payments:reconcile": "tsx scripts/reconcile-payments.ts",
     "media:cleanup": "tsx scripts/cleanup-media.ts",
+    "media:backfill-variants": "tsx scripts/backfill-media-variants.ts",
     "publish:stats": "tsx scripts/publish-stats.ts",
     "worker": "tsx --env-file-if-exists=.env scripts/worker.ts",
     "test:queue": "vitest run -c vitest.queue.config.ts",

@@ -22,7 +22,7 @@ export class DraftStorefrontRepository {
       select: {
         name: true,
         settings: true,
-        logo: { select: { key: true, width: true, height: true, status: true } },
+        logo: { select: { key: true, width: true, height: true, status: true, variantsReady: true } },
         templateVersion: { select: { version: true, defaultSettings: true, template: { select: { key: true } } } },
         pages: {
           where: { isVisible: true },
@@ -35,7 +35,7 @@ export class DraftStorefrontRepository {
         },
         products: {
           where: { status: "ACTIVE" },
-          select: { id: true, name: true, slug: true, description: true, price: true, stockQuantity: true, weightGrams: true, categoryId: true, specs: true, image: { select: { key: true, width: true, height: true, status: true } }, gallery: { select: { media: { select: { key: true, width: true, height: true, status: true } } }, orderBy: { position: "asc" } }, variants: { select: { id: true, options: true, price: true, stockQuantity: true }, orderBy: [{ position: "asc" }, { id: "asc" }] } },
+          select: { id: true, name: true, slug: true, description: true, price: true, stockQuantity: true, weightGrams: true, categoryId: true, specs: true, image: { select: { key: true, width: true, height: true, status: true, variantsReady: true } }, gallery: { select: { media: { select: { key: true, width: true, height: true, status: true, variantsReady: true } } }, orderBy: { position: "asc" } }, variants: { select: { id: true, options: true, price: true, stockQuantity: true }, orderBy: [{ position: "asc" }, { id: "asc" }] } },
           orderBy: [{ position: "asc" }, { createdAt: "desc" }, { id: "asc" }],
         },
         posts: { where: { status: "PUBLISHED" }, select: { slug: true, title: true, excerpt: true, body: true, publishedAt: true }, orderBy: [{ publishedAt: "desc" }, { id: "desc" }], take: 50 },
@@ -57,7 +57,7 @@ export class DraftStorefrontRepository {
         ? []
         : await this.client.media.findMany({
             where: { id: { in: [...ids].slice(0, 200) }, storeId, status: "READY", store: { ownerId: this.ownerId } },
-            select: { id: true, key: true, width: true, height: true, status: true },
+            select: { id: true, key: true, width: true, height: true, status: true, variantsReady: true },
           });
     return {
       images: Object.fromEntries(media.map((m) => [m.id, { key: m.key, width: m.width, height: m.height, status: m.status }])),

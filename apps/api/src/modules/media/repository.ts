@@ -33,7 +33,8 @@ export function insertPendingMedia(ctx: MutationContext, row: NewMediaRow): Prom
 const transition = async (ctx: StoreLockedContext, id: string, from: MediaStatus, to: MediaStatus) =>
   (await ctx.tx.media.updateMany({ where: { ...scope(ctx, id), status: from }, data: { status: to } })).count === 1;
 
-export const markMediaReady = (ctx: MutationContext, id: string) => transition(ctx, id, "PENDING", "READY");
+export const markMediaReady = async (ctx: MutationContext, id: string, variantsReady = false) =>
+  (await ctx.tx.media.updateMany({ where: { ...scope(ctx, id), status: "PENDING" }, data: { status: "READY", variantsReady } })).count === 1;
 export const markMediaDeleting = (ctx: StoreLockedContext, id: string) => transition(ctx, id, "READY", "DELETING");
 
 /** Only ever deletes a row in the expected status; the FKs additionally refuse rows that are referenced. */
@@ -81,6 +82,15 @@ export const listPendingOlderThan = (cutoff: Date, take: number) =>
 
 export const listDeletingOlderThan = (cutoff: Date, take: number) =>
   db.media.findMany({ where: { status: "DELETING", createdAt: { lt: cutoff } }, select: { id: true, key: true }, orderBy: { createdAt: "asc" }, take });
+
+/** READY images that have no smaller copies yet and are wider than the smallest copy (the backfill's work list), in id order after `after`. */
+export const listWithoutVariants = (after: string | undefined, take: number) =>
+  db.media.findMany({ where: { status: "READY", variantsReady: false, width: { gt: 320 }, ...(after ? { id: { gt: after } } : {}) }, orderBy: { id: "asc" }, take, select: { id: true, key: true, width: true } });
+
+/** Marks an image as having its copies (only if it is still READY: a row being deleted keeps nothing alive). */
+export async function markVariantsReadyIfReady(id: string): Promise<boolean> {
+  return (await db.media.updateMany({ where: { id, status: "READY" }, data: { variantsReady: true } })).count === 1;
+}
 
 /** Status-conditional, so a row that moved on (e.g. PENDING -> READY) is never removed by a stale cleanup decision. */
 export async function deleteMediaRowIfStatus(id: string, status: MediaStatus): Promise<boolean> {
