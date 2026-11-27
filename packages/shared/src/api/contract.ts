@@ -14,6 +14,7 @@ import { orderExportQuerySchema, orderListQuerySchema, orderTransitionSchema, pl
 import { createTicketSchema, ticketListQuerySchema, ticketReplySchema, ticketStatusSchema } from "../modules/support/tickets.js";
 import { reviewListQuerySchema, reviewReplySchema, reviewStatusSchema, submitReviewSchema, publicReviewsQuerySchema } from "../modules/reviews/reviews.js";
 import { postInputSchema } from "../modules/blog/blog.js";
+import { planInputSchema, purchaseInputSchema, redeemReferralSchema, walletAdjustSchema } from "../modules/billing/billing.js";
 import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { discountInputSchema } from "../modules/discounts/discounts.js";
 import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
@@ -266,6 +267,16 @@ export const ROUTES: readonly RouteSpec[] = [
   r("POST", st("/blog"), "Write a blog post (at most 50 per store); a post marked PUBLISHED goes live with the next store publish", { permission: "content.manage", status: 201, body: postInputSchema, response: S.blogPostDto }),
   r("PUT", st("/blog/:postId"), "Change a blog post", { permission: "content.manage", body: postInputSchema, response: S.blogPostDto }),
   r("POST", st("/blog/:postId/delete"), "Delete a blog post", { permission: "content.manage", status: 204 }),
+  r("GET", st("/billing"), "The store's subscription and state, the plans on sale and recent purchases (owner only)", { permission: "billing.manage", response: S.storeBillingDto }),
+  r("GET", st("/wallet"), "The store's wallet balance and ledger (owner only)", { permission: "billing.manage", response: S.walletDto }),
+  r("GET", st("/referral"), "The store's referral code, the stores it invited, and who invited it (owner only)", { permission: "billing.manage", response: S.referralInfoDto }),
+  r("POST", st("/referral/redeem"), "Enter the referral code of the store that invited this one (once, before the first paid purchase)", { permission: "billing.manage", status: 204, body: redeemReferralSchema }),
+  r("GET", "/api/platform/plans", "All subscription plans", { platform: true, response: z.array(S.planDto) }),
+  r("POST", "/api/platform/plans", "Create a subscription plan (audited)", { platform: true, status: 201, body: planInputSchema, response: S.planDto }),
+  r("PUT", "/api/platform/plans/:planId", "Change a plan; active=false stops new purchases (audited)", { platform: true, body: planInputSchema, response: S.planDto }),
+  r("GET", "/api/platform/stores/:id/billing", "One store's subscription, wallet, purchases and referrals", { platform: true, response: S.staffStoreBillingDto }),
+  r("POST", "/api/platform/stores/:id/purchases", "Record a subscription purchase the store paid for (money moves in one transaction; audited)", { platform: true, status: 201, body: purchaseInputSchema, response: S.purchaseResultDto }),
+  r("POST", "/api/platform/stores/:id/wallet-adjust", "Add or remove wallet credit with a reason (audited)", { platform: true, status: 200, body: walletAdjustSchema, response: z.object({ balanceToman: z.number().int() }) }),
   r("GET", "/api/platform/invites", "Invitation codes (newest 100; never the codes themselves)", { platform: true, response: z.array(S.inviteDto) }),
   r("POST", "/api/platform/invites", "Issue a single-use invitation code (returned once with its sign-up link; audited)", { platform: true, status: 201, body: createInviteSchema, response: z.object({ id: z.string(), code: z.string(), url: z.string(), expiresAt: z.string() }) }),
   r("POST", "/api/platform/invites/:id/revoke", "Revoke an unused invitation (audited)", { platform: true, status: 204 }),

@@ -8,7 +8,7 @@ import { AUDIT_ACTIONS } from "@store-builder/shared/modules/access/audit-labels
  * show to the merchant as a raw code; this test fails first. (Platform-only actions with no store are listed in PLATFORM_ONLY.)
  */
 const SRC = join(__dirname, "..");
-const PLATFORM_ONLY = new Set(["platform.account_recovered", "platform.admin_granted", "platform.admin_revoked", "platform.invite_created", "platform.invite_revoked", "platform.rate_confirmed", "platform.rate_entered", "platform.secret_deleted", "platform.secret_set", "platform.settings_updated", "platform.ticket_replied", "platform.ticket_status"]);
+const PLATFORM_ONLY = new Set(["platform.account_recovered", "platform.admin_granted", "platform.admin_revoked", "platform.invite_created", "platform.invite_revoked", "platform.rate_confirmed", "platform.rate_entered", "platform.secret_deleted", "platform.secret_set", "platform.settings_updated", "platform.plan_created", "platform.plan_updated", "platform.purchase_recorded", "platform.wallet_adjusted", "platform.ticket_replied", "platform.ticket_status"]);
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {

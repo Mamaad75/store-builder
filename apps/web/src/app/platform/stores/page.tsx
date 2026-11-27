@@ -35,6 +35,7 @@ export default async function PlatformStores({ searchParams }: { searchParams: P
                 <TableCell scope="col">محصولات</TableCell>
                 <TableCell scope="col">ساخته‌شده</TableCell>
                 <TableCell scope="col">تعلیق پلتفرم</TableCell>
+                <TableCell scope="col">مالی</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -47,6 +48,7 @@ export default async function PlatformStores({ searchParams }: { searchParams: P
                   <TableCell>{s.products.toLocaleString("fa-IR")}</TableCell>
                   <TableCell>{new Date(s.createdAt).toLocaleDateString("fa-IR")}</TableCell>
                   <TableCell><StoreSuspension storeId={s.id} storeName={s.name} suspended={s.suspended} /></TableCell>
+                  <TableCell><TextLink href={`/platform/stores/${s.id}/billing`} aria-label={`مالی فروشگاه ${s.name}`}>مالی</TextLink></TableCell>
                 </TableRow>
               ))}
             </TableBody>

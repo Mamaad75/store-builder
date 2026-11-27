@@ -162,11 +162,11 @@ model Store {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  owner            User                 @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  templateVersion  TemplateVersion      @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
-  logo             Media?               @relation("StoreLogo", fields: [id, logoId], references: [storeId, id], onDelete: NoAction)
-  publishedVersion StoreVersion?        @relation("PublishedVersion", fields: [id, publishedVersionId], references: [storeId, id], onDelete: Restrict)
-  versions         StoreVersion[]       @relation("AllVersions")
+  owner            User                   @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  templateVersion  TemplateVersion        @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  logo             Media?                 @relation("StoreLogo", fields: [id, logoId], references: [storeId, id], onDelete: NoAction)
+  publishedVersion StoreVersion?          @relation("PublishedVersion", fields: [id, publishedVersionId], references: [storeId, id], onDelete: Restrict)
+  versions         StoreVersion[]         @relation("AllVersions")
   pages            Page[]
   categories       ProductCategory[]
   products         Product[]
@@ -176,6 +176,12 @@ model Store {
   secrets          StoreSecret[]
   tickets          SupportTicket[]
   posts            BlogPost[]
+  subscription     StoreSubscription?
+  purchases        SubscriptionPurchase[]
+  wallet           StoreWallet?
+  referralCode     StoreReferralCode?
+  referralsMade    Referral[]             @relation("Referrer")
+  referredBy       Referral?              @relation("Referred")
   invitations      StoreInvitation[]
   publishedSlugs   PublishedSlug[]
   customers        Customer[]
@@ -1298,4 +1304,119 @@ model BlogPost {
 
   @@unique([storeId, slug])
   @@index([storeId, status, publishedAt])
+}
+
+/// A subscription plan the platform sells (created by the super admin). Never deleted: `active = false` stops new purchases only.
+model Plan {
+  id           String   @id @default(cuid())
+  name         String   @db.VarChar(60)
+  description  String   @default("") @db.VarChar(300)
+  priceToman   Int
+  durationDays Int
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions StoreSubscription[]
+  purchases     SubscriptionPurchase[]
+}
+
+/// The store's current subscription period (one row per store; each purchase moves it forward). Informational in this phase: nothing is restricted by it yet.
+model StoreSubscription {
+  storeId   String   @id
+  planId    String
+  /// The plan's name when bought (the plan may be renamed later).
+  planName  String   @db.VarChar(60)
+  startsAt  DateTime
+  endsAt    DateTime
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  plan  Plan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+}
+
+/// One recorded purchase of a plan: prices as they were then. Recorded by platform staff after they received the money.
+model SubscriptionPurchase {
+  id              String   @id @default(cuid())
+  storeId         String
+  planId          String
+  planName        String   @db.VarChar(60)
+  priceToman      Int
+  discountToman   Int
+  walletUsedToman Int
+  cashToman       Int
+  periodStart     DateTime
+  periodEnd       DateTime
+  note            String   @default("") @db.VarChar(200)
+  recordedById    String
+  createdAt       DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  plan  Plan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([storeId, createdAt])
+}
+
+/// The store's gift-credit balance. The row is the one lock that serialises every credit and debit of the store; the balance never goes below 0 (CHECK).
+model StoreWallet {
+  storeId      String   @id
+  balanceToman Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  store   Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  entries WalletEntry[]
+}
+
+enum WalletEntryKind {
+  REFERRAL_REWARD
+  PURCHASE
+  ADMIN_ADJUST
+}
+
+/// An append-only ledger line of a wallet: a signed amount and the balance after it.
+model WalletEntry {
+  id           String          @id @default(cuid())
+  storeId      String
+  amountToman  Int
+  balanceAfter Int
+  kind         WalletEntryKind
+  note         String          @default("") @db.VarChar(200)
+  /// The purchase or referral the line belongs to.
+  refId        String?
+  createdAt    DateTime        @default(now())
+
+  wallet StoreWallet @relation(fields: [storeId], references: [storeId], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
+}
+
+/// The store's own referral code (made on first use).
+model StoreReferralCode {
+  storeId   String   @id
+  code      String   @unique @db.VarChar(8)
+  createdAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+enum ReferralStatus {
+  PENDING
+  REWARDED
+}
+
+/// A store invited by another store's code. One per invited store. REWARDED once its first paid purchase gave the inviter credit.
+model Referral {
+  id              String         @id @default(cuid())
+  referrerStoreId String
+  referredStoreId String         @unique
+  status          ReferralStatus @default(PENDING)
+  rewardToman     Int            @default(0)
+  rewardedAt      DateTime?
+  purchaseId      String?
+  createdAt       DateTime       @default(now())
+
+  referrer Store @relation("Referrer", fields: [referrerStoreId], references: [id], onDelete: Cascade)
+  referred Store @relation("Referred", fields: [referredStoreId], references: [id], onDelete: Cascade)
+
+  @@index([referrerStoreId, createdAt])
 }

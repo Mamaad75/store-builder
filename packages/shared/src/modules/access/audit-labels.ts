@@ -27,6 +27,7 @@ export const AUDIT_ACTIONS: Readonly<Record<string, { group: AuditGroup; label: 
   "store.published": A("store", "فروشگاه منتشر شد"),
   "store.unpublished": A("store", "انتشار فروشگاه لغو شد"),
   "store.version_live": A("store", "نسخهٔ منتشرشده تغییر کرد"),
+  "referral.redeemed": A("payments", "کد معرف ثبت شد"),
   "blog.created": A("pages", "مقالهٔ تازه‌ای در وبلاگ ساخته شد"),
   "blog.updated": A("pages", "مقالهٔ وبلاگ ویرایش شد"),
   "blog.deleted": A("pages", "مقالهٔ وبلاگ حذف شد"),

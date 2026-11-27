@@ -46,6 +46,7 @@ export default async function PlatformLayout({ children }: { children: ReactNode
               <TextLink href="/platform">نمای کلی</TextLink>
               <TextLink href="/platform/stores">فروشگاه‌ها</TextLink>
               <TextLink href="/platform/tickets">پشتیبانی</TextLink>
+              <TextLink href="/platform/plans">پلن‌ها</TextLink>
               <TextLink href="/platform/rates">نرخ طلا و دلار</TextLink>
               <TextLink href="/platform/settings">تنظیمات</TextLink>
               <TextLink href="/platform/admins">مدیران</TextLink>

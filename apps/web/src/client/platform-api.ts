@@ -1,5 +1,7 @@
 import { send } from "./http";
 import type { TicketDetailDto, TicketDto } from "./api";
+import type { z } from "zod";
+import type { planDto, purchaseResultDto, staffStoreBillingDto } from "@store-builder/shared/api/schemas";
 
 /** Browser writes of the super admin pages (phase 3.1): same-origin calls to /api/v1/platform (Caddy in production, Next in development). */
 const P = "/api/v1/platform";
@@ -35,3 +37,14 @@ export const listStaffTickets = (status?: string) => send<StaffTicket[]>("GET", 
 export const getStaffTicket = (id: string) => send<StaffTicketDetail>("GET", `${P}/tickets/${enc(id)}`);
 export const replyStaffTicket = (id: string, body: string) => send<TicketDto>("POST", `${P}/tickets/${enc(id)}/messages`, { body: { body } });
 export const setStaffTicketStatus = (id: string, status: string) => send("POST", `${P}/tickets/${enc(id)}/status`, { body: { status } });
+
+// finance: plans, one store's money
+export type PlanDto = z.infer<typeof planDto>;
+export type StaffStoreBilling = z.infer<typeof staffStoreBillingDto>;
+export type PurchaseResult = z.infer<typeof purchaseResultDto>;
+export const listPlans = () => send<PlanDto[]>("GET", `${P}/plans`);
+export const createPlan = (body: unknown) => send<PlanDto>("POST", `${P}/plans`, { body });
+export const updatePlan = (id: string, body: unknown) => send<PlanDto>("PUT", `${P}/plans/${enc(id)}`, { body });
+export const getStoreBilling = (storeId: string) => send<StaffStoreBilling>("GET", `${P}/stores/${enc(storeId)}/billing`);
+export const recordPurchase = (storeId: string, body: unknown) => send<PurchaseResult>("POST", `${P}/stores/${enc(storeId)}/purchases`, { body });
+export const adjustWallet = (storeId: string, body: unknown) => send<{ balanceToman: number }>("POST", `${P}/stores/${enc(storeId)}/wallet-adjust`, { body });

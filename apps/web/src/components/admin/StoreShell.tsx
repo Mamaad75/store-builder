@@ -11,6 +11,9 @@ import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
 import SupportAgentOutlined from '@mui/icons-material/SupportAgentOutlined';
 import RateReviewOutlined from '@mui/icons-material/RateReviewOutlined';
 import EditNoteOutlined from '@mui/icons-material/EditNoteOutlined';
+import AccountBalanceWalletOutlined from '@mui/icons-material/AccountBalanceWalletOutlined';
+import WorkspacePremiumOutlined from '@mui/icons-material/WorkspacePremiumOutlined';
+import CardGiftcardOutlined from '@mui/icons-material/CardGiftcardOutlined';
 import WebOutlined from '@mui/icons-material/WebOutlined';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
@@ -156,6 +159,17 @@ function buildNav(base: string): Item[] {
       ],
     },
     {
+      label: 'مالی',
+      href: `${base}/billing`,
+      icon: <AccountBalanceWalletOutlined />,
+      match: (p) => ['billing', 'wallet', 'referrals'].some((x) => p.startsWith(`${base}/${x}`)),
+      children: [
+        { label: 'اشتراک‌ها', href: `${base}/billing`, icon: <WorkspacePremiumOutlined fontSize='small' /> },
+        { label: 'کیف پول', href: `${base}/wallet`, icon: <AccountBalanceWalletOutlined fontSize='small' /> },
+        { label: 'دعوت از دوستان', href: `${base}/referrals`, icon: <CardGiftcardOutlined fontSize='small' /> },
+      ],
+    },
+    {
       label: 'انتشار',
       href: `${base}/publish`,
       icon: <RocketLaunchOutlined />,
@@ -204,6 +218,10 @@ const NAV_PERMISSION: Record<string, Permission> = {
   'کدهای تخفیف': 'discounts.manage',
   'پیامک سفارش': 'store.settings',
   نظرات: 'content.manage',
+  مالی: 'billing.manage',
+  'اشتراک‌ها': 'billing.manage',
+  'کیف پول': 'billing.manage',
+  'دعوت از دوستان': 'billing.manage',
   وبلاگ: 'content.manage',
   ظاهر: 'theme.switch',
   انتشار: 'publish',
