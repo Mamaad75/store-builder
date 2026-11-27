@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { addToCart, problemText } from "@/client/shop";
+import { CART_EVENT, CART_OPEN_EVENT } from "./cart-events";
 import s from "./commerce.module.css";
 
 export interface BuyableVariant {
@@ -27,8 +28,16 @@ export default function AddToCart({ productId, productName, variants, cartHref }
     setBusy(true);
     setError(null);
     try {
-      await addToCart(productId, variants.length > 0 ? variantId : null, quantity);
-      window.location.assign(cartHref);
+      const cart = await addToCart(productId, variants.length > 0 ? variantId : null, quantity);
+      window.dispatchEvent(new CustomEvent(CART_EVENT, { detail: { count: cart.count } }));
+      // the header's slide-in cart opens; when this page has no header cart to answer, the shopper goes to the cart page as before
+      let answered = false;
+      const mark = () => { answered = true; };
+      window.addEventListener(CART_OPEN_EVENT + ":ack", mark, { once: true });
+      window.dispatchEvent(new Event(CART_OPEN_EVENT));
+      window.removeEventListener(CART_OPEN_EVENT + ":ack", mark);
+      if (!answered) window.location.assign(cartHref);
+      else setBusy(false);
     } catch (err) {
       setError(problemText(err));
       setBusy(false);

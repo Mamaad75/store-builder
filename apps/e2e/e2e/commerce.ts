@@ -76,8 +76,8 @@ export async function fillCheckout(page: Page, s: LiveStore, method: CheckoutMet
   await page.goto(storeUrl(s.label, `/products/${s.productSlug}`));
   await waitForHydration(page, "form[aria-label^='خرید'] button[type=submit]");
   await page.getByRole("button", { name: "افزودن به سبد خرید" }).click();
-  await page.waitForURL(/\/cart$/); // the add committed (the form then opens the cart)
-  await page.getByRole("link", { name: "ادامه‌ی خرید" }).click();
+  // the add committed: the slide-in cart opens, and it leads on to checkout
+  await page.getByRole("dialog", { name: "سبد خرید" }).getByRole("link", { name: "ادامه‌ی خرید" }).click();
   await page.waitForURL(/\/checkout$/);
   await waitForHydration(page, "textarea");
   await page.getByLabel("نام و نام خانوادگی گیرنده").fill("مریم احمدی");
