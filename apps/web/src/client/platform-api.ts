@@ -1,7 +1,7 @@
 import { send } from "./http";
 import type { TicketDetailDto, TicketDto } from "./api";
 import type { z } from "zod";
-import type { planDto, purchaseResultDto, staffStoreBillingDto } from "@store-builder/shared/api/schemas";
+import type { planDto, platformAccountDetailDto, platformAccountDto, platformActivityDto, platformDashboardDto, platformStoreDetailDto, purchaseResultDto, staffStoreBillingDto } from "@store-builder/shared/api/schemas";
 
 /** Browser writes of the super admin pages (phase 3.1): same-origin calls to /api/v1/platform (Caddy in production, Next in development). */
 const P = "/api/v1/platform";
@@ -48,3 +48,15 @@ export const updatePlan = (id: string, body: unknown) => send<PlanDto>("PUT", `$
 export const getStoreBilling = (storeId: string) => send<StaffStoreBilling>("GET", `${P}/stores/${enc(storeId)}/billing`);
 export const recordPurchase = (storeId: string, body: unknown) => send<PurchaseResult>("POST", `${P}/stores/${enc(storeId)}/purchases`, { body });
 export const adjustWallet = (storeId: string, body: unknown) => send<{ balanceToman: number }>("POST", `${P}/stores/${enc(storeId)}/wallet-adjust`, { body });
+
+// the dashboard, accounts, one store, the activity log (read-only)
+export type PlatformDashboard = z.infer<typeof platformDashboardDto>;
+export type PlatformAccount = z.infer<typeof platformAccountDto>;
+export type PlatformAccountDetail = z.infer<typeof platformAccountDetailDto>;
+export type PlatformStoreDetail = z.infer<typeof platformStoreDetailDto>;
+export type PlatformActivity = z.infer<typeof platformActivityDto>;
+export const getDashboard = (days: 7 | 30 | 90) => send<PlatformDashboard>("GET", `${P}/dashboard`, { query: { days: String(days) } });
+export const listAccounts = (q: { q?: string; before?: string }) => send<PlatformAccount[]>("GET", `${P}/accounts`, { query: { q: q.q || undefined, before: q.before, limit: "50" } });
+export const getAccount = (id: string) => send<PlatformAccountDetail>("GET", `${P}/accounts/${enc(id)}`);
+export const getStoreDetail = (id: string) => send<PlatformStoreDetail>("GET", `${P}/stores/${enc(id)}/detail`);
+export const listActivity = (q: { group?: string; before?: string }) => send<PlatformActivity[]>("GET", `${P}/activity`, { query: { group: q.group, before: q.before, limit: "50" } });

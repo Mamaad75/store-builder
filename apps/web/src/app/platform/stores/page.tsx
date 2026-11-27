@@ -41,7 +41,7 @@ export default async function PlatformStores({ searchParams }: { searchParams: P
             <TableBody>
               {rows.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell component="th" scope="row">{s.name}</TableCell>
+                  <TableCell component="th" scope="row"><TextLink href={`/platform/stores/${s.id}`} underline="hover">{s.name}</TextLink></TableCell>
                   <TableCell dir="ltr">{s.ownerUsername}</TableCell>
                   <TableCell>{STATUS[s.status] ?? s.status}</TableCell>
                   <TableCell dir="ltr">{s.subdomain ?? "—"}</TableCell>

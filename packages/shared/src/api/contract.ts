@@ -15,6 +15,7 @@ import { createTicketSchema, ticketListQuerySchema, ticketReplySchema, ticketSta
 import { reviewListQuerySchema, reviewReplySchema, reviewStatusSchema, submitReviewSchema, publicReviewsQuerySchema } from "../modules/reviews/reviews.js";
 import { postInputSchema } from "../modules/blog/blog.js";
 import { planInputSchema, purchaseInputSchema, redeemReferralSchema, walletAdjustSchema } from "../modules/billing/billing.js";
+import { accountListQuerySchema, platformActivityQuerySchema } from "../modules/platform/insights.js";
 import { storeSmsSettingsSchema } from "../modules/notifications/order-sms.js";
 import { discountInputSchema } from "../modules/discounts/discounts.js";
 import { replaceBankCardsSchema, reviewReceiptSchema } from "../modules/orders/card-transfer.js";
@@ -277,6 +278,11 @@ export const ROUTES: readonly RouteSpec[] = [
   r("GET", "/api/platform/stores/:id/billing", "One store's subscription, wallet, purchases and referrals", { platform: true, response: S.staffStoreBillingDto }),
   r("POST", "/api/platform/stores/:id/purchases", "Record a subscription purchase the store paid for (money moves in one transaction; audited)", { platform: true, status: 201, body: purchaseInputSchema, response: S.purchaseResultDto }),
   r("POST", "/api/platform/stores/:id/wallet-adjust", "Add or remove wallet credit with a reason (audited)", { platform: true, status: 200, body: walletAdjustSchema, response: z.object({ balanceToman: z.number().int() }) }),
+  r("GET", "/api/platform/dashboard", "Platform figures per Tehran day for 7, 30 or 90 days with the previous period, and today's counters", { platform: true, query: z.object({ days: z.enum(["7", "30", "90"]).optional() }), response: S.platformDashboardDto }),
+  r("GET", "/api/platform/accounts", "Accounts, newest first (search by username or name)", { platform: true, query: accountListQuerySchema, response: z.array(S.platformAccountDto) }),
+  r("GET", "/api/platform/accounts/:userId", "One account with its stores", { platform: true, response: S.platformAccountDetailDto }),
+  r("GET", "/api/platform/stores/:id/detail", "One store in detail: owner, counts (never order values), subscription and wallet", { platform: true, response: S.platformStoreDetailDto }),
+  r("GET", "/api/platform/activity", "The platform's own activity log (what super admins did), newest first", { platform: true, query: platformActivityQuerySchema, response: z.array(S.platformActivityDto) }),
   r("GET", "/api/platform/invites", "Invitation codes (newest 100; never the codes themselves)", { platform: true, response: z.array(S.inviteDto) }),
   r("POST", "/api/platform/invites", "Issue a single-use invitation code (returned once with its sign-up link; audited)", { platform: true, status: 201, body: createInviteSchema, response: z.object({ id: z.string(), code: z.string(), url: z.string(), expiresAt: z.string() }) }),
   r("POST", "/api/platform/invites/:id/revoke", "Revoke an unused invitation (audited)", { platform: true, status: 204 }),

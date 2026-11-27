@@ -501,3 +501,30 @@ export const purchaseResultDto = z.object({
   quote: z.object({ price: z.number().int(), discount: z.number().int(), due: z.number().int(), walletUsed: z.number().int(), cash: z.number().int(), reward: z.number().int() }),
   subscription: subscriptionDto,
 });
+
+const dashRow = z.object({ newStores: z.number().int(), newUsers: z.number().int(), tickets: z.number().int(), revenue: z.number().int(), purchases: z.number().int() });
+export const platformDashboardDto = z.object({
+  days: z.union([z.literal(7), z.literal(30), z.literal(90)]),
+  from: z.string(),
+  to: z.string(),
+  series: z.array(dashRow.extend({ day: z.string() })),
+  totals: z.object({ current: dashRow, previous: dashRow }),
+  figures: z.object({ users: z.number().int(), stores: z.number().int(), publishedStores: z.number().int(), suspendedStores: z.number().int(), openTickets: z.number().int(), answeredTickets: z.number().int(), activeSubscriptions: z.number().int(), expiringSoon: z.number().int(), walletOutstandingToman: z.number().int() }),
+});
+export const platformAccountDto = z.object({ id: z.string(), username: z.string(), name: z.string(), createdAt: iso, stores: z.number().int(), isPlatformAdmin: z.boolean() });
+export const platformAccountDetailDto = platformAccountDto.extend({
+  recoveredAt: iso.nullable(),
+  memberships: z.number().int().describe("stores the account works in as staff"),
+  ownedStores: z.array(z.object({ id: z.string(), name: z.string(), status: z.string(), suspended: z.boolean(), createdAt: iso })),
+});
+export const platformStoreDetailDto = z.object({
+  id: z.string(), name: z.string(), status: z.string(), suspended: z.boolean(), createdAt: iso, publishedAt: iso.nullable(),
+  owner: z.object({ id: z.string(), username: z.string(), name: z.string() }),
+  subdomain: z.string().nullable(),
+  theme: z.object({ key: z.string(), version: z.number().int() }),
+  counts: z.object({ productsActive: z.number().int(), productsOther: z.number().int(), orders: z.number().int(), ordersLast30Days: z.number().int(), customers: z.number().int(), members: z.number().int(), pendingReviews: z.number().int(), publishedPosts: z.number().int(), openTickets: z.number().int() }),
+  subscription: z.object({ planName: z.string(), endsAt: iso }).nullable(),
+  walletBalanceToman: z.number().int(),
+  referredByPending: z.boolean(),
+});
+export const platformActivityDto = z.object({ id: z.string(), action: z.string(), group: z.string().nullable(), actor: z.string().nullable().describe("username of the staff member"), targetType: z.string().nullable(), targetId: z.string().nullable(), metadata: z.unknown(), createdAt: iso });

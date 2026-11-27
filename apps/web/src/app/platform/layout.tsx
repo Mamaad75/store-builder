@@ -45,8 +45,10 @@ export default async function PlatformLayout({ children }: { children: ReactNode
             <Box component="nav" aria-label="منوی مدیریت پلتفرم" sx={{ display: "flex", gap: 2, flexGrow: 1, flexWrap: "wrap" }}>
               <TextLink href="/platform">نمای کلی</TextLink>
               <TextLink href="/platform/stores">فروشگاه‌ها</TextLink>
+              <TextLink href="/platform/users">کاربران</TextLink>
               <TextLink href="/platform/tickets">پشتیبانی</TextLink>
               <TextLink href="/platform/plans">پلن‌ها</TextLink>
+              <TextLink href="/platform/activity">گزارش فعالیت</TextLink>
               <TextLink href="/platform/rates">نرخ طلا و دلار</TextLink>
               <TextLink href="/platform/settings">تنظیمات</TextLink>
               <TextLink href="/platform/admins">مدیران</TextLink>
